@@ -18,18 +18,19 @@ module.exports = [
         steps: [
           ["Open <strong>Management</strong>, then <strong>Users / Employees</strong>, and choose to add an employee.", "employees.webp", "Management, Users / Employees: everyone on your staff, with their role and status."],
           ["Enter their <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Email Address</strong> and <strong>Role</strong>: <em>Manager</em>, <em>Supervisor</em>, <em>Teacher</em> or <em>Driver</em>.", "add-employee.webp", "Adding a staff member: their details, role and permissions."],
-          "Tick their <strong>Permissions</strong>. The role fills in sensible defaults; add or remove from there.",
-          "For a teacher, choose the classes and subjects they teach. Tick <strong>Main teacher</strong> beside a class to put them in charge of it.",
+          "Choose the role first. Until you do, the screen says <em>Choose a role to see its permissions</em>. Then only that role's <strong>basic permissions</strong> show, already switched on and grouped in a few bundles.",
+          "Need more? Open <strong>Advanced permissions</strong> and switch on anything else the person needs. Each one you add is marked <strong>Extra</strong>, and the button counts them.",
+          "For a teacher, choose the classes and subjects they teach. Tick the class, then <strong>Main teacher</strong> beside it to put them in charge of it.",
           "Save. They receive an email to set their password and sign in.",
         ],
-        tip: "High-risk permissions, such as deleting students or managing billing, are marked and left out of the defaults. Give them only to the few people who need them.",
+        tip: "High-risk permissions, such as deleting students, managing billing or changing staff access, are shown only for the Manager role, in their own section inside Advanced. A teacher, supervisor or driver never sees them.",
       },
       {
         title: "Put a main teacher in charge of each class",
         text: "Each class has one main teacher. They mark its attendance, keep its schedule, and work on every subject and report card of the class; other teachers of the class work on the subjects they teach.",
         steps: [
           "Open the teacher from <strong>Users / Employees</strong>, and open <strong>Classes &amp; Subjects</strong>.",
-          "Beside the class, tick <strong>Main teacher</strong>. If someone else led the class, it shows their name; saving puts this teacher in charge instead.",
+          "Tick the class, then the box under <strong>Main teacher</strong> beside it. If someone already leads the class, their name shows there instead of a box: open that person and untick it first, then come back.",
           "Save.",
         ],
         tip: "Classes with nobody in charge are listed at the top of <strong>Users / Employees</strong>, where you can choose a main teacher for each in one step. The dashboard and the class page say so too.",
@@ -37,10 +38,11 @@ module.exports = [
       {
         title: "Change someone's access",
         steps: [
-          "Open the person from <strong>Users / Employees</strong> and edit their role or permissions.",
+          "Open the person from <strong>Users / Employees</strong>. The screen shows exactly the access they have today; anything beyond their role's basics is under <strong>Advanced permissions</strong>, marked <strong>Extra</strong>.",
+          "Change a switch, or change the role. The role switches at once: the new role's basics are on, and anything you added beyond the old role's basics is kept under Advanced.",
           "Save. The change applies the next time they open a page; there's no need for them to sign out.",
         ],
-        note: "Unticking a permission really removes it, even if their role would normally include it.",
+        note: "Unticking a permission really removes it, even if their role would normally include it. Opening and saving a person without changing anything leaves their access exactly as it was.",
       },
       {
         title: "Require an authenticator app for one person",
@@ -72,7 +74,7 @@ module.exports = [
     summary: "What each role starts with, how permissions are grouped, which ones are high-risk, and how your plan affects what can be given.",
     tags: ["roles", "permissions", "access control", "manager", "teacher", "supervisor", "driver", "security"],
     who: "Managers and anyone who sets up staff access.",
-    intro: "Permissions are grouped by area. A person's saved permissions are what count: the role only suggests defaults for someone new. Features outside your school's plan can't be given to anyone, managers included.",
+    intro: "Permissions are grouped by area. A person's saved permissions are what count: the role only chooses the <em>basics</em> that are switched on for someone new, and everything else is behind Advanced permissions. Features outside your school's plan can't be given to anyone, managers included.",
     sections: [
       {
         title: "Roles",
@@ -83,6 +85,18 @@ module.exports = [
           ["<strong>Teacher</strong>", "Their own classes: attendance, assessments and scores, activities, the Pickup list, class bus reports and the settings of the classes they lead."],
           ["<strong>Driver</strong>", "The driver app: their bus runs, boarding and reports. Leads can also manage other drivers."],
         ],
+      },
+      {
+        title: "What each role starts with",
+        text: "Choosing a role switches on only the few permissions the job needs every day. Giving more is a deliberate step, in Advanced permissions.",
+        table: [
+          ["Role", "Basic permissions"],
+          ["<strong>Teacher</strong>", "Their own classes only: see their students, Mark Attendance, Manage Assessments &amp; Scores, Class Settings (their classes), Terminal Reports, Use Mira. No staff, finance, settings or website."],
+          ["<strong>Supervisor</strong>", "See, add and edit students, Mark Attendance, Manage Assessments &amp; Scores, Terminal Reports, announcements and events, Use Mira."],
+          ["<strong>Manager</strong>", "Users / Employees (add, edit and hold staff), students (not deleting them), classes and subjects, attendance, assessments, reports and report settings, announcements and events, Use Mira. Billing, settings, terms, promotions and the rest are in <em>High risk - Managers only</em>."],
+          ["<strong>Driver</strong>", "The Driver dashboard: their routes and riders. Anything more is chosen per driver under Advanced."],
+        ],
+        note: "Jobs such as <em>Office / registrar</em>, <em>Bursar / finance</em>, <em>Transport lead</em>, <em>Class lead</em> and <em>Principal / head</em> work best as your school's own roles (Add a role on the staff form). Each role you add starts with its basics and can be saved with the permissions you tick.",
       },
       {
         title: "Permission groups",
@@ -108,7 +122,7 @@ module.exports = [
       },
       {
         title: "High-risk permissions",
-        text: "These can change many records or money at once, and are left out of new staff defaults: <strong>Users / Employees</strong>, <strong>Edit Staff &amp; Access</strong>, <strong>Hold &amp; Remove Staff</strong>, <strong>Delete Students</strong>, <strong>Every Class</strong>, <strong>Manage School Years &amp; Terms</strong>, <strong>Approve Promotions</strong>, <strong>Manage Billing</strong>, <strong>Manage Organization Settings</strong> and <strong>Single Sign-On</strong>.",
+        text: "These can change many records or money at once. They are never part of a Teacher, Supervisor or Driver's basics, and they show only for the Manager role (in <em>High risk - Managers only</em>, inside Advanced); someone who already holds one keeps seeing it, marked Extra. They are: <strong>Users / Employees</strong>, <strong>Edit Staff &amp; Access</strong>, <strong>Hold &amp; Remove Staff</strong>, <strong>Delete Students</strong>, <strong>Every Class</strong>, <strong>Manage School Years &amp; Terms</strong>, <strong>Approve Promotions</strong>, <strong>Manage Billing</strong>, <strong>Manage Organization Settings</strong> and <strong>Single Sign-On</strong>.",
       },
       {
         title: "Mira follows the same rules",
@@ -117,6 +131,8 @@ module.exports = [
     ],
     faq: [
       ["Why can't I give a permission?", "It may be outside your school's plan, or it may be a follow-up whose main permission isn't ticked."],
+      ["Where are Billing, Settings and the other high-risk permissions?", "They show only when the role is Manager, in <em>High risk - Managers only</em> inside Advanced permissions. A Teacher, Supervisor or Driver can't be given them from this screen; someone who already holds one still sees it, marked Extra."],
+      ["I switched the role. Did I lose what I added?", "No. Extras you added beyond the old role's basics are kept and shown under Advanced. Anything you added beyond the old role's basics is kept."],
       ["Do parents and students have permissions?", "No. Parents and students use their own portals and only ever see their own family's or their own information."],
     ],
     related: ["create-and-manage-employee-accounts-and-permissions", "mira-ai-assistant", "single-sign-on"],

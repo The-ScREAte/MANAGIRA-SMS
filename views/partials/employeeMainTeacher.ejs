@@ -1,36 +1,45 @@
 <%#
-  The "Main teacher" choice for one class on the Add and Edit staff forms, beside the class's
-  tick box. It says who is in charge of the class today, or that nobody is, so a class is never
-  left without someone. With assistant teachers on (classAssistants given), an "Assistant"
-  choice beside it: helps run the whole class without being in charge. Expects: cls,
-  classMainTeachers ({ classId: { userId, name } }), classAssistants ({ classId: [{ userId,
-  name }] }, optional) and personId (the member of staff being edited, or null on the Add form).
+  Who leads a class, on the Add and Edit staff forms, beside the class: two aligned cells,
+  "Main teacher" and (when the school uses assistants) "Assistant teacher".
+    Nobody yet: "None" with a box. Ticking it puts this person there: the box turns into their
+    name, in green, so it reads differently from the people already there (plain). Ticking it
+    on a class that isn't ticked ticks the class too.
+    Main teacher: someone else's name can't be replaced from here: take them off on their own
+    page first.
+    Assistant teacher: the assistants' names, and a box to add this person.
+  Expects: cls, classMainTeachers ({ classId: { userId, name } }), classAssistants
+  ({ classId: [{ userId, name }] }, optional; null: no assistants) and personId (the member of
+  staff being edited, or null on the Add form). The green name is filled in by
+  partials/employeeClassesSummary from the name fields.
 %>
 <%
   const _lead = (typeof classMainTeachers !== 'undefined' && classMainTeachers && classMainTeachers[cls.class_id]) || null;
   const _mine = !!(_lead && personId && Number(_lead.userId) === Number(personId));
+  const _taken = !!(_lead && !_mine);
   const _assistantsOn = typeof classAssistants !== 'undefined' && classAssistants !== null;
   const _assistants = (_assistantsOn && classAssistants[cls.class_id]) || [];
   const _assisting = !!(personId && _assistants.some((a) => Number(a.userId) === Number(personId)));
   const _others = _assistants.filter((a) => !personId || Number(a.userId) !== Number(personId)).map((a) => a.name);
 %>
-<span class="emp-main<%= _lead ? '' : ' emp-main--none' %>" data-emp-main="<%= cls.class_id %>">
-  <label class="emp-main__pick" title="In charge of this class: marks attendance, keeps the schedule and works on every subject and report card.">
-    <input type="checkbox" name="mainClasses" value="<%= cls.class_id %>"<%= _mine ? ' checked' : '' %>>
-    <span>Main teacher</span>
-  </label>
+<span class="emp-main" data-emp-main="<%= cls.class_id %>">
+  <span class="emp-cell" data-label="Main teacher">
+    <% if (_taken) { %>
+      <input type="checkbox" name="mainClasses" value="<%= cls.class_id %>" data-locked disabled hidden>
+      <span class="emp-who" title="<%= _lead.name %>"><%= _lead.name %></span>
+    <% } else { %>
+      <label class="emp-pick">
+        <input type="checkbox" name="mainClasses" value="<%= cls.class_id %>" aria-label="Main teacher"<%= _mine ? ' checked' : '' %>>
+        <span class="emp-none">None</span><span class="emp-me"></span>
+      </label>
+    <% } %>
+  </span>
   <% if (_assistantsOn) { %>
-  <label class="emp-main__pick" title="Helps run this class: sees and works on every subject, marks attendance and opens the students' pages, without being in charge.">
-    <input type="checkbox" name="assistantClasses" value="<%= cls.class_id %>"<%= _assisting ? ' checked' : '' %>>
-    <span>Assistant</span>
-  </label>
+  <span class="emp-cell" data-label="Assistant teacher">
+    <label class="emp-pick">
+      <input type="checkbox" name="assistantClasses" value="<%= cls.class_id %>" aria-label="Assistant teacher"<%= _assisting ? ' checked' : '' %>>
+      <% if (!_others.length) { %><span class="emp-none">None</span><% } %><span class="emp-me"></span>
+    </label>
+    <% if (_others.length) { %><span class="emp-who" title="<%= _others.join(', ') %>"><%= _others.join(', ') %></span><% } %>
+  </span>
   <% } %>
-  <% if (_mine) { %>
-    <span class="emp-main__now" data-emp-main-note>In charge of this class</span>
-  <% } else if (_lead) { %>
-    <span class="emp-main__now" data-emp-main-note data-now="Now: <%= _lead.name %>" data-replace="Replaces <%= _lead.name %> when you save">Now: <%= _lead.name %></span>
-  <% } else { %>
-    <span class="emp-main__none" data-emp-main-note data-now="No main teacher yet" data-replace="Will be in charge when you save">No main teacher yet</span>
-  <% } %>
-  <% if (_others.length) { %><span class="emp-main__now">Assistants: <%= _others.join(', ') %></span><% } %>
 </span>

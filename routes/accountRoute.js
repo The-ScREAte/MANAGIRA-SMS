@@ -442,6 +442,12 @@ router.get("/mira/access", isAuthenticated, async (req, res) => {
   }
 });
 router.get(
+  "/mira/users",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.SETTINGS_MIRA),
+  accountController.miraUsersGet
+);
+router.get(
   "/mira/user/:userId",
   isAuthenticated,
   requirePermission(PERMISSIONS.SETTINGS_MIRA),

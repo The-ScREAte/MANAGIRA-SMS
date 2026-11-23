@@ -58,7 +58,7 @@
   function placeUnderHeader() {
     if (!panel) return;
     var header = document.getElementById('top-header');
-    panel.style.top = (header ? header.offsetHeight : 0) + 'px';
+    panel.style.top = (header ? header.offsetHeight : 0) + (narrow.matches ? 0 : 10) + 'px';
   }
 
   var ICONS = {
@@ -199,6 +199,32 @@
     if (again || !frame.getAttribute('src')) frame.setAttribute('src', frame.getAttribute('data-src'));
   }
 
+  // The page makes room for the panel in one step, after the panel has slid in (and only once it
+  // has slid out again on closing). Moving the page while the panel moves makes the browser lay the
+  // whole page out on every frame, which is what makes a heavy page's slide stutter.
+  var roomTimer = null;
+  function makeRoom(now) {
+    clearTimeout(roomTimer);
+    if (now) { root.classList.add('mira-panel-room'); return; }
+    roomTimer = setTimeout(function () { root.classList.add('mira-panel-room'); }, 360);
+  }
+  function releaseRoom() {
+    clearTimeout(roomTimer);
+    roomTimer = setTimeout(function () { root.classList.remove('mira-panel-room'); }, 280);
+  }
+
+  // The slide, by the browser's animation API (the app's appearance script pauses CSS transitions
+  // for a moment whenever the page changes, which cancelled this one). Opens soft and quick,
+  // closes a little faster; nothing animates for people who ask for less motion.
+  var EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+  var HIDDEN = { opacity: 0, transform: 'translateX(32px) scale(0.985)' };
+  var SHOWN = { opacity: 1, transform: 'none' };
+  function animate(opening) {
+    if (!panel.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+    panel.getAnimations().forEach(function (a) { a.cancel(); });
+    return panel.animate(opening ? [HIDDEN, SHOWN] : [SHOWN, HIDDEN], { duration: opening ? 380 : 240, easing: EASE, fill: opening ? 'none' : 'forwards' });
+  }
+
   function slideIn(instant) {
     placeUnderHeader();
     if (instant) {
@@ -210,8 +236,12 @@
       }); });
     }
     root.classList.add('mira-panel-open');
+    makeRoom(Boolean(instant));
+    panel.removeAttribute('data-closing');
     panel.classList.add('is-open');
+    if (!instant) animate(true);
     panel.setAttribute('aria-hidden', 'false');
+    sendTheme();
     var btn = button();
     if (btn) { btn.setAttribute('aria-expanded', 'true'); btn.classList.add('is-active'); }
   }
@@ -231,6 +261,22 @@
     frame.contentWindow.postMessage({ type: 'mira:focus' }, origin || '*');
   }
 
+  // Mira starts loading the moment a pointer or focus reaches the button, so by the click it is
+  // usually ready and the panel opens with no wait. Once only; nothing is kept after that.
+  function warm() {
+    var btn = button();
+    if (!canUse(btn) || (frame && frame.getAttribute('src')) || !btn.getAttribute('data-mira-panel')) return;
+    if (!panel) build();
+    ensureFrame(btn.getAttribute('data-mira-panel'));
+    ready = false;
+    frame.setAttribute('src', frame.getAttribute('data-src'));
+  }
+  ['mouseover', 'focusin', 'touchstart'].forEach(function (name) {
+    document.addEventListener(name, function (event) {
+      if (event.target.closest && event.target.closest('#header-mira-btn')) warm();
+    }, { passive: true });
+  });
+
   // Mira itself, for someone who may use it.
   function openMira(options) {
     var btn = button();
@@ -238,7 +284,13 @@
     if (!panel) build();
     ensureFrame(btn.getAttribute('data-mira-panel'));
     if (!frame.getAttribute('src')) loadMira(false);
-    else show(ready ? 'mira' : 'loading');
+    else {
+      show(ready ? 'mira' : 'loading');
+      if (!ready) {
+        clearTimeout(readyTimer);
+        readyTimer = setTimeout(function () { if (!ready) show('trouble'); }, READY_WAIT_MS);
+      }
+    }
     slideIn(options && options.instant);
     remember(true);
     if (!(options && options.instant)) focusMira();
@@ -259,15 +311,25 @@
   function close() {
     if (!panel) return;
     root.classList.remove('mira-panel-open');
-    panel.classList.remove('is-open');
+    releaseRoom();
     panel.setAttribute('aria-hidden', 'true');
+    var out = animate(false);
+    if (out) {
+      panel.setAttribute('data-closing', '1');
+      out.onfinish = function () {
+        if (!panel.hasAttribute('data-closing')) return;
+        panel.removeAttribute('data-closing');
+        panel.classList.remove('is-open');
+        out.cancel();
+      };
+    } else panel.classList.remove('is-open');
     var btn = button();
     if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('is-active'); }
     remember(false);
     if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
   }
 
-  function isOpen() { return Boolean(panel && panel.classList.contains('is-open')); }
+  function isOpen() { return Boolean(panel && panel.classList.contains('is-open') && !panel.hasAttribute('data-closing')); }
 
   // The button says whether this person may use Mira; when it says no, the server is asked
   // again first, so access given since the page loaded works straight away.
@@ -304,12 +366,79 @@
     if (narrow.matches) close();
   }
 
+  // The panel wears the signed-in person's own page colours (their appearance and school colour),
+  // so it sits in the page rather than on it. Mira in its own tab keeps Mira's colours.
+  // Browsers report colours in modern spaces (oklch, color-mix); a one-pixel canvas gives plain rgb.
+  var probe = null;
+  function toRgb(color, fallback) {
+    try {
+      probe = probe || document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+      probe.clearRect(0, 0, 1, 1);
+      probe.fillStyle = '#000';
+      probe.fillStyle = color;
+      probe.fillRect(0, 0, 1, 1);
+      var px = probe.getImageData(0, 0, 1, 1).data;
+      if (!px[3]) return fallback;
+      return 'rgb(' + px[0] + ', ' + px[1] + ', ' + px[2] + ')';
+    } catch (_) { return fallback; }
+  }
+  function pageColors() {
+    var cs = getComputedStyle(document.body);
+    var bg = cs.backgroundColor;
+    if (!bg || bg === 'transparent' || /rgba\(.*,\s*0\)$/.test(bg)) bg = getComputedStyle(root).backgroundColor;
+    if (!bg || bg === 'transparent' || /rgba\(.*,\s*0\)$/.test(bg)) bg = '#ffffff';
+    var primary = (getComputedStyle(root).getPropertyValue('--org-primary-color') || '').trim();
+    return {
+      bg: toRgb(bg, '#ffffff'),
+      text: toRgb(cs.color || '#111827', '#111827'),
+      primary: primary ? toRgb(primary, '') : '',
+    };
+  }
+  function lightness(color) {
+    var m = String(color).match(/[\d.]+/g);
+    if (!m || m.length < 3) return 1;
+    return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255;
+  }
+  function sendTheme() {
+    // Colours are a nicety: whatever goes wrong here must never stop the panel opening.
+    try { sendThemeNow(); } catch (_) {}
+  }
+  // The panel is a card lifted off the page: the page colour, a little lighter.
+  function surfaceOf(bg, dark) {
+    var m = String(bg).match(/[\d.]+/g);
+    if (!m || m.length < 3) return bg;
+    var t = dark ? 0.05 : 0.55;
+    var mix = function (v) { return Math.round(Number(v) + (255 - Number(v)) * t); };
+    return 'rgb(' + mix(m[0]) + ', ' + mix(m[1]) + ', ' + mix(m[2]) + ')';
+  }
+  function sendThemeNow() {
+    if (!panel) return;
+    var c = pageColors();
+    c.dark = lightness(c.bg) < 0.45;
+    c.bg = surfaceOf(c.bg, c.dark);
+    panel.style.setProperty('--mp-bg', c.bg);
+    panel.style.setProperty('--mp-fg', c.text);
+    panel.style.setProperty('--mp-line', 'color-mix(in srgb, ' + c.text + ' 14%, ' + c.bg + ')');
+    if (!frame || !ready || !frame.contentWindow) return;
+    c.type = 'mira:theme';
+    frame.contentWindow.postMessage(c, origin || '*');
+  }
+  var themeQueued = false;
+  try {
+    new MutationObserver(function () {
+      if (themeQueued) return;
+      themeQueued = true;
+      requestAnimationFrame(function () { themeQueued = false; sendTheme(); });
+    }).observe(root, { attributes: true, attributeFilter: ['data-appearance'] });
+  } catch (_) {}
+
   window.addEventListener('message', function (event) {
     if (!frame || event.source !== frame.contentWindow) return;
     if (origin && event.origin !== origin) return;
     var data = event.data || {};
     if (data.type === 'mira:ready') {
       ready = true;
+      sendTheme();
       sendPage();
       clearTimeout(readyTimer);
       show('mira');

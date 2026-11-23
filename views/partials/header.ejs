@@ -954,18 +954,20 @@
   flex-shrink: 0;
   width: 38px;
   height: 38px;
-  padding: 4px;
-  border-radius: 50%;
-  transition: background 0.18s ease, transform 0.18s ease;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 16%, transparent);
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, transparent);
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 .header-mira-btn img {
-  width: 100%;
-  height: 100%;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-  border-radius: 50%;
+  border-radius: 0;
 }
-.header-mira-btn:hover { transform: scale(1.05);}
-.header-mira-btn:focus-visible { outline: 2px solid var(--org-primary-color,#01535b); }
+.header-mira-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent); border-color: color-mix(in srgb, var(--org-primary-color, #01535b) 30%, transparent); }
+.header-mira-btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--org-primary-color, #01535b) 55%, transparent); outline-offset: 2px; }
 </style>
 
 <%# ── Notification Bell CSS ──────────────────────────────────────────────── %>

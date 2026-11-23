@@ -4,10 +4,6 @@
   #collapse-all-classes and its checkboxes named classCheckboxName. Each class row carries
   its "Main teacher" choice (partials/employeeMainTeacher); this file styles and runs it.
 %>
-<%
-  const _mainOf = (typeof classMainTeachers !== 'undefined' && classMainTeachers) || {};
-  const _noLead = (Array.isArray(typeof classes !== 'undefined' ? classes : null) ? classes : []).filter((cls) => !_mainOf[cls.class_id]);
-%>
 <input type="hidden" name="mainClassesShown" value="1">
 <% if (typeof classAssistants !== 'undefined' && classAssistants !== null) { %><input type="hidden" name="assistantClassesShown" value="1"><% } %>
 <button type="button" class="emp-class-toggle" id="empClassToggle" aria-expanded="false" aria-controls="collapse-all-classes">
@@ -15,16 +11,8 @@
   <span class="emp-class-count" id="empClassCount">None selected</span>
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
-<% if (_noLead.length) { %>
-<p class="emp-class-warn emp-class-warn--lead" id="empNoLead">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  <span><%= _noLead.length === 1 ? '1 class has' : _noLead.length + ' classes have' %> no main teacher: <%= _noLead.slice(0, 6).map((cls) => cls.class_name).join(', ') %><%= _noLead.length > 6 ? ' and ' + (_noLead.length - 6) + ' more' : '' %>. Tick <b>Main teacher</b> beside a class to put this person in charge of it.</span>
-</p>
-<% } %>
-<p class="emp-class-warn" id="empClassWarn" hidden>
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  No classes assigned. This person won't see any class until you choose at least one.
-</p>
+<input type="search" id="empClassSearch" class="emp-class-search" placeholder="Search classes" aria-label="Search classes" autocomplete="off" hidden>
+<p class="emp-class-warn" id="empClassWarn" hidden>Choose at least one class.</p>
 <style>
   .emp-class-toggle { display: flex !important; align-items: center; gap: 8px; width: 100%; min-height: 38px; margin: 0; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #1e293b; font: inherit; cursor: pointer; text-align: left; }
   .emp-class-toggle:hover { background: #f8fafc; }
@@ -32,23 +20,37 @@
   .emp-class-count { font-size: 0.74rem; color: #64748b; white-space: nowrap; }
   .emp-class-toggle svg { flex: 0 0 auto; width: 14px; height: 14px; color: #64748b; transition: transform .12s ease; }
   .emp-class-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
-  .emp-class-warn { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 6px 8px; border: 1px solid #fcd34d; border-radius: 6px; background: #fffbeb; color: #92400e; font-size: 0.76rem; line-height: 1.35; }
-  .emp-class-warn[hidden] { display: none; }
-  .emp-class-warn svg { flex: 0 0 auto; width: 13px; height: 13px; }
-  .emp-class-warn--lead { align-items: flex-start; }
-  .emp-class-warn--lead svg { margin-top: 2px; }
-  /* The main teacher choice beside each class. */
-  .emp-main { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 10px; font-size: 0.74rem; white-space: nowrap; }
-  .emp-main__pick, #createEmployeeForm .emp-main label.emp-main__pick { display: inline-flex; align-items: center; gap: 5px; margin: 0 !important; padding: 2px 8px !important; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #334155; font-size: 0.74rem; font-weight: 600; line-height: 1.4; cursor: pointer; }
-  .emp-main__pick input, #createEmployeeForm .emp-main__pick input[type="checkbox"] { width: 13px; height: 13px; min-height: 0; margin: 0 !important; }
-  /* On the Edit form each class is a card: the choice sits on its own line under the name. */
-  .class-card > .emp-main { display: flex; flex-wrap: wrap; white-space: normal; margin: 0 0 8px; padding-left: 0; }
-  .emp-main__pick:has(input:checked) { border-color: var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #fff); color: var(--org-primary-color, #01535b); }
-  .emp-main__pick:has(input:disabled) { opacity: .45; cursor: not-allowed; }
-  .emp-main__now { color: #64748b; }
-  .emp-main__none { color: #92400e; font-weight: 600; }
-  .emp-main[hidden] { display: none; }
-  @media (max-width: 640px) { .emp-main { flex-wrap: wrap; white-space: normal; margin-left: 0; padding-left: 0; } }
+  .emp-class-warn { margin: 6px 2px 0; color: #92400e; font-size: 0.78rem; }
+  .emp-class-warn[hidden], .emp-class-search[hidden] { display: none; }
+  .emp-class-search { display: block; width: 100%; margin: 8px 0 0; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #1e293b; font: inherit; font-size: 0.86rem; }
+  /* Class | Main teacher | Assistant teacher: the same columns on every row. */
+  .emp-main { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; margin-left: auto; }
+  .emp-cell { display: flex; align-items: center; gap: 8px; flex: 0 0 9.5rem; width: 9.5rem; min-width: 0; min-height: 26px; color: #475569; font-size: 0.82rem; }
+  .emp-cell:nth-child(2) { flex-basis: 11rem; width: 11rem; }
+  .emp-cell::before { content: attr(data-label); display: none; font-weight: 600; color: #1e293b; }
+  .emp-pick { position: relative; display: inline-flex; align-items: center; gap: 8px; line-height: 16px; margin: 0 !important; padding: 0 !important; min-width: 0; font-weight: inherit; cursor: pointer; }
+  .emp-cell input[type="checkbox"] { align-self: center; vertical-align: middle; flex: 0 0 auto; width: 16px; height: 16px; min-height: 0; margin: 0 !important; accent-color: var(--org-primary-color, #01535b); cursor: pointer; }
+  .emp-none { color: #94a3b8; }
+  /* Chosen for this person: the box becomes their name, in green (the people already there stay plain). */
+  .emp-me { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #16a34a; font-weight: 700; }
+  .emp-pick input:checked { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .emp-pick input:checked ~ .emp-none { display: none; }
+  .emp-pick input:checked ~ .emp-me { display: inline; }
+  .emp-pick:has(input:focus-visible) { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; border-radius: 4px; }
+  .emp-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .emp-cols { display: flex; align-items: center; gap: 12px; padding: 8px 0 6px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 0.7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .emp-cols > span:first-child { flex: 1 1 auto; }
+  .emp-cols .emp-cell { color: inherit; font-size: inherit; min-height: 0; }
+  .emp-cols .emp-cell::before { display: none; }
+  .emp-cols .emp-cols__space { flex: 0 0 5.5rem; }
+  .emp-main[hidden], .emp-cols[hidden], #collapse-all-classes [hidden] { display: none !important; }
+  @media (max-width: 720px) {
+    .emp-cols { display: none; }
+    .class-checkbox { flex-wrap: wrap; }
+    .emp-main { flex: 1 1 100%; flex-wrap: wrap; width: 100%; margin-left: 0; padding: 0 0 0 23px; gap: 4px 16px; }
+    .emp-cell { flex: 1 1 9rem; width: auto; }
+    .emp-cell::before { display: inline; }
+  }
 </style>
 <script>
   (function () {
@@ -57,6 +59,7 @@
     var count = document.getElementById('empClassCount');
     var warn = document.getElementById('empClassWarn');
     var form = toggle.closest('form');
+    var search = document.getElementById('empClassSearch');
     var boxes = function () { return form.querySelectorAll('input[type="checkbox"][name="' + name + '"]'); };
     var role = form.querySelector('select[name="account_type"], select[name="accountType"]');
     var refresh = function () {
@@ -68,8 +71,19 @@
     var setOpen = function (open) {
       var panel = document.getElementById('collapse-all-classes');
       panel.style.display = open ? '' : 'none';
+      if (search) search.hidden = !open;
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     };
+    if (search) search.addEventListener('input', function () {
+      var q = search.value.trim().toLowerCase();
+      Array.prototype.forEach.call(document.querySelectorAll('#collapse-all-classes .class-checkbox, #collapse-all-classes .class-container'), function (row) {
+        var name = (row.querySelector('label, .class-name-row') || row).textContent.toLowerCase();
+        var show = !q || name.indexOf(q) !== -1;
+        row.hidden = !show;
+        var next = row.nextElementSibling;
+        if (next && next.classList.contains('subject-container')) next.hidden = !show;
+      });
+    });
     toggle.addEventListener('click', function () { setOpen(toggle.getAttribute('aria-expanded') !== 'true'); });
     // Main teacher and Assistant: only for a class that is ticked, never for a driver, and
     // one or the other. Leaving a class gives up both.
@@ -80,18 +94,32 @@
         if (!wrap) return;
         var pick = wrap.querySelector('input[name="mainClasses"]');
         var help = wrap.querySelector('input[name="assistantClasses"]');
-        var note = wrap.querySelector('[data-emp-main-note]');
         wrap.hidden = driver;
-        if (help && changed === help && help.checked) pick.checked = false;
+        // Leaving a class gives up both; choosing either on a class that isn't ticked ticks the class.
+        if (changed === box && !box.checked) [pick, help].forEach(function (input) { if (input) input.checked = false; });
+        if ((changed === pick && pick.checked) || (changed === help && help.checked)) {
+          if (!box.checked) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); }
+        }
+        if (help && changed === help && help.checked && pick) pick.checked = false;
         if (help && changed === pick && pick.checked) help.checked = false;
         [pick, help].forEach(function (input) {
           if (!input) return;
-          input.disabled = driver || !box.checked;
+          input.disabled = input.hasAttribute('data-locked') || driver;
           if (input.disabled) input.checked = false;
         });
-        if (note && note.hasAttribute('data-now')) note.textContent = pick.checked ? note.getAttribute('data-replace') : note.getAttribute('data-now');
       });
     };
+    // The green name is this person's: whatever is typed in the name fields.
+    var paintName = function () {
+      var first = form.querySelector('input[name="firstName"]');
+      var last = form.querySelector('input[name="lastName"]');
+      var name = ((first && first.value || '') + ' ' + (last && last.value || '')).replace(/\s+/g, ' ').trim() || 'This person';
+      Array.prototype.forEach.call(form.querySelectorAll('.emp-me'), function (el) { el.textContent = name; });
+    };
+    form.addEventListener('input', function (event) {
+      if (event.target.name === 'firstName' || event.target.name === 'lastName') paintName();
+    });
+    document.addEventListener('DOMContentLoaded', paintName);
     form.addEventListener('change', function (event) {
       if (event.target === role || event.target.name === name) refresh();
       if (event.target === role || event.target.name === name || event.target.name === 'mainClasses' || event.target.name === 'assistantClasses') syncMain(event.target);

@@ -39,7 +39,7 @@
     if (!line) return;
     line.hidden = !role;
     if (!role) return;
-    line.querySelector("[data-sr-about]").textContent = `${role.dataset.roleName} is based on ${role.value}.`;
+    line.querySelector("[data-sr-about]").textContent = `Based on ${role.value}`;
     const changed = dirty.get(select) && !same(ticked(scope), permissionsOf(select) || []);
     line.querySelector("[data-sr-update]").hidden = !changed;
   }
@@ -110,7 +110,7 @@
     closeBox(box);
     option.selected = true;
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    say(line, `${role.name} added.`);
+    say(line, "Added.");
   }
 
   async function saveTicks(select) {
@@ -122,7 +122,8 @@
     role.dataset.permissions = JSON.stringify(result.role.permissions || []);
     dirty.set(select, false);
     sync(select);
-    say(line, `Saved to ${role.dataset.roleName}.`);
+    if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
+    say(line, "Saved.");
   }
 
   async function removeRole(select) {

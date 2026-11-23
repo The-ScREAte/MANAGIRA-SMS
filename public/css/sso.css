@@ -60,8 +60,8 @@
 .sso-set .tc-select { flex: none; width: 132px; height: 36px; margin: 0; padding: 0 28px 0 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; background-color: var(--card-bg, #fff); color: inherit; font: inherit; font-size: 14px; }
 .tc-switch { position: relative; display: inline-flex; flex: none; margin: 0; cursor: pointer; }
 .tc-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.tc-switch span { position: relative; width: 34px; height: 20px; border-radius: 10px; background: #cbd5e1; transition: background .2s; }
-.tc-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: left .2s; }
+.tc-switch span { position: relative; width: 32px; height: 18px; border-radius: 9px; background: #cbd5e1; transition: background .2s; }
+.tc-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: left .2s; }
 .tc-switch input:checked + span { background: var(--org-primary-color, #01535b); }
 .tc-switch input:checked + span::after { left: 16px; }
 .tc-switch input:focus-visible + span { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }

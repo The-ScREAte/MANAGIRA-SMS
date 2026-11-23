@@ -45,6 +45,7 @@ const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
 const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDefinition } = require("../utils/academicLibrary");
 const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
 const assessmentEntry = require("../utils/assessmentEntry");
+const permissionBasics = require("../utils/permissionBasics");
 const assessmentApproval = require("../utils/assessmentApproval");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 
@@ -9940,12 +9941,13 @@ const commonController = {
         classes: classesResult.rows,
         permissionOptions,
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
-        roleDefaultPermissionsMap: {
-          Manager: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
-          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher", { questions: assessmentApproval.flowOn(req.session.organizationId) })),
-          Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
-          Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
-        },
+        // Each role's basics (utils/permissionBasics.js): what's ticked when the role is chosen. Everything else is behind Advanced.
+        roleDefaultPermissionsMap: permissionBasics.basicsMap({ available: availablePermissionKeys, questions: assessmentApproval.flowOn(req.session.organizationId) }),
+        permissionUi: permissionBasics.pageData({
+          options: permissionOptions,
+          roleBasics: permissionBasics.basicsMap({ available: availablePermissionKeys, questions: assessmentApproval.flowOn(req.session.organizationId) }),
+          canHighRisk: isManagerLikeRole(req.session.userRole || req.session.user?.account_type || req.session.accountType) || String(req.session.userRole || req.session.user?.account_type || '').trim() === "Manager",
+        }),
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -10996,12 +10998,13 @@ const commonController = {
         mailroomScope,
         permissionOptions,
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
-        roleDefaultPermissionsMap: {
-          Manager: stripUnavailablePermissions(mergePermissionsForRole("Manager", [])),
-          Teacher: stripUnavailablePermissions(rolePresetPermissions("Teacher", { questions: assessmentApproval.flowOn(req.session.organizationId) })),
-          Supervisor: stripUnavailablePermissions(rolePresetPermissions("Supervisor")),
-          Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
-        },
+        // Each role's basics (utils/permissionBasics.js): what's ticked when the role is chosen. Everything else is behind Advanced.
+        roleDefaultPermissionsMap: permissionBasics.basicsMap({ available: availablePermissionKeys, questions: assessmentApproval.flowOn(req.session.organizationId) }),
+        permissionUi: permissionBasics.pageData({
+          options: permissionOptions,
+          roleBasics: permissionBasics.basicsMap({ available: availablePermissionKeys, questions: assessmentApproval.flowOn(req.session.organizationId) }),
+          canHighRisk: editorHighRisk,
+        }),
         selectedPermissions,
         hiddenHeldPermissions,
         messages: req.flash(),

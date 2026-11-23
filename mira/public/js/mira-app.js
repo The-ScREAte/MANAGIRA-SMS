@@ -112,6 +112,28 @@
         window.MIRA_PAGE = /^\/[^\s]*$/.test(path) ? { path: path.slice(0, 300), title: String(event.data.title || "").slice(0, 120) } : null;
         return;
       }
+      if (event.data.type === "mira:theme") {
+        // Beside a Managira page: wear that page's colours (the signed-in person's own).
+        var okColor = function (v) { return typeof v === "string" && /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%\/]+\))$/i.test(v.trim()); };
+        var d = event.data, st = document.documentElement.style;
+        if (!okColor(d.bg) || !okColor(d.text)) return;
+        document.documentElement.setAttribute("data-theme", d.dark ? "dark" : "light");
+        st.setProperty("--mira-bg", d.bg);
+        st.setProperty("--mira-bg-elevated", "color-mix(in srgb, " + d.bg + " 94%, " + (d.dark ? "#fff" : "#fff") + ")");
+        st.setProperty("--mira-sidebar-bg", d.bg);
+        st.setProperty("--mira-text-primary", d.text);
+        st.setProperty("--mira-text-secondary", "color-mix(in srgb, " + d.text + " 68%, " + d.bg + ")");
+        st.setProperty("--mira-text-tertiary", "color-mix(in srgb, " + d.text + " 46%, " + d.bg + ")");
+        st.setProperty("--mira-border", "color-mix(in srgb, " + d.text + " 14%, " + d.bg + ")");
+        if (okColor(d.primary)) {
+          st.setProperty("--mira-primary", d.primary);
+          st.setProperty("--mira-primary-hover", "color-mix(in srgb, " + d.primary + " 88%, #000)");
+          st.setProperty("--mira-primary-soft", "color-mix(in srgb, " + d.primary + " 10%, " + d.bg + ")");
+          st.setProperty("--mira-primary-soft-strong", "color-mix(in srgb, " + d.primary + " 16%, " + d.bg + ")");
+          st.setProperty("--mira-primary-border", "color-mix(in srgb, " + d.primary + " 30%, " + d.bg + ")");
+        }
+        return;
+      }
       if (event.data.type === "mira:focus") {
         var view = document.getElementById("miraChatView");
         var box = document.getElementById(view && view.classList.contains("is-active") ? "miraInputDocked" : "miraInput");

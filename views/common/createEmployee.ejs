@@ -530,8 +530,7 @@
       const driverSubjectsNote = document.getElementById("driverSubjectsNote");
 
       // Role → default permission keys map (injected server-side)
-      const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
-
+      
       // Mailroom's contact-scope sub-panel only matters once "Mailroom" is
       // checked, and the class picker only matters once "classes" scope is
       // chosen — keep both hidden otherwise so the form stays uncluttered.
@@ -559,24 +558,10 @@
 
         const selectedRole = accountTypeSelect.value;
         const isDriver = selectedRole === "Driver";
-        // A school's own role ticks its own permissions (views/partials/schoolRoles.ejs).
-        const roleOption = accountTypeSelect.options[accountTypeSelect.selectedIndex];
-        let rolePermissions = null;
-        if (roleOption && roleOption.dataset.roleId) { try { rolePermissions = JSON.parse(roleOption.dataset.permissions || "[]"); } catch (e) { rolePermissions = []; } }
-        const defaults = rolePermissions || ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
+        // The picker lays out the chosen role's basics and ticks them (it asks first when switching roles);
+        // a school's own role brings its own permissions (views/partials/schoolRoles.ejs).
+        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.roleChanged();
 
-        // Drivers see only their own permissions (the picker's forRole, below).
-        document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
-          const item = cb.closest(".permission-item");
-          if (isDriver) {
-            /* the picker shows a driver's permissions below */
-          } else {
-            if (item) item.style.display = "";
-            cb.checked = defaults.includes(cb.value);
-          }
-        });
-
-        if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.forRole(isDriver);
         if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
         if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
         if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";
@@ -669,6 +654,29 @@
           </div>
         </div>
 
+
+        <div class="ce-section">
+          <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classes' }) %>
+          <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
+
+          <div class="collapsible-content" id="collapse-all-classes" style="display: none;">
+            <% if (!classes.length) { %><p class="permissions-note">This school has no classes yet.</p><% } %>
+            <% if (classes.length) { %>
+            <div class="emp-cols"><span>Class</span><span class="emp-main"><span class="emp-cell">Main teacher</span><% if (typeof classAssistants !== 'undefined' && classAssistants !== null) { %><span class="emp-cell">Assistant teacher</span><% } %></span></div>
+            <% } %>
+            <% classes.forEach(cls => { %>
+            <div class="class-checkbox">
+              <input type="checkbox" name="classes" value="<%= cls.class_id %>"
+                id="class_<%= cls.class_id %>"
+                onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
+              <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+              <%- include('../partials/employeeMainTeacher', { cls, personId: null }) %>
+            </div>
+            <div id="subjects-container-<%= cls.class_id %>" class="subject-container" style="display: none"></div>
+            <% }); %>
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="form-label" for="account_type">Role</label>
           <select id="account_type" name="account_type" class="form-select" required>
@@ -687,31 +695,10 @@
 
         <%- include('../partials/employeeSignIn', { signInIsExisting: false }) %>
 
-        <div class="ce-section">
-          <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classes' }) %>
-          <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
-
-          <div class="collapsible-content" id="collapse-all-classes" style="display: none;">
-            <% if (!classes.length) { %><p class="permissions-note">This school has no classes yet.</p><% } %>
-            <% classes.forEach(cls => { %>
-            <div class="class-checkbox">
-              <input type="checkbox" name="classes" value="<%= cls.class_id %>"
-                id="class_<%= cls.class_id %>"
-                onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
-              <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
-              <%- include('../partials/employeeMainTeacher', { cls, personId: null }) %>
-            </div>
-            <div id="subjects-container-<%= cls.class_id %>" class="subject-container" style="display: none"></div>
-            <% }); %>
-          </div>
-        </div>
-
         <div class="ce-section" id="permission-assignment-group">
           <h3 class="ce-section-title">Permissions</h3>
           <%- include('../partials/permissionPicker', { selectedPermissions: [] }) %>
           <div id="permissionsBox">
-            <div class="permissions-note" id="permissionsNote">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
-            <div class="permissions-note" id="driverPermissionsNote" style="display:none;">Drivers use the Driver dashboard for their routes and riders. Anything more is chosen above.</div>
           </div>
         </div>
 

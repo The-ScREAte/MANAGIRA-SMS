@@ -82,13 +82,10 @@ async function archive(db, organizationId, roleId) {
   return rowCount ? { ok: true } : { error: "That role isn't there." };
 }
 
-// The permissions a built-in role starts with (the same presets as the staff form).
+// The permissions a built-in role starts with: its basics (utils/permissionBasics.js), the same
+// as the staff form ticks when the role is chosen.
 function defaultsFor(baseType, organizationId) {
-  const p = require("../middleware/permissionMiddleware");
-  if (baseType === "Manager") return p.getSuggestedPermissionsForRole("Manager");
-  if (baseType === "Driver") return p.mergePermissionsForRole("Driver", []);
-  if (baseType === "Teacher") return p.rolePresetPermissions("Teacher", { questions: require("./assessmentApproval").flowOn(organizationId) });
-  return p.rolePresetPermissions(baseType);
+  return require("./permissionBasics").basicsFor(baseType, { questions: require("./assessmentApproval").flowOn(organizationId) });
 }
 // Only permissions that exist, are in the school's plan and the person may give.
 function keep(keys, { allowed = null, highRisk = false } = {}) {

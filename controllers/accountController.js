@@ -2254,6 +2254,41 @@ function logIntegrationActivation(req, recordLabel, activated) {
   }).catch(() => {});
 }
 
+
+// The Mira page's people, a few at a time. Drivers are left out: their permissions are the driver
+// app's only, so Mira can't be theirs. The owner is on equal footing: Mira access (and its per-seat
+// charge) needs an explicit grant for everyone (see controllers/internalApiController.js getMiraActivationStatusApi).
+const MIRA_PAGE_SIZE = 15;
+async function miraUserRows(orgId, ownerEmail, offset) {
+  const list = await db.query(
+    `SELECT user_id, first_name, last_name, email, account_type
+     FROM users
+     WHERE organization_id = $1 AND account_type IS DISTINCT FROM 'Driver'
+     ORDER BY first_name ASC, last_name ASC, user_id ASC
+     LIMIT $2 OFFSET $3`,
+    [orgId, MIRA_PAGE_SIZE, offset]
+  );
+  const counts = await db.query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM user_permissions p WHERE p.user_id = u.user_id AND p.organization_id = u.organization_id AND p.permission_key = $2))::int AS seats
+     FROM users u WHERE u.organization_id = $1 AND u.account_type IS DISTINCT FROM 'Driver'`,
+    [orgId, PERMISSIONS.USE_MIRA]
+  );
+  const rows = await Promise.all(list.rows.map(async (employee) => {
+    const permissions = await getUserPermissions(db, employee.user_id, orgId);
+    return {
+      userId: employee.user_id,
+      firstName: employee.first_name,
+      lastName: employee.last_name,
+      email: employee.email,
+      accountType: employee.account_type,
+      isOwner: Boolean(ownerEmail) && String(employee.email || "").trim().toLowerCase() === ownerEmail,
+      canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
+    };
+  }));
+  return { rows, total: counts.rows[0].total, seats: counts.rows[0].seats };
+}
+
 const accountController = {
   // Utility: List Paystack banks for UI dropdowns
 
@@ -12094,45 +12129,12 @@ const accountController = {
       );
       const ownerEmail = String(orgResult.rows[0]?.email || "").trim().toLowerCase();
 
-      // Drivers are left out: their permissions are the driver app's only, so Mira can't be theirs.
-      const employeesResult = await db.query(
-        `SELECT user_id, first_name, last_name, email, account_type
-         FROM users
-         WHERE organization_id = $1 AND account_type IS DISTINCT FROM 'Driver'
-         ORDER BY first_name ASC, last_name ASC`,
-        [orgId]
-      );
+      // Only the first people are loaded; "Show more" fetches the next ones (miraUsersGet).
+      const page = await miraUserRows(orgId, ownerEmail, 0);
+      const employees = page.rows;
+      const seatCount = page.seats;
 
-      // Owner included, on equal footing: Mira access (and, once billing is
-      // wired up, Mira's per-seat charge) requires an explicit grant for
-      // everyone - the owner's usual "always has full access" bypass
-      // (middleware/permissionMiddleware.js userHasPermission) is
-      // deliberately NOT applied to Use Mira. See
-      // controllers/internalApiController.js getMiraActivationStatusApi.
-      const employees = await Promise.all(
-        employeesResult.rows.map(async (employee) => {
-          const isOwner = ownerEmail && String(employee.email || "").trim().toLowerCase() === ownerEmail;
-          const permissions = await getUserPermissions(db, employee.user_id, orgId);
-          return {
-            userId: employee.user_id,
-            firstName: employee.first_name,
-            lastName: employee.last_name,
-            email: employee.email,
-            accountType: employee.account_type,
-            isOwner,
-            canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
-            // Managers always manage the school's skills; anyone else only when given it here.
-            canManageSchoolSkills: String(employee.account_type || "").toLowerCase() === "manager" || permissions.includes(PERMISSIONS.MIRA_SCHOOL_SKILLS),
-          };
-        })
-      );
-
-      const seatCount = employees.filter((employee) => employee.canUseMira).length;
-
-      const _grantorRole = String(req.session.userRole || req.session.accountType || "").toLowerCase();
       res.render("account/mira", {
-        // Only a manager gives or takes "manage Mira's school skills".
-        canGrantSchoolSkills: _grantorRole === "manager" || String(req.session.accountType || "").toLowerCase() === "organization",
         title: "Mira",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -12141,6 +12143,8 @@ const accountController = {
         miraIntegration,
         employees,
         seatCount,
+        miraTotal: page.total,
+        miraPageSize: MIRA_PAGE_SIZE,
         permissionOptions: permissionOptionsFor({ organizationId: req.session.organizationId, allowedFeatures: res.locals.planFeaturesKnown ? res.locals.allowedFeatures : null, miraActivated: res.locals.miraActivated, transportActivated: Boolean((await getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null))?.activated) }).filter((option) => !option.parent),
         flash: {
           success: req.flash("success"),
@@ -12150,6 +12154,21 @@ const accountController = {
     } catch (error) {
       console.error("[accountController/miraSettingsGet]", error);
       res.status(500).send("Unable to load the Mira settings page.");
+    }
+  },
+
+  // GET /account/mira/users?offset=15 (JSON): the next people for the Mira page's "Show more".
+  miraUsersGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
+    try {
+      const offset = Math.max(0, Math.min(100000, parseInt(req.query.offset, 10) || 0));
+      const ownerEmail = String((await db.query("SELECT email FROM organizations WHERE organization_id = $1 LIMIT 1", [orgId])).rows[0]?.email || "").trim().toLowerCase();
+      const page = await miraUserRows(orgId, ownerEmail, offset);
+      return res.json({ rows: page.rows, total: page.total, seats: page.seats });
+    } catch (error) {
+      console.error("[accountController/miraUsersGet]", error);
+      return res.status(500).json({ error: "Unable to load more people." });
     }
   },
 
@@ -12234,26 +12253,19 @@ const accountController = {
 
       // Each switch on the Mira page sends only its own value; what isn't sent stays as it was.
       const sentUse = Object.prototype.hasOwnProperty.call(req.body, "canUseMira");
-      const sentSkills = Object.prototype.hasOwnProperty.call(req.body, "canManageSchoolSkills");
       const canUseMira = String(req.body.canUseMira || "").trim() === "1";
-      const canManageSchoolSkills = String(req.body.canManageSchoolSkills || "").trim() === "1";
-      if (sentSkills) {
-        // School-wide skills change what Mira does for everyone: only a manager (or the school's own
-        // account) gives or takes this, and a manager always has it.
-        const grantorRole = String(req.session.userRole || req.session.accountType || "").toLowerCase();
-        if (grantorRole !== "manager" && String(req.session.accountType || "").toLowerCase() !== "organization") return res.status(403).json({ error: "Only a manager can allow someone to manage Mira's school skills." });
-        const targetRole = String((await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role || "").toLowerCase();
-        if (targetRole === "manager") return res.status(400).json({ error: "Managers can always manage Mira's school skills." });
-      }
       const grantorId = req.session.user?.user_id || req.session.userId || null;
       // What they can do now (role defaults included for someone never saved), with only Mira
       // changed, saved as their own list; markers that aren't permissions (mailroom scope) stay.
       const staffRole = (await db.query("SELECT account_type::text AS role FROM users WHERE user_id = $1 AND organization_id = $2", [userId, orgId])).rows[0]?.role;
       const existing = await getUserPermissions(db, userId, orgId);
       const current = new Set(effectivePermissionsForRole(staffRole, existing));
-      const next = new Set([...current].filter((key) => key !== PERMISSIONS.USE_MIRA && key !== PERMISSIONS.MIRA_SCHOOL_SKILLS));
-      if (sentUse ? canUseMira : current.has(PERMISSIONS.USE_MIRA)) next.add(PERMISSIONS.USE_MIRA);
-      if (sentSkills ? canManageSchoolSkills : current.has(PERMISSIONS.MIRA_SCHOOL_SKILLS)) next.add(PERMISSIONS.MIRA_SCHOOL_SKILLS);
+      // Org-wide skill creation is set on the permissions screen only; here it stays as it was, and goes
+      // with Mira when Mira is turned off (a follow-up is never held without its main permission).
+      const next = new Set([...current].filter((key) => key !== PERMISSIONS.USE_MIRA));
+      const useMira = sentUse ? canUseMira : current.has(PERMISSIONS.USE_MIRA);
+      if (useMira) next.add(PERMISSIONS.USE_MIRA);
+      else next.delete(PERMISSIONS.MIRA_SCHOOL_SKILLS);
       const optionKeys = new Set(PERMISSION_OPTIONS.map((option) => option.key));
       const markers = existing.filter((key) => !optionKeys.has(key) && key !== PERMISSIONS_SAVED_KEY);
       const rows = [...new Set([...markers, ...next, PERMISSIONS_SAVED_KEY])];
@@ -12274,7 +12286,7 @@ const accountController = {
         client.release();
       }
       invalidateUserPermissionCache(orgId, userId);
-      return res.json({ success: true, canUseMira: sentUse ? canUseMira : current.has(PERMISSIONS.USE_MIRA), canManageSchoolSkills: sentSkills ? canManageSchoolSkills : current.has(PERMISSIONS.MIRA_SCHOOL_SKILLS) });
+      return res.json({ success: true, canUseMira: useMira });
     } catch (error) {
       console.error("[accountController/miraUserPermissionsPost]", error);
       return res.status(500).json({ error: "Unable to save this employee's Mira access." });

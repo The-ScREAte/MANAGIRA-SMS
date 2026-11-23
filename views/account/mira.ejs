@@ -159,6 +159,11 @@
     box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--org-primary-color, #01535b) 25%, transparent);
   }
   
+  .mira-more { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+  .mira-more-count { color: #64748b; font-size: 0.82rem; white-space: nowrap; }
+  .mira-more-btn { flex: none; width: auto; margin: 0; padding: 7px 16px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent); border-radius: 8px; background: transparent; color: var(--org-primary-color, #01535b); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+  .mira-more-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); }
+  .mira-more-btn:disabled { opacity: .6; cursor: default; }
   .mira-empty-state { color: #6b7280; font-size: 0.9rem; padding: 12px 0; }
 
   .mira-edit-btn {
@@ -200,18 +205,18 @@
   }
   .mira-toggle-row .label { font-weight: 600; font-size: 0.9rem; color: #111827; }
   .mira-toggle-row .sub { color: #6b7280; font-size: 0.78rem; margin-top: 2px; }
-  .mira-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .mira-switch { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
   .mira-switch input { opacity: 0; width: 0; height: 0; }
   .mira-switch-slider {
     position: absolute; cursor: pointer; inset: 0; background: #d1d5db;
     border-radius: 999px; transition: background 0.18s ease;
   }
   .mira-switch-slider::before {
-    content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px;
+    content: ""; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px;
     background: #fff; border-radius: 50%; transition: transform 0.18s ease;
   }
   .mira-switch input:checked + .mira-switch-slider { background: var(--org-primary-color, #01535b); }
-  .mira-switch input:checked + .mira-switch-slider::before { transform: translateX(18px); }
+  .mira-switch input:checked + .mira-switch-slider::before { transform: translateX(14px); }
   .mira-switch input:disabled + .mira-switch-slider { opacity: 0.6; cursor: default; }
 
   .mira-permissions-label { font-weight: 600; font-size: 0.86rem; margin: 0 0 3px; color: #111827; }
@@ -307,7 +312,7 @@
       </span>
       <h2>Who can open Mira</h2>
     </div>
-    <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those are set on <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.employees) { %><a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a><% } else { %>Users / Employees<% } %>.</p>
+    <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those, and who can create skills for the whole school, are set on <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.employees) { %><a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a><% } else { %>Users / Employees<% } %>.</p>
     <p class="mira-access-status" id="mira-access-status" role="status" aria-live="polite"></p>
 
     <table class="mira-access-table">
@@ -317,12 +322,11 @@
           <th>Role</th>
           <th>Email</th>
           <th style="width:110px;">Can open Mira</th>
-          <th style="width:150px;" title="Create and change the skills Mira follows for the whole school. Managers always can.">School skills</th>
         </tr>
       </thead>
       <tbody id="mira-access-tbody">
         <% if (!employees || employees.length === 0) { %>
-          <tr><td colspan="5" class="mira-empty-state">No employees found for this school yet.</td></tr>
+          <tr><td colspan="4" class="mira-empty-state">No employees found for this school yet.</td></tr>
         <% } else { %>
           <% employees.forEach(function(employee) { %>
             <% const _miraName = [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed'; %>
@@ -339,18 +343,17 @@
                   <span class="mira-switch-slider"></span>
                 </label>
               </td>
-              <td>
-                <% const _isMgr = String(employee.accountType || '').toLowerCase() === 'manager'; %>
-                <label class="mira-switch" title="<%= _isMgr ? 'Managers can always manage school skills' : (canGrantSchoolSkills ? 'Can manage the skills Mira follows for the whole school' : 'Only a manager can change this') %>">
-                  <input type="checkbox" data-mira-skills="<%= employee.userId %>" data-mira-name="<%= _miraName %>" aria-label="<%= _miraName %> can manage school skills" <%= employee.canManageSchoolSkills ? 'checked' : '' %> <%= (_isMgr || !canGrantSchoolSkills) ? 'disabled' : '' %> />
-                  <span class="mira-switch-slider"></span>
-                </label>
-              </td>
             </tr>
           <% }); %>
         <% } %>
       </tbody>
     </table>
+    <% if (miraTotal > employees.length) { %>
+      <div class="mira-more">
+        <span class="mira-more-count" id="mira-more-count">Showing <%= employees.length %> of <%= miraTotal %></span>
+        <button type="button" class="mira-more-btn" id="mira-more-btn" data-total="<%= miraTotal %>">Show more</button>
+      </div>
+    <% } %>
   </div>
 </div>
 
@@ -427,40 +430,68 @@
     });
   }
 
-  // Each switch saves straight away and changes only its own permission.
+  // Each switch saves straight away and changes only its own permission. One listener on the table
+  // covers the people loaded later by "Show more".
   const accessStatus = document.getElementById('mira-access-status');
-  [['data-mira-access', 'canUseMira', ' can now open Mira.', ' can no longer open Mira.'],
-   ['data-mira-skills', 'canManageSchoolSkills', ' can now manage the school\u2019s Mira skills.', ' can no longer manage the school\u2019s Mira skills.']].forEach(function (kind) {
-    document.querySelectorAll('[' + kind[0] + ']').forEach(function (box) {
-      box.addEventListener('change', async function () {
-        const name = box.getAttribute('data-mira-name') || 'This person';
-        const turnedOn = box.checked;
-        box.disabled = true;
-        accessStatus.textContent = 'Saving…';
-        accessStatus.className = 'mira-access-status';
-        try {
-          const body = {};
-          body[kind[1]] = turnedOn ? '1' : '0';
-          const response = await fetch('/account/mira/user/' + encodeURIComponent(box.getAttribute(kind[0])), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify(body),
-          });
-          const data = await response.json().catch(function () { return {}; });
-          if (!response.ok || !data.success) throw new Error(data.error || 'That could not be saved.');
-          accessStatus.textContent = name + (turnedOn ? kind[2] : kind[3]);
-          accessStatus.className = 'mira-access-status is-ok';
-          // The header's Mira panel checks again: given to yourself, Mira opens there (public/js/miraPanel.js).
-          window.dispatchEvent(new CustomEvent('managira:mira-access-changed'));
-        } catch (error) {
-          box.checked = !turnedOn;
-          accessStatus.textContent = error.message || 'That could not be saved. Try again.';
-          accessStatus.className = 'mira-access-status is-error';
-        } finally {
-          box.disabled = false;
-        }
+  const tbody = document.getElementById('mira-access-tbody');
+  tbody.addEventListener('change', async function (event) {
+    const box = event.target.closest('[data-mira-access]');
+    if (!box) return;
+    const name = box.getAttribute('data-mira-name') || 'This person';
+    const turnedOn = box.checked;
+    box.disabled = true;
+    accessStatus.textContent = 'Saving…';
+    accessStatus.className = 'mira-access-status';
+    try {
+      const response = await fetch('/account/mira/user/' + encodeURIComponent(box.getAttribute('data-mira-access')), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ canUseMira: turnedOn ? '1' : '0' }),
       });
-    });
+      const data = await response.json().catch(function () { return {}; });
+      if (!response.ok || !data.success) throw new Error(data.error || 'That could not be saved.');
+      accessStatus.textContent = name + (turnedOn ? ' can now open Mira.' : ' can no longer open Mira.');
+      accessStatus.className = 'mira-access-status is-ok';
+      // The header's Mira panel checks again: given to yourself, Mira opens there (public/js/miraPanel.js).
+      window.dispatchEvent(new CustomEvent('managira:mira-access-changed'));
+    } catch (error) {
+      box.checked = !turnedOn;
+      accessStatus.textContent = error.message || 'That could not be saved. Try again.';
+      accessStatus.className = 'mira-access-status is-error';
+    } finally {
+      box.disabled = false;
+    }
   });
+
+  const moreBtn = document.getElementById('mira-more-btn');
+  if (moreBtn) {
+    const moreCount = document.getElementById('mira-more-count');
+    const esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    moreBtn.addEventListener('click', async function () {
+      moreBtn.disabled = true;
+      try {
+        const loaded = tbody.querySelectorAll('tr[data-user-row]').length;
+        const response = await fetch('/account/mira/users?offset=' + loaded, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load more people.');
+        data.rows.forEach(function (p) {
+          const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unnamed';
+          const tr = document.createElement('tr');
+          tr.setAttribute('data-user-row', p.userId);
+          tr.innerHTML = '<td>' + esc(name) + (p.isOwner ? ' <span class="mira-owner-tag">Owner</span>' : '') + '</td><td>' + esc(p.accountType) + '</td><td>' + esc(p.email) + '</td>'
+            + '<td><label class="mira-switch" title="Can open Mira"><input type="checkbox" data-mira-access="' + esc(p.userId) + '" data-mira-name="' + esc(name) + '" aria-label="' + esc(name) + ' can open Mira"' + (p.canUseMira ? ' checked' : '') + ' /><span class="mira-switch-slider"></span></label></td>';
+          tbody.appendChild(tr);
+        });
+        const now = tbody.querySelectorAll('tr[data-user-row]').length;
+        moreCount.textContent = 'Showing ' + now + ' of ' + data.total;
+        if (now >= data.total || !data.rows.length) moreBtn.hidden = true;
+        moreBtn.disabled = false;
+      } catch (error) {
+        accessStatus.textContent = error.message || 'Could not load more people.';
+        accessStatus.className = 'mira-access-status is-error';
+        moreBtn.disabled = false;
+      }
+    });
+  }
 })();
 </script>

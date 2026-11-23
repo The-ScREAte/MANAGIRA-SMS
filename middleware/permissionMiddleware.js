@@ -151,8 +151,8 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.EVENTS_EVENTS, label: "Events", parent: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, description: "Create, change and delete events" },
   { key: PERMISSIONS.MAILROOM, label: "Mailroom", group: "Communication", description: "Send SMS, WhatsApp and email to guardians" },
   { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)", group: "Communication", description: "Ask Mira using this person's own permissions" },
-  // Managers always can; anyone else only when a manager gives it (here or on the Mira page).
-  { key: PERMISSIONS.MIRA_SCHOOL_SKILLS, label: "Manage Mira's school skills", group: "Communication", highRisk: true, description: "Create and change the skills Mira follows for the whole school. Managers always can" },
+  // Under Use Mira. Managers always can; anyone else only when a manager gives it here (the Mira page no longer has this switch).
+  { key: PERMISSIONS.MIRA_SCHOOL_SKILLS, label: "Org-wide skill creation", parent: PERMISSIONS.USE_MIRA, highRisk: true, anyRole: true, description: "Create and change the skills Mira follows for the whole school. Managers always can" },
 
   { key: PERMISSIONS.MANAGE_TRANSPORTATION, label: "Transportation", group: "Transportation", forDrivers: true, description: "See the transportation overview. Choose what else they can do below" },
   { key: PERMISSIONS.TRANSPORT_BUSES, label: "Buses", parent: PERMISSIONS.MANAGE_TRANSPORTATION, description: "Add, change and pause buses" },
@@ -461,7 +461,7 @@ function expandUnsavedPermissions(normalizedRole, held) {
     if (option.key === PERMISSIONS.TRANSPORT_SETTINGS && !held.includes(PERMISSIONS.MANAGE_SETTINGS)) return;
     if (option.key === PERMISSIONS.PAYGIRA_SHOW_IN_MANAGEMENT && normalizedRole === "Teacher") return;
     // It was its own permission before it was a follow-up: only those who held it keep it.
-    if (option.key === PERMISSIONS.SET_ASSESSMENT_QUESTIONS) return;
+    if (option.key === PERMISSIONS.SET_ASSESSMENT_QUESTIONS || option.key === PERMISSIONS.MIRA_SCHOOL_SKILLS) return;
     // Every class is a manager's: someone unsaved with Class Settings keeps their own classes only.
     if (option.key === PERMISSIONS.CLASS_SETTINGS_ALL && !isManagerRole(normalizedRole)) return;
     expanded.add(option.key);
