@@ -201,6 +201,10 @@ const ALWAYS_COMMON = new Set([
   "your", "my", "me", "it", "its", "this", "that", "these", "those", "here", "there", "what", "which", "who", "how", "why", "when",
   "where", "is", "are", "was", "were", "be", "has", "have", "had", "do", "does", "can", "will", "new", "next", "first", "last", "more",
   "most", "other", "own", "same", "so", "than", "too", "very", "just", "also", "now", "then", "only", "both", "per",
+  // Number words start sentences ("Six Grade 5 students ..."): never part of a name.
+  "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+  "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty", "fifty", "hundred", "thousand",
+  "first", "second", "third", "fourth", "fifth", "half", "none", "several", "many", "few",
 ]);
 
 const fold = (word) => word.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[’]/g, "'").replace(/^'+|'+$/g, "").replace(/'s$/, "");

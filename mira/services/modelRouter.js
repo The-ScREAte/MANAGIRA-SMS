@@ -88,11 +88,14 @@ const TASK_MODEL_MAPS = {
   // gpt-4o-mini's $0.15 / $0.60) answers lookups, plain turns and the classifying; Claude
   // Sonnet 5.5 ($2 / $10, cheaper than Sonnet 4.5's $3 / $15) drafts and works through changes
   // and compound questions. IDs as OpenRouter's /api/v1/models lists them.
+  // 2026-11-23: every task on Haiku 5.5. Sonnet 5.5 made 86% of the cost (25 of 157 calls in a
+  // 50-question run) for the same eval score; the accuracy checks are in code, not in the model.
+  // MIRA_STRONG_MODEL=anthropic/claude-sonnet-5.5 puts drafting and changes back on Sonnet.
   openrouter: {
     classify: "anthropic/claude-haiku-5.5",
     lookup: "anthropic/claude-haiku-5.5",
-    draft: "anthropic/claude-sonnet-5.5",
-    reasoning: "anthropic/claude-sonnet-5.5",
+    draft: process.env.MIRA_STRONG_MODEL || "anthropic/claude-haiku-5.5",
+    reasoning: process.env.MIRA_STRONG_MODEL || "anthropic/claude-haiku-5.5",
     default: "anthropic/claude-haiku-5.5",
   },
   openai: {
@@ -183,6 +186,19 @@ function adaptForAnthropic(content) {
 // real arguments. These adapt the neutral shape to each provider's actual
 // wire format right before the call, same principle as
 // adaptForOpenAI/adaptForAnthropic above.
+// Prompt caching for Claude through OpenRouter: the long, unchanging opening (Mira's instructions)
+// is marked once, so the next call in the turn - and the next turn - reads it from the cache at a
+// tenth of the price instead of paying for ~10,000 tokens again. Other models are sent as before.
+function cacheForClaude(model, wire) {
+  if (!/^anthropic\//.test(String(model || ""))) return wire;
+  const first = wire.findIndex((m) => m.role === "system");
+  if (first < 0) return wire;
+  const out = wire.slice();
+  const text = typeof out[first].content === "string" ? out[first].content : (out[first].content || []).map((b) => b.text || "").join("");
+  out[first] = { ...out[first], content: [{ type: "text", text, cache_control: { type: "ephemeral" } }] };
+  return out;
+}
+
 function toOpenAIMessages(m) {
   if (m.role === "assistant" && m.toolCalls?.length) {
     return [
@@ -412,7 +428,7 @@ async function runOpenAICompatibleStream(client, { model, task, messages, tools,
   const strict = STRICT_TOOLS && /^anthropic\//.test(model);
   const stream = await client.chat.completions.create({
     model,
-    messages: messages.flatMap(toOpenAIMessages),
+    messages: cacheForClaude(model, messages.flatMap(toOpenAIMessages)),
     tools: tools?.length
       ? tools.map((t) => {
         const strictParams = strict ? strictSchema(t.parameters) : null;
@@ -664,4 +680,4 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
   throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, TELNYX_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");
 }
 
-module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY, takesTemperature, effortFor, maxTokensFor, strictSchema, runOpenAICompatibleStream, readAnthropicStream };
+module.exports = { cacheForClaude, streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY, takesTemperature, effortFor, maxTokensFor, strictSchema, runOpenAICompatibleStream, readAnthropicStream };

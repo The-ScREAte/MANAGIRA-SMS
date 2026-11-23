@@ -16,6 +16,10 @@ module.exports = {
       const all = await callInternalApi(`/internal/api/classes?${new URLSearchParams({ organizationId: String(tenant.organizationId), q: "" })}`);
       return { found: false, message: `There is no class called "${args.query}" in this school.`, classes: (all.classes || []).map((c) => c.class_name) };
     }
+    // A list cut short says so, with the true total: never counted as the whole school.
+    if (result.truncated) {
+      return { classes, total_classes: result.total, truncated: true, note: `Showing ${classes.length} of ${result.total} classes; narrow it by name for the rest.` };
+    }
     return classes;
   },
 };

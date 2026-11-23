@@ -149,9 +149,11 @@ function presentsPreview(reply) {
 const DONE_CLAIM = /\b(i('ve| have)|it('s| has| is)|this (has|is)|they('ve| have)|has been|have been|is now|are now|successfully|all set)\b[^.!?\n]{0,40}\b(scheduled|created|added|sent|posted|published|booked|set up|deleted|removed|saved|updated|confirmed)\b/i;
 // "The PTA meeting is scheduled as follows", "Ama has been added": stated as already done.
 const DONE_STATE = /\b(is|are|was|were|has been|have been|got)\s+(now\s+)?(successfully\s+)?(scheduled|created|added|sent|posted|published|booked|set up|deleted|removed|saved|confirmed)\b(?!\s+(once|when|after|if|as soon as))/i;
+// Judged sentence by sentence: "Nothing has been created yet" and "It isn't sent until you
+// confirm" say it ISN'T done.
+const NOT_DONE = /\b(?:nothing|not|no|never|none|yet to|until|unless|before|once you|when you|after you|if you)\b|n['’]t\b/i;
 function claimsDone(reply) {
-  const text = String(reply || "");
-  return DONE_CLAIM.test(text) || DONE_STATE.test(text);
+  return String(reply || "").split(/(?<=[.!?])\s+|\n+/).some((sentence) => (DONE_CLAIM.test(sentence) || DONE_STATE.test(sentence)) && !NOT_DONE.test(sentence));
 }
 
 // Who sees each kind of change, for previews Managira builds.

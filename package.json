@@ -64,9 +64,9 @@
     "node-cron": "^4.2.1",
     "node-ical": "0.27.1",
     "node-schedule": "^2.1.1",
-    "nodemailer": "^10.2.1",
+    "nodemailer": "10.4.1",
     "openid-client": "^6.8.9",
-    "papaparse": "^5.5.2",
+    "papaparse": "5.7.1",
     "passport": "^0.6.0",
     "passport-local": "^1.0.0",
     "pdf-parse": "^1.1.1",
@@ -86,14 +86,15 @@
     "winston": "^3.14.1"
   },
   "overrides": {
-    "qs": "^6.14.2",
+    "qs": "^6.16.2",
     "follow-redirects": "^1.16.2",
     "traverse": "^0.3.10",
     "get-uri": {
       "basic-ftp": "^6.2.3"
     },
     "exceljs": {
-      "uuid": "^11.1.1"
+      "uuid": "^11.1.1",
+      "unzipper": "^0.12.5"
     }
   },
   "devDependencies": {

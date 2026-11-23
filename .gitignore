@@ -11,3 +11,7 @@ uploads/*
 dist/
 uploads/
 .DS_Store
+
+# Mira eval output (each run writes its replies here)
+mira/evals/last-run.json
+mira/evals/last-run-hard.json

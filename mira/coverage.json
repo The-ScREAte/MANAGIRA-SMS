@@ -164,7 +164,9 @@
         "generate_report_pdf",
         "generate_merit_sheet_pdf",
         "generate_report_card_summary",
-        "get_class_readiness"
+        "get_class_readiness",
+        "list_student_remarks",
+        "list_report_signatures"
       ],
       "change": [
         "post_or_send_report_cards",
@@ -173,12 +175,15 @@
         "delete_grading_scale_band",
         "set_promotion_settings",
         "add_remark",
-        "delete_remark"
+        "delete_remark",
+        "set_student_remarks",
+        "apply_report_signature"
       ],
       "features": [
         "gpa_credits",
         "transcript_designs",
-        "report_remarks_forms"
+        "report_remarks_forms",
+        "mira_report_cards"
       ]
     },
     "forms_and_requests": {

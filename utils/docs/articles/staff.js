@@ -8,7 +8,7 @@ module.exports = [
     topic: "Staff & permissions",
     order: 1,
     summary: "Invite teachers, office staff and drivers, give each person a role and the permissions their job needs, assign classes, and put staff on hold or remove them.",
-    tags: ["add staff", "employees", "teachers", "invite staff", "users", "hold staff", "remove staff"],
+    tags: ["add staff", "employees", "teachers", "invite staff", "users", "hold staff", "remove staff", "add a teacher", "add a new teacher", "add an employee", "new staff member", "teacher access to their own class", "give a teacher access to only their class", "limit a teacher to their class", "assign a teacher to a class"],
     featured: true,
     who: "Managers, and staff given the <strong>Users / Employees</strong> permission with <strong>Add Staff</strong>, <strong>Edit Staff &amp; Access</strong> or <strong>Hold &amp; Remove Staff</strong>.",
     intro: "Every staff member signs in with their own account. Their <strong>role</strong> describes their job, and their <strong>permissions</strong> decide exactly what they can see and do, so each person gets what their work needs and nothing more.",

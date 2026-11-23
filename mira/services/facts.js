@@ -8,7 +8,8 @@
 // back (needs_info) is left as it is. The ten tools covered are the most-used read tools in the
 // local copy's mira_tool_call_log (2026-11-22).
 
-const TABLE_ROWS = 25;
+// Lists are given in full up to 100 rows (pages show fewer, for speed; Mira can show the whole list).
+const TABLE_ROWS = 100;
 const LIST_IN_SENTENCE = 8;
 
 const plural = (n, one, many = `${one}s`) => `${Number(n).toLocaleString("en-US")} ${Number(n) === 1 ? one : many}`;
@@ -54,6 +55,13 @@ const isError = (result) => !result || typeof result !== "object"
 // ── The ten tools ──
 const BUILDERS = {
   get_class(result, args) {
+    if (result && result.truncated && Array.isArray(result.classes)) {
+      return {
+        summary_text: `${plural(result.total_classes, "class", "classes")} in all; the list shows the first ${result.classes.length}, so the student total isn't given here.`,
+        table: table(result.classes, [["Class", (c) => c.class_name], ["Students", (c) => c.student_count]], result.total_classes),
+        total: result.total_classes,
+      };
+    }
     if (!Array.isArray(result)) return null;
     const asked = args && args.query ? ` matching "${args.query}"` : "";
     if (!result.length) return { summary_text: `No class${asked} in this school.`, table: "", total: 0 };
@@ -66,6 +74,13 @@ const BUILDERS = {
   },
 
   find_student(result, args) {
+    if (result && result.truncated && Array.isArray(result.students)) {
+      return {
+        summary_text: `${plural(result.total_matches, "student")} match "${args.query}"; the first ${result.students.length} are listed. Ask for a class or the full name to narrow it.`,
+        table: table(result.students, [["Student", nameOf], ["Class", classOf]], result.total_matches),
+        total: result.total_matches,
+      };
+    }
     if (!Array.isArray(result)) return null;
     const asked = args && args.query ? ` matching "${args.query}"` : "";
     if (!result.length) return { summary_text: `No student${asked} found.`, table: "", total: 0 };
@@ -95,9 +110,14 @@ const BUILDERS = {
     const rows = Array.isArray(result.data) ? result.data : Array.isArray(result.data && result.data.students) ? result.data.students : [];
     const matched = typeof totals.matched === "number" ? totals.matched : null;
     if (matched === null) return null;
-    const conditions = Object.entries(totals).filter(([key, n]) => key !== "matched" && typeof n === "number").map(([key, n]) => `${key.replace(/_/g, " ")}: ${n}`);
+    const scope = result.scope || {};
+    const each = Array.isArray(scope.each_condition) ? scope.each_condition : [];
+    const conditions = each.length
+      ? each.map((c) => `${c.condition}: ${c.students}${c.from ? ` (${dayInWords(c.from)} to ${dayInWords(c.to)}${typeof c.school_days === "number" ? `, ${plural(c.school_days, "school day")}${typeof c.days_marked === "number" ? `, attendance taken on ${c.days_marked}` : ""}` : ""})` : ""}`)
+      : Object.entries(totals).filter(([key, v]) => key !== "matched" && typeof v === "number").map(([key, v]) => `${key.replace(/_/g, " ")}: ${v}`);
+    const classes = Array.isArray(scope.classes) ? scope.classes : [];
     return {
-      summary_text: `${plural(matched, "student")} ${matched === 1 ? "matches" : "match"} all of the conditions${conditions.length ? ` (each on its own - ${conditions.join("; ")})` : ""}.`,
+      summary_text: `${plural(matched, "student")} ${matched === 1 ? "matches" : "match"} all of the conditions${classes.length ? ` in ${classes.length > 4 ? plural(classes.length, "class", "classes") : classes.join(", ")}` : ""}${typeof totals.students_in_scope === "number" ? ` (${plural(totals.students_in_scope, "student")} checked)` : ""}${conditions.length ? `. Each condition on its own - ${conditions.join("; ")}` : ""}.`,
       table: table(rows, [["Student", nameOf], ["Class", classOf]], matched),
       total: matched,
     };
@@ -192,6 +212,138 @@ const BUILDERS = {
     };
   },
 };
+
+// ── The next ten (2026-11-23): terms, birthdays, a student's attendance and fees, forms, staff,
+// Report Builder, overdue balances, sent messages and subjects ──
+const n = (v) => Number(v || 0).toLocaleString("en-US");
+const range = (from, to) => `${dayInWords(from)} to ${dayInWords(to)}`;
+Object.assign(BUILDERS, {
+  get_term(result) {
+    if (!Array.isArray(result)) return null;
+    if (!result.length) return { summary_text: "No terms are set up for this school yet.", table: "", total: 0 };
+    const current = result.find((t) => t.current || t.current_term);
+    const others = result.filter((t) => t !== current);
+    return {
+      summary_text: `${current ? `Current term: ${current.term_name} ${current.year_label || ""}, ${range(current.start_date, current.end_date)}.` : "No term is marked current."}${others.length ? ` Other terms: ${others.map((t) => `${t.term_name} ${t.year_label || ""} (${range(t.start_date, t.end_date)})`.replace(/\s+\(/, " (")).join("; ")}.` : ""}`.replace(/\s+,/g, ","),
+      table: table(result, [["Term", (t) => t.term_name], ["School year", (t) => t.year_label], ["Starts", (t) => dayInWords(t.start_date)], ["Ends", (t) => dayInWords(t.end_date)], ["Current", (t) => (t.current || t.current_term ? "Yes" : "")]]),
+      total: result.length,
+    };
+  },
+  get_upcoming_birthdays(result) {
+    const rows = Array.isArray(result.birthdays) ? result.birthdays : null;
+    if (!rows) return null;
+    const today = rows.filter((b) => b.isToday);
+    return {
+      summary_text: `${rows.length ? plural(rows.length, "birthday") : "No birthdays"} in the next ${plural(result.windowDays || 7, "day")} (${result.scope || "this school"})${today.length ? `; ${today.length} today: ${namesList(today, (b) => b.name)}` : ""}.`,
+      table: table(rows, [["Name", (b) => b.name], ["Class or role", (b) => b.roleOrClass], ["Birthday", (b) => b.nextBirthdayLabel], ["Turning", (b) => b.turningAge], ["When", (b) => b.timingLabel]]),
+      total: rows.length,
+    };
+  },
+  get_attendance(result) {
+    if (!result.student || !Array.isArray(result.summary)) return null;
+    const count = (status) => (result.summary.find((x) => String(x.status).toLowerCase() === status) || {}).count || 0;
+    const marked = result.summary.reduce((sum, x) => sum + Number(x.count || 0), 0);
+    return {
+      summary_text: `${nameOf(result.student)}, ${result.covers || "recent days"}: ${marked ? `${n(count("present"))} present, ${n(count("absent"))} absent${count("late") ? `, ${n(count("late"))} late` : ""} of ${plural(marked, "day")} marked` : "no attendance marked"}.`,
+      table: table((result.records || []).slice().reverse(), [["Date", (r) => dayInWords(r.date)], ["Status", (r) => r.status]]),
+      total: marked,
+    };
+  },
+  get_form_requests(result) {
+    const t = result.totals;
+    if (!t || typeof t.studentsInScope !== "number") return null;
+    const classes = result.scope && Array.isArray(result.scope.classes) ? result.scope.classes : [];
+    const where = classes.length === 1 ? classes[0] : `${plural(classes.length, "class", "classes")}`;
+    const forms = Array.isArray(result.by_form) ? result.by_form : [];
+    return {
+      summary_text: !t.formsAsked
+        ? `No live form has been asked of families in ${where}.`
+        : `${n(t.studentsWithOutstanding)} of ${plural(t.studentsInScope, "student")} in ${where} have a form outstanding (${plural(t.formsOutstanding, "form")} outstanding in all${t.overdueOutstanding ? `, ${n(t.overdueOutstanding)} overdue` : ""}); ${n(t.studentsAllDone)} have completed every form asked of them.`,
+      table: table(forms, [["Form", (f) => f.title || f.form], ["Outstanding", (f) => f.outstanding], ["Completed", (f) => f.completed], ["Due", (f) => (f.dueDate ? dayInWords(f.dueDate) : "")]]),
+      total: t.studentsWithOutstanding,
+    };
+  },
+  list_employees(result) {
+    if (typeof result.total !== "number" || !Array.isArray(result.employees)) return null;
+    const roles = Object.entries(result.byRole || {}).sort((a, b) => b[1] - a[1]).map(([role, count]) => plural(count, role));
+    return {
+      summary_text: `${plural(result.total, "staff member")}${roles.length ? `: ${roles.join(", ")}` : ""}.`,
+      table: table(result.employees, [["Name", (e) => e.name], ["Role", (e) => e.role], ["Classes", (e) => (Array.isArray(e.classNames) ? e.classNames.length : "")], ["Status", (e) => (e.onHold ? "On hold" : e.pendingSetup ? "Setup pending" : "Active")]], result.total),
+      total: result.total,
+    };
+  },
+  get_fees(result) {
+    if (!result.student || !result.totals) return null;
+    const payments = Array.isArray(result.payments) ? result.payments : [];
+    return {
+      summary_text: `${nameOf(result.student)}: ${n(result.totals.total_paid)} paid${Number(result.totals.total_refunded) ? ` and ${n(result.totals.total_refunded)} refunded` : ""}, in ${plural(payments.length, "payment")} recorded${payments.length >= 20 ? " (the 20 most recent are listed; the totals cover all of them)" : ""}. This is what was paid, not what is owed (the overdue balances list shows what is still owed).`,
+      table: table(payments, [["Date", (pmt) => dayInWords(pmt.received_at || pmt.occurrence_date)], ["Amount", (pmt) => pmt.amount], ["Method", (pmt) => pmt.method], ["Refund", (pmt) => (pmt.is_refund ? "Yes" : "")]]),
+      total: payments.length,
+    };
+  },
+  run_report(result) {
+    if (typeof result.total !== "number" || !Array.isArray(result.rows)) return null;
+    const columns = (result.columns || Object.keys(result.rows[0] || {})).slice(0, 6);
+    const filters = Array.isArray(result.filtersApplied) ? result.filtersApplied.join("; ") : "";
+    return {
+      summary_text: `${plural(result.total, "row")} in "${result.report}"${filters ? ` (${filters})` : ""}${result.rows.length < result.total ? `; this page shows ${result.rows.length}` : ""}.`,
+      table: table(result.rows, columns.map((c) => [c, (row) => row[c]]), result.total),
+      total: result.total,
+    };
+  },
+  get_overdue_balances(result) {
+    const t = result.totals;
+    if (!t || typeof t.studentsOwing !== "number") return null;
+    const rows = Array.isArray(result.data) ? result.data : [];
+    const scope = result.scope || {};
+    const period = scope.period ? `${scope.period.term || ""} ${scope.period.schoolYear || ""}`.trim() : "";
+    return {
+      summary_text: t.studentsOwing
+        ? `${plural(t.studentsOwing, "student")} owe ${t.totalOwedText || n(t.totalOwed)} in all (${scope.classes || "every class"}${period ? `, ${period}` : ""})${t.owedWithNothingPaidText ? `; ${t.owedWithNothingPaidText} of it with nothing paid` : ""}${typeof t.thirtyPlusDaysLate === "number" ? `; ${n(t.thirtyPlusDaysLate)} of them 30+ days late` : ""}.`
+        : `No student owes anything (${scope.classes || "every class"}${period ? `, ${period}` : ""}).`,
+      table: table(rows, [["Student", (r) => r.student], ["Class", (r) => r.class], ["Owed", (r) => r.owedText || r.owed], ["Status", (r) => r.status], ["Parent", (r) => r.parent]], t.studentsOwing),
+      total: t.studentsOwing,
+    };
+  },
+  list_sent_messages(result) {
+    const rows = Array.isArray(result.messages) ? result.messages : null;
+    if (!rows) return null;
+    const by = (status) => rows.filter((m) => m.status === status).length;
+    return {
+      summary_text: rows.length
+        ? `The ${plural(rows.length, "most recent message")}${result.onlyYourOwnSends ? " you sent" : ""} (a list, not a total): ${by("sent")} sent, ${by("failed")} failed, ${by("pending")} pending.`
+        : `No messages${result.onlyYourOwnSends ? " sent by you" : ""} in the Mailroom's history.`,
+      table: table(rows, [["When", (m) => dayInWords(m.at)], ["To", (m) => m.to], ["Channel", (m) => m.channel], ["Status", (m) => m.status], ["Message", (m) => m.subject || m.message]]),
+      total: rows.length,
+    };
+  },
+  list_student_remarks(result) {
+    if (!result.totals || !Array.isArray(result.students)) return null;
+    const t = result.totals;
+    return {
+      summary_text: `${result.class}, ${result.term}${result.schoolYear ? ` ${result.schoolYear}` : ""}: ${plural(t.students, "student")}; ${n(t.withATeacherRemark)} have a teacher remark, ${n(t.withNoRemarks)} have no remarks at all.`,
+      table: table(result.students, [["Student", (s) => s.student], ["Teacher", (s) => s.teacher], ["Conduct", (s) => s.conduct], ["Attitude", (s) => s.attitude], ["Interest", (s) => s.interest]], t.students),
+      total: t.students,
+    };
+  },
+  list_report_signatures(result) {
+    const rows = Array.isArray(result.signatures) ? result.signatures : null;
+    if (!rows) return null;
+    return {
+      summary_text: rows.length ? `${plural(rows.length, "uploaded signature")}: ${rows.map((s) => `${s.label}${s.obsolete ? " (obsolete)" : ""} on ${s.classes.length ? plural(s.classes.length, "class", "classes") : "no classes"}`).join("; ")}.` : "No report-card signature has been uploaded yet (Report Settings).",
+      table: table(rows, [["Signature", (s) => s.label], ["Classes", (s) => s.classes.join(", ") || "(none)"], ["Obsolete", (s) => (s.obsolete ? "Yes" : "")]]),
+      total: rows.length,
+    };
+  },
+  list_subjects(result) {
+    if (!Array.isArray(result)) return null;
+    return {
+      summary_text: result.length ? `${plural(result.length, "subject")}: ${namesList(result, (x) => `${x.subject_name} (${plural((x.assigned_classes || []).length, "class", "classes")})`)}.` : "No subjects are set up yet.",
+      table: table(result, [["Subject", (x) => x.subject_name], ["Classes", (x) => (x.assigned_classes || []).length]]),
+      total: result.length,
+    };
+  },
+});
 
 const COVERED = Object.keys(BUILDERS);
 

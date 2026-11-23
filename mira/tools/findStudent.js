@@ -25,6 +25,9 @@ module.exports = {
     });
     if (args?.className) params.set("className", String(args.className).trim());
     const result = await callInternalApi(`/internal/api/students/search?${params.toString()}`);
-    return result.students || [];
+    const students = result.students || [];
+    // A search cut short says so, with the true count (a common name can match many students).
+    if (result.truncated) return { students, total_matches: result.total, truncated: true, note: `Showing ${students.length} of ${result.total} students matching "${args.query}". Narrow it with a class or the full name.` };
+    return students;
   },
 };

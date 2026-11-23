@@ -25,6 +25,7 @@ const L1 = [
   "set_student_assessment_status", "save_attempt_grade", "create_document", "set_document_title", "set_document_text", "set_sheet_cells",
   "resize_sheet", "insert_class_data_into_sheet", "remove_document_share", "unassign_document_from_class", "fix_failed_email",
   "update_pending_admission", "set_report_card_display_options", "set_grading_scale_band", "set_promotion_settings", "add_remark",
+  "set_student_remarks", "apply_report_signature",
   "set_notification_preferences", "submit_feedback",
 ];
 const L2 = [

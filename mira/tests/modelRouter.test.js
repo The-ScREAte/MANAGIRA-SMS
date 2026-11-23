@@ -80,8 +80,8 @@ test("every chat turn runs on Claude through OpenRouter, never gpt-4o-mini; Teln
   const map = TASK_MODEL_MAPS.openrouter;
   assert.equal(map.default, "anthropic/claude-haiku-5.5");
   assert.equal(map.lookup, "anthropic/claude-haiku-5.5");
-  assert.equal(map.draft, "anthropic/claude-sonnet-5.5");
-  assert.equal(map.reasoning, "anthropic/claude-sonnet-5.5");
+  assert.equal(map.draft, "anthropic/claude-haiku-5.5", "every task on Haiku 5.5 (MIRA_STRONG_MODEL can put Sonnet back)");
+  assert.equal(map.reasoning, "anthropic/claude-haiku-5.5");
   assert.ok(!Object.values(map).includes("openai/gpt-4o-mini"));
   assert.ok(Object.values(TASK_MODEL_MAPS.telnyx).every((m) => m === "moonshotai/Kimi-K2.5"));
   assert.deepEqual(PROVIDER_PRIORITY, ["openrouter", "telnyx", "openai", "anthropic"]);
@@ -104,4 +104,14 @@ test("every model Mira can run on has a price", () => {
     for (const model of new Set(Object.values(map))) assert.ok(estimateCost(model, 1_000_000, 0) > 0, model);
   }
   assert.equal(estimateCost("anthropic/claude-haiku-5.5", 1_000_000, 1_000_000), 0.6);
+});
+
+test("Claude's long opening is cached; costs count cached tokens at a tenth", () => {
+  const { cacheForClaude } = require("../services/modelRouter");
+  const wire = [{ role: "system", content: "You are Mira..." }, { role: "system", content: "Today is ..." }, { role: "user", content: "hi" }];
+  const out = cacheForClaude("anthropic/claude-haiku-5.5", wire);
+  assert.deepEqual(out[0].content, [{ type: "text", text: "You are Mira...", cache_control: { type: "ephemeral" } }]);
+  assert.equal(out[1].content, "Today is ...", "only the unchanging opening is marked");
+  assert.equal(cacheForClaude("openai/gpt-4o-mini", wire), wire, "other models unchanged");
+  assert.equal(Number(estimateCost("anthropic/claude-haiku-5.5", 10000, 0, 9000).toFixed(6)), Number(((1000 * 0.1 + 9000 * 0.01) / 1e6).toFixed(6)));
 });

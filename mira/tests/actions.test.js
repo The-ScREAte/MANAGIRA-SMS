@@ -229,3 +229,28 @@ test("a read tool never lets the model choose who is asking", async () => {
   assert.equal(url.searchParams.get("organizationId"), "63");
   assert.equal(url.searchParams.get("q"), "Ama");
 });
+
+test("a message reaching a whole school is confirmed by typing the recipient count", () => {
+  const gate = require("../services/confirmGate");
+  const T = { organizationId: 63, userId: 240 };
+  const p = gate.create({ tenant: T, chatId: 41, turn: 1, tool: "send_message", args: { message: "School is closed tomorrow.", channels: ["email"], allGuardians: true }, level: 3, label: "Email every parent", typeToConfirm: "1801" });
+  assert.equal(p.keyDetail, "1801");
+  const plainYes = gate.decide({ tenant: T, chatId: 41, userText: "yes, send it" });
+  assert.equal(plainYes.run.length, 0, "a plain yes isn't enough");
+  assert.match(plainYes.refusal, /"1801"/);
+  assert.equal(gate.decide({ tenant: T, chatId: 41, userText: "yes send it to all 1801" }).run.length, 1);
+});
+
+test("when only previews exist, a permanent change says exactly what to type", () => {
+  const { waitingLine } = require("../services/orchestrator");
+  assert.equal(waitingLine([{ level: 1, label: "Create event X" }]), "Nothing has been done yet: the preview above is waiting for your Confirm.");
+  assert.equal(waitingLine([{ level: 3, label: "Delete school year 2026-2027", keyDetail: "2026-2027" }]), "Nothing has been done yet. Delete school year 2026-2027 can't be undone: to go ahead, type **2026-2027** (or press Confirm and type it).");
+});
+
+test("a delete takes what's attached only when the person asks for that", () => {
+  const { asksToIncludeAttached } = require("../services/orchestrator");
+  assert.equal(asksToIncludeAttached("Delete the subject Art.", []), false);
+  assert.equal(asksToIncludeAttached("Delete Art and everything in it, including the scores.", []), true);
+  assert.equal(asksToIncludeAttached("yes", [{ role: "user", content: "Delete the Fall enrollment with all its placements" }]), true, "said in the message before");
+  assert.equal(asksToIncludeAttached("yes do it", [{ role: "user", content: "Delete the class Grade 5 - Room 7" }]), false);
+});

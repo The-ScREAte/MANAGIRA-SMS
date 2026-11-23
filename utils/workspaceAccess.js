@@ -105,6 +105,9 @@ function workspaceAccess({ permissions, features, role, featureOn } = {}) {
   return {
     management: { ...management, any: anyOf(management) },
     reports: { ...reports, any: anyOf(reports) },
+    // Not a menu: opening and printing report cards themselves (/print/printStudentReport) needs
+    // Terminal Reports, so links to them show only where it's held.
+    printReportCards: can("reports_terminal") && hasTermReports,
     admissions: { ...admissions, any: anyOf(admissions) },
     transport: {
       buses: can("transport_buses"),

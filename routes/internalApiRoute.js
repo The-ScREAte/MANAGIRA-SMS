@@ -20,6 +20,13 @@ router.get("/forms/status", require("../controllers/miraFormsApi").status);
 // Mira's read tools, one shape (utils/miraRead/<group>.js).
 router.get("/read/:tool", require("../utils/miraRead").handle);
 router.post("/forms/remind", require("../controllers/miraFormsApi").remind);
+// What's attached to a record before Mira deletes it (controllers/miraDeleteCheck.js).
+router.get("/delete-check", require("../controllers/miraDeleteCheck").deleteCheck);
+// Report cards: each student's remarks, and which uploaded signature each class uses (controllers/miraReportsApi.js).
+router.get("/reports/student-remarks", require("../controllers/miraReportsApi").listRemarks);
+router.post("/reports/student-remarks", require("../controllers/miraReportsApi").saveRemarks);
+router.get("/reports/signatures", require("../controllers/miraReportsApi").listSignatures);
+router.post("/reports/signatures/apply", require("../controllers/miraReportsApi").applySignature);
 router.get("/classes", internalApiController.listClasses);
 router.get("/terms", internalApiController.listTerms);
 router.get("/organizations/:organizationId", internalApiController.getOrganization);

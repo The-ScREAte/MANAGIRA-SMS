@@ -27,9 +27,11 @@ const PRICING_PER_MILLION = {
   mock: { prompt: 0, completion: 0 },
 };
 
-function estimateCost(model, promptTokens, completionTokens) {
+// Tokens read from the prompt cache cost a tenth of the input price (Claude's cache reads).
+function estimateCost(model, promptTokens, completionTokens, cachedTokens = 0) {
   const pricing = PRICING_PER_MILLION[model] || PRICING_PER_MILLION.mock;
-  return (promptTokens * pricing.prompt + completionTokens * pricing.completion) / 1_000_000;
+  const cached = Math.min(Math.max(0, cachedTokens || 0), promptTokens);
+  return ((promptTokens - cached) * pricing.prompt + cached * pricing.prompt * 0.1 + completionTokens * pricing.completion) / 1_000_000;
 }
 
 const DEFAULT_DAILY_CAP_USD = process.env.MIRA_DEFAULT_DAILY_CAP_USD ? Number(process.env.MIRA_DEFAULT_DAILY_CAP_USD) : null;
@@ -73,9 +75,9 @@ async function checkBudget(tenantId) {
   return { allowed: true };
 }
 
-async function recordUsage({ tenantId, userId, provider, model, promptTokens = 0, completionTokens = 0 }) {
+async function recordUsage({ tenantId, userId, provider, model, promptTokens = 0, completionTokens = 0, cachedTokens = 0 }) {
   await ensureMiraSchema(db);
-  const cost = estimateCost(model, promptTokens, completionTokens);
+  const cost = estimateCost(model, promptTokens, completionTokens, cachedTokens);
   await db.query(
     `INSERT INTO mira_usage_ledger (tenant_id, user_id, provider, model, prompt_tokens, completion_tokens, estimated_cost_usd)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,

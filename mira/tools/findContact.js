@@ -16,6 +16,8 @@ module.exports = {
     assertIsStaff(tenant, "search for guardian contacts");
     const params = new URLSearchParams({ organizationId: String(tenant.organizationId), q: String(args?.query || "").trim() });
     const result = await callInternalApi(`/internal/api/guardians/search?${params.toString()}`);
-    return result.guardians || [];
+    const guardians = result.guardians || [];
+    if (result.truncated || result.scope) return { guardians, total_matches: result.total, truncated: Boolean(result.truncated), ...(result.scope ? { scope: result.scope } : {}) };
+    return guardians;
   },
 };

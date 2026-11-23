@@ -374,7 +374,8 @@
                     <% employees.forEach(function(employee) { %>
                       <% var initials = (employee.name || '?').trim().split(/\s+/).slice(0,2).map(function(p){return p[0];}).join('').toUpperCase(); %>
                       <%# A teacher opens as a card in the drawer (public/js/headerMenu.js, ManagiraPersonCard). %>
-                      <a class="teacher-chip <% if (employee.main) { %>is-main<% } %>" href="/common/employeeDetails?userId=<%= employee.user_id %>" data-person="staff:<%= employee.user_id %>">
+                      <%# The staff page link only for those who can open it (Manage Employees); for everyone the chip opens the card. %>
+                      <a class="teacher-chip <% if (employee.main) { %>is-main<% } %>" href="<%= (typeof workspaceAccess === 'function' && workspaceAccess().management.employees) ? '/common/employeeDetails?userId=' + employee.user_id : '#' %>" data-person="staff:<%= employee.user_id %>">
                         <span class="teacher-avatar"><%= initials %></span>
                         <span class="teacher-info">
                           <span class="teacher-name"><%= employee.name %></span>

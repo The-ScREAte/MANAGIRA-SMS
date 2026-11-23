@@ -36,6 +36,15 @@ module.exports = {
         return { status: "not_found", message: error.message };
       }
 
+      // Scores block the deletion: there's nothing to confirm, only gentler options to offer.
+      if (impact.scoreCount > 0) {
+        return {
+          status: "blocked",
+          title: impact.title, classCount: impact.classCount, scoreCount: impact.scoreCount,
+          message: `"${impact.title}" can't be deleted: it's assigned to ${impact.classCount} class${impact.classCount === 1 ? "" : "es"} and ${impact.scoreCount} student score${impact.scoreCount === 1 ? " is" : "s are"} entered, and Managira keeps a test with scores. ` +
+            "Offer the gentler options instead: deactivate it (hidden, every score kept) or lock it (no more score entry); both can be reversed. Don't offer to delete it.",
+        };
+      }
       return {
         status: "confirmation_required",
         title: impact.title,

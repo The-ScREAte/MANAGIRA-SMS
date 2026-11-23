@@ -8,7 +8,7 @@ module.exports = [
     topic: "Reports & analytics",
     order: 1,
     summary: "Generate a class's term report cards with scores, grades, attendance and remarks, then print them or email them to families in one go.",
-    tags: ["report cards", "terminal reports", "term report", "print report cards", "email report cards", "progress report"],
+    tags: ["report cards", "terminal reports", "term report", "print report cards", "email report cards", "progress report", "post report cards", "publish report cards", "send report cards"],
     featured: true,
     who: "Managers, and staff given <strong>Terminal Reports</strong> (under Manage Reports/Printing).",
     intro: "A report card gathers a student's term: each subject's scores, grade and remark, attendance, comments and signatures. You decide what it shows in <a href=\"/legal/user-documentation/report-settings\">Report Settings</a>.",
@@ -21,6 +21,17 @@ module.exports = [
           "Print them all, download them as a PDF, or email them to families.",
         ],
         note: "Report cards are emailed from <strong>reports@managira.com</strong> with your school's name, to the parents on each student's record.",
+      },
+      {
+        title: "Post report cards to the parent and student portal",
+        steps: [
+          "Generate the class's report cards (above) and check a few of them.",
+          "Choose <strong>Send Report</strong>.",
+          "Leave <strong>Post to Parent + Student portal</strong> ticked, so families and students can open the report cards in their portal.",
+          "Under <strong>Notify via</strong>, choose how families hear about it, and add a message if you like.",
+          "Enter your password to confirm, then choose <strong>Send</strong>.",
+        ],
+        note: "Families see posted report cards in the parent portal; see <a href=\"/legal/user-documentation/parent-grades-and-report-cards\">Grades and report cards</a>.",
       },
       {
         title: "What's on a report card",

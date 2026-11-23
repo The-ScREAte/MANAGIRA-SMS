@@ -169,6 +169,10 @@ const deleteGradingScaleBand = require("./deleteGradingScaleBand");
 const setPromotionSettings = require("./setPromotionSettings");
 const listRemarks = require("./listRemarks");
 const addRemark = require("./addRemark");
+const listStudentRemarks = require("./listStudentRemarks");
+const setStudentRemarks = require("./setStudentRemarks");
+const listReportSignatures = require("./listReportSignatures");
+const applyReportSignature = require("./applyReportSignature");
 const deleteRemark = require("./deleteRemark");
 const getCloseGroupCandidates = require("./getCloseGroupCandidates");
 const closeGraduationYearGroup = require("./closeGraduationYearGroup");
@@ -353,6 +357,10 @@ const ALL_TOOLS = [
   setPromotionSettings,
   listRemarks,
   addRemark,
+  listStudentRemarks,
+  setStudentRemarks,
+  listReportSignatures,
+  applyReportSignature,
   deleteRemark,
   getCloseGroupCandidates,
   closeGraduationYearGroup,
@@ -378,7 +386,10 @@ const ALL_TOOLS = [
 
 // Read tools in one shape (tools/read/: utils/miraRead on the main app).
 const READ_TOOLS = require("./read").tools;
-const REGISTRY = Object.fromEntries([...ALL_TOOLS, ...READ_TOOLS].map((t) => [t.name, t]));
+// Deletes check what's attached first, and never delete a record that has records attached unless
+// the person asked for that (tools/_attached.js).
+const { wrap: checkAttached } = require("./_attached");
+const REGISTRY = Object.fromEntries([...ALL_TOOLS, ...READ_TOOLS].map((t) => checkAttached(t)).map((t) => [t.name, t]));
 if (Object.keys(REGISTRY).length !== ALL_TOOLS.length + READ_TOOLS.length) throw new Error("A Mira tool name is registered twice.");
 
 function listToolSchemas() {

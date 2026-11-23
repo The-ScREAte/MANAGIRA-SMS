@@ -1102,6 +1102,9 @@ module.exports = {
           students: enriched.length,
           listed: listed.length,
           school_days: schoolDays.length,
+          // How many of those school days attendance was actually taken (for anyone in scope):
+          // "absent more than twice" means little if only a few days were marked.
+          days_marked: enriched.reduce((most, r) => Math.max(most, Number(r.school_days_marked) || 0), 0),
           present: sum(enriched, "present"),
           absent: sum(enriched, "absent"),
           ...(lateRecorded ? { late: sum(enriched, "late") } : {}),

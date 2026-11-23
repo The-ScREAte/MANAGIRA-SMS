@@ -186,20 +186,23 @@ async function searchStudents(req, res) {
       return res.json({ students: [] });
     }
 
+    // Every match up to the cap, with the true count: a search cut at 10 without saying so
+    // silently left people out of a common name's results.
     const result = await db.query(
       `SELECT s.student_id, s.first_name, s.last_name, s.grade, s.gender,
-              s.custom_student_id, c.class_name
+              s.custom_student_id, c.class_name, COUNT(*) OVER ()::int AS total_matches
        FROM students s
        LEFT JOIN classes c ON c.class_id = s.class_id
        WHERE s.organization_id = $1
          AND (s.first_name || ' ' || s.last_name) ILIKE $2
          AND ($3 = '' OR LOWER(c.class_name) = LOWER($3))
        ORDER BY s.last_name, s.first_name
-       LIMIT 10`,
+       LIMIT 50`,
       [organizationId, `%${q}%`, className]
     );
-
-    return res.json({ students: result.rows });
+    const total = result.rows.length ? result.rows[0].total_matches : 0;
+    const students = result.rows.map(({ total_matches, ...row }) => row);
+    return res.json({ students, total, truncated: total > students.length });
   } catch (error) {
     console.error("[internalApi/searchStudents]", error);
     return res.status(500).json({ error: "Unable to search students." });
@@ -214,20 +217,38 @@ async function searchGuardians(req, res) {
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
     if (!q) return res.json({ guardians: [] });
 
+    // Who may see which guardians, as on their pages: Contacts or Guardians see every family;
+    // someone who reaches families only through the Mailroom sees the families of the classes
+    // the Mailroom lets them message (all of them for managers). Without any of these, none.
+    const { userId, userRole, accountType, userEmail } = req.query || {};
+    const who = { userId, userRole, organizationId, accountType, userEmail };
+    const full = (await userHasPermission(db, who, PERMISSIONS.SEE_CONTACTS || "see_contacts")) || (await userHasPermission(db, who, PERMISSIONS.MANAGE_GUARDIANS || "manage_guardians"));
+    let classIds = null;
+    if (!full) {
+      if (!(await userHasPermission(db, who, "mailroom"))) return res.status(403).json({ error: "You don't have permission to see families' contact details.", code: "PERMISSION_DENIED" });
+      classIds = await guardianMessaging.getMailroomAllowedClassIdsFor({ orgId: organizationId, userId, userRole, accountType });
+    }
+
     const result = await db.query(
       `SELECT gp.guardian_id, gp.first_name, gp.last_name, gp.phone, gp.email,
-              array_agg(DISTINCT (s.first_name || ' ' || s.last_name)) FILTER (WHERE s.student_id IS NOT NULL) AS student_names
+              array_agg(DISTINCT (s.first_name || ' ' || s.last_name)) FILTER (WHERE s.student_id IS NOT NULL) AS student_names,
+              COUNT(*) OVER ()::int AS total_matches
        FROM guardian_profiles gp
        LEFT JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
        LEFT JOIN students s ON s.student_id = gs.student_id AND s.organization_id = gp.organization_id
        WHERE gp.organization_id = $1
          AND (gp.first_name || ' ' || gp.last_name) ILIKE $2
+         AND ($3::int[] IS NULL OR EXISTS (
+           SELECT 1 FROM guardian_students gs2 JOIN students s2 ON s2.student_id = gs2.student_id
+            WHERE gs2.guardian_id = gp.guardian_id AND s2.organization_id = $1 AND s2.class_id = ANY($3::int[])))
        GROUP BY gp.guardian_id
        ORDER BY gp.last_name, gp.first_name
-       LIMIT 10`,
-      [organizationId, `%${q}%`]
+       LIMIT 50`,
+      [organizationId, `%${q}%`, classIds]
     );
-    return res.json({ guardians: result.rows });
+    const total = result.rows.length ? result.rows[0].total_matches : 0;
+    const guardians = result.rows.map(({ total_matches, ...row }) => row);
+    return res.json({ guardians, total, truncated: total > guardians.length, ...(classIds ? { scope: "only the families of the classes your Mailroom reaches" } : {}) });
   } catch (error) {
     console.error("[internalApi/searchGuardians]", error);
     return res.status(500).json({ error: "Unable to search guardians." });
@@ -326,18 +347,25 @@ async function listClasses(req, res) {
     const q = String(req.query.q || "").trim();
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
 
+    // Every matching class (a school has far fewer than the cap), with the total: a list cut at
+    // 20 without saying so once made Mira count 20 classes and 600 students for a school of 80
+    // and 2,400.
+    const CAP = 500;
     const result = await db.query(
-      `SELECT c.class_id, c.class_name, COUNT(s.student_id)::int AS student_count
+      `SELECT c.class_id, c.class_name, COUNT(s.student_id)::int AS student_count,
+              COUNT(*) OVER ()::int AS total_classes
        FROM classes c
        LEFT JOIN students s ON s.class_id = c.class_id AND s.organization_id = c.organization_id
        WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
          AND ($2 = '' OR c.class_name ILIKE '%' || $2 || '%')
        GROUP BY c.class_id
        ORDER BY c.dashboard_sort_order NULLS LAST, c.class_name
-       LIMIT 20`,
+       LIMIT ${CAP}`,
       [organizationId, q]
     );
-    return res.json({ classes: result.rows });
+    const total = result.rows.length ? result.rows[0].total_classes : 0;
+    const classes = result.rows.map(({ total_classes, ...row }) => row);
+    return res.json({ classes, total, truncated: total > classes.length });
   } catch (error) {
     console.error("[internalApi/listClasses]", error);
     return res.status(500).json({ error: "Unable to load classes." });
@@ -441,7 +469,7 @@ async function getMiraActivationStatusApi(req, res) {
 // can't do, and why: not given to them, or not in the school's plan.
 // Parents and students hold no staff permission.
 // The features Mira needs to know about (its own, and the ones some of its read tools depend on).
-const MIRA_FEATURES = ["mira_skills", "mira_forms", "mira_read_more", "weekly_briefing", "class_settings"];
+const MIRA_FEATURES = ["mira_skills", "mira_forms", "mira_read_more", "weekly_briefing", "class_settings", "mira_report_cards"];
 async function getMiraAccessApi(req, res) {
   try {
     const organizationId = parseInt(req.query.organizationId, 10);
@@ -9457,7 +9485,9 @@ async function sendReportCardsApi(req, res) {
 // Uses the Mailroom's own directory, access rules (class-restricted staff
 // only reach their classes' guardians) and sending, so messages appear in
 // Mailroom history. Preview first; nothing is sent until confirm=true.
-const MIRA_MAX_RECIPIENTS = 500;
+// Mira can reach a whole school (up to this many families); over MIRA_TYPED_RECIPIENTS the
+// person must type the recipient count to confirm (mira/services/orchestrator.js).
+const MIRA_MAX_RECIPIENTS = 5000;
 async function sendMessagesApi(req, res) {
   try {
     const organizationId = await assertHasPermission(req, PERMISSIONS.MAILROOM, "You don't have permission to send messages (Mailroom).");
@@ -9503,7 +9533,7 @@ async function sendMessagesApi(req, res) {
       });
     }
 
-    // Mira sends to at most 500 families at once; the Mail Room page has no such limit.
+    // Mira sends to at most MIRA_MAX_RECIPIENTS families at once; the Mail Room page has no such limit.
     if (contacts.length > MIRA_MAX_RECIPIENTS) {
       return res.status(413).json({
         code: "TOO_MANY",

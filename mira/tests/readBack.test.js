@@ -102,3 +102,43 @@ test("a waiting preview survives a restart and still runs only once", async () =
   await second.load(T, 9);
   assert.equal(second.decide({ tenant: T, chatId: 9, userText: "yes" }).run.length, 0, "single use");
 });
+
+test("the riskiest changes are read back too", async () => {
+  const sent = { list_sent_messages: { messages: [{ message: "School closes early on Friday at 1 PM.", status: "sent" }] } };
+  assert.equal((await readBack.verify("send_message", { message: "School closes early on Friday at 1 PM." }, run(sent))).state, "confirmed");
+  assert.equal((await readBack.verify("send_message", { message: "Something else" }, run(sent))).state, "missing");
+  const subjects = { list_subjects: [{ subject_name: "Art", assigned_classes: [{ class_name: "6A" }] }] };
+  assert.equal((await readBack.verify("create_subject", { subjectName: "Art", classNames: ["6A"] }, run(subjects))).state, "confirmed");
+  assert.equal((await readBack.verify("create_subject", { subjectName: "Art", classNames: ["6B"] }, run(subjects))).state, "missing");
+  assert.equal((await readBack.verify("delete_subject", { subjectName: "Music" }, run(subjects))).state, "confirmed");
+  assert.equal((await readBack.verify("delete_subject", { subjectName: "Art", className: "6A" }, run(subjects))).state, "missing");
+  const site = { get_website_settings: { sections: { faq: { enabled: true, title: "FAQ" } } } };
+  assert.equal((await readBack.verify("update_website_section", { section: "faq", title: "FAQ", enabled: true }, run(site))).state, "confirmed");
+  assert.equal((await readBack.verify("update_website_section", { section: "faq", title: "Questions" }, run(site))).state, "missing");
+  const roster = { get_enrollment_roster: { classes: [{ className: "6A", students: [{ first_name: "Ama", last_name: "Owusu" }] }] } };
+  assert.equal((await readBack.verify("set_enrollment_roster", { roster: [{ className: "6A", studentNames: ["Ama Owusu"] }] }, run(roster))).state, "confirmed");
+  assert.equal((await readBack.verify("set_enrollment_roster", { roster: [{ className: "6A", studentNames: ["Kofi Mensah"] }, { className: "6B", studentNames: [] }] }, run(roster))).missing.length, 2);
+  const found = async (name, args) => ({ status: "ok", result: args.query === "Ama Owusu" ? [{ first_name: "Ama", last_name: "Owusu" }] : [] });
+  assert.equal((await readBack.verify("create_students", { students: [{ firstName: "Ama", lastName: "Owusu" }] }, found)).state, "confirmed");
+  assert.deepEqual((await readBack.verify("create_students", { students: [{ firstName: "Ama", lastName: "Owusu" }, { firstName: "Kofi", lastName: "Mensah" }] }, found)).missing, ["Kofi Mensah isn't in the student list"]);
+  const ann = { list_school_announcements: { announcements: [{ message: "Sports day is on Friday." }] } };
+  assert.equal((await readBack.verify("create_school_announcement", { message: "Sports day is on Friday." }, run(ann))).state, "confirmed");
+  assert.equal((await readBack.verify("delete_school_announcement", { currentText: "Sports day" }, run(ann))).state, "missing");
+  assert.equal((await readBack.verify("delete_test", { title: "Quiz 1" }, run({ list_assessments: { assessments: [{ title: "Quiz 2" }] } }))).state, "confirmed");
+  assert.equal((await readBack.verify("delete_document", { documentId: 7 }, run({ list_documents: { documents: [{ documentId: 7, title: "Policy" }] } }))).state, "missing");
+  const cards = { get_class_readiness: { ok: true, data: [{ class: "6A", report_cards_posted: 30, report_cards_sent: 0 }] } };
+  assert.equal((await readBack.verify("post_or_send_report_cards", { className: "6A", post: true }, run(cards))).state, "confirmed");
+  assert.equal((await readBack.verify("post_or_send_report_cards", { className: "6A", post: false }, run(cards))).state, "missing", "sent-only needs a sent count");
+  const pending = await readBack.verify("post_or_send_report_cards", { className: "6A", post: true }, run(cards), { posting: { started: true } });
+  assert.equal(pending.state, "not_checked", "posting in the background has nothing to read yet");
+  assert.equal((await readBack.verify("remind_form_outstanding", { form: "Trip" }, run({}))).state, "not_checked", "reminders leave no record to read");
+});
+
+test("report-card remarks and signatures are read back", async () => {
+  const remarks = { list_student_remarks: { students: [{ student: "Felix Patel", teacher: "Attendance of 92% needs to improve.", conduct: "" }] } };
+  assert.equal((await readBack.verify("set_student_remarks", { className: "5A", remarks: [{ studentName: "Felix Patel", teacher: "Attendance of 92% needs to improve." }] }, run(remarks))).state, "confirmed");
+  assert.equal((await readBack.verify("set_student_remarks", { className: "5A", remarks: [{ studentName: "Felix Patel", conduct: "Polite." }] }, run(remarks))).state, "missing");
+  const sigs = { list_report_signatures: { signatures: [{ name: "Grace Owusu", title: "Head Teacher", label: "Grace Owusu, Head Teacher", classes: ["5A", "5B"] }] } };
+  assert.equal((await readBack.verify("apply_report_signature", { signature: "Grace Owusu", classNames: ["5A", "5B"] }, run(sigs))).state, "confirmed");
+  assert.deepEqual((await readBack.verify("apply_report_signature", { signature: "Grace Owusu", classNames: ["5C"] }, run(sigs))).missing, ["5C doesn't show Grace Owusu"]);
+});

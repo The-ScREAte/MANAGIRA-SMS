@@ -53,6 +53,7 @@ need(P.questions, ["set_test_questions", "delete_question_set", "review_question
 need([P.assessments, P.questions], ["post_question_set_scores", "unpost_question_set_scores"]);
 // Report cards, merit sheets and report settings
 need(P.terminal, ["generate_report_pdf", "post_or_send_report_cards", "get_merit_sheet", "generate_merit_sheet_pdf", "generate_report_card_summary"]);
+need(P.reportSettings, ["list_report_signatures", "apply_report_signature"], { feature: "mira_report_cards" });
 need(P.reportSettings, ["get_report_settings", "set_report_card_display_options", "set_grading_scale_band", "delete_grading_scale_band", "list_remarks", "add_remark", "delete_remark", "set_promotion_settings"]);
 // Report Builder
 need(P.reportBuilder, ["report_builder_catalog", "run_report", "list_saved_reports", "save_report", "delete_saved_report", "share_saved_report", "schedule_saved_report", "favorite_saved_report", "export_report", "import_report_template"]);
@@ -101,6 +102,8 @@ need(P.sso, ["get_sso_status"]);
   "unassign_document_from_class", "delete_document", "get_upcoming_birthdays", "get_notification_preferences",
   "set_notification_preferences", "submit_feedback",
 ].forEach((tool) => { if (!rules[tool]) rules[tool] = { open: true }; });
+// The report page keeps everyone but managers to their own classes (controllers/miraReportsApi.js).
+["list_student_remarks", "set_student_remarks"].forEach((tool) => { rules[tool] = { open: true, feature: "mira_report_cards" }; });
 
 // Read tools that belong to a feature of their own (hidden where it's off).
 const READ_TOOL_FEATURES = {

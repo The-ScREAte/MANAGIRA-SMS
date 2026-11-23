@@ -30,6 +30,7 @@ test("names must come from the records, the context or the person's words", () =
   assert.deepEqual(unsupportedNames("Emma Owusu is below 90%.", EVIDENCE, ORDINARY), [], "each word is in the records (a known limit: mixed names pass)");
   assert.deepEqual(unsupportedNames("henry dean asked about emma carter", EVIDENCE, ORDINARY), [], "lower-case words aren't names");
   assert.deepEqual(unsupportedNames("Hi Henry, here is the list.", EVIDENCE, ORDINARY), []);
+  assert.deepEqual(unsupportedNames("Six Grade 5 students have October birthdays. Three Of Them are new.", EVIDENCE, ["of them"]), [], "number words start sentences");
 });
 
 test("'all' and 'none' claims need a lookup that found none", () => {

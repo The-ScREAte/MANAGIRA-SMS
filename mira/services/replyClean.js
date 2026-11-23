@@ -49,6 +49,22 @@ function dropIdColumns(text) {
   return out.join("\n");
 }
 
+// What removing an ID can leave behind, mended (only on a line an ID was taken from):
+//   "Record was updated; too."         -> "Record was updated."     (a clause of filler words)
+//   "Emma, student number, is in 5A."   -> "Emma is in 5A."          (a label with nothing left)
+//   "Saved under ." / "sent to ."        -> "Saved." / "sent."        (a word left pointing at nothing)
+const FILLER = String.raw`(?:and|or|also|too|as well|both|either|plus|the|a|an|its|their|his|her|record|number|no\.?|#)`;
+const LABEL = String.raw`(?:(?:student|class|user|staff|employee|record|guardian|parent|account|reference|ref)\s+)?(?:number|no\.|#|code|ref)`;
+const POINTER = String.raw`(?:with|for|of|to|under|as|at|on|in|by|from|is|was|are)`;
+function mendGaps(text) {
+  return text
+    .replace(new RegExp(String.raw`\s*[;,:]\s*(?:${FILLER}\s*)+(?=[.;,!?)]|$)`, "gi"), "")
+    .replace(new RegExp(String.raw`\s*,\s*${LABEL}\s*,\s*`, "gi"), " ")
+    .replace(new RegExp(String.raw`\s+${LABEL}\s*(?=[.;,!?)]|$)`, "gi"), "")
+    .replace(new RegExp(String.raw`\s+${POINTER}\s*(?=[.;,!?)]|$)`, "gi"), "")
+    .replace(/^\s*[;,:]\s*/, "");
+}
+
 /**
  * cleanReply(text, toolNames) -> the reply as the person sees it.
  * `toolNames` are every tool Mira has (REGISTRY's names and load_tools).
@@ -61,7 +77,9 @@ function cleanReply(text, toolNames = []) {
   out = out.split("\n").map((line) => outsideLinks(line, (part) => {
     let p = part.replace(KEYCAP, "").replace(EMOJI, "");
     if (toolName) p = p.replace(toolName, (_, n) => n.replace(/_/g, " "));
-    return p.replace(UUID, "").replace(PREVIEW_ID, "").replace(ID_IN_BRACKETS, " ").replace(ID_CODE_NAME, " ").replace(ID_BARE, " ");
+    const before = p;
+    const after = p.replace(UUID, " ").replace(PREVIEW_ID, " ").replace(ID_IN_BRACKETS, " ").replace(ID_CODE_NAME, " ").replace(ID_BARE, " ");
+    return after === before ? after : mendGaps(after);
   })).join("\n");
   // Tidy what the removals left: empty brackets, doubled spaces, a space before punctuation.
   return out

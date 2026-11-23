@@ -59,3 +59,12 @@ test("a preview Mira writes itself is caught; 'is scheduled as follows' counts a
   assert.equal(sense.claimsDone("The PTA meeting is scheduled as follows:"), true);
   assert.equal(sense.claimsDone("It will be added to the calendar once you confirm."), false);
 });
+
+test("saying it ISN'T done is never read as saying it's done", () => {
+  const { claimsDone } = require("../services/requestSense");
+  assert.equal(claimsDone("Here's the preview. Nothing has been created yet."), false);
+  assert.equal(claimsDone("It isn't sent until you confirm."), false);
+  assert.equal(claimsDone("The email is sent only once you confirm."), false);
+  assert.equal(claimsDone("Done. The event has been created for December 15."), true);
+  assert.equal(claimsDone("Winter Concert is scheduled for December 15. Nothing else changed."), true, "one sentence says it's done");
+});

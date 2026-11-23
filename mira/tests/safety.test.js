@@ -140,3 +140,11 @@ test("a long chat keeps a short digest of its oldest messages", () => {
   assert.match(digest, /Mira: Six students: x+\.\.\. \[looked up with: find_low_attendance\]/);
   assert.ok(digest.split("\n")[1].length < 300);
 });
+
+test("adding events or staff without the permission is caught before Mira answers", () => {
+  const none = () => false;
+  assert.deepEqual(blockedIntents("Add a school event for staff called Teacher Lunch on December 11", none).map((i) => i.what), ["adding school events"]);
+  assert.deepEqual(blockedIntents("Add a new staff member called Test Person", none).map((i) => i.what), ["adding staff"]);
+  assert.deepEqual(blockedIntents("What events are coming up?", none), [], "a question about events isn't adding one");
+  assert.deepEqual(blockedIntents("Add a school event", (name) => name === "create_event"), []);
+});

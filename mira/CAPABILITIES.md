@@ -2,6 +2,19 @@
 
 Simple running list. Every action below is scoped to the logged-in user's own organization only, and every action that changes data is checked against that user's real, individually-granted permission (not their role name) before it runs. Every write action is recorded in Activity Logs (`/common/activityLogs`), tagged "via Mira (AI assistant)".
 
+## How answers and changes are kept right (2026-11-23)
+
+- **Every tool call is checked before it runs** (`services/argCheck.js`): required details, types, listed choices and real dates. Unreadable or wrong details never reach a tool; the model is told what's wrong and asks or tries again.
+- **Every reply is checked before it's shown** (`services/grounding.js`): each figure, date, weekday, name and "all/none" claim must come from a lookup, the context or the person's own words (never Mira's earlier replies). A reply that fails is rewritten once; if it still fails, the person gets the records themselves and what couldn't be confirmed. Every send-back is logged (`mira_tool_call_log`, `tool_name = 'reply_check'`); `node scripts/weeklyReport.js` summarises a week.
+- **Code writes the facts** for the 20 most-used lookups (`services/facts.js`): a summary sentence with the server's exact totals and a table of up to 100 rows, so the model never counts or adds up a list. Lists go past the page sizes the screens use.
+- **A change is read back** after it runs (`services/readBack.js`, 18 kinds of change): "done" only when the records show it; anything failed, skipped or missing is listed by code.
+- **Nothing is deleted while records are attached** (`tools/_attached.js`, `controllers/miraDeleteCheck.js`): classes, terms, school years, enrollments, subjects, buses, routes, stops and documents. Mira lists what's attached and asks; only when the person asks to delete what's attached too does it go further - a delete that takes them with it lists every one in its preview (and still needs the name typed); one the database blocks gets the steps to clear them, each previewed.
+- **Messages to more than 500 families** (up to 5,000) are confirmed by typing the recipient count.
+- **Previews survive a restart** and run once only (`mira_previews`, `services/confirmGate.js`).
+- **Replies follow one shape**: the answer with the key fact in bold, the scope, a table for lists, one real next step; no tool names, record IDs or emojis (`services/replyClean.js`).
+- **Model**: Claude Haiku 5.5 for every task, with prompt caching (about $0.0023 a question). `MIRA_STRONG_MODEL=anthropic/claude-sonnet-5.5` puts drafting and changes on Sonnet.
+- **Tested**: `npm run eval` (50 questions, 50/50) and `npm run eval -- --set hard` (47 permission attacks, permanent changes, serious sends and deep tasks, 47/47), with the real model on the local copy, answers worked out with SQL.
+
 ## Look things up (read-only, no permission required beyond being staff)
 
 | Tool | What it does |
@@ -90,6 +103,10 @@ Both `/stats/organization` and `/print/reportSettings` have **no real `PERMISSIO
 | `delete_grading_scale_band` | Manage Reports | Remove one grading band by id |
 | `set_promotion_settings` | Manage Reports | Pass/fail cutoff, promoted/repeated class, auto-promotion toggle, reopen date |
 | `add_remark` | Manage Reports | Add a comment-bank template |
+| `list_student_remarks` | Staff (managers any class; others their own classes) | Each student's teacher / conduct / attitude / interest remark for a class and term, and who has none |
+| `set_student_remarks` | Staff (managers any class; others their own classes) | Write those remarks for up to 60 students, 500 characters each; only the remarks given change. Previewed first; read back. When asked to write them from grades or attendance, Mira reads those first and uses only their figures |
+| `list_report_signatures` | Report Settings | The signatures uploaded in Report Settings and which classes use each |
+| `apply_report_signature` | Report Settings | Put one uploaded signature on chosen classes (one call per signature, so different classes can get different ones). Previewed first; read back |
 | `delete_remark` | Manage Reports | Remove one |
 | `close_graduation_year_group` | Manage School Years & Terms | **Marks students graduated + archives them.** Fully reversible via `unarchive_students` - real effect is just `students.graduated=TRUE` + an `archived_student_info` row, no enrollment/grade data touched. Warns first. Verifies the named students actually belong to the named group (the real page's own UI has zero server-side validation of this) |
 | `unarchive_students` | Manage Students | Exact inverse of the above. Warns first |
@@ -347,6 +364,9 @@ Sharing (`document_permissions`) and class assignment (`document_class_assignmen
 - Any action on the Birthdays page - the real page has none (confirmed: no forms, no buttons, no fetch calls in the template), it's pure reporting. `get_upcoming_birthdays` matches that exactly.
 - PayGira billing display config, cross-class grade-presentation propagation, and classroom-remark-type management inside Report Settings' `display_settings` - these are real fields on the page but genuinely the most complex nested config in the app; `set_report_card_display_options` reads and rewrites them completely unchanged rather than exposing edit controls for them. Use the real page for these specifically.
 - Bulk-editing promotion settings across many classes/rows in one call (the real page supports a multi-row bulk editor) - `set_promotion_settings` is deliberately one class at a time, for a cleaner audit trail per change.
+- Uploading a new report-card signature image - Mira only applies signatures already uploaded in Report Settings.
+- Clearing attendance records to let a term or school year be deleted - there's no tool for it; Mira says so when it lists what's attached.
+- Form reminders aren't read back after they're sent - they leave no record any read tool shows.
 - Custom remark TYPE creation (e.g. adding a whole new "Sports" remark category alongside teacher/conduct/attitude/interest) - `add_remark`/`list_remarks`/`delete_remark` only manage remark TEXT within the existing types (built-in + any already-created custom ones); creating a new custom type stays manual-UI-only for now.
 - Editing an existing grading band's range/label in place - `set_grading_scale_band` always creates a new band (or the real handler's own upsert-by-range logic updates one matching the exact same from/to percentages); to genuinely change a band's range, delete the old one and create the new one.
 - Student/guardian photo upload during `create_students` - the real form supports it, but wiring an attached-chat-image through to a specific student/guardian in a batch (same `context.images` mechanism as `upload_website_image`) added real ambiguity (which photo goes with which of N students?) for a field that's entirely optional and already defaults cleanly to the placeholder image. Skipped for now; add a photo manually via the real page afterward if wanted.

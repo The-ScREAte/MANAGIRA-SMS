@@ -52,11 +52,11 @@ const AREAS = {
   },
   reports: {
     label: "Report cards (download, post to parent portal, send to guardians), merit sheets, report settings, grading scale, remarks",
-    keywords: /\b(reports?|report cards?|merit|rank\w*|positions?|top( \d+)?|best|highest|first in|pdf|print\w*|grading|grade bands?|grades\b(?!\s*\d)|remarks?|results?|terminal|transcripts?|download|post(ed|ing)?|publish\w*)\b/,
+    keywords: /\b(reports?|report cards?|merit|rank\w*|positions?|top( \d+)?|best|highest|first in|pdf|print\w*|grading|grade bands?|grades\b(?!\s*\d)|remarks?|comments?|signatures?|signed|results?|terminal|transcripts?|download|post(ed|ing)?|publish\w*)\b/,
     tools: [
       "generate_report_pdf", "post_or_send_report_cards", "get_merit_sheet", "generate_merit_sheet_pdf", "generate_report_card_summary",
       "get_report_settings", "set_report_card_display_options", "set_grading_scale_band", "delete_grading_scale_band",
-      "list_remarks", "add_remark", "delete_remark",
+      "list_remarks", "add_remark", "delete_remark", "list_student_remarks", "set_student_remarks", "list_report_signatures", "apply_report_signature",
     ],
   },
   statistics: {
@@ -297,6 +297,8 @@ const INTENTS = [
   { test: /\b(staff|employees?|teachers?)\b[^.?!]*\b(list|all|emails?|contacts?|phone|who)\b|\b(list|all|who are)\b[^.?!]*\b(staff|employees)\b/i, tools: ["list_employees"], what: "the staff list" },
   { test: /\b(admissions?|applicants?|applications?)\b/i, tools: ["list_pending_admissions"], what: "admissions" },
   { test: /\breport cards?\b|\bmerit sheets?\b/i, tools: ["generate_report_pdf", "post_or_send_report_cards", "get_merit_sheet"], what: "report cards" },
+  { test: /\b(add|create|schedule|put|post|make|set up|plan)\b[^.?!]*\b(school )?events?\b/i, tools: ["create_event"], what: "adding school events" },
+  { test: /\b(add|create|hire|invite|register|onboard)\s+(?:a |an |the |another |some )?(?:new )?(staff( members?)?|employees?|teachers?|colleagues?)\b/i, tools: ["create_employee"], what: "adding staff" },
 ];
 
 function blockedIntents(userText, allowed) {

@@ -2397,7 +2397,7 @@
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub">Promotion rules, grades, what prints on report cards, layouts and signatures. To move students up, use <a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a>.</p>
+        <p class="gp-sub">Promotion rules, grades, what prints on report cards, layouts and signatures. <% var _canPromote = typeof workspaceAccess === 'function' && workspaceAccess().management.promotion; %>To move students up, use <% if (_canPromote) { %><a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a><% } else { %>Promotion (someone with Approve Promotions runs it)<% } %>.</p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>

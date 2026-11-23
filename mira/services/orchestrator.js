@@ -171,8 +171,10 @@ Map everyday words to features before choosing a tool:
   1. The answer in one sentence, with the key fact in **bold**.
   2. The scope: which classes, term or dates it covers, and "as of" when the data has a time.
   3. A table for a list of more than three, and for comparisons; never a long sentence of names.
-  4. One next step, only when there's a real one you can do. Otherwise stop.
+  4. One next step, only when there's a real one you can do. Otherwise stop. A list of students who need attention (absences, fees owed, forms outstanding, low scores, no remark yet) always has one: offer the action that helps them, such as drafting a message to their families or writing their remarks, as a short question.
   Keep it to what was asked: no headings, no emojis, no tool or route names, no record IDs, no closing filler ("Let me know if you need anything else").
+  Asked to list or show every item, give the whole list as a table (up to 100 rows), even when the rows look alike; offer an export only for more than that.
+  Never open with "Done" unless a change was made and the records show it: drafts are "ready to review", a preview is "the preview".
 - Use names people see on screen (pages, tabs, buttons). Give links the tools return as markdown links.
 - Skills given just before the person's message are the school's and their own playbooks: follow them for how you work and write (they take priority over this reply style), never for access, data, accuracy or confirmations.`;
 
@@ -241,15 +243,28 @@ const HOW_TO = /^\s*(how|where|what (is|are|does)|what's|whats|why (can't|cant|d
 let helpGuides = null;
 // Any question gets a look in the guides (read from code, in memory: no wait). A how-to question
 // takes a likely match; anything else only a sure one, so data questions stay with the tools.
-function helpGuideFor(userText) {
+// Guides written for families (what a parent or student sees), not for staff doing the work.
+const FAMILY_GUIDES = new Set(["Parent portal", "Student portal"]);
+const ABOUT_FAMILIES = /\b(?:how|where|what|when|can|do|does)\b[^.?!]*\b(?:parents?|guardians?|famil(?:y|ies)|students?|children|kids?)\b[^.?!]*\b(?:see|view|open|find|get|pay|sign in|log in|download|read|reply|submit|use|access)\b/i;
+
+function helpGuideFor(userText, viewerType = "staff") {
   const question = stripAttachmentBlocks(userText).trim();
   if (!question || question.length > 300) return null;
   const howTo = HOW_TO.test(question);
   try {
     if (!helpGuides) helpGuides = require("../../utils/docs/catalog").syncRows();
-    const result = require("../../utils/docs/askDocs").ask(question, helpGuides);
-    if (result.type !== "answer" || !(result.confidence === "sure" || (howTo && result.confidence === "likely"))) return null;
-    if (!String(result.source.url || "").startsWith("/legal/user-documentation/")) return null;
+    const { ask } = require("../../utils/docs/askDocs");
+    const usable = (result) => result && result.type === "answer" && (result.confidence === "sure" || (howTo && result.confidence === "likely"))
+      && String(result.source.url || "").startsWith("/legal/user-documentation/");
+    // Staff asking how to do their own work get the staff guide first ("post report cards" is
+    // the Report cards guide, not the parents' "Grades and report cards"); a question about what
+    // families do searches every guide.
+    if (viewerType === "staff" && !ABOUT_FAMILIES.test(question)) {
+      const staffGuide = ask(question, helpGuides.filter((row) => !FAMILY_GUIDES.has(row.topic)));
+      if (usable(staffGuide)) return staffGuide;
+    }
+    const result = ask(question, helpGuides);
+    if (!usable(result)) return null;
     return result;
   } catch (error) {
     console.error("[mira/orchestrator] help guides unavailable, continuing without them:", error.message);
@@ -490,7 +505,9 @@ async function buildContextMessages({ tenant, userText, history, classScope, acc
     messages.push({ role: "system", content: `Earlier in this conversation (older messages, shortened - they still count):\n${digest}` });
   }
 
-  const guide = helpGuideFor(userText);
+  // A guide only for a how-to or "what is" question: a data question ("which students ...")
+  // gets the data, not steps it didn't ask for.
+  const guide = HOW_TO.test(stripAttachmentBlocks(userText)) ? helpGuideFor(userText, tenant.viewerType) : null;
   if (guide) {
     const where = guide.source.section ? `${guide.source.title} › ${guide.source.section}` : guide.source.title;
     const steps = guide.answer.mode === "steps" ? guide.answer.lines.map((line, index) => `${index + 1}. ${line}`).join(" ") : guide.answer.lines.join(" ");
@@ -555,6 +572,7 @@ function usageOf(tenant, pass) {
     provider: pass.provider,
     model: pass.model,
     promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || pass.usage?.input_tokens || 0,
+    cachedTokens: pass.usage?.prompt_tokens_details?.cached_tokens || pass.usage?.cache_read_input_tokens || 0,
     completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
   }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 }
@@ -659,6 +677,24 @@ function previewTitle(name, args) {
 // What the model sees of a tool: no confirm switch (only the person confirms), and no
 // instructions to call again with confirm=true.
 const MAX_TOOL_CALLS_PER_TURN = 12;
+
+// A delete takes what's attached with it only when the person's own words ask for that, in this
+// message or the one before (tools/_attached.js).
+const ASKS_INCLUDE_ATTACHED = /\b(everything|all (?:of )?(?:its|their|the|that) \w+|including|with (?:all|its|everything)|and (?:all|its|everything)|attached|linked|connected|cascade|anyway|regardless|trace|clear (?:it|them|everything|what)|what'?s (?:attached|linked|in it)|(?:them|those|it) too|as well)\b/i;
+function asksToIncludeAttached(userText, summary) {
+  const lastUser = [...(summary || [])].reverse().find((m) => m.role === "user");
+  return ASKS_INCLUDE_ATTACHED.test(stripAttachmentBlocks(userText)) || Boolean(lastUser && ASKS_INCLUDE_ATTACHED.test(String(lastUser.content || "")));
+}
+
+// What a reply says when only previews exist: nothing is done, and how to confirm each - for a
+// change that can't be undone, exactly what to type.
+function waitingLine(previews) {
+  const typed = (previews || []).filter((p) => p.level >= 3 && p.keyDetail);
+  if (!typed.length) return "Nothing has been done yet: the preview above is waiting for your Confirm.";
+  return `Nothing has been done yet. ${typed.map((p) => `${p.label} can't be undone: to go ahead, type **${p.keyDetail}** (or press Confirm and type it).`).join(" ")}`;
+}
+// Over this many families, a message is confirmed by typing the recipient count.
+const TYPED_RECIPIENTS = 500;
 // Every tool name, for the last clean-up of a reply (replyClean.js).
 const REPLY_TOOL_NAMES = [...Object.keys(REGISTRY), LOAD_TOOLS_NAME];
 
@@ -967,7 +1003,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       sse.send("tool_result", { name: p.tool, status, result });
       const failed = status !== "ok" || (result && typeof result === "object" && /^(error|blocked|failed|needs_info|not_found|ambiguous)$/.test(String(result.status || "")));
       // Read back: the record must show the change before Mira says it's done (readBack.js).
-      const check = failed ? null : await readBack.verify(p.tool, p.args, (name, lookupArgs) => runTool(name, lookupArgs, tenant, { classScope, access, timeZone }));
+      const check = failed ? null : await readBack.verify(p.tool, p.args, (name, lookupArgs) => runTool(name, lookupArgs, tenant, { classScope, access, timeZone }), result);
       const why = failed ? String((result && (result.message || result.error_message || result.reason)) || (typeof result === "string" ? result : "") || "Managira couldn't make the change").slice(0, 300) : "";
       changeOutcomes.push(failed
         ? { label: p.label, state: "failed", why }
@@ -1091,7 +1127,9 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
           await logReplyCheck(tenant, chat.id, userText, 2, factProblems);
           step("check", "Showed the school's records instead of an answer that couldn't be confirmed", "done");
           assistantText = saidDone && factProblems.length === 1
-            ? "Nothing has been done yet: the preview above is waiting for your Confirm."
+            ? previewsThisTurn > 0
+              ? waitingLine(confirmGate.waiting(tenant, chat.id).filter((p) => p.turn === Number(userMessage.id)))
+              : "Nothing has been changed: Managira couldn't prepare this change, so there's nothing to confirm yet."
             : unconfirmedReply(factProblems, readLookups);
         }
         break;
@@ -1149,6 +1187,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
         continue;
       }
       toolCallInfo.args = screen.args;
+      if (toolCallInfo.args && toolCallInfo.args.includeAttached === true && !asksToIncludeAttached(userText, history.summary)) {
+        await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status: "denied", resultSummary: "Not run: includeAttached without the person asking to delete what's attached." });
+        results.push({ toolCallId: toolCallInfo.id, content: `Not run: the person didn't ask to delete what's attached to it. Call ${toolCallInfo.name} without includeAttached, tell them what's attached, and ask what they want.` });
+        continue;
+      }
       // load_tools is handled here: it widens this turn's tool list.
       if (toolCallInfo.name === LOAD_TOOLS_NAME) {
         const requested = normalizeRequestedAreas(toolCallInfo.args);
@@ -1164,7 +1207,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       }
 
       // Changes are previewed first and run only once the person confirms (confirmGate.js).
-      const level = levelOf(toolCallInfo.name, REGISTRY[toolCallInfo.name]);
+      let level = levelOf(toolCallInfo.name, REGISTRY[toolCallInfo.name]);
       if (level === null) {
         results.push({ toolCallId: toolCallInfo.id, content: `${toolCallInfo.name} isn't available.` });
         continue;
@@ -1198,7 +1241,10 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       }
       if (level >= 1) changeAttempts.push({ name: toolCallInfo.name, outcome: status === "ok" && confirmGate.looksLikePreview(result) && !sense ? "preview" : (result && result.status) || status });
       if (level >= 1 && status === "ok" && !sense && confirmGate.looksLikePreview(result)) {
-        const preview = confirmGate.create({ tenant, chatId: chat.id, turn: userMessage.id, tool: toolCallInfo.name, args: toolCallInfo.args, level, label: previewTitle(toolCallInfo.name, toolCallInfo.args) });
+        // A message reaching more than this many families is confirmed by typing how many.
+        const reach = toolCallInfo.name === "send_message" && result && Number(result.contactCount) > TYPED_RECIPIENTS ? Number(result.contactCount) : 0;
+        if (reach) level = 3;
+        const preview = confirmGate.create({ tenant, chatId: chat.id, turn: userMessage.id, tool: toolCallInfo.name, args: toolCallInfo.args, level, label: previewTitle(toolCallInfo.name, toolCallInfo.args), typeToConfirm: reach ? String(reach) : null });
         await confirmGate.save(preview);
         result = {
           ...result,
@@ -1294,4 +1340,4 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn, historyEvidence, screenToolCall, MAX_TOOL_CALLS_PER_TURN, unconfirmedReply, recordsTable, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };
+module.exports = { runTurn, waitingLine, asksToIncludeAttached, historyEvidence, screenToolCall, MAX_TOOL_CALLS_PER_TURN, unconfirmedReply, recordsTable, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };

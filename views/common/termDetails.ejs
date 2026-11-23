@@ -32,14 +32,15 @@
       <p class="gp-card__note">No classes are enrolled in this term yet.</p>
     <% } else { %>
       <div class="gp-classes">
+        <% const _canPrint = typeof workspaceAccess === 'function' && workspaceAccess().printReportCards; %>
         <% _classes.forEach((cls) => { %>
           <div class="gp-class">
             <span class="gp-class__name"><%= cls.class_name %>
               <% const _layout = (typeof reportLayouts !== 'undefined' && reportLayouts) ? reportLayouts[cls.class_id] : null; %>
-              <% if (_layout) { %><a class="gp-layout" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>&layout=default<%= _embedAmp %>" data-no-spa title="Uses its own report card layout. Click for the standard report card."><i class="fa-solid fa-table" aria-hidden="true"></i> <%= _layout %></a><% } %>
+              <% if (_layout && _canPrint) { %><a class="gp-layout" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>&layout=default<%= _embedAmp %>" data-no-spa title="Uses its own report card layout. Click for the standard report card."><i class="fa-solid fa-table" aria-hidden="true"></i> <%= _layout %></a><% } %>
             </span>
             <span class="gp-class__actions">
-              <a class="gp-btn gp-btn--primary" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %><%= _embedAmp %>" data-no-spa><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Generate report</a>
+              <% if (_canPrint) { %><a class="gp-btn gp-btn--primary" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %><%= _embedAmp %>" data-no-spa><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Generate report</a><% } else { %><span class="gp-card__note">Report cards need Terminal Reports</span><% } %>
             </span>
           </div>
         <% }) %>

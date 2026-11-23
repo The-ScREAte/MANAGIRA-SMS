@@ -196,7 +196,7 @@ module.exports = {
         keep = new Set([...keep].filter((id) => absent.has(id)));
         absent.forEach((n, id) => { if (extra.has(id)) extra.get(id).absences = n; });
         const sc = result.scope || {};
-        applied.push({ condition: `absent at least ${minAbsences} school day${minAbsences === 1 ? "" : "s"}`, students: absent.size, from: sc.from || q.from || null, to: sc.to || q.to || null, term: sc.term || null, school_days: result.totals && result.totals.school_days });
+        applied.push({ condition: `absent at least ${minAbsences} school day${minAbsences === 1 ? "" : "s"}`, students: absent.size, from: sc.from || q.from || null, to: sc.to || q.to || null, term: sc.term || null, school_days: result.totals && result.totals.school_days, days_marked: result.totals && result.totals.days_marked });
       }
 
       if (yes(q.forms_outstanding)) {

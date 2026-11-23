@@ -28,7 +28,7 @@ const NATIVE_PREVIEW = new Set([
   "delete_term", "delete_test", "delete_question_set", "delete_document", "delete_event", "delete_school_announcement",
   "delete_transport_bus", "delete_transport_driver", "delete_transport_route", "delete_transport_schedule", "delete_transport_stop",
   "delete_website_article", "delete_website_image", "set_student_assessment_status", "update_website_section",
-  "delete_saved_report", "share_saved_report", "schedule_saved_report",
+  "delete_saved_report", "share_saved_report", "schedule_saved_report", "set_student_remarks", "apply_report_signature",
 ]);
 
 const YES = /\b(yes|yep|yeah|yup|ya|sure|ok|okay|okey|confirm(ed|s)?|go ahead|go for it|proceed|do it|do that|do so|send (it|them|now|the)|send|approved?|correct|that'?s (right|fine|good|correct)|please do|looks good|sounds good|absolutely|affirmative|carry on|perfect|fine|delete|remove|post|publish|save|create|add|schedule|apply|go)\b/i;
@@ -105,13 +105,15 @@ function prune(now = Date.now()) {
   while (store.size > STORE_MAX) store.delete(store.keys().next().value);
 }
 
-function create({ tenant, chatId, turn, tool, args, level, label }) {
+// `typeToConfirm`: what the person must type for this preview (a Level 3 change's own detail, or
+// e.g. a message's recipient count when it reaches a whole school).
+function create({ tenant, chatId, turn, tool, args, level, label, typeToConfirm = null }) {
   prune();
   const nonce = crypto.randomBytes(12).toString("base64url");
   const p = {
     nonce, organizationId: Number(tenant.organizationId), userId: Number(tenant.userId), chatId: Number(chatId), turn: Number(turn) || 0,
     tool, args: detailsOf(args), key: detailsKey(args), level, label: label || tool,
-    keyDetail: level >= 3 ? keyDetail(args) : "", createdAt: Date.now(), expiresAt: Date.now() + PREVIEW_TTL_MS, state: "waiting",
+    keyDetail: level >= 3 ? String(typeToConfirm || keyDetail(args)) : "", createdAt: Date.now(), expiresAt: Date.now() + PREVIEW_TTL_MS, state: "waiting",
   };
   p.id = `${nonce}.${sign(p)}`;
   store.set(p.id, p);
