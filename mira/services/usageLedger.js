@@ -20,6 +20,10 @@ const PRICING_PER_MILLION = {
   "anthropic/claude-sonnet-4.5": { prompt: 3, completion: 15 },
   "claude-haiku-5-5": { prompt: 0.1, completion: 0.5 },
   "claude-sonnet-5-5": { prompt: 2, completion: 10 },
+  // Telnyx's backup model. Telnyx no longer lists Kimi K2.5 (its model catalog and pricing page,
+  // 2026-11-23), so this is an ESTIMATE from the nearest one it does list, Kimi K2.6: $0.665 in,
+  // $4.00 out per million (the lower of its two published rates).
+  "moonshotai/Kimi-K2.5": { prompt: 0.665, completion: 4 },
   mock: { prompt: 0, completion: 0 },
 };
 

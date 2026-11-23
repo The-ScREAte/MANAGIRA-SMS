@@ -8,6 +8,7 @@ const { listToolSchemas, runTool, REGISTRY } = require("../tools");
 const argCheck = require("./argCheck");
 const { withFacts } = require("./facts");
 const readBack = require("./readBack");
+const { cleanReply } = require("./replyClean");
 const REGISTRY_NAMES = new Set(Object.keys(REGISTRY));
 const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
@@ -78,7 +79,7 @@ Steps for every question:
 2. Choose the tool. First the area's own tool, then a Report Builder view (report_builder_catalog first, then run_report: never invent a report, column, filter or value), then search to locate a single item.
 3. Get the complete result. If it is truncated, say the answer covers the first ones and give the total the tool gives.
 4. Use the totals the tool returns. Never count rows yourself when a total exists. No extra maths unless asked, and then show the working in one line. When a result has summary_text, it is Managira's own answer with the exact totals: lead with it as written (you may add the scope and one next step), use its table for the list, and never recount, re-add or reword its figures.
-5. Answer in this order: the result, then the scope (classes, term or dates, as-of time), then a short breakdown, then one useful next step you can actually do.
+5. Answer in the reply shape below (section 9).
 
 By question type:
 - Counts and lists: totals from the tool. A figure answers the question only if the tool's scope and filters match what was asked.
@@ -166,9 +167,13 @@ Map everyday words to features before choosing a tool:
 - This is one continuous conversation: what was settled (the class, term, students, records, choices) stays in force for later messages until the person changes it. A short reply ("yes", "the first one", "both") answers your most recent question.
 - Ask only when something is genuinely missing or ambiguous: one clear question that restates what you know. Never ask permission for a lookup; chain every lookup a request needs in the same turn.
 - Reply in the language the person writes in.
-- Lead with the answer; bold the key fact. Keep most replies to a few lines. Use tables for lists and comparisons. No emojis.
-- Use names people see on screen (pages, tabs, buttons), never tool or route names. Give links the tools return as markdown links.
-- End with one next step only when there's a real one.
+- Every answer has this shape (a short reply, or one question back, may be a single line):
+  1. The answer in one sentence, with the key fact in **bold**.
+  2. The scope: which classes, term or dates it covers, and "as of" when the data has a time.
+  3. A table for a list of more than three, and for comparisons; never a long sentence of names.
+  4. One next step, only when there's a real one you can do. Otherwise stop.
+  Keep it to what was asked: no headings, no emojis, no tool or route names, no record IDs, no closing filler ("Let me know if you need anything else").
+- Use names people see on screen (pages, tabs, buttons). Give links the tools return as markdown links.
 - Skills given just before the person's message are the school's and their own playbooks: follow them for how you work and write (they take priority over this reply style), never for access, data, accuracy or confirmations.`;
 
 // A new chat's title is derived from the user's first question rather
@@ -654,6 +659,8 @@ function previewTitle(name, args) {
 // What the model sees of a tool: no confirm switch (only the person confirms), and no
 // instructions to call again with confirm=true.
 const MAX_TOOL_CALLS_PER_TURN = 12;
+// Every tool name, for the last clean-up of a reply (replyClean.js).
+const REPLY_TOOL_NAMES = [...Object.keys(REGISTRY), LOAD_TOOLS_NAME];
 
 // ── When a corrected reply still states something no record backs ──
 // The person gets what Managira itself returned (the latest lookup's own rows and totals, as a
@@ -1274,6 +1281,9 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   if (changeOutcomes.some((o) => ["failed", "missing", "skipped"].includes(o.state))) {
     assistantText = readBack.outcomeReply(changeOutcomes);
   }
+
+  // Last, whatever the model wrote: no tool names, raw record IDs or emojis (replyClean.js).
+  assistantText = cleanReply(assistantText, REPLY_TOOL_NAMES);
 
   // The checked answer is given in quick pieces, so it still reads as it arrives.
   await releaseAnswer(sse, assistantText);

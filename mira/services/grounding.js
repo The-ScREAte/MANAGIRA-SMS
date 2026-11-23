@@ -265,14 +265,53 @@ function unsupportedNames(reply, evidence, ordinaryTexts = []) {
 // student needs a lookup that found none outstanding - a zero total or an empty list in a tool
 // result. Without one, the reply can't say it (a list of 3 who owe never backs "all paid").
 const NEGATIVE = "(?:owe|owes|owing|owed|unpaid|outstanding|overdue|missing|absent|late|behind|below|incomplete|not (?:yet )?(?:paid|returned|submitted|signed|completed|done)|hasn'?t|haven'?t|didn'?t|did not|has not|have not)";
-const POSITIVE = "(?:paid|paid up|returned|submitted|signed|completed|attended|present|up to date|cleared)";
+const POSITIVE = "(?:paid|paid up|returned|submitted|signed|completed|attended|present|up to date|cleared|accepted|logged in|signed up)";
 const CLAIMS = [
   new RegExp(`\\b(?:no one|nobody|no students?|no pupils?|no learners?|no families|no parents|no guardians|none of (?:the|them|these|your)\\b[^.\\n]{0,30}?|not a single (?:student|one|family|parent))\\b[^.\\n]{0,50}?\\b${NEGATIVE}\\b`, "gi"),
   new RegExp(`\\b(?:all|every|everyone|everybody|each)\\b[^.\\n]{0,40}?\\b(?:ha(?:ve|s)\\s+(?:all\\s+)?(?:been\\s+)?|are\\s+(?:all\\s+)?|is\\s+|were\\s+|was\\s+)?${POSITIVE}\\b`, "gi"),
   /\b(?:fully paid|all paid|100% (?:attendance|paid|complete)|perfect attendance|no (?:outstanding|unpaid|overdue|missing) (?:fees|balances|forms|payments|requests|work))\b/gi,
 ];
-// A zero count or an empty list in a tool result: a lookup that found none.
-const FOUND_NONE = /\\?"[A-Za-z_]*(?:total|count|outstanding|owing|owe|absent|missing|matched|with|below|overdue|unpaid|students|rows|results|not_|pending|declined|failed|incomplete|no_)[A-Za-z_]*\\?"\s*:\s*(?:0(?![\d.])|\[\s*\])|^\s*\[\s*\]\s*$/im;
+// What a claim is about, and the zeros that can back it. A zero only backs a claim about the same
+// thing: "all fees are paid" needs a zero for owing, never "no_login": 0. Each topic: the words
+// that put a claim in it, the keys whose zero backs it, and the words that make a whole lookup
+// about it (so its general total/count/matched of 0, or its empty list, backs the claim too).
+const TOPICS = {
+  fees: {
+    claim: /\b(?:fees?|paid|pay|payments?|owe|owes|owing|owed|unpaid|balances?|overdue|debts?|money|tuition)\b/i,
+    keys: /(?:owing|owe|owed|unpaid|overdue|balance|fee|debt|amount_due|due_amount|outstanding_amount)/i,
+    about: /\b(?:fees?|owes?|owing|owed|unpaid|balances?|overdue|payments?|paygira|tuition)\b|owes_fees|min_owed/i,
+  },
+  attendance: {
+    claim: /\b(?:absent|absences?|attended|attendance|present|late|tardy|missed school)\b/i,
+    keys: /(?:absent|absence|attendance|late|tardy|below|present_missing)/i,
+    about: /\battendance\b|\babsen|attendancePercent|min_absences|days_?marked/i,
+  },
+  forms: {
+    claim: /\b(?:forms?|slips?|consent|returned|submitted|signed|completed|requests?|sign[- ]?ups?)\b/i,
+    keys: /(?:outstanding|incomplete|not_completed|not_returned|not_signed|not_submitted|missing|pending)/i,
+    about: /\bforms?\b|\bslips?\b|\bconsent\b|forms_outstanding|formsAsked|studentsWithOutstanding/i,
+  },
+  invitations: {
+    claim: /\b(?:invit\w*|accepted|log ?ins?|logged in|signed up|set up their account)\b/i,
+    keys: /(?:not_accepted|no_login|setup_pending|unaccepted|pending)/i,
+    about: /\binvit|not_accepted|no_login|setup_pending/i,
+  },
+};
+const GENERAL_ZERO = /\\?"[A-Za-z_]*(?:total|count|matched|listed|rows|results|students)[A-Za-z_]*\\?"\s*:\s*0(?![\d.])|:\s*\[\s*\]/i;
+const ZERO_KEYS = /\\?"([A-Za-z_]+)\\?"\s*:\s*0(?![\d.])/g;
+const EMPTY = /^\s*\[\s*\]\s*$|^\s*\{\s*"[^"]+"\s*:\s*\[\s*\]\s*\}\s*$/;
+
+function topicsOf(claim) {
+  return Object.entries(TOPICS).filter(([, t]) => t.claim.test(claim)).map(([name]) => name);
+}
+
+// Does this lookup result found none of `topic`? A zero under one of its keys, or a general zero
+// (total, matched, an empty list) in a lookup that is about it.
+function foundNone(part, topic) {
+  const t = TOPICS[topic];
+  for (const m of part.matchAll(ZERO_KEYS)) if (t.keys.test(m[1])) return true;
+  return t.about.test(part) && (GENERAL_ZERO.test(part) || EMPTY.test(part));
+}
 
 // "Each of these 3 has not paid" and "not all have returned it" say some haven't: no "all" claim.
 const NEGATED = /\b(?:not|never|yet to|still)\b|n'?t\b/i;
@@ -294,8 +333,13 @@ function unsupportedClaims(reply, toolResults) {
   const claims = claimsIn(reply);
   if (!claims.length) return [];
   const results = (Array.isArray(toolResults) ? toolResults : [toolResults]).map((part) => String(part || ""));
-  if (results.some((part) => FOUND_NONE.test(part))) return [];
-  return claims;
+  return claims.filter((claim) => {
+    const topics = topicsOf(claim);
+    // A claim on no topic this check knows needs a lookup that found none of anything at all.
+    if (!topics.length) return !results.some((part) => GENERAL_ZERO.test(part) || EMPTY.test(part));
+    // On every topic it names, a lookup about that topic found none.
+    return !topics.every((topic) => results.some((part) => foundNone(part, topic)));
+  });
 }
 
 module.exports = { unsupportedFigures, figuresIn, wrongWeekdays, unsupportedDates, unsupportedNames, namesIn, unsupportedClaims, claimsIn, evidenceValues };

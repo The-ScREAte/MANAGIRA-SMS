@@ -100,7 +100,7 @@ test("temperature only where the model takes it; effort and room for thinking on
 });
 
 test("every model Mira can run on has a price", () => {
-  for (const map of [TASK_MODEL_MAPS.openrouter, TASK_MODEL_MAPS.anthropic]) {
+  for (const map of [TASK_MODEL_MAPS.openrouter, TASK_MODEL_MAPS.anthropic, TASK_MODEL_MAPS.telnyx]) {
     for (const model of new Set(Object.values(map))) assert.ok(estimateCost(model, 1_000_000, 0) > 0, model);
   }
   assert.equal(estimateCost("anthropic/claude-haiku-5.5", 1_000_000, 1_000_000), 0.6);
