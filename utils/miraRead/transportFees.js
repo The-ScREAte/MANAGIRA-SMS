@@ -623,14 +623,12 @@ module.exports = {
         params
       );
       const ids = trips.map((t) => Number(t.trip_id));
-      const features = require("../shards/features");
-      const boardingOn = features.isOn("bus_boarding", { organizationId: org });
       const transportBoarding = require("../transportBoarding");
       // A driver's page shows the boarding of their trip under way; anyone with Transportation sees every trip's.
-      const boardingTrips = boardingOn ? trips.filter((t) => full || t.status === "active") : [];
+      const boardingTrips = trips.filter((t) => full || t.status === "active");
       const [riders, notRiding, boardings, missing] = await Promise.all([
         ids.length ? db.query("SELECT student_id, bus_id, route_id FROM transport_student_assignments WHERE organization_id = $1 AND active = TRUE", [org]).then((r) => r.rows) : [],
-        boardingOn && ids.length ? transportBoarding.schoolDay(db, org, day).then((reading) => new Set(reading.notRiding.map((row) => row.studentId))) : new Set(),
+        ids.length ? transportBoarding.schoolDay(db, org, day).then((reading) => new Set(reading.notRiding.map((row) => row.studentId))) : new Set(),
         Promise.all(boardingTrips.map((t) => transportBoarding.tripBoardings(db, org, t.trip_id).then((list) => [Number(t.trip_id), list]))).then((pairs) => new Map(pairs)),
         arrivalDetails && ids.length
           ? db.query(
@@ -666,7 +664,7 @@ module.exports = {
           route: t.route_name || null,
           driver: t.driver_name || null,
           riders: riderIds.size,
-          ...(boardingOn ? { notComingToday: [...riderIds].filter((sid) => notRiding.has(sid)).length } : {}),
+          notComingToday: [...riderIds].filter((sid) => notRiding.has(sid)).length,
           arrivalCheck: { arrived: t.arrived || 0, didNotArrive: t.missed || 0, parentConfirmed: t.parent_confirmed || 0, parentWaiting: t.parent_pending || 0, parentSaysNotArrived: t.parent_not_arrived || 0 },
         };
         if (boardings.has(id)) {
@@ -693,8 +691,7 @@ module.exports = {
         didNotArrive: sumOf((t) => t.arrivalCheck.didNotArrive),
         ...(boardingTrips.length ? { boarded: sumOf((t) => (t.boarding ? t.boarding.boarded : 0)), didNotBoard: sumOf((t) => (t.boarding ? t.boarding.didNotBoard.length : 0)) } : {}),
       };
-      if (!boardingOn) scope.boarding = "Bus boarding isn't on for this school.";
-      else if (own) scope.boarding = "Shown for your trip under way, as on your driver page.";
+      if (own) scope.boarding = "Shown for your trip under way, as on your driver page.";
       if (!arrivalDetails) scope.arrivalDetails = "Who didn't arrive, and why, needs the Driver Reports permission.";
       return { data, totals, scope, truncated: false, untrusted };
     },

@@ -82,7 +82,7 @@ router.get("/login/code", (req, res) => loginCode.page(req, res, db));
 {
   const { blockGuardians } = require("../middleware/authMiddleware");
   const tenant = require("../controllers/tenantController");
-  const door = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SETTINGS), tenant.managersOnly, tenant.guard];
+  const door = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SETTINGS), tenant.managersOnly];
   router.get("/settings/tenant", ...door, (req, res) => tenant.get(req, res, db));
   router.post("/settings/tenant", ...door, (req, res) => tenant.save(req, res, db));
   router.post("/settings/tenant/authenticator/reset", ...door, express.json(), (req, res) => tenant.resetAuthenticator(req, res, db));
@@ -431,9 +431,6 @@ router.get(
   requirePermission(PERMISSIONS.SETTINGS_MIRA),
   accountController.miraInfoGet
 );
-// Use Mira is turned on or off one person at a time (POST /mira/user/:userId), under the staff
-// rules; the old all-at-once save is gone.
-router.post("/mira/permissions", isAuthenticated, (req, res) => res.redirect("/account/mira"));
 // Whether this person may open Mira now (the header's panel asks before showing "no access").
 router.get("/mira/access", isAuthenticated, async (req, res) => {
   res.set("Cache-Control", "no-store");
@@ -693,10 +690,6 @@ router.post("/paystack/stripe-card", isAuthenticated, requirePermission(PERMISSI
   accountController.saveStripeCardAsSubaccountPost(req, res)
 );
 
-// Save a Stripe bank account as a Self Enrollment Transaction Account
-router.post("/paystack/stripe-bank-account", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) =>
-  accountController.saveStripeBankAccountAsSubaccountPost(req, res)
-);
 
 // Utility API: Paystack banks
 router.get('/paystack-banks', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_BILLING), (req, res) => accountController.listPaystackBanks(req, res));

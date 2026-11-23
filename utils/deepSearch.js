@@ -84,7 +84,6 @@ async function context(db, req) {
   const userId = Number((s.user && s.user.user_id) || s.userId) || null;
   const role = String(s.userRole || (s.user && s.user.account_type) || s.accountType || "").trim().toLowerCase();
   const who = { userId, userRole: s.userRole || (s.user && s.user.account_type) || null, organizationId, accountType: s.accountType || (s.user && s.user.account_type) || null, userEmail: (s.user && s.user.email) || null };
-  const features = require("./shards/features");
   const classScoped = Boolean(userId) && ["teacher", "supervisor", "superviser"].includes(role);
   const manager = ["organization", "admin", "mini admin", "manager"].includes(role);
   const integrationSwitches = require("./integrationSwitches");
@@ -102,10 +101,10 @@ async function context(db, req) {
     organizationId, role, classIds, manager, driver: role === "driver",
     allowed: {
       students, parents: classScoped || guardians, staff: employees, classes: classScoped || manager || classesPerm,
-      files: students && features.isOn("student_documents", { organizationId }), remarks: terminal, messages: mailroom,
+      files: students, remarks: terminal, messages: mailroom,
       assessments, activities: true, events: true, announcements: true,
       applicants: admissions, details: students, notes: students,
-      forms: features.isOn("custom_forms", { organizationId }) && (customForms || classScoped),
+      forms: customForms || classScoped,
       buses: transport && transportOn, bills: paygira, tasks: Boolean(userId),
       other: students || admissions || paygira || (transport && transportOn),
     },

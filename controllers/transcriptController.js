@@ -177,7 +177,7 @@ const transcriptController = (db) => ({
             } : null;
             // GPA from the old system: as it was exported, never worked out again.
             const sourceGpa = await gpa.sourceGpaOf(db, organizationId, studentId).catch(() => null);
-            // GPA in Managira (feature gpa): always on the transcript, as a registrar prints it:
+            // GPA in Managira: always on the transcript, as a registrar prints it:
             // each term's GPA and the cumulative GPA up to it (quality points over credits, from
             // letter grades only), and over every term; weighted beside unweighted where Honors or
             // AP subjects add to a pass; credits attempted and earned where courses carry credits.
@@ -187,7 +187,7 @@ const transcriptController = (db) => ({
             const designsOn = require('../utils/shards/features').isOn('transcript_designs', { organizationId, hubId: req.session.hubId || null });
             let gpaSummary = null;
             if (designsOn) {
-                gpaSummary = gpa.featureOn(organizationId) ? await gpa.transcriptGpa(db, organizationId, scores) : null;
+                gpaSummary = await gpa.transcriptGpa(db, organizationId, scores);
             } else if (await gpa.schoolShowsGpa(db, organizationId)) {
                 const [settings, levels] = await Promise.all([
                     gpa.settingsFor(db, organizationId),

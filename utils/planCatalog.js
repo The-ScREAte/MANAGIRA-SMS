@@ -13,9 +13,6 @@
 //   the price in Admin › Pricing › Add-ons.
 // - NOT_IN_PLANS: old rows kept on plans but never offered or shown.
 //
-// The always-included rule and the per-feature checks for Report builder and report card
-// templates apply where the `plan_catalog` release is on.
-const features = require("./shards/features");
 
 const TIERS = ["Starter", "Pro", "Premium"];
 
@@ -65,14 +62,10 @@ const BY_NAME = new Map();
 const namesIn = (list) => (list || []).map((f) => (typeof f === "string" ? f : f && f.feature_name)).filter(Boolean);
 const hasItem = (have, item) => namesOf(item).some((name) => have.has(norm(name)));
 
-function catalogOn(organizationId) {
-  return features.isOn("plan_catalog", { organizationId });
-}
-
-// A school's plan features with the always-included ones added (where released). `names` is the
+// A school's plan features with the always-included ones added. `names` is the
 // plan's list as the pages already cache it; null (the plan couldn't be read) stays null.
 function withCore(names, organizationId) {
-  if (!Array.isArray(names) || !catalogOn(organizationId)) return names;
+  if (!Array.isArray(names)) return names;
   const have = new Set(names.map(norm));
   return [...names, ...CORE_NAMES.filter((name) => !have.has(norm(name)))];
 }
@@ -160,7 +153,6 @@ module.exports = {
   CORE_NAMES,
   ROOT_NEEDS,
   OPTION_NEEDS,
-  catalogOn,
   withCore,
   isCoreName,
   planForm,

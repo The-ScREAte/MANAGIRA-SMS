@@ -3,7 +3,6 @@
 // Parents, students and hub staff sometimes sign in on the main login page. Once their own
 // password has been checked by their own sign-in, they're taken to their portal. Nothing is
 // said about an email until its password is right, so this tells a stranger nothing.
-const features = require("./shards/features");
 
 const PORTALS = {
   guardian: { name: "parent portal", field: "identifier" },
@@ -25,11 +24,10 @@ async function portalsFor(db, email) {
     lookup("SELECT hub_id FROM managira_hubs WHERE LOWER(hub_email) = $1 AND COALESCE(deleted, FALSE) = FALSE LIMIT 1"),
     lookup("SELECT hub_id FROM hub_users WHERE LOWER(email) = $1 LIMIT 1"),
   ]);
-  const on = (row) => features.isOn("smart_login", row.hub_id ? { hubId: row.hub_id } : { organizationId: row.organization_id });
   const found = [];
-  if (guardians.some(on)) found.push("guardian");
-  if (students.some(on)) found.push("student");
-  if ([...hubs, ...hubStaff].some(on)) found.push("hub");
+  if (guardians.length) found.push("guardian");
+  if (students.length) found.push("student");
+  if (hubs.length || hubStaff.length) found.push("hub");
   return found;
 }
 

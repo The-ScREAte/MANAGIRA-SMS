@@ -1,11 +1,9 @@
 "use strict";
 
-// Overall lunch (feature class_lunch): for a student and term, the days with lunch out of the
+// Overall lunch: for a student and term, the days with lunch out of the
 // days lunch was taken for them (class_lunch holds one row per student per school day; no row
 // means lunch wasn't taken that day). Pages show it beside overall attendance and read it for
 // all their students in one statement.
-
-const isOn = (organizationId) => require("./shards/features").isOn("class_lunch", { organizationId: Number(organizationId) });
 
 const ids = (list) => [...new Set((list || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
 
@@ -14,7 +12,7 @@ async function totalsFor(db, organizationId, termId, studentIds) {
   const out = new Map();
   const students = ids(studentIds);
   const term = Number(termId);
-  if (!students.length || !Number.isInteger(term) || term <= 0 || !isOn(organizationId)) return out;
+  if (!students.length || !Number.isInteger(term) || term <= 0) return out;
   try {
     const { rows } = await db.query(
       `SELECT student_id, COUNT(*) FILTER (WHERE had_lunch)::int AS days, COUNT(*)::int AS taken
@@ -36,4 +34,4 @@ function label(total) {
   return `${total.days} of ${total.taken} ${total.taken === 1 ? "day" : "days"}`;
 }
 
-module.exports = { isOn, totalsFor, label };
+module.exports = { totalsFor, label };

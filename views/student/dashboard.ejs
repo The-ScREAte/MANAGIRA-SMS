@@ -901,7 +901,7 @@
             <span class="sx-stat__text"><span class="sx-stat__label">Term</span><strong><%= _termValue %></strong><small><%= _termNote %></small></span>
           </button>
           <% if (_lunch && _lunch.taken) { %>
-          <%# Overall lunch (feature class_lunch), once lunch has been taken this term. %>
+          <%# Overall lunch, once lunch has been taken this term. %>
           <div class="sx-stat">
             <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('dashboard') %></span>
             <span class="sx-stat__text"><span class="sx-stat__label">Lunch</span><strong><%= _lunch.label %></strong><small>Days with lunch</small></span>
@@ -948,13 +948,13 @@
           <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span><% if (openAssessmentsCount) { %><span class="app-tile__badge"><%= openAssessmentsCount > 99 ? '99+' : openAssessmentsCount %></span><% } %></a>
           <% } %>
-          <% if (featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+          <% if (locals.customFormsReady && customFormsReady()) { %>
           <a class="sp-action-tile app-tile" href="/student/forms"><span class="app-tile__icon"><%- navIcon('forms') %></span><span class="app-tile__name">Forms</span><% if (locals.formsToDo) { %><span class="app-tile__badge"><%= formsToDo > 99 ? '99+' : formsToDo %></span><% } %></a>
           <% (locals.formTiles || []).forEach((form) => { %>
           <a class="sp-action-tile app-tile" href="/student/forms?form=<%= form.id %>"><span class="app-tile__icon"><%- formIcon(form.icon) %></span><span class="app-tile__name"><%= form.name %></span><% if (form.todo) { %><span class="app-tile__badge">1</span><% } %></a>
           <% }) %>
           <% } %>
-          <% if (featureOn('student_portfolio') && locals.portfolioShared !== false) { %>
+          <% if (locals.portfolioShared !== false) { %>
           <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio') %></span><span class="app-tile__name">Portfolio</span></a>
           <% } %>
           <a class="sp-action-tile app-tile" href="/student/settings"><span class="app-tile__icon"><%- navIcon('settings') %></span><span class="app-tile__name">Settings</span></a>
@@ -968,7 +968,6 @@
         <% } %>
       </section>
 
-      <% if (locals.featureOn && featureOn('class_activities')) { %>
       <section class="sp-panel" id="panel-activities" hidden>
         <h3 class="sp-section-title">Activities</h3>
         <% if (studentActivities && studentActivities.length) { %>
@@ -1000,7 +999,6 @@
         .sp-activities__details { color: #475467; font-size: 13px; line-height: 1.45; white-space: pre-line; }
         .sp-app-tiles { margin-top: 10px; }
       </style>
-      <% } %>
 
       <% if (_sees.transport !== false) { %>
       <section class="sp-panel" id="panel-transport" hidden>

@@ -1,4 +1,4 @@
-// Filling in custom sections (feature custom_forms), inside the page that owns them: the
+// Filling in custom sections, inside the page that owns them: the
 // classroom's Forms tab, the driver portal, and Responses in the Custom editor. Pick a section,
 // see its students and what's done, open a student to fill it in or read what was sent.
 //   <div data-cf-fill data-base="/common/forms" data-class-id="146"></div>   (classroom)

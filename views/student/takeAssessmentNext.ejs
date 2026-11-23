@@ -7,7 +7,7 @@
   const _questions = Array.isArray(questions) ? questions : [];
   const _resources = Array.isArray(locals.resources) ? resources : [];
   // Open-book tests show their resources; so does any test whose teacher chose
-  // "Students see these with the test" (feature learning_resources).
+  // "Students see these with the test".
   const _split = (Boolean(assessment.open_book) || Boolean(locals.resourcesShown)) && _resources.length > 0;
   const _notes = String(locals.teacherNotes || '').trim();
   const _minutes = Number(assessment.time_limit_minutes || 0);

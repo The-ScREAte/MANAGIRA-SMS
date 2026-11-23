@@ -4,6 +4,7 @@
 //   var pager = ManagiraPager.create({ mount: el, key: 'guardians', total: 1801, onChange: function (s) { ...draw s.page, s.size... } });
 //   pager.setTotal(n)  — after a filter changes the list (goes back to the first page)
 //   pager.state        — { page, size, from, to, total }
+//   pager.show(total, page) — redraw for a list the caller pages itself (no onChange)
 (function () {
   'use strict';
   var SIZES = [10, 20, 50, 100, 200];
@@ -65,6 +66,8 @@
       setTotal: function (total, keepPage) { state.total = Number(total) || 0; if (!keepPage) state.page = 1; emit(); },
       goTo: function (page) { state.page = Math.max(1, Math.min(pages(), page)); emit(); },
       refresh: emit,
+      // Draw the bar for a list the caller already paged, without calling onChange back.
+      show: function (total, page) { state.total = Number(total) || 0; state.page = Math.max(1, Number(page) || 1); paint(); },
     };
     // The first draw is the caller's to ask for (api.refresh()) once its rows exist.
     paint();

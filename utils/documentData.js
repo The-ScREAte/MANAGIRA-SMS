@@ -36,7 +36,7 @@ const SOURCES = {
     fields: [
       ['name', 'Student', true], ['sid', 'Student ID'], ['class', 'Class', true],
       ['present', 'Days present', true], ['absent', 'Days absent', true], ['total', 'Days marked'], ['rate', 'Attendance %', true],
-      // Overall lunch (feature class_lunch): offered only to schools that take lunch.
+      // Overall lunch: offered only to schools that take lunch.
       ['lunch', 'Lunch', false, { lunch: true }], // e.g. "42 of 58 days"
     ],
   },
@@ -49,7 +49,7 @@ const SOURCES = {
   },
 };
 
-// A field the school can use: lunch fields only where it takes lunch (feature class_lunch).
+// A field the school can use: lunch fields only where it takes lunch.
 const fieldOffered = (field, { lunch = false } = {}) => !(field[3] && field[3].lunch) || lunch;
 
 // Field lists for the page (no SQL details).
@@ -116,8 +116,7 @@ async function loadRoster(db, orgId, term, classIds) {
 async function buildData(db, { orgId, source, classIds, fields, termId }) {
   const def = SOURCES[source];
   if (!def) throw Object.assign(new Error('Unknown data source.'), { status: 400 });
-  const lunchOn = overallLunch.isOn(orgId);
-  const allowed = new Map(def.fields.filter((f) => fieldOffered(f, { lunch: lunchOn })).map(([k, label]) => [k, label]));
+  const allowed = new Map(def.fields.filter((f) => fieldOffered(f, { lunch: true })).map(([k, label]) => [k, label]));
   let picked = (Array.isArray(fields) ? fields : []).filter((f) => allowed.has(f));
   if (!picked.length) picked = def.fields.filter((f) => f[2]).map((f) => f[0]);
   const ids = (Array.isArray(classIds) ? classIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);

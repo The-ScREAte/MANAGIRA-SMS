@@ -1,7 +1,6 @@
 // Activities for families: parents see their children's (the whole school's, their classes'
 // and those just for one of them); students see their own. From today, for 90 days.
 const db = require("../config/db");
-const features = require("../utils/shards/features");
 const { listActivities } = require("../utils/classActivities");
 const { childrenOf } = require("./parentHubController");
 
@@ -33,7 +32,6 @@ module.exports = {
   // GET /guardian/activities
   guardianPage: async (req, res) => {
     const organizationId = Number(req.session.organizationId);
-    if (!features.isOn("class_activities", { organizationId })) return res.redirect("/guardian/dashboard");
     try {
       const children = await childrenOf(db, organizationId, req.session.guardianId);
       const activities = children.length ? await upcomingFor(organizationId, children) : [];
@@ -48,7 +46,6 @@ module.exports = {
   // GET /student/activities
   studentPage: async (req, res) => {
     const organizationId = Number(req.session.organizationId);
-    if (!features.isOn("class_activities", { organizationId })) return res.redirect("/student/dashboard");
     try {
       const me = (await db.query(
         "SELECT student_id, first_name, class_id FROM students WHERE organization_id = $1 AND student_id = $2",

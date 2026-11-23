@@ -189,7 +189,7 @@ const collectOf = (s) => (s.multiple ? "Many times, any time (a list that grows)
 // school's own account see every class; a teacher their classes. Drivers use their own page.
 async function formsReach(db, actor) {
   const cf = require("../customForms");
-  if (!cf.featureOn(actor.organizationId) || !(await cf.ready(db))) throw new ReadError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.");
+  if (!(await cf.ready(db))) throw new ReadError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.");
   if (isDriver(actor)) throw new ReadError("PERMISSION_DENIED", "Drivers fill in their forms on the driver page; Mira can't read Custom editor forms for drivers.");
   const builder = await holds(db, actor, "custom_forms");
   const reach = await cf.staffReach(db, reqFor(actor), { builder });
@@ -450,8 +450,6 @@ const get_calendar = {
     const scope = ["school", "class", "me"].includes(q.scope) ? q.scope : (q.class ? "class" : "me");
     const { from, to } = rangeOf(q, { defaultDays: 14, maxDays: 62 });
     const viewer = await calendarViewer(db, actor);
-    const features = require("../shards/features");
-    const activitiesOn = features.isOn("class_activities", { organizationId: org });
     const { collectItems } = require("../../controllers/workspaceController");
     const { listActivities } = require("../classActivities");
     let items = [];
@@ -497,19 +495,17 @@ const get_calendar = {
         classIds = visible.map((c) => c.id);
         classNames = visible.map((c) => c.name);
       }
-      if (activitiesOn) {
-        const activities = await listActivities(db, org, { classIds, from, to: addDays(to, 1) });
-        activities.forEach((a) => {
-          const d = dayKey(a.date);
-          const e = dayKey(a.endDate);
-          items.push({
-            date: d, weekday: weekdayOf(d), ...(e && e !== d ? { end_date: e, end_weekday: weekdayOf(e) } : {}),
-            all_day: !a.startTime, start_time: a.startTime ? String(a.startTime).slice(0, 5) : null, end_time: a.endTime ? String(a.endTime).slice(0, 5) : null,
-            kind: KIND_LABEL.activity, title: a.title, class: a.className || "Whole school", ...(a.studentName ? { student: a.studentName } : {}),
-            ...(a.location ? { location: a.location } : {}), ...(a.details ? { details: text(a.details, 300) } : {}),
-          });
+      const activities = await listActivities(db, org, { classIds, from, to: addDays(to, 1) });
+      activities.forEach((a) => {
+        const d = dayKey(a.date);
+        const e = dayKey(a.endDate);
+        items.push({
+          date: d, weekday: weekdayOf(d), ...(e && e !== d ? { end_date: e, end_weekday: weekdayOf(e) } : {}),
+          all_day: !a.startTime, start_time: a.startTime ? String(a.startTime).slice(0, 5) : null, end_time: a.endTime ? String(a.endTime).slice(0, 5) : null,
+          kind: KIND_LABEL.activity, title: a.title, class: a.className || "Whole school", ...(a.studentName ? { student: a.studentName } : {}),
+          ...(a.location ? { location: a.location } : {}), ...(a.details ? { details: text(a.details, 300) } : {}),
         });
-      }
+      });
     }
     const extra = await termsAndDaysOff(db, org, from, to);
     items.push(...extra.items);
@@ -528,7 +524,6 @@ const get_calendar = {
         weekends: extra.weekends,
         attendance_calendar_set: extra.calendarSet,
         ...(scope === "me" ? { your_items: ownItems, note: "Exactly what your Calendar page shows you (shared calendars marked shared_by); never your Google or Outlook events." } : {}),
-        ...(!activitiesOn ? { class_activities: "off for this school" } : {}),
         calendar_link: "/common/calendar",
       },
       truncated,

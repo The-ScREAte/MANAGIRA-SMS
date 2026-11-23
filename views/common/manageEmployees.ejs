@@ -860,7 +860,7 @@
         var subjectNames = {}; classes.forEach(function (c) { (c.subjects || []).forEach(function (n) { subjectNames[n] = 1; }); });
         var classInner = classes.length ? '<ul>' + classes.map(function (c) { return '<li>' + esc(c.name) + '</li>'; }).join('') + '</ul>' : '<span>None</span>';
         var subjInner = classes.length ? classes.map(function (c) { return '<div style="margin-bottom:8px;"><strong>' + esc(c.name) + ':</strong>' + ((c.subjects || []).length ? '<ul>' + c.subjects.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' : '<div>None</div>') + '</div>'; }).join('') : '<span>None</span>';
-        return '<tr class="ux-row' + (u.removed ? ' is-removed' : '') + '" tabindex="0" data-user-id="' + esc(u.id) + '">'
+        return '<tr class="ux-row' + (u.removed ? ' is-removed' : '') + '" tabindex="0" data-user-id="' + esc(u.id) + '" data-email="' + esc(u.email) + '" data-status="' + esc(u.status || 'Active') + '">'
           + '<td data-label="Status">' + statusPill(u.status) + '</td>'
           + '<td data-label="Name" class="ws-card-title"><strong>' + esc(u.name) + '</strong></td>'
           + '<td data-label="Email" class="ws-card-wide">' + esc(u.email) + '</td>'

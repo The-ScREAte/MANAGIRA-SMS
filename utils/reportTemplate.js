@@ -64,7 +64,7 @@ const FIELD_GROUPS = [
   { group: 'Footer', note: 'Every printed card already ends with the school website (if any) and a Managira line.', fields: [['school.copyright', 'School name @year all rights reserved']] },
 ];
 
-// Overall lunch (feature class_lunch): listed only for schools that take lunch, and filled
+// Overall lunch: listed only for schools that take lunch, and filled
 // when "Overall lunch" is on in Report Settings › Advanced.
 const LUNCH_FIELDS = [
   ['attendance.lunch', 'Lunch (e.g. 42 of 58 days; turn Overall lunch on in Advanced)'],

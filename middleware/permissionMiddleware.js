@@ -190,7 +190,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.PAYGIRA_SETTINGS, label: "PayGira Settings", parent: PERMISSIONS.PAYGIRA_WORKSPACE, highRisk: true, description: "Payment providers and where school money is paid" },
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing", group: "Finance", highRisk: true, description: "The school's Managira plan, cards and subscription" },
 
-  { key: PERMISSIONS.CUSTOM_FORMS, label: "Custom Editor", group: "Administration", sandboxFeature: "custom_forms", description: "Build the school's own forms, choose who fills them in and where they show, and read every answer" },
+  { key: PERMISSIONS.CUSTOM_FORMS, label: "Custom Editor", group: "Administration", description: "Build the school's own forms, choose who fills them in and where they show, and read every answer" },
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings", group: "Administration", highRisk: true, description: "School-wide settings. Choose which ones below", childrenRequired: "Choose at least one settings area" },
   { key: PERMISSIONS.SETTINGS_PROFILE, label: "School Profile & Branding", parent: PERMISSIONS.MANAGE_SETTINGS, description: "School name, logo, theme, display options and calendar" },
   { key: PERMISSIONS.SETTINGS_WEBSITE, label: "School Website", parent: PERMISSIONS.MANAGE_SETTINGS, features: ["School Website", "SchoolWebsite"], description: "Website pages, images, messages and online registration" },
@@ -199,7 +199,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.SETTINGS_MIRA, label: "Mira Settings", parent: PERMISSIONS.MANAGE_SETTINGS, description: "Turn Mira on and choose who can use her" },
   { key: PERMISSIONS.SETTINGS_SERVICE_ACCOUNTS, label: "Service Accounts", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "API keys that reach school data" },
   // Decides who can get into the whole school: it only ever works for a Manager (ssoController.managersOnly).
-  { key: PERMISSIONS.MANAGE_SSO, label: "Single Sign-On", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, sandboxFeature: "sso", description: "Signing in through the school's own provider (SAML or OpenID Connect). Works for Managers only" },
+  { key: PERMISSIONS.MANAGE_SSO, label: "Single Sign-On", parent: PERMISSIONS.MANAGE_SETTINGS, highRisk: true, description: "Signing in through the school's own provider (SAML or OpenID Connect). Works for Managers only" },
 ];
 
 const PERMISSION_BY_KEY = new Map(PERMISSION_OPTIONS.map((option) => [option.key, option]));
@@ -254,7 +254,7 @@ function permissionOptionsFor({ allowedFeatures, miraActivated, transportActivat
     if ((option.key === PERMISSIONS.USE_MIRA || option.key === PERMISSIONS.SETTINGS_MIRA || option.key === PERMISSIONS.MIRA_SCHOOL_SKILLS) && miraActivated === false) return false;
     if ((option.group === "Transportation" || rootPermission(option.key) === PERMISSIONS.MANAGE_TRANSPORTATION || option.group === "Driver") && transportActivated === false) return false;
     if (!features) return true;
-    return planNeedsFor(option.key, organizationId)
+    return planNeedsFor(option.key)
       .every((needs) => !needs || needs.some((name) => have.has(name.toLowerCase())));
   });
 }
@@ -493,9 +493,13 @@ function resolvePermissionSelection(requested = []) {
 // permissions, leaving high-risk ones and Transportation for a manager to add.
 // With `questions` (the assessments flow), a new teacher also gets Set Assessment Questions,
 // so they can write online tests for their classes from the start.
+// A classroom teacher starts without the school-wide office work (enrolling a whole term,
+// graduating students, the school's report-card settings); a manager can still add them.
+const PRESET_LEAVES_OUT = { Teacher: new Set(["students_enrollment", "students_alumni", "reports_settings"]) };
 function rolePresetPermissions(role, { questions = false } = {}) {
+  const leaveOut = PRESET_LEAVES_OUT[normalizeRole(role)] || new Set();
   const preset = effectivePermissionsForRole(role, [])
-    .filter((key) => !HIGH_RISK_PERMISSIONS.has(key) && rootPermission(key) !== PERMISSIONS.MANAGE_TRANSPORTATION);
+    .filter((key) => !HIGH_RISK_PERMISSIONS.has(key) && rootPermission(key) !== PERMISSIONS.MANAGE_TRANSPORTATION && !leaveOut.has(key));
   if (questions && preset.includes(PERMISSIONS.MANAGE_ASSESSMENTS) && !preset.includes(PERMISSIONS.SET_ASSESSMENT_QUESTIONS)) {
     preset.push(PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
   }
@@ -656,28 +660,25 @@ function invalidateUserPermissionCache(organizationId, userId) {
   cacheManager.invalidatePattern("organization", `perm:owner-user:${organizationId}:`);
 }
 
-// The plan features a permission needs, each list "any one is enough". Where the plan catalog
-// is released, its needs replace these (utils/planCatalog.js: Report Builder is its own feature).
-function planNeedsFor(permissionKey, organizationId = null) {
+// The plan features a permission needs, each list "any one is enough". The plan catalog's needs
+// replace these (utils/planCatalog.js: Report Builder is its own feature).
+function planNeedsFor(permissionKey) {
   const option = PERMISSION_BY_KEY.get(permissionKey);
   if (!option) return [];
   const root = rootPermission(permissionKey);
   const catalog = require("../utils/planCatalog");
-  if (organizationId && catalog.catalogOn(organizationId)) {
-    return [catalog.ROOT_NEEDS[root] || PERMISSION_FEATURES[root], catalog.OPTION_NEEDS[permissionKey] || option.features].filter(Boolean);
-  }
-  return [PERMISSION_FEATURES[root], option.features].filter(Boolean);
+  return [catalog.ROOT_NEEDS[root] || PERMISSION_FEATURES[root], catalog.OPTION_NEEDS[permissionKey] || option.features].filter(Boolean);
 }
 
 function withinPlan(permissionKey, features, organizationId = null) {
   const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
-  return planNeedsFor(permissionKey, organizationId).every((names) => names.some((name) => have.has(name.toLowerCase())));
+  return planNeedsFor(permissionKey).every((names) => names.some((name) => have.has(name.toLowerCase())));
 }
 
 // Uses the plan list every request already has cached, so it adds no query. If the
 // plan can't be read at all, access is left alone rather than blocked by an outage.
 async function planAllowsPermission(database, organizationId, permissionKey) {
-  if (!planNeedsFor(permissionKey, organizationId).length) return true;
+  if (!planNeedsFor(permissionKey).length) return true;
   const { withCore } = require("../utils/planCatalog");
   try {
     const plan = await resolvePlanForOrganization(database, organizationId);

@@ -3,7 +3,6 @@
 // A school's single sign-on connection: reading it, saving it, and what can go wrong with
 // what a manager typed. Everything else in SSO goes through here.
 const crypto = require("crypto");
-const features = require("../shards/features");
 const { encryptSecret, decryptSecret, isSettingsEncryptionKeyConfigured } = require("../encryption");
 const { checkedUrl } = require("../safeFetch");
 
@@ -29,8 +28,6 @@ const PROVIDERS = {
 const PROTOCOL_NAMES = { saml: "SAML", oidc: "OpenID Connect" };
 
 class SsoSetupError extends Error {}
-
-const isOn = (organizationId) => features.isOn("sso", { organizationId });
 
 function clean(value, max = 500) {
   return String(value === undefined || value === null ? "" : value).trim().slice(0, max);
@@ -207,7 +204,7 @@ async function connectionForEmail(db, email, { onlyOrganizationId = null } = {})
         LIMIT 1`,
       [address, onlyOrganizationId]
     );
-    return rows[0] && isOn(rows[0].organization_id) ? rows[0] : null;
+    return rows[0] || null;
   } catch (error) {
     if (error.code === TABLE_MISSING) return null;
     throw error;
@@ -256,7 +253,7 @@ function waysFor(row, { kind = "staff", user = null, isMain = false } = {}) {
 }
 
 const activeRow = async (db, organizationId) => {
-  if (!organizationId || !isOn(organizationId)) return null;
+  if (!organizationId) return null;
   const row = await connectionFor(db, organizationId);
   return row && row.status === "active" ? row : null;
 };
@@ -272,7 +269,7 @@ async function passwordRefused(db, organizationId, { isMainManager: isMain = fal
 // How each member of staff signs in, for the staff list. The same rules as the login page:
 // "sso" (the school's provider), "both" (the provider or a password: the main manager) or "password".
 async function staffSignIn(db, organizationId) {
-  const row = isOn(organizationId) ? await connectionFor(db, organizationId) : null;
+  const row = await connectionFor(db, organizationId);
   const active = Boolean(row && row.status === "active");
   const { getPrimaryManagerUserId } = require("../../middleware/permissionMiddleware");
   const mainId = active ? Number(await getPrimaryManagerUserId(db, organizationId)) : null;
@@ -348,7 +345,7 @@ async function everyoneUsesSso(db, organizationId) {
 }
 
 module.exports = {
-  PROVIDERS, PROTOCOL_NAMES, SsoSetupError, isOn, isComplete, readCertificate, connectionFor, connectionByPublicId, connectionForEmail,
+  PROVIDERS, PROTOCOL_NAMES, SsoSetupError, isComplete, readCertificate, connectionFor, connectionByPublicId, connectionForEmail,
   saveSettings, setStatus, removeConnection, clientSecretOf, record, passwordRefused, isMainManager, staffSignIn, inviteSignIn,
   methodReady, waysFor, providerForStaff, methodCounts, everyoneUsesSso,
 };

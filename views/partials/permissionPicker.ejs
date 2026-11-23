@@ -54,6 +54,14 @@
   </div>
 <% }; %>
 <div class="perm-picker" id="permissionPicker">
+  <label class="perm-all" for="permAll">
+    <input type="checkbox" id="permAll" class="perm-all-box" aria-describedby="permAllHint">
+    <span class="perm-text">
+      <span class="perm-title">Allow all permissions</span>
+      <span class="perm-desc" id="permAllHint">Turns on everything this role can have<%= _canHighRisk ? ', high-risk permissions included' : '' %>. Turn any one off below.</span>
+    </span>
+    <span class="perm-all-count" data-perm-all-count></span>
+  </label>
   <% _groups.forEach((group) => { %>
     <section class="perm-group" data-perm-group="<%= group %>">
       <h4 class="perm-group-title"><%= group %></h4>
@@ -97,6 +105,10 @@
   .perm-children-title { font-size: 0.74rem; font-weight: 600; padding-top: 3px; }
   .perm-required { display: none; align-items: center; gap: 4px; padding: 2px 0; color: #dc2626; font-size: 0.72rem; }
   .perm-children:not(:has(> .perm-node > .perm-row input.perm-switch:checked)) > .perm-required { display: flex; }
+  .perm-picker .perm-all { display: flex !important; flex-direction: row; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 28%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, transparent); cursor: pointer; font-weight: 400; }
+  .perm-picker .perm-all .perm-title { font-size: 0.86rem; font-weight: 700; }
+  .perm-picker input.perm-all-box { flex: 0 0 auto; width: 18px !important; height: 18px !important; margin: 0 !important; padding: 0 !important; accent-color: var(--org-primary-color, var(--primary, #01535b)); cursor: pointer; }
+  .perm-all-count { flex: 0 0 auto; font-size: 0.72rem; font-weight: 600; opacity: .65; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .perm-picker .perm-choice { display: flex !important; flex-direction: row; align-items: center; gap: 6px; margin: 0; padding: 3px 0; font-size: 0.78rem; font-weight: 400; cursor: pointer; }
   .perm-picker .perm-choice input { width: 14px !important; height: 14px; margin: 0 !important; flex: 0 0 auto; accent-color: var(--org-primary-color, #01535b); }
   .perm-class-list { display: none; gap: 0; padding-left: 20px; }
@@ -119,12 +131,37 @@
       var caret = node.querySelector(':scope > .perm-row > .perm-caret');
       if (caret) caret.setAttribute('aria-expanded', open ? 'true' : 'false');
     };
+    // "Allow all permissions": every switch this role shows and this person may give
+    // (a locked high-risk one stays as it is). Ticked when all are on, part-ticked when some are.
+    var allBox = picker.querySelector('#permAll');
+    var allCount = picker.querySelector('[data-perm-all-count]');
+    var givable = function () {
+      return Array.prototype.filter.call(picker.querySelectorAll('input.perm-switch'), function (box) {
+        return !box.disabled && !box.closest('.perm-node[hidden], .perm-group[hidden]');
+      });
+    };
+    var syncAll = function () {
+      if (!allBox) return;
+      var boxes = givable();
+      var on = boxes.filter(function (box) { return box.checked; }).length;
+      allBox.checked = boxes.length > 0 && on === boxes.length;
+      allBox.indeterminate = on > 0 && on < boxes.length;
+      if (allCount) allCount.textContent = boxes.length ? on + ' of ' + boxes.length + ' on' : '';
+    };
+    if (allBox) {
+      allBox.addEventListener('change', function () {
+        var turnOn = allBox.checked;
+        givable().forEach(function (box) { box.checked = turnOn; });
+        refresh();
+      });
+    }
     var refresh = function () {
       picker.querySelectorAll('[data-perm-count]').forEach(function (count) {
         var children = count.closest('.perm-node').querySelectorAll(':scope > .perm-children > .perm-node');
         var on = Array.prototype.filter.call(children, function (node) { return rowSwitch(node).checked; }).length;
         count.textContent = children.length ? on + ' of ' + children.length : '';
       });
+      syncAll();
     };
     // A driver's list holds Driver and Transportation, plus Users / Employees once
     // they are a lead; nobody else sees Driver.
@@ -150,6 +187,7 @@
     };
     // Lead Driver turns on what a lead usually needs; each one can still be turned off.
     picker.addEventListener('change', function (event) {
+      if (event.target === allBox) return;
       if (event.target.value === 'driver_lead') forRole(driverRole);
       var row = event.target.closest && event.target.closest('[data-perm-presets]');
       if (!row || !event.target.checked) return;

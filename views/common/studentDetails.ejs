@@ -595,7 +595,7 @@
       }
       .sd-card + .sd-card { margin-top: 14px; }
       .sd-card__title { margin: 0 0 10px; font-size: 0.95rem; font-weight: 700; color: #0f172a; text-align: left; }
-      /* Files | Portfolio (feature student_documents) and the card heads. */
+      /* Files | Portfolio and the card heads. */
       .sd-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
       .sd-card__head .sd-card__title { margin: 0; }
       .sd-files__bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
@@ -1050,7 +1050,7 @@
       <% if (locals.studentDocuments) { const _sd = studentDocuments;
            const _shareShort = { staff: 'Staff', managers: 'Managers only', family: 'Family' };
            const _day = (d) => d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''; %>
-      <%# Files and portfolio (feature student_documents, routes/studentDocumentsRoute.js). Adding or changing a
+      <%# Files and portfolio (routes/studentDocumentsRoute.js). Adding or changing a
           file opens the right-side drawer (views/common/studentDocumentForm.ejs); saving reloads the page. %>
       <section class="sd-card sd-files" id="student-documents">
         <div class="sd-files__bar">

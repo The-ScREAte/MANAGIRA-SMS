@@ -16,7 +16,7 @@ module.exports = (db) => {
   signIn.get("/oidc/:publicId([a-f0-9]{24})/callback", (req, res) => sso.oidcCallback(req, res, db));
 
   const settings = express.Router();
-  const manager = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SSO), sso.managersOnly, sso.guard];
+  const manager = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.MANAGE_SSO), sso.managersOnly];
   settings.get("/", ...manager, (req, res) => sso.state(req, res, db));
   settings.post("/", ...manager, authRateLimit("sso-confirm", { field: "email", perIp: 300 }), (req, res) => sso.save(req, res, db));
   settings.post("/metadata", ...manager, (req, res) => sso.readMetadata(req, res, db));

@@ -12,16 +12,16 @@
   if (showSchoolwork) {
     _tiles.push({ href: '/guardian/child/homework?' + _q, icon: 'homework', name: 'Homework', count: 'homework' });
     _tiles.push({ href: '/guardian/child/testing-room?' + _q, icon: 'questions', name: 'Testing Room', count: 'testing' });
-    _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: (locals.featureOn && featureOn('assessment_flow')) ? 'Documents & results' : (locals.showSchoolDocs ? 'Documents' : 'Assessment documents'), count: 'documents' });
+    _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: 'Documents & results', count: 'documents' });
   } else if (locals.showSchoolDocs) {
     _tiles.push({ href: '/guardian/child/documents?' + _q, icon: 'docs', name: 'Documents', count: 'documents' });
   }
-  if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) {
+  if (locals.customFormsReady && customFormsReady()) {
     _tiles.push({ href: '/guardian/child/forms?' + _q, icon: 'forms', name: 'Forms', count: 'forms' });
     // Forms the school gave a tile of their own.
     (locals.formTiles || []).forEach((form) => _tiles.push({ href: '/guardian/child/forms?' + _q + '&form=' + form.id, formIcon: form.icon, name: form.name, count: 'form-' + form.id, form: form.id }));
   }
-  if (locals.featureOn && featureOn('student_portfolio') && locals.showPortfolio !== false) {
+  if (locals.showPortfolio !== false) {
     _tiles.push({ href: '/guardian/child/portfolio?' + _q, icon: 'portfolio', name: 'Portfolio' });
   }
 %>
@@ -49,7 +49,7 @@
       </a>
     <% }) %>
     <% if (showTransport) { %>
-      <button type="button" class="app-tile" data-transport-tile data-bus-tracker-name="<%= child.firstName %>"<% if (locals.featureOn && featureOn('bus_boarding')) { %> data-bus-stop-using<% } %>>
+      <button type="button" class="app-tile" data-transport-tile data-bus-tracker-name="<%= child.firstName %>" data-bus-stop-using>
         <span class="app-tile__icon"><%- navIcon('transportation') %></span>
         <span class="app-tile__name">Transportation</span>
       </button>

@@ -534,9 +534,9 @@ async function saveCalendar(db, req, body) {
   return { schoolDays, holidays, daysOff: daysOff.length };
 }
 
-function websiteLayouts(organizationId) {
+function websiteLayouts() {
   const { layoutsFor } = require("./websiteView");
-  return layoutsFor((key) => features.isOn(key, { organizationId }));
+  return layoutsFor();
 }
 
 async function saveWebsite(db, req, layout) {

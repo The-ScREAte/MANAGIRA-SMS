@@ -658,13 +658,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
 
   const [access, userMessage] = await Promise.all([accessPromise, savingUser]);
   sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
-  // Steps (feature mira_steps): Mira understands and plans the message first, shows each step
+  // Steps: Mira understands and plans the message first, shows each step
   // as it works, and the answer appears only once it has been checked.
-  const showSteps = Boolean(access.features && access.features.mira_steps);
   const step = (id, label, status, detail) => {
-    if (showSteps) sse.send("step", detail ? { id, label, status, detail } : { id, label, status });
+    sse.send("step", detail ? { id, label, status, detail } : { id, label, status });
   };
-  const planning = showSteps && needsPlan(userText);
+  const planning = needsPlan(userText);
   if (planning) step("understand", "Analyzing your request", "active");
   // The plan helps, but never holds the answer up. When the person's words already say which
   // areas are needed, Mira waits at most PLAN_WAIT_SHORT_MS for it; otherwise (the plan chooses
@@ -863,8 +862,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
         tools: roundTools,
         onToken: (text) => {
           assistantText += text;
-          if (!showSteps) sse.send("token", { text });
-          else if (!writing) {
+          if (!writing) {
             writing = true;
             step(`write-${round}`, "Composing the answer", "active");
           }
@@ -915,8 +913,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       console.warn(`[mira/orchestrator] reply needs a correction: ${[...unsupported, ...unsupportedDays, ...wrongDays, ...unchecked.map((t) => `not looked up: ${t}`)].join(", ")}`);
       // Mira's own accuracy check caught something in its draft (a figure or date no record gave,
       // or a wrong weekday): it is rebuilt from the records before anyone sees it.
-      if (showSteps) step("check", unchecked.length ? "Looking up every part of the question" : namedDates.length ? "Checking the calendar names that date" : (saidDone || fakePreview) ? "Keeping it a preview until you confirm" : unsupported.length ? "Cross-checking figures against school records" : "Cross-checking dates against the school calendar", "done");
-      else sse.send("revise", {});
+      step("check", unchecked.length ? "Looking up every part of the question" : namedDates.length ? "Checking the calendar names that date" : (saidDone || fakePreview) ? "Keeping it a preview until you confirm" : unsupported.length ? "Cross-checking figures against school records" : "Cross-checking dates against the school calendar", "done");
       const problems = [
         unsupported.length ? `these figures in your reply don't appear in any tool result or message in this conversation: ${unsupported.join(", ")}. Either call the tool that gives them, or leave them out and say plainly what you couldn't find in Managira.` : "",
         unsupportedDays.length ? `these dates in your reply don't appear in any tool result or message: ${unsupportedDays.join(", ")}. Read each date again from the tool results (a date of birth like 2011-05-09 is May 9), or leave it out.` : "",
@@ -1066,7 +1063,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
         task: "default",
         messages: [...workingMessages, { role: "system", content: "Answer the person's newest message now, from the tool results above only. If nothing matched, say so plainly with the scope that was checked. Don't call any tools." }],
         tools: [],
-        onToken: (text) => { retry += text; if (!showSteps) sse.send("token", { text }); },
+        onToken: (text) => { retry += text; },
         onToolCall: () => {},
       });
       await usageOf(tenant, pass);
@@ -1074,7 +1071,6 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
       console.error("[mira/orchestrator] retry failed:", error.message);
     }
     assistantText = retry.trim() ? retry : "I couldn't finish that answer just now. Nothing was changed. Please ask again.";
-    if (!retry.trim() && !showSteps) sse.send("token", { text: assistantText });
   }
 
   // A part of the question still not looked up after the check is said plainly, never skipped.
@@ -1083,12 +1079,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
     if (still.length) {
       const note = `\n\n_I didn't check ${still.join(" or ")} for this, so the answer above doesn't account for ${still.length === 1 ? "it" : "them"}._`;
       assistantText = `${assistantText.trim()}${note}`;
-      if (!showSteps) sse.send("token", { text: note });
     }
   }
 
   // The checked answer is given in quick pieces, so it still reads as it arrives.
-  if (showSteps) await releaseAnswer(sse, assistantText);
+  await releaseAnswer(sse, assistantText);
 
   const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined, classScope);
 

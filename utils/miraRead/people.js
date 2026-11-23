@@ -341,7 +341,7 @@ const SEARCHERS = {
   async forms(db, actor, ctx, text) {
     const cf = require("../customForms");
     const organizationId = orgOf(actor);
-    if (!cf.featureOn(organizationId) || !(await cf.ready(db))) return refuse("the Custom editor, which isn't on for this school");
+    if (!(await cf.ready(db))) return refuse("the Custom editor, which isn't on for this school");
     if (ctx.driver) return refuse(DRIVERS);
     const [builder, students] = await Promise.all([holds(db, actor, P.CUSTOM_FORMS), holds(db, actor, P.MANAGE_STUDENTS)]);
     if (!builder && !students) return refuse("Custom Editor or Manage Students");
@@ -590,7 +590,6 @@ async function studentProfile(db, actor, q) {
   const untrusted = {};
   const data = {};
   const totals = {};
-  const features = require("../shards/features");
 
   // Basics and class, as the person card shows them.
   const [archive, lead, assistants, group] = await Promise.all([
@@ -679,10 +678,8 @@ async function studentProfile(db, actor, q) {
     const present = Number(rows[0].present) || 0;
     data.attendance = { term: term.name, days_taken: days, present, absent: days - present, percent_present: days ? Math.round((present / days) * 1000) / 10 : null };
     const lunch = require("../overallLunch");
-    if (lunch.isOn(organizationId)) {
-      const total = (await lunch.totalsFor(db, organizationId, term.id, [sid]).catch(() => new Map())).get(sid);
-      data.attendance.lunch = total ? { days_with_lunch: total.days, days_taken: total.taken, label: lunch.label(total) } : null;
-    }
+    const total = (await lunch.totalsFor(db, organizationId, term.id, [sid]).catch(() => new Map())).get(sid);
+    data.attendance.lunch = total ? { days_with_lunch: total.days, days_taken: total.taken, label: lunch.label(total) } : null;
   } else {
     hidden.push({ section: "attendance", needs: attendanceOk ? "leading the student's class (main or assistant teacher)" : "Mark Attendance" });
   }
@@ -748,9 +745,9 @@ async function studentProfile(db, actor, q) {
     hidden.push({ section: "transport", needs: TRANSPORT_OFF });
   }
 
-  // Files on the student's record (student_documents): managers-only files for managers and supervisors.
+  // Files on the student's record: managers-only files for managers and supervisors.
   const docs = require("../studentDocuments");
-  if (docs.isOn(organizationId) && (await docs.ready(db))) {
+  if (await docs.ready(db)) {
     const list = await docs.listFor(db, organizationId, sid, { req: ctx.req }).catch(() => []);
     data.files = list.map((f) => ({ id: f.id, type: f.typeLabel, title: f.title, expires_on: f.expiresOn, expired: f.expired, expires_soon: f.expiresSoon, who_sees: f.sharingLabel, added: dayText(f.uploadedAt) }));
     const notes = list.filter((f) => f.note).map((f) => ({ file_id: f.id, note: f.note }));
@@ -762,7 +759,7 @@ async function studentProfile(db, actor, q) {
 
   // Forms still to fill in this period (the Custom editor), among the forms this person can see.
   const cf = require("../customForms");
-  if (cf.featureOn(organizationId) && (await cf.ready(db)) && student.class_id && !archive) {
+  if ((await cf.ready(db)) && student.class_id && !archive) {
     const builder = await holds(db, actor, P.CUSTOM_FORMS);
     const reach = await cf.staffReach(db, ctx.req, { builder });
     const outstanding = [];
@@ -777,8 +774,6 @@ async function studentProfile(db, actor, q) {
     }
     data.forms_outstanding = outstanding;
     totals.forms_outstanding = outstanding.length;
-  } else if (!cf.featureOn(organizationId)) {
-    hidden.push({ section: "forms_outstanding", needs: "the Custom editor, which isn't on for this school" });
   } else {
     data.forms_outstanding = [];
     totals.forms_outstanding = 0;
@@ -787,7 +782,7 @@ async function studentProfile(db, actor, q) {
   return {
     data: { ...data, hidden_sections: hidden },
     totals,
-    scope: { student_id: sid, term: term ? term.name : null, classes_only: Boolean(mine), features: { student_documents: features.isOn("student_documents", { organizationId }) } },
+    scope: { student_id: sid, term: term ? term.name : null, classes_only: Boolean(mine), features: { student_documents: true } },
     truncated: Boolean(data.fees && totals.bills > 50),
     ...(Object.keys(untrusted).length ? { untrusted } : {}),
   };
@@ -1192,9 +1187,8 @@ async function family(db, actor, q) {
   const status = access.tier === "contacts" ? null : await portalStatus(db, organizationId, parents);
   const contacts = require("../contacts");
   const untrusted = { contact_details: [] };
-  const sharing = require("../shards/features").isOn("family_sharing", { organizationId });
   let pickup = null;
-  if (access.tier === "class" && sharing) {
+  if (access.tier === "class") {
     pickup = await contacts.familyDetailsForStudents(db, organizationId, [...(kidsInScope || [])], "teachers").catch(() => new Map());
   }
   const order = new Map(parents.map((id, i) => [id, i]));

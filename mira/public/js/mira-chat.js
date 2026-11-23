@@ -587,9 +587,8 @@
     return "Looking it up\u2026";
   }
 
-  // ---- Steps (feature mira_steps): what Mira understood, its plan, each lookup and the
+  // ---- Steps: what Mira understood, its plan, each lookup and the
   // check of its answer, shown above the reply as it works, then folded into one line.
-  var STEPS_ON = window.MIRA_STEPS === true;
   var CHEVRON = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   function createStepsPanel(messageEl, bubble, options) {
@@ -710,7 +709,7 @@
   // A saved reply shows what was looked up, folded.
   function appendStoredSteps(messageEl, bubble, toolCalls) {
     var calls = (Array.isArray(toolCalls) ? toolCalls : []).filter(function (call) { return call && call.name; });
-    if (!STEPS_ON || !calls.length) return;
+    if (!calls.length) return;
     var panel = createStepsPanel(messageEl, bubble, { done: true, keep: true });
     calls.forEach(function (call) {
       panel.toolStarted(call.label || describeTool(call.name).replace(/\u2026$/, ""));
@@ -816,7 +815,6 @@
         try {
           if (eventName === "chat") handlers.onChat?.(data);
           else if (eventName === "token") handlers.onToken?.(data);
-          else if (eventName === "revise") handlers.onRevise?.(data);
           else if (eventName === "step") handlers.onStep?.(data);
           else if (eventName === "plan") handlers.onPlan?.(data);
           else if (eventName === "skills") handlers.onSkills?.(data);
@@ -1020,26 +1018,17 @@
           receivedFirstToken = true;
           setThreadLogoWorking(false);
           // The answer comes only after every step: the steps fold into one line above it.
-          if (STEPS_ON && steps) steps.finish("done");
+          if (steps) steps.finish("done");
         }
         rawText += data.text;
         setThinkingLabel("");
         renderSoon();
       },
-      // Mira is correcting a reply before it stands (a figure it couldn't
-      // back up): clear what was shown and wait for the corrected one.
-      onRevise: function () {
-        rawText = "";
-        bubble.innerHTML = "";
-        receivedFirstToken = false;
-        setThreadLogoWorking(true);
-      },
-      onStep: function (data) { if (STEPS_ON) stepsPanel().step(data); },
-      onPlan: function (data) { if (STEPS_ON) stepsPanel().plan(data && data.steps); },
+      onStep: function (data) { stepsPanel().step(data); },
+      onPlan: function (data) { stepsPanel().plan(data && data.steps); },
       onSkills: function (data) { if (window.MiraSkills) window.MiraSkills.showUsed(bubble, data && data.skills); },
       onToolCall: function (data) {
-        if (STEPS_ON) stepsPanel().toolStarted((data && data.label) || describeTool(data && data.name).replace(/\u2026$/, ""));
-        else setThinkingLabel(describeTool(data && data.name));
+        stepsPanel().toolStarted((data && data.label) || describeTool(data && data.name).replace(/\u2026$/, ""));
       },
       onToolResult: function (data) { if (steps) steps.toolFinished(data && data.status); },
       onPreview: function (data) {

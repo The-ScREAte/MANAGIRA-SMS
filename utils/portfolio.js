@@ -1,14 +1,12 @@
 "use strict";
-// A student's portfolio (feature student_portfolio): one folder per term holding everything the
+// A student's portfolio: one folder per term holding everything the
 // student did that term: each assessment, assignment and piece of homework with its mark, every
 // marked online test as a document (and PDF) and the term's report card. Parents and the student
 // see marks exactly as the gradebook lets them (a score waiting for the teacher's approval stays
 // hidden, utils/assessmentApproval.js).
 const assessmentApproval = require("./assessmentApproval");
 const testResults = require("./testResults");
-const features = require("./shards/features");
 
-const featureOn = (organizationId) => features.isOn("student_portfolio", { organizationId: Number(organizationId) || null });
 const HOMEWORK = /home\s*work|assignment|take[-\s]?home|project/i;
 const TEST = /test|exam|quiz|midterm|final/i;
 const kindOf = (category, title) => {
@@ -219,4 +217,4 @@ async function testDocument(db, organizationId, studentId, attemptId, imageUrl, 
   };
 }
 
-module.exports = { featureOn, termsFor, build, testDocument, consistencyOf };
+module.exports = { termsFor, build, testDocument, consistencyOf };

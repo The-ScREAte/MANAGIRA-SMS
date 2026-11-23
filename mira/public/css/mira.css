@@ -1573,7 +1573,7 @@ button { font-family: inherit; }
   .mira-modal { max-height: calc(100dvh - 20px); }
 }
 
-/* ---- Enhance (feature mira_steps): sparkle and a word, like the other composer controls ---- */
+/* ---- Enhance: sparkle and a word, like the other composer controls ---- */
 :root { --mira-step-done: #0f766e; --mira-step-failed: #b45309; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mira-step-done: #5fd4c8; --mira-step-failed: #f5b45f; } }
 :root[data-theme="dark"] { --mira-step-done: #5fd4c8; --mira-step-failed: #f5b45f; }

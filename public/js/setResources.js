@@ -1,4 +1,4 @@
-// "Resources & recommendations" in the question set form (feature learning_resources). Replaces
+// "Resources & recommendations" in the question set form. Replaces
 // the older parent-only box (public/js/parentResources.js keeps the same window.ParentResources
 // shape, so the form calls load() and afterSave() as before). Files and links are kept whether
 // or not parents see them; two ticks say who does: students with the test, and the parent portal.

@@ -324,7 +324,7 @@ function schoolDaysJoin(bind, criteria) {
     ) sp ON TRUE`;
 }
 
-// Lunch, taken beside attendance on the class attendance page (feature class_lunch): one
+// Lunch, taken beside attendance on the class attendance page: one
 // class_lunch row per student per day, had lunch or not; no row = lunch wasn't taken that day.
 // Grouped like attendanceRollup, dates filtered inside. Per student, "days lunch was taken" are
 // the class's (every day lunch was taken for the class that term), as the page's "Overall" shows.
@@ -1072,13 +1072,12 @@ const REPORTS = {
     ],
   },
 
-  // Lunch (feature class_lunch), in the Attendance entry beside the marks it is taken with.
+  // Lunch, in the Attendance entry beside the marks it is taken with.
   lunch: {
     title: "Attendance",
     variant: "Lunch each day",
     permission: "mark_attendance",
     requires: "lunch",
-    releaseFeature: "class_lunch",
     organizationExpression: "cl.organization_id",
     classExpression: "cl.class_id",
     stableOrderExpressions: ["cl.lunch_id"],
@@ -1130,7 +1129,6 @@ const REPORTS = {
     variant: "Lunch per student",
     permission: "mark_attendance",
     requires: "lunch",
-    releaseFeature: "class_lunch",
     organizationExpression: "x.organization_id",
     classExpression: "x.class_id",
     stableOrderExpressions: ["x.student_id", "x.class_id", "x.term_id"],
@@ -1174,7 +1172,6 @@ const REPORTS = {
     variant: "Lunch per class & day",
     permission: "mark_attendance",
     requires: "lunch",
-    releaseFeature: "class_lunch",
     organizationExpression: "x.organization_id",
     classExpression: "x.class_id",
     stableOrderExpressions: ["x.class_id", "x.term_id"],
@@ -1524,7 +1521,6 @@ const REPORTS = {
     variant: "Custom forms",
     permission: "custom_forms",
     requires: "customForms",
-    releaseFeature: "custom_forms",
     organizationExpression: "e.organization_id",
     classExpression: "s.class_id",
     stableOrderExpressions: ["e.entry_id"],
@@ -1856,8 +1852,6 @@ const ARRIVAL_REASON = (column) => `CASE ${column}
   WHEN 'absent' THEN 'Absent today' WHEN 'parent' THEN 'Picked up by parent' WHEN 'elsewhere' THEN 'Got off elsewhere'
   WHEN 'missed' THEN 'Missed the bus' WHEN 'other' THEN 'Other' END`;
 const DROVE_IT = (expression) => (bind, viewerId) => `${expression} = ${bind(viewerId)}`;
-
-const TRANSPORT_REPORT_NAMES = ["transport_riders", "transport_requests", "transport_trips", "transport_arrivals", "transport_driver_reports", "transport_buses_list", "transport_driver_list", "transport_routes_list"];
 
 Object.assign(REPORTS, {
   transport_riders: {
@@ -2222,7 +2216,6 @@ Object.assign(REPORTS, {
   },
 });
 
-TRANSPORT_REPORT_NAMES.forEach((name) => { REPORTS[name].releaseFeature = "transport_report_builder"; });
 
 // `also` adds to a description only for people who can open that view.
 // More views: classes, subjects, assessments one per row, bills, and the emails Managira sent.
@@ -2604,9 +2597,8 @@ const FEATURES = {
   attendance: (db, organizationId) => planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   // The attendance calendar's tables (made on the first visit to attendance pages).
   attendanceCalendar: tableExists("organization_attendance_calendars", "organization_attendance_calendar_days"),
-  // Lunch is taken on the class attendance page: released to the school, its table made, and attendance in the plan.
-  lunch: async (db, organizationId) => require("./shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
-    && (await tableExists("class_lunch")(db))
+  // Lunch is taken on the class attendance page: its table made, and attendance in the plan.
+  lunch: async (db, organizationId) => (await tableExists("class_lunch")(db))
     && planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   website: (db, organizationId) => planHas(db, organizationId, ["School Website", "SchoolWebsite"]),
   // Open in Managira link columns (released by report_builder_more).

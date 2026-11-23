@@ -25,7 +25,6 @@ const {
 const { ensureFeedToken, buildIcs, normalizeIcsUrl, detectProvider, fetchIcs, importedEvents, lockSecret } = require("../utils/calendarSync");
 const calConnect = require("../utils/calendarConnect");
 const { lessonItems, tripItems } = require("../utils/lessonCalendar");
-const features = require("../utils/shards/features");
 const MANAGER_ROLES = new Set(["organization", "manager", "mini admin", "admin", "supervisor", "superviser"]);
 const isManagerRole = (role) => MANAGER_ROLES.has(String(role || "").trim().toLowerCase());
 const { listActivities } = require("../utils/classActivities");
@@ -275,17 +274,15 @@ async function collectItems(db, { organizationId, actor, start, end, canPublish,
 
   // Those who run the school see every class; a teacher sees their own classes and the
   // whole-school activities; anyone else sees the whole-school ones.
-  const activitiesP = features.isOn("class_activities", { organizationId })
-    ? (async () => {
-      if (seesAllClasses || !actor.id) return listActivities(db, organizationId, { from: start, to: end });
-      // Drivers are linked to classes for transport, not teaching.
-      const mine = await db.query(
-        `SELECT uc.class_id FROM user_classes uc JOIN users u ON u.user_id = uc.user_id WHERE uc.user_id = $1 AND u.account_type <> 'Driver'`,
-        [actor.id]
-      );
-      return listActivities(db, organizationId, { classIds: mine.rows.map((row) => Number(row.class_id)), from: start, to: end });
-    })()
-    : [];
+  const activitiesP = (async () => {
+    if (seesAllClasses || !actor.id) return listActivities(db, organizationId, { from: start, to: end });
+    // Drivers are linked to classes for transport, not teaching.
+    const mine = await db.query(
+      `SELECT uc.class_id FROM user_classes uc JOIN users u ON u.user_id = uc.user_id WHERE uc.user_id = $1 AND u.account_type <> 'Driver'`,
+      [actor.id]
+    );
+    return listActivities(db, organizationId, { classIds: mine.rows.map((row) => Number(row.class_id)), from: start, to: end });
+  })();
   // Birthdays: students in the person's classes (every class for those who run the school), and staff.
   const birthdaysP = actor.id
     ? require("../utils/birthdayCalendar").birthdayItems(db, { organizationId, userId: actor.id, role: role || (seesAllClasses ? "manager" : null), start, end }).catch((err) => {

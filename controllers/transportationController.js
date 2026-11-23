@@ -13,7 +13,6 @@ const { checkRateLimit } = require("../utils/rateLimiter");
 const liveBus = require("../utils/liveBus");
 const busRequests = require("../utils/transportationRequests");
 const transportBoarding = require("../utils/transportBoarding");
-const features = require("../utils/shards/features");
 const transportReports = require("../utils/transportReports");
 const { isDatabaseUnavailable } = require("../middleware/errorMiddleware");
 const { locateAddress } = require("../utils/transportationRequests");
@@ -149,10 +148,6 @@ function limitRequests(req, action, max) {
   if (!checkRateLimit(`busreq:${action}:${who}`, { max, windowMs: 60000 }).allowed) {
     throw new busRequests.RequestError("Too many tries. Please wait a minute and try again.", 429);
   }
-}
-
-function requireBoarding(req) {
-  if (!features.isOn("bus_boarding", { organizationId: req.session.organizationId })) throw new transportReports.ReportError("Not available.", 404);
 }
 
 // A teacher's own class, or any class for those who manage students.
@@ -416,7 +411,7 @@ async function saveLastAnswers(req, db, organizationId, userId, tripId) {
     if (isDatabaseUnavailable(error)) throw error;
     console.error("[Transport] End trip answers not saved:", tripId, error.message);
   });
-  const allowed = features.isOn("bus_boarding", { organizationId }) ? boardings.slice(0, 200) : [];
+  const allowed = boardings.slice(0, 200);
   await Promise.all([
     ...allowed.map((item) => ignoringBadAnswers(transportBoarding.saveBoarding(db, organizationId, driver, trip, item || {}))),
     ignoringBadAnswers(transportReports.saveArrivals(db, organizationId, driver, trip, arrivals)),
@@ -2542,7 +2537,6 @@ const transportationController = {
 
   /* ---------- boarding, and who is riding today ---------- */
   driverBoardingPost: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const organizationId = req.session.organizationId;
     const driver = staffIdentity(req.session);
     const trip = await liveBus.tripForDriver(db, organizationId, toInt(req.body?.tripId), driver.userId);
@@ -2551,13 +2545,11 @@ const transportationController = {
   }),
 
   driverNotRidingGet: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const reading = await transportBoarding.schoolDay(db, req.session.organizationId, transportBoarding.dayFrom(req.query.date));
     return { success: true, studentIds: reading.notRiding.map((row) => row.studentId) };
   }),
 
   parentRidingGet: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const session = req.session;
     const family = await transportBoarding.familyOf(db, session.organizationId, session.guardianId, () => guardianTransportStudentIds(db, session));
     const reading = await transportBoarding.schoolDay(db, session.organizationId, transportBoarding.dayFrom(req.query.date));
@@ -2565,7 +2557,6 @@ const transportationController = {
   }),
 
   parentRidingPost: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const session = req.session;
     const studentId = toInt(req.body?.studentId);
     if (!(await guardianTransportStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student's bus isn't available to you.", 403);
@@ -2575,7 +2566,6 @@ const transportationController = {
   }),
 
   parentStopBusPost: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const session = req.session;
     const studentId = toInt(req.body?.studentId);
     if (!(await guardianTransportStudentIds(db, session)).includes(studentId)) throw new transportReports.ReportError("That student's bus isn't available to you.", 403);
@@ -2584,7 +2574,6 @@ const transportationController = {
   }),
 
   classRidingGet: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const organizationId = req.session.organizationId;
     const studentIds = await classStudentIds(db, req, res);
     const reading = await transportBoarding.schoolDay(db, organizationId, transportBoarding.dayFrom(req.query.date));
@@ -2592,7 +2581,6 @@ const transportationController = {
   }),
 
   classRidingPost: (req, res, db) => answer(res, async () => {
-    requireBoarding(req);
     const studentId = toInt(req.body?.studentId);
     if (!(await classStudentIds(db, req, res)).includes(studentId)) throw new transportReports.ReportError("That student isn't in this class.", 403);
     const who = staffIdentity(req.session);
@@ -3188,26 +3176,6 @@ const transportationController = {
     }
   },
 
-  getLiveByRoute: async (req, res, db) => {
-    res.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
-    const organizationId = req.session.organizationId;
-    if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
-
-    const routeId = toInt(req.params.routeId || req.query.routeId);
-    if (!routeId) return res.status(400).json({ success: false, message: "Route is required." });
-
-    try {
-      const live = await liveBus.liveByRoute(db, organizationId);
-      const row = live[routeId] || null;
-      if (row) {
-        row.driver_photo_url = row.driver_photo ? res.locals.publicImageUrl(row.driver_photo) : null;
-        delete row.driver_photo;
-      }
-      return res.json({ success: true, data: row });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: "Unable to load route live data." });
-    }
-  },
 };
 
 module.exports = {

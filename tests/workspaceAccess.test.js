@@ -126,7 +126,7 @@ test("the form hides retired permissions and PayGira follow-ups without the plan
 test("new staff presets leave out high-risk permissions and Transportation", () => {
   const teacher = rolePresetPermissions("Teacher");
   ["manage_students", "students_add", "students_edit", "manage_reports", "reports_terminal"].forEach((key) => assert.ok(teacher.includes(key), key));
-  ["students_delete", "manage_transportation", "transport_buses"].forEach((key) => assert.ok(!teacher.includes(key), key));
+  ["students_delete", "manage_transportation", "transport_buses", "students_enrollment", "students_alumni", "reports_settings"].forEach((key) => assert.ok(!teacher.includes(key), key));
   assert.ok(!rolePresetPermissions("Supervisor").includes("manage_school_year_terms"));
   assert.deepEqual(resolvePermissionSelection(teacher).error, null);
 });

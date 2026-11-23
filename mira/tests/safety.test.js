@@ -27,7 +27,7 @@ const access = (held, extra = {}) => ({
   labels: new Map(permissions.map((p) => [p.key, p.label])),
   permissions,
   classes: extra.classes === undefined ? null : extra.classes,
-  features: { mira_outreach: true, ...(extra.features || {}) },
+  features: { ...(extra.features || {}) },
 });
 const teacher = { viewerType: "staff", userRole: "Teacher", accountType: "Teacher", displayName: "Sam Lee" };
 const manager = { viewerType: "staff", userRole: "Manager", accountType: "Manager", displayName: "Sarah Mitchell" };
@@ -59,7 +59,7 @@ test("something outside the school's plan is said to be outside the plan", () =>
 });
 
 test("a feature not released to the school isn't offered", () => {
-  const result = checkTool("find_low_attendance", manager, access(["mark_attendance", "reports_builder"], { features: { mira_outreach: false } }));
+  const result = checkTool("get_form_requests", manager, access(["custom_forms", "manage_students"], { features: { mira_forms: false } }));
   assert.equal(result.allowed, false);
   assert.match(result.reason, /isn't available for your school yet/);
 });

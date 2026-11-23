@@ -462,12 +462,6 @@ const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 // One address, with a name, an @ and a domain, and nothing that isn't part of an address.
 const looksLikeEmail = (value) => typeof value === "string" && value.length <= 254 && /^[^\s@<>"'(),;:\\]+@[^\s@<>"'(),;:\\]+\.[^\s@<>"'(),;:\\]{2,}$/.test(value.trim());
 
-// The new plan page and plan lists: everywhere in development; in production for the schools the
-// `plan_page` release reaches (sandbox schools first), and for visitors once it is released to
-// everyone (a visitor belongs to no school). The same rule as the new homepage (utils/landing.js).
-const planPageOn = (organizationId) => process.env.NODE_ENV !== "production"
-  || require("../utils/shards/features").isOn("plan_page", { organizationId });
-const planLadderWhereReleased = (organizationId, plans) => (planPageOn(organizationId) ? planLadder(plans) : plans);
 
 // A connection taken from the pool by hand whose release() is safe to call more than once, so a
 // `finally` can always give it back whatever the code before it already did. A connection that
@@ -2432,12 +2426,11 @@ const accountController = {
         };
       });
 
-      const newPlanPage = planPageOn(req.session?.organizationId);
-      res.render(newPlanPage ? "account/servicePlan" : "account/servicePlanClassic", {
+      res.render("account/servicePlan", {
         title: "Choose Your Plan",
         description: `Managira pricing: school management software priced per school, per month, in local currency by country and number of students.${freeTrialEnabled && freeTrialLengthLabel ? ` Free trial: ${freeTrialLengthLabel}.` : ""}`,
 
-        plans: newPlanPage ? planLadder(plansWithDefaultDisplayPrice) : plansWithDefaultDisplayPrice,
+        plans: planLadder(plansWithDefaultDisplayPrice),
 
         url,
 
@@ -5847,7 +5840,7 @@ const accountController = {
     const ssoConnections = require("../utils/sso/connections");
     const studentSchool = req.schoolDetails;
     let ssoOffered = false;
-    if (studentSchool && ssoConnections.isOn(studentSchool.organization_id)) {
+    if (studentSchool) {
       const row = await ssoConnections.connectionFor(db, studentSchool.organization_id).catch(() => null);
       ssoOffered = Boolean(row && row.status === "active" && row.allow_students);
     }
@@ -7620,7 +7613,7 @@ const accountController = {
         announcements: announcements.rows,
 
         publicSiteAppearance,
-        websiteLayouts: require("../utils/websiteView").layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) })),
+        websiteLayouts: require("../utils/websiteView").layoutsFor(),
         websiteLayoutGroups: require("../utils/websiteView").LAYOUT_GROUPS,
         // The emblems the emblem designs can show (drawn once; the picker previews them).
         websiteEmblems: (() => {
@@ -7711,9 +7704,8 @@ const accountController = {
   updatePublicDashboardLayoutPost: async (req, res) => {
     const organizationId = req.session.organizationId;
     const layout = (req.body?.publicDashboardLayout || "").trim();
-    // Only the designs this school has (a design still being released isn't offered elsewhere).
     const allowedLayouts = new Set(require("../utils/websiteView")
-      .layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) }))
+      .layoutsFor()
       .map((l) => l.value));
 
     if (!organizationId) {
@@ -8669,7 +8661,7 @@ const accountController = {
         const start = orgPaidSince || new Date();
         return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + months, start.getUTCDate()));
       };
-      const plans = planLadderWhereReleased(orgId, await Promise.all(
+      const plans = planLadder(await Promise.all(
         (plansResult.rows || []).map(async (plan) => {
           const fallbackMonthlyUsd = Number(plan.total_price || 0);
           const pricing = await computeOrganizationPlanMonthlyPrice(db, {
@@ -9297,9 +9289,7 @@ const accountController = {
         };
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
-        if (require("../utils/planCatalog").catalogOn(orgId)) {
-          parentPortalIntegration = { shown: true, activated: await hasGuardianPortalFeature(db, orgId).catch(() => false) };
-        }
+        parentPortalIntegration = { shown: true, activated: await hasGuardianPortalFeature(db, orgId).catch(() => false) };
         transportationIntegration = resolvedTransportationIntegration;
         smsIntegration = resolvedSmsIntegration;
         miraIntegration = resolvedMiraIntegration;
@@ -9832,7 +9822,7 @@ const accountController = {
 
         pendingPlan,
 
-        plans: planLadderWhereReleased(req.session?.organizationId, plans),
+        plans: planLadder(plans),
         currencyProfile,
 
         messages: req.flash(),
@@ -11055,98 +11045,6 @@ const accountController = {
     }
   },
 
-  /**
-   * POST /account/paystack/stripe-bank-account
-   * Tokenizes a bank account via Stripe (bank_account token from Stripe.js),
-   * attaches it to the org's Stripe customer as a source, and saves to
-   * paystack_subaccounts with account_type = 'bank', subaccount_code = ba_xxx.
-   */
-  saveStripeBankAccountAsSubaccountPost: async (req, res) => {
-    try {
-      await ensureStripeSubaccountSchema(db);
-      const orgId = req.session.organizationId;
-      const bankToken = String(req.body?.bankToken || "").trim();
-      const business_name = String(req.body?.business_name || "").trim();
-      const bank_name_input = String(req.body?.bank_name || "").trim();
-      const bank_country = String(req.body?.bank_country || "US").trim().toUpperCase();
-
-      if (!orgId || !bankToken || !business_name) {
-        return res.status(400).json({ success: false, message: "Missing required parameters." });
-      }
-
-      const orgResult = await db.query(
-        `SELECT stripe_customer_id, organization_name, email, organization_phone
-         FROM organizations WHERE organization_id = $1`,
-        [orgId]
-      );
-      const orgRow = orgResult.rows[0];
-      if (!orgRow) {
-        return res.status(404).json({ success: false, message: "Organization not found." });
-      }
-
-      const stripe = await getStripeClient(db);
-
-      // Ensure Stripe customer exists
-      let customerId = orgRow.stripe_customer_id || null;
-      if (customerId) {
-        try {
-          const existing = await stripe.customers.retrieve(customerId);
-          if (!existing || existing.deleted) customerId = null;
-        } catch (e) {
-          if (e.code === "resource_missing") customerId = null;
-          else throw e;
-        }
-      }
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: orgRow.email || undefined,
-          name: orgRow.organization_name || undefined,
-          phone: orgRow.organization_phone || undefined,
-          metadata: { organization_id: String(orgId) },
-        });
-        customerId = customer.id;
-        await db.query(
-          `UPDATE organizations SET stripe_customer_id = $2, updated_at = NOW() WHERE organization_id = $1`,
-          [orgId, customerId]
-        );
-      }
-
-      // Attach bank account token to Stripe customer
-      const bankSource = await stripe.customers.createSource(customerId, { source: bankToken });
-
-      const last4 = bankSource.last4 || "";
-      const resolvedBankName = bank_name_input || bankSource.bank_name || "Bank";
-      const sourceId = bankSource.id; // ba_xxx
-
-      // Dedup check
-      const dupCheck = await db.query(
-        `SELECT id FROM paystack_subaccounts WHERE organization_id = $1 AND subaccount_code = $2`,
-        [orgId, sourceId]
-      );
-      if (dupCheck.rows.length > 0) {
-        return res.json({ success: true, message: "Bank account already saved." });
-      }
-
-      // Make primary if no primary exists yet
-      const countResult = await db.query(
-        `SELECT COUNT(*) AS count FROM paystack_subaccounts WHERE organization_id = $1 AND is_primary = true`,
-        [orgId]
-      );
-      const isPrimary = Number(countResult.rows[0].count) === 0;
-
-      await db.query(
-        `INSERT INTO paystack_subaccounts
-           (organization_id, account_type, business_name, account_number, bank_code, bank_name, subaccount_code, is_primary)
-         VALUES ($1, 'bank', $2, $3, $4, $5, $6, $7)`,
-        [orgId, business_name, last4, bank_country, resolvedBankName, sourceId, isPrimary]
-      );
-
-      return res.json({ success: true, message: "Bank account saved via Stripe." });
-    } catch (err) {
-      return res.status(500).json({ success: false, message: err.message || "Save failed." });
-    }
-  },
-
   // ───────────────────────────────────────────────────────────────────────
   // STRIPE CONNECT ONBOARDING
   // Schools connect their Stripe account so registration payments flow to them.
@@ -12086,9 +11984,6 @@ const accountController = {
       return res.redirect("/account/integrations");
     };
     try {
-      if (!require("../utils/planCatalog").catalogOn(orgId)) {
-        return respond(404, { success: false, message: "The parent portal comes with your plan." });
-      }
       const shouldActivate = String(req.body.activate || "").trim() === "1";
       const password = String(req.body.integrationPassword || "");
       if (!password.trim()) {

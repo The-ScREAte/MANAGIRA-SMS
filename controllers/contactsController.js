@@ -105,9 +105,6 @@ module.exports = {
       if (action === "renameSection") await contacts.renameSection(db, organizationId, id, body);
       if (action === "deleteSection") await contacts.deleteSection(db, organizationId, id);
       if (action === "shareSection") {
-        if (!require("../utils/shards/features").isOn("family_sharing", { organizationId })) {
-          return res.status(404).json({ success: false, error: "Sharing isn't available for your school yet." });
-        }
         await contacts.setSectionSharing(db, organizationId, id, body.shared);
       }
       if (action === "order") await contacts.saveOrder(db, organizationId, body);

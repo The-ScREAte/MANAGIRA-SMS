@@ -1,4 +1,4 @@
-// Draws a custom form (feature custom_forms) from its fields: inputs that follow each field's
+// Draws a custom form from its fields: inputs that follow each field's
 // "show when" rule as people type, or a read-only view of what was filled in. The same rules
 // run on the server (utils/customForms.js), which has the final say.
 (function (window) {

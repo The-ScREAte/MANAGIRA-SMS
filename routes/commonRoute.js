@@ -398,7 +398,7 @@ module.exports = (db) => {
   );
   router.post(
     "/editStudent/:studentId",
-    // The photo, and any files for the student's record (studentDoc_new…, feature student_documents).
+    // The photo, and any files for the student's record (studentDoc_new…).
     upload.any(),
     (req, _res, next) => {
       const files = Array.isArray(req.files) ? req.files : [];
@@ -413,9 +413,6 @@ module.exports = (db) => {
   );
   router.post("/deleteStudent/:studentId", isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_DELETE), (req, res) =>
     commonController.deleteStudent(req, res, db)
-  );
-  router.get("/getAttendanceForClass", isAuthenticated, require("../utils/classScope").requireLeadsClass(db), (req, res) =>
-    commonController.getAttendanceForClass(req, res, db)
   );
   router.get(
     "/attendanceCollection",
@@ -577,7 +574,7 @@ module.exports = (db) => {
     commonController.saveAssessmentAttemptGrade(req, res, db)
   );
 
-  // The assessments flow (feature assessment_flow): approving grades, the gradebook's columns,
+  // The assessments flow: approving grades, the gradebook's columns,
   // question pictures and the library of earlier questions (controllers/assessmentFlowController.js).
   const assessmentFlow = require("../controllers/assessmentFlowController");
   const questionGuards = [isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature];
@@ -986,17 +983,6 @@ module.exports = (db) => {
   router.post("/createEventAnnouncement", isAuthenticated, (req, res, next) => requirePermission(req.body.type === "event" ? PERMISSIONS.EVENTS_EVENTS : PERMISSIONS.EVENTS_ANNOUNCEMENTS)(req, res, next), (req, res) =>
     commonController.createEventAnnouncementPost(req, res, db)
   );
-  // Legacy alias: /common/manageSchoolYear was historically a separate page,
-  // but the canonical entry point is now /common/registerSchoolYear. There is
-  // no manageSchoolYearGet controller method, which used to 500 every time
-  // the SPA preloader warmed this path. Redirect instead so the URL still
-  // works for old bookmarks and the SPA preload doesn't error.
-  router.get(
-    "/manageSchoolYear",
-    isAuthenticated,
-    requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS),
-    (req, res) => res.redirect("/common/registerSchoolYear")
-  );
   router.get(
     "/manageEventsAnnouncements",
     checkFeatureAccess,
@@ -1337,11 +1323,11 @@ module.exports = (db) => {
   router.post("/tasks/:id(\\d+)/comments", isAuthenticated, staffOnly, orgMemberOnly, ws("addTaskComment"));
   router.post("/tasks/:id(\\d+)/react", isAuthenticated, staffOnly, orgMemberOnly, ws("reactTask"));
 
-  // Custom forms (feature custom_forms): builders design sections; staff fill them in.
+  // Custom forms: builders design sections; staff fill them in.
   const customForms = require("../controllers/customFormsController");
   const formBuilders = [isAuthenticated, blockGuardians, requirePermission(PERMISSIONS.CUSTOM_FORMS)];
   router.get("/custom-forms", ...formBuilders, (req, res) => customForms.editorPage(req, res, db));
-  // Data migration (feature data_migration): the school's admins move their old system's data in,
+  // Data migration: the school's admins move their old system's data in,
   // confirming with an authenticator code every 30 minutes (codeGate).
   const migration = require("../controllers/dataMigrationController");
   const migrationGate = [isAuthenticated, migration.codeGate];

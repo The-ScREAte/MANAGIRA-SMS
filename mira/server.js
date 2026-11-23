@@ -86,7 +86,6 @@ app.get("/", pageAuth, tenantScope, requireMiraActivated, async (req, res) => {
     embed: req.query.embed === "panel",
     tenant: req.tenant,
     access,
-    miraSteps: Boolean(fullAccess.features && fullAccess.features.mira_steps),
     // Skills (feature mira_skills, services/skills.js).
     miraSkills: Boolean(fullAccess.features && fullAccess.features.mira_skills),
     mainAppUrl: MAIN_APP_PUBLIC_URL,

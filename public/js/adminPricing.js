@@ -89,7 +89,6 @@
     const standard = standardFor(form);
     const months = Number(form.getAttribute('data-months')) || 1;
     const cycleOff = Number(form.getAttribute('data-cycle-discount')) || 0;
-    const released = form.getAttribute('data-released') === '1';
     const own = form.querySelector('[name="monthlyPrice"]');
     const base = own && String(own.value).trim() ? num(own) : standard;
     const discount = Math.min(Number(form.getAttribute('data-max-discount')) || 90, Math.max(0, num(form.querySelector('[name="discountPercent"]'))));
@@ -106,11 +105,10 @@
       if (out) out.textContent = qty ? `${money(amount)} a month` : (row.getAttribute('data-note') || 'Not used');
       addons += amount;
     });
-    const charged = released ? addons : 0;
-    const bill = plan * months * (1 - cycleOff / 100) + charged * months;
+    const bill = plan * months * (1 - cycleOff / 100) + addons * months;
     const set = (sel, text) => { const el = form.querySelector(sel); if (el) el.textContent = text; };
     set('[data-ap-plan-monthly]', `${money(plan)} a month`);
-    set('[data-ap-addons-monthly]', released ? `${money(addons)} a month` : `${money(addons)} a month, not charged yet`);
+    set('[data-ap-addons-monthly]', `${money(addons)} a month`);
     set('[data-ap-bill]', money(bill));
   }
   // The side panel fills in after this script runs: preview once its form appears.

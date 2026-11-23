@@ -2,7 +2,6 @@
 
 // Staff side of activities: a teacher's class tab and the Management Tools page.
 const activities = require("../utils/classActivities");
-const features = require("../utils/shards/features");
 
 const MANAGERS = new Set(["organization", "admin", "mini admin", "manager", "supervisor", "superviser"]);
 const toId = (value) => {
@@ -13,7 +12,6 @@ const actorOf = (req) => ({
   userId: req.session.userId || req.session.user?.user_id || null,
   name: [req.session.firstName || req.session.user?.first_name, req.session.lastName || req.session.user?.last_name].filter(Boolean).join(" ").trim(),
 });
-const isOn = (req) => features.isOn("class_activities", { organizationId: req.session.organizationId });
 
 // The whole school needs Events & Announcements; a class also opens to its own teachers.
 async function canChange(db, req, res, classId) {
@@ -38,14 +36,10 @@ async function answer(res, work) {
   }
 }
 
-function refuseWhenOff(req) {
-  if (!isOn(req)) throw new activities.ActivityError("Not available.", 404);
-}
-
 module.exports = {
   // Activities sit with events and announcements (one place): the old page opens that tab.
   page: async (req, res, db) => {
-    if (!isOn(req) || !res.locals.workspaceAccess().management.activities) {
+    if (!res.locals.workspaceAccess().management.activities) {
       req.flash("error", "You do not have permission to access that page.");
       return res.redirect("/common/management");
     }
@@ -70,7 +64,6 @@ module.exports = {
   },
 
   list: (req, res, db) => answer(res, async () => {
-    refuseWhenOff(req);
     const classId = toId(req.query.classId);
     if (!(await canChange(db, req, res, classId))) throw new activities.ActivityError("You can only see your own classes.", 403);
     const list = await activities.listActivities(db, req.session.organizationId, { classIds: classId ? [classId] : null, from: req.query.from, to: req.query.to });
@@ -81,7 +74,6 @@ module.exports = {
   // Where this person can add an activity, for the dashboard's New task dialog: the whole school
   // and every class (Events & Announcements), or a teacher's own classes.
   classes: (req, res, db) => answer(res, async () => {
-    refuseWhenOff(req);
     const organizationId = req.session.organizationId;
     const wholeSchool = await canChange(db, req, res, null);
     const { rows } = wholeSchool
@@ -102,7 +94,6 @@ module.exports = {
 
   // The students of a class, to pick one for an activity just for them.
   students: (req, res, db) => answer(res, async () => {
-    refuseWhenOff(req);
     const classId = toId(req.query.classId);
     if (!classId) return { students: [] };
     if (!(await canChange(db, req, res, classId))) throw new activities.ActivityError("You can only see your own classes.", 403);
@@ -116,7 +107,6 @@ module.exports = {
   }),
 
   save: (req, res, db) => answer(res, async () => {
-    refuseWhenOff(req);
     const organizationId = req.session.organizationId;
     const id = toId(req.body?.id);
     let classId = toId(req.body?.classId);
@@ -145,7 +135,6 @@ module.exports = {
   }),
 
   remove: (req, res, db) => answer(res, async () => {
-    refuseWhenOff(req);
     const organizationId = req.session.organizationId;
     const id = toId(req.params.id);
     const current = id ? await activities.findActivity(db, organizationId, id) : null;

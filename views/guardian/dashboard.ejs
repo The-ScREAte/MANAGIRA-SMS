@@ -668,7 +668,7 @@
           <% const childTransport = childTransportationMap ? childTransportationMap[String(child.student_id || '')] : null; %>
           <div class="child-card <%= child.status === 'pending' ? 'pending' : '' %><%= _portalReq ? ' child-card--corner' : '' %>">
             <% if (_portalReq && child.status !== 'pending') { %>
-            <a class="child-view" href="<%= featureOn('parent_student_hub') ? '/guardian/child?studentId=' + child.student_id : '/guardian/academic-details?studentId=' + child.student_id + '&termId=' + (currentTermId || '') %>" aria-label="View <%= childDisplayName %>">View<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <a class="child-view" href="/guardian/child?studentId=<%= child.student_id %>" aria-label="View <%= childDisplayName %>">View<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
             <% } %>
             <div class="child-header">
               <span class="child-avatar-wrap">
@@ -680,7 +680,7 @@
               <% if (_multiSchool) { %><% if (_homeLogo) { %><img class="child-school-badge" src="<%= _homeLogo %>" alt="" title="<%= _homeName %>" /><% } else { %><span class="child-school-badge child-school-badge--initials" title="<%= _homeName %>"><%= _initials(_homeName) %></span><% } %><% } %>
               </span>
               <div class="child-info">
-                <% if (locals.featureOn && featureOn('parent_student_hub') && child.status !== 'pending') { %>
+                <% if (child.status !== 'pending') { %>
                 <h3><a class="child-open-link" href="/guardian/child?studentId=<%= child.student_id %>"><%= childDisplayName %></a></h3>
                 <% } else { %>
                 <h3><%= childDisplayName %></h3>
@@ -722,7 +722,7 @@
                   aria-expanded="false"
                   data-bus-menu="<%= child.student_id %>"
                   data-bus-menu-name="<%= child.first_name || childDisplayName %>"
-                  data-bus-snapshot="<%= JSON.stringify(childTransport) %>"<% if (featureOn('bus_boarding')) { %> data-bus-boarding<% } %>>
+                  data-bus-snapshot="<%= JSON.stringify(childTransport) %>" data-bus-boarding>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2Zm0 3v5h12V6H6Zm1.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
                   <span class="child-bus-btn__text"><span>Bus</span><small data-bus-note hidden></small></span>
                   <svg class="child-bus-btn__chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -754,13 +754,11 @@
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v11a2 2 0 0 1-1 1.7V19a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.3A2 2 0 0 1 4 16V5a2 2 0 0 1 2-2Zm0 3v5h12V6H6Zm1.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
                   Track bus
                 </button>
-                <% if (locals.featureOn && featureOn('bus_boarding')) { %>
                 <button
                   type="button"
                   class="child-transport-btn child-transport-btn--none"
                   data-riding="<%= child.student_id %>"
                   data-riding-name="<%= child.first_name || childDisplayName %>">Not coming</button>
-                <% } %>
                 <% } else if (parentBusRequests && !_transportHidden.has(Number(child.student_id))) { %>
                 <button
                   type="button"
@@ -773,15 +771,7 @@
                   Request bus
                 </button>
                 <% } %>
-                <% if (locals.featureOn && featureOn('parent_student_hub')) { %>
                 <a class="view-progress-btn view-progress-btn--open" href="/guardian/child?studentId=<%= child.student_id %>">View</a>
-                <% } else { %>
-                <a
-                  class="view-progress-btn"
-                  href="/guardian/academic-details?studentId=<%= child.student_id || child.pending_id %>&termId=<%= currentTermId || '' %>">
-                  Academic details
-                </a>
-                <% } %>
               </div>
             <% } %>
           </div>
@@ -815,7 +805,7 @@
 <% if (family.waiting || (family.invites && family.invites.length)) { %><script src="<%= assetUrl('/js/familyLink.js') %>" defer></script><% } %>
 <% } %>
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
-<% if (locals.featureOn && (featureOn('parent_student_hub') || featureOn('bus_boarding'))) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" /><% } %>
+<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
 <% if (parentBusRequests) { %><script src="<%= assetUrl('/js/busRequest.js') %>"></script><% } %>
 <% if (_portalReq) { %>

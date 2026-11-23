@@ -812,8 +812,8 @@ module.exports = {
       const effectiveClassId = enrolledClassId || student.class_id;
       // With the assessments flow, the student sees only approved grades.
       const gradeFlow = assessmentApproval.flowOn(organizationId);
-      // Overall lunch (feature class_lunch), beside attendance: days with lunch out of days taken.
-      const lunchOn = sees.lunch && overallLunch.isOn(organizationId);
+      // Overall lunch, beside attendance: days with lunch out of days taken.
+      const lunchOn = Boolean(sees.lunch);
       const [mainTeacherResult, subjectTeachersResult, subjectsResult, gradeAssessmentHeadersResult, assessmentGradesResult, assessmentPositionsResult, attendanceResult, classSchedule, openAssessments, lunchTotals, classTakesLunch] = await Promise.all([
         effectiveClassId
           ? db.query(
@@ -1152,17 +1152,15 @@ module.exports = {
         })
       );
 
-      // GPA (features gpa and family_gpa), unless the class keeps it from its students (Class
+      // GPA (feature family_gpa), unless the class keeps it from its students (Class
       // settings): this term's, from the grades shown, and the cumulative over finished terms.
       const gpaInfo = sees.gpa && features.isOn("family_gpa", { organizationId })
         ? await require("../utils/gpa").familyGpa(db, organizationId, Number(studentId), {
             termGrades: assessmentGrades.filter((g) => g.grade && g.grade !== "-").map((g) => ({ subject_id: g.subject_id, grade: g.grade })),
           }).catch((error) => { console.error("[Student Portal] GPA:", error?.message || error); return null; })
         : null;
-      const studentActivities = features.isOn("class_activities", { organizationId })
-        ? await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: require("../utils/localDate").todayKeyFor(req) })
-        : [];
-      // Forms the school asks this student to fill in (feature custom_forms): a badge on the
+      const studentActivities = await listActivities(db, organizationId, { classIds: effectiveClassId ? [Number(effectiveClassId)] : [], studentIds: [Number(studentId)].filter(Boolean), from: require("../utils/localDate").todayKeyFor(req) });
+      // Forms the school asks this student to fill in: a badge on the
       // Forms tile, and a tile for each form the school gave one of its own.
       const studentForms = await require("../utils/customForms").studentDashboard(db, organizationId, Number(studentId), { day: require("../utils/localDate").todayKeyFor(req) }).catch(() => ({ toDo: 0, tiles: [] }));
       res.render("student/dashboard", {
@@ -1546,10 +1544,9 @@ module.exports = {
       }, {});
 
       const examFlow = assessmentApproval.flowOn(organizationId);
-      // Resources show beside an open-book test, and (feature learning_resources) whenever the
+      // Resources show beside an open-book test, and whenever the
       // teacher chose "Students see these with the test", with the teacher's recommendations.
-      const helpOn = questionHelp.featureOn(organizationId);
-      const setExtras = helpOn ? await require("../utils/parentResources").studentExtras(db, organizationId, Number(questionSet.question_set_id)) : { students: false, notes: "" };
+      const setExtras = await require("../utils/parentResources").studentExtras(db, organizationId, Number(questionSet.question_set_id));
       const showResources = examFlow && (assessment.open_book || setExtras.students);
       const resources = showResources
         ? (await require("../utils/parentResources").filesForSets(db, organizationId, [Number(questionSet.question_set_id)]).catch(() => []))
@@ -1573,7 +1570,7 @@ module.exports = {
           // The picture (and its numbered spots, never their answers).
           media: questionMedia.forDisplay(q.media_json, res.locals.publicImageUrl),
           media_json: undefined,
-          help: helpOn ? questionHelp.forDisplay(q.help_json) : null,
+          help: questionHelp.forDisplay(q.help_json),
           help_json: undefined,
         })),
         // An open-book test shows the resources the teacher attached.
@@ -1610,7 +1607,7 @@ module.exports = {
       const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(db, organizationId, studentId);
       const open = await getOpenAssessments(db, organizationId, studentId, enrolledClassId, selectedTerm && selectedTerm.term_id);
       const test = open.find((row) => Number(row.assessment_id) === assessmentId);
-      const extras = questionHelp.featureOn(organizationId) && test ? await require("../utils/parentResources").studentExtras(db, organizationId, Number(test.question_set_id)) : { students: false };
+      const extras = test ? await require("../utils/parentResources").studentExtras(db, organizationId, Number(test.question_set_id)) : { students: false };
       if (!test || !(test.open_book || extras.students)) return back();
       const file = await require("../utils/parentResources").fileById(db, organizationId, fileId);
       if (!file || Number(file.question_set_id) !== Number(test.question_set_id)) return back();

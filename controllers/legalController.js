@@ -478,24 +478,7 @@ const legalController = {
             shareImageWidth: '756',
             shareImageHeight: '692',
         };
-        // The new look with the homepage: everywhere in development; in production once released (new_landing).
-        if (require('../utils/landing').isNewLook()) {
-            return res.render('home/mira', { ...seo, layout: false, lp: require('../utils/landing') });
-        }
-        res.render('legal&Compliance/MiraAiAssistant', {
-            title: 'Mira - The Educational Intelligence for Easy Management',
-            description: 'Mira is Managira\'s built-in AI assistant - an educational intelligence that looks things up, drafts messages, and carries out real school-management tasks through a simple conversation, scoped to your own school and your own real permissions.',
-            keywords: 'mira ai assistant, school ai assistant, education ai, managira ai, ai school management',
-            canonicalUrl: 'https://managira.com/legal/mira-ai-assistant',
-            isMarketingHeroPage: true,
-            showFooterTopSection: true,
-            // So Google/social previews for this page show the Mira logo
-            // instead of the generic Managira share image.
-            shareImage: 'https://managira.com/images/miralogo.png',
-            shareImageWidth: '756',
-            shareImageHeight: '692',
-            shareImageType: 'image/png'
-        });
+        res.render('home/mira', { ...seo, layout: false, lp: require('../utils/landing') });
     },
     
     faq: (req, res) => {

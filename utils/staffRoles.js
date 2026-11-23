@@ -4,7 +4,6 @@
 // they can and can't do, their roles in the school's old system (staff_role_history, from a
 // data migration, read-only) and every change to their role since (staff_role_changes).
 const perms = require("../middleware/permissionMiddleware");
-const features = require("./shards/features");
 
 const { PERMISSION_OPTIONS, PERMISSIONS_SAVED_KEY } = perms;
 
@@ -19,8 +18,6 @@ async function ready(db) {
   tablesReady = Number(rows[0].n) === 3;
   return tablesReady;
 }
-// Released with the data migration (feature data_migration).
-const on = async (db, organizationId) => features.isOn("data_migration", { organizationId: Number(organizationId) || null }) && (await ready(db));
 
 // Someone's role, saved permissions and class roles: compared before and after a change.
 async function snapshot(db, organizationId, userId) {
@@ -46,7 +43,7 @@ async function snapshot(db, organizationId, userId) {
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // One row per thing that changed: role, permissions, class roles. Never stops the save.
 async function logChanges(db, { organizationId, userId, before, after, by, byId = null }) {
-  if (!(await on(db, organizationId)) || !after) return 0;
+  if (!(await ready(db)) || !after) return 0;
   const rows = [];
   if (!before || before.role !== after.role) rows.push(["role", before ? before.role : null, after.role]);
   if (!before || !same(before.permissions, after.permissions)) rows.push(["permissions", before ? before.permissions : null, after.permissions]);
@@ -105,8 +102,8 @@ async function accessPage(db, { organizationId, userId, admin = false, allowedFe
   const available = new Set(perms.permissionOptionsFor({ organizationId, allowedFeatures }).map((o) => o.key));
   const bySubject = new Map();
   subjects.rows.forEach((s) => { if (!bySubject.has(s.class_id)) bySubject.set(s.class_id, []); bySubject.get(s.class_id).push(s.subject_name); });
-  const ready = await on(db, organizationId);
-  const [history, changes] = ready ? await Promise.all([
+  const tablesThere = await ready(db);
+  const [history, changes] = tablesThere ? await Promise.all([
     db.query(
       `SELECT kind, value, detail, start_date, end_date, active, source_system, recorded_at FROM staff_role_history
         WHERE organization_id = $1 AND (user_id = $2 OR (user_id IS NULL AND LOWER(email) = LOWER($3)))
@@ -146,7 +143,7 @@ async function accessPage(db, { organizationId, userId, admin = false, allowedFe
 async function firstVisitDue(db, req) {
   const s = req.session || {};
   const userId = Number(s.userId || (s.user && s.user.user_id));
-  if (!userId || String(s.accountType || "").toLowerCase() === "organization" || !(await on(db, s.organizationId))) return false;
+  if (!userId || String(s.accountType || "").toLowerCase() === "organization" || !(await ready(db))) return false;
   const { rows } = await db.query(
     `SELECT 1 FROM staff_role_history h WHERE h.organization_id = $1 AND h.user_id = $2
         AND NOT EXISTS (SELECT 1 FROM staff_access_seen x WHERE x.user_id = $2) LIMIT 1`,
@@ -158,4 +155,4 @@ const markSeen = (db, organizationId, userId) => db.query(
   "INSERT INTO staff_access_seen (user_id, organization_id) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING", [userId, organizationId]
 ).catch(() => {});
 
-module.exports = { ready, on, snapshot, logChanges, abilities, accessPage, firstVisitDue, markSeen };
+module.exports = { ready, snapshot, logChanges, abilities, accessPage, firstVisitDue, markSeen };

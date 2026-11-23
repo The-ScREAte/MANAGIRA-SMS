@@ -68,7 +68,6 @@ function workspaceAccess({ permissions, features, role, featureOn } = {}) {
     emailIssues: fullMenuRole,
     // The weekly briefing's settings (routes/briefingRoute.js; the page also needs weekly_briefing): managers only.
     briefing: MANAGER_ROLES.has(String(role || "").trim().toLowerCase()),
-    // The page itself also needs the custom_forms feature (customFormsController).
     customForms: can("custom_forms"),
     // Class settings for every class (controllers/classSettingsController.js managementPage):
     // the class_settings feature and Class Settings › Every Class.

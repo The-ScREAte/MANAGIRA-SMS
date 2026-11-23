@@ -11,7 +11,7 @@
 <div data-ahd-title="Pricing" data-ahd-sub="<%= org.organization_name %> · <%= org.plan_name || 'No plan' %>">
   <form action="/admin/organizations/<%= org.organization_id %>/pricing" method="POST" class="ahd-form" data-ap-school-pricing
         data-standard="<%= standard.monthly %>" data-months="<%= _cycleMonths %>" data-cycle-discount="<%= _cycleOff %>"
-        data-released="<%= released ? '1' : '0' %>" data-max-discount="<%= maxDiscount %>">
+        data-max-discount="<%= maxDiscount %>">
     <section class="ahd-section">
       <h3 class="ahd-section__title">Plan price</h3>
       <p class="ahd-section__sub">Standard: <strong><%= _m(standard.monthly) %> a month</strong> (<%= standard.region ? `${standard.region} prices, ` : '' %><%= Number(standard.students || 0).toLocaleString('en-US') %> students). Leave the price empty to keep the standard one.</p>
@@ -67,7 +67,7 @@
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Add-ons</h3>
-      <p class="ahd-section__sub">For the add-ons this school switches on.<%= released ? '' : ' Add-ons are not charged to this school yet: release addon_pricing in Admin › Shards › Releases.' %></p>
+      <p class="ahd-section__sub">For the add-ons this school switches on.</p>
       <div>
         <% integrations.forEach((i) => {
              const line = _lines[i.key];

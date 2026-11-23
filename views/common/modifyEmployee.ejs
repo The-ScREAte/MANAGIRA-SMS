@@ -686,6 +686,8 @@
           cb.checked = CURRENT_SAVED_PERMISSIONS.includes(cb.value);
         });
       }
+      // The counts and "Allow all permissions" follow the person's saved permissions.
+      if (window.ManagiraPermissionPicker) window.ManagiraPermissionPicker.refresh();
       syncMailroomScopePanel();
 
       document.querySelectorAll('input[name="classIds[]"]').forEach(classCheckbox => {

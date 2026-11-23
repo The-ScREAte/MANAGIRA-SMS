@@ -1,5 +1,5 @@
 "use strict";
-// Student portfolios (feature student_portfolio, utils/portfolio.js): one folder per term, for
+// Student portfolios (utils/portfolio.js): one folder per term, for
 // the parent (/guardian/child/portfolio) and the student (/student/portfolio), with the files the
 // school shared with the family (utils/studentDocuments.js). Staff see it in the student page's
 // Portfolio tab (routes/studentDocumentsRoute.js), with every marked test as a document.
@@ -69,12 +69,11 @@ async function testPage(req, res, db, student, { back, selfPath, staff = false }
   return res.render("print/portfolioTest", { layout: false, doc, back, download: `${selfPath}${selfPath.includes("?") ? "&" : "?"}download=1` });
 }
 
-// Files the school shared with the family (feature student_documents), and the documented /
+// Files the school shared with the family, and the documented /
 // undocumented labels that come with it.
 const studentDocs = require("../utils/studentDocuments");
 // audience: "parents" or "students"; the class may keep files from either (Class settings).
 async function familyFiles(db, req, studentId, audience) {
-  if (!studentDocs.isOn(orgOf(req))) return { files: null, labels: false };
   const classSettings = require("../utils/classSettings");
   const shown = await (audience === "students" ? classSettings.studentsSee : classSettings.parentsSee)(db, orgOf(req), studentId, "files");
   if (!shown) return { files: null, labels: true };
@@ -96,7 +95,6 @@ async function guardianChild(db, req) {
 }
 
 async function guardianPage(req, res, db) {
-  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/guardian/dashboard");
   const child = await guardianChild(db, req);
   if (!child) {
     req.flash("error", "You do not have access to that student.");
@@ -125,7 +123,6 @@ async function guardianPage(req, res, db) {
 }
 
 async function guardianTest(req, res, db) {
-  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/guardian/dashboard");
   const child = await guardianChild(db, req);
   if (!child) return res.redirect("/guardian/dashboard");
   if (!(await portfolioShared(db, req, child.id, "parents"))) return res.redirect(`/guardian/child?studentId=${child.id}`);
@@ -137,7 +134,6 @@ async function guardianTest(req, res, db) {
 
 // ── Students ────────────────────────────────────────────────────────────────────────────
 async function studentPage(req, res, db) {
-  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
   const me = await studentRow(db, orgOf(req), Number(req.session.studentId));
   if (!me) return res.redirect("/student/dashboard");
   if (!(await portfolioShared(db, req, me.id, "students"))) {
@@ -161,7 +157,6 @@ async function studentPage(req, res, db) {
 // GET /student/portfolio/report-card/:id: the student's own posted report card, while their class
 // shares report cards with students, through a link that works for a few minutes (storage is private).
 async function studentReportCard(req, res, db) {
-  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
   const studentId = Number(req.session.studentId);
   const { rows } = await db.query(
     "SELECT pdf_s3_key, pdf_url FROM posted_report_cards WHERE posted_report_card_id = $1 AND organization_id = $2 AND student_id = $3 LIMIT 1",
@@ -174,7 +169,6 @@ async function studentReportCard(req, res, db) {
 
 // GET /student/portfolio/file/:id: a file the school shared with the family, the student's own.
 async function studentFile(req, res, db) {
-  if (!studentDocs.isOn(orgOf(req))) return res.redirect("/student/dashboard");
   const doc = await studentDocs.findOne(db, orgOf(req), toId(req.params.id)).catch(() => null);
   const shown = doc && (await require("../utils/classSettings").studentsSee(db, orgOf(req), Number(req.session.studentId), "files"));
   if (!shown || Number(doc.student_id) !== Number(req.session.studentId) || doc.shared_with !== "family") {
@@ -196,7 +190,6 @@ async function staffTest(req, res, db, studentId) {
 }
 
 async function studentTest(req, res, db) {
-  if (!portfolio.featureOn(orgOf(req))) return res.redirect("/student/dashboard");
   const me = await studentRow(db, orgOf(req), Number(req.session.studentId));
   if (!me) return res.redirect("/student/dashboard");
   if (!(await portfolioShared(db, req, me.id, "students"))) return res.redirect("/student/dashboard");

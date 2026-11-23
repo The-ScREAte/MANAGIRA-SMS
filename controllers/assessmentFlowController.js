@@ -1,5 +1,5 @@
 "use strict";
-// The assessments flow (feature assessment_flow): approving grades so parents and the student
+// The assessments flow: approving grades so parents and the student
 // see them, the gradebook's remembered columns, pictures for questions, and the library of
 // earlier question sets a teacher can start from.
 const assessmentApproval = require("../utils/assessmentApproval");

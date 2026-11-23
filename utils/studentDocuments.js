@@ -1,6 +1,6 @@
 "use strict";
 
-// A student's documents (feature student_documents): files the school keeps on a student, such as
+// A student's documents: files the school keeps on a student, such as
 // a health insurance card, a birth certificate, an immunization record, an IEP or 504 plan or
 // custody papers. Each has a type, a title, an optional note and an optional expiry date, and says
 // who sees it: staff who can open the student (Manage Students), managers only, or also the
@@ -40,7 +40,6 @@ const typeLabel = (key) => (TYPES.find((type) => type.key === key) || TYPES[TYPE
 const roleOf = (req) => String(req.session?.userRole || req.session?.user?.account_type || req.session?.accountType || "").trim().toLowerCase();
 const isManagerRole = (req) => FULL_ROLES.has(roleOf(req));
 
-const isOn = (organizationId) => require("./shards/features").isOn("student_documents", { organizationId: Number(organizationId) });
 
 // The table exists (its migration has run). Kept once true; asked again a minute after a miss.
 let readyKnown = false;
@@ -267,6 +266,6 @@ async function remove(db, { organizationId, studentId, documentId }) {
 
 module.exports = {
   TYPES, SHARING, MAX_MB, ALLOWED_EXTENSIONS,
-  isOn, ready, isManagerRole, visibleTo, detailsFrom, fileProblem, typeLabel, inScope,
+  ready, isManagerRole, visibleTo, detailsFrom, fileProblem, typeLabel, inScope,
   listFor, findOne, create, update, remove, present, saveFromForm, applyFormEdits, settingsFor, saveSettings,
 };

@@ -3658,7 +3658,7 @@
     // ---- Display Settings data (must be defined before loadClassSettings is called) ----
     const allDisplaySettingsMap = <%- JSON.stringify(allDisplaySettingsMap) %>;
     const allSubjectsByClassMap = <%- JSON.stringify(allSubjectsByClassMap || {}) %>;
-    // GPA weights (feature gpa): what Honors and AP add, and each subject's level. null: not offered.
+    // GPA weights: what Honors and AP add, and each subject's level. null: not offered.
     const gpaWeights = <%- JSON.stringify(locals.gpaWeights || null) %>;
     function gpaWeightsHtml(classId) {
       if (!gpaWeights) return '';
@@ -7363,10 +7363,10 @@
         </label>`).join('');
 
       const secRows = [['teacherRemarks','💬','Teacher Remarks'],['conductRemarks','📋','Conduct Remarks'],['attitudeRemarks','🌟','Attitude Remarks'],['interestRemarks','🎯','Interest Remarks'],['gradeKey','🔑','Grade Key'],['attendance','📅','Attendance'],['promotion','🎓','Promotion'],['choiceResults','✅','Choice results (Yes / No …)'],['customSections','📝','Custom editor sections']];
-      // GPA (feature gpa): the term's GPA on the 4.0 scale, from the subjects' grade letters; transcripts show it too.
-      if (<%- JSON.stringify(Boolean(locals.featureOn && featureOn('gpa'))) %>) secRows.push(['gpa','📊','GPA (4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0)']);
-      // Overall lunch (feature class_lunch): the term's days with lunch, printed beside attendance. Off by default.
-      if (<%- JSON.stringify(Boolean(locals.featureOn && featureOn('class_lunch'))) %>) secRows.splice(secRows.findIndex((row) => row[0] === 'attendance') + 1, 0, ['lunch','🍽️','Overall lunch']);
+      // GPA: the term's GPA on the 4.0 scale, from the subjects' grade letters; transcripts show it too.
+      secRows.push(['gpa','📊','GPA (4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0)']);
+      // Overall lunch: the term's days with lunch, printed beside attendance. Off by default.
+      secRows.splice(secRows.findIndex((row) => row[0] === 'attendance') + 1, 0, ['lunch','🍽️','Overall lunch']);
       // Custom editor sections (feature report_remarks_forms; null where it's off): a tick for each
       // section on report cards for this class, with Select all. One left unticked doesn't print,
       // its remarks included (they fall back to the ones saved on the report card).

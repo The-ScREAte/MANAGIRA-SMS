@@ -6,11 +6,10 @@
 
 // Stored layout values (organization_dashboard.order_data.layout) -> design.
 // group: where the design picker lists it (standard, 3d, emblem).
-// A design with a "feature" shows only where that feature is on (utils/shards/features.js);
+// A design with a "feature" shows only where that feature is on (see layoutsFor);
 // motion: true designs animate in 3D as visitors scroll (public/js/schoolSiteMotion.js);
 // emblem: true designs show the school's emblem as a watermark (utils/websiteEmblems.js);
 // base: an emblem design drawn on another design's page structure.
-const DESIGNS_FEATURE = "website_designs";
 const LAYOUTS = [
   { value: "wireframe9", key: "academy", name: "Academy", description: "A full-screen opening, next steps and big numbers." },
   { value: "wireframe1", key: "classic", name: "Classic", description: "A wide photo banner and centered sections." },
@@ -21,17 +20,15 @@ const LAYOUTS = [
   { value: "wireframe6", key: "spotlight", name: "Spotlight", description: "A bold welcome in your color beside your photos." },
   { value: "wireframe7", key: "minimal", name: "Minimal", description: "Quiet and text-first." },
   { value: "wireframe8", key: "mosaic", name: "Mosaic", description: "A grid of tiles: photos, facts and news." },
-  { value: "wireframe10", key: "glide", name: "Glide", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Simple", description: "Calm and simple. Your photo tilts into place as visitors scroll." },
-  { value: "wireframe11", key: "prism", name: "Prism", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Modern", description: "Glass panels, a 3D photo stack and a photo wall that straightens." },
-  { value: "wireframe12", key: "panorama", name: "Panorama", group: "3d", feature: DESIGNS_FEATURE, motion: true, style: "Bold", description: "Full-screen scenes and a gallery that sweeps sideways." },
-  { value: "wireframe13", key: "orbit", base: "prism", name: "Orbit", group: "3d", feature: DESIGNS_FEATURE, motion: true, emblem: true, style: "Emblem", description: "Your emblem floats in 3D behind glass and turns as visitors scroll." },
-  { value: "wireframe14", key: "crest", base: "classic", name: "Crest", group: "emblem", feature: DESIGNS_FEATURE, emblem: true, style: "Classic", description: "Your emblem large behind the school's name, with a soft pattern." },
-  { value: "wireframe15", key: "mascot", base: "spotlight", name: "Mascot", group: "emblem", feature: DESIGNS_FEATURE, emblem: true, style: "Spirit", description: "A bold welcome in your color with your mascot beside it." },
+  { value: "wireframe10", key: "glide", name: "Glide", group: "3d", motion: true, style: "Simple", description: "Calm and simple. Your photo tilts into place as visitors scroll." },
+  { value: "wireframe11", key: "prism", name: "Prism", group: "3d", motion: true, style: "Modern", description: "Glass panels, a 3D photo stack and a photo wall that straightens." },
+  { value: "wireframe12", key: "panorama", name: "Panorama", group: "3d", motion: true, style: "Bold", description: "Full-screen scenes and a gallery that sweeps sideways." },
+  { value: "wireframe13", key: "orbit", base: "prism", name: "Orbit", group: "3d", motion: true, emblem: true, style: "Emblem", description: "Your emblem floats in 3D behind glass and turns as visitors scroll." },
+  { value: "wireframe14", key: "crest", base: "classic", name: "Crest", group: "emblem", emblem: true, style: "Classic", description: "Your emblem large behind the school's name, with a soft pattern." },
+  { value: "wireframe15", key: "mascot", base: "spotlight", name: "Mascot", group: "emblem", emblem: true, style: "Spirit", description: "A bold welcome in your color with your mascot beside it." },
 ];
 LAYOUTS.forEach((l) => { if (!l.group) l.group = "standard"; });
 const LAYOUT_VALUES = LAYOUTS.map((l) => l.value);
-// Whole photos (never cropped; a soft blur of the photo fills any spare space) come with the same release.
-const WHOLE_PHOTOS_FEATURE = DESIGNS_FEATURE;
 const LAYOUT_GROUPS = [
   { key: "standard", name: "Standard", note: "Clean, classic pages." },
   { key: "3d", name: "3D", note: "Smooth 3D movement as visitors scroll." },
@@ -158,7 +155,7 @@ function emblemFor(setting, org) {
  * @param {object} input
  *   orgDetails, aboutDetails, slideshowImages, galleryImages, texts, events,
  *   announcements, extras (visibleSections), page ({order,hidden,titles}),
- *   layout (stored value), now, isOn (feature key -> on for this school)
+ *   layout (stored value), now
  */
 function buildSiteModel(input = {}) {
   const org = input.orgDetails || {};
@@ -166,8 +163,7 @@ function buildSiteModel(input = {}) {
   const extras = input.extras || {};
   const page = input.page || { order: [], hidden: [], titles: {} };
   const now = input.now || new Date();
-  const isOn = typeof input.isOn === "function" ? input.isOn : () => false;
-  const layout = layoutFor(input.layout, isOn);
+  const layout = layoutFor(input.layout);
 
   const emails = list(about.emails);
   const phones = list(about.phones);
@@ -247,7 +243,7 @@ function buildSiteModel(input = {}) {
     design: layout.key,
     layoutName: layout.name,
     motion: Boolean(layout.motion),
-    wholePhotos: Boolean(layout.motion) || isOn(WHOLE_PHOTOS_FEATURE),
+    wholePhotos: true,
     emblem: layout.emblem ? emblemFor(extras.emblem, org) : null,
     school: {
       id: org.organization_id,
@@ -282,4 +278,4 @@ function buildSiteModel(input = {}) {
   };
 }
 
-module.exports = { LAYOUTS, LAYOUT_GROUPS, LAYOUT_VALUES, WHOLE_PHOTOS_FEATURE, DESIGNS_FEATURE, layoutsFor, layoutFor, buildSiteModel, stripHtml };
+module.exports = { LAYOUTS, LAYOUT_GROUPS, LAYOUT_VALUES, layoutsFor, layoutFor, buildSiteModel, stripHtml };

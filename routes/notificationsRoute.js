@@ -290,7 +290,7 @@ async function buildStudentNotifications(db, { orgId, studentId, testingRoom = f
     });
   }
 
-  // Forms the school asks the student to fill in (feature custom_forms).
+  // Forms the school asks the student to fill in.
   const formsToDo = await require('../utils/customForms').studentToDo(db, orgId, Number(studentId)).catch(() => []);
   formsToDo.slice(0, 10).forEach((form) => {
     items.push({

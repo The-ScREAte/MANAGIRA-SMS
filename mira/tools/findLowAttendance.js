@@ -1,6 +1,6 @@
 // Students below an attendance level, from the Report Builder's attendance per
 // student report, run as the person: their own permissions and class limits
-// apply, and totals are exact. Feature: mira_outreach (services/access.js).
+// apply, and totals are exact.
 const { callInternalApi } = require("../internalApiClient");
 const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 const { checkTool } = require("../services/access");

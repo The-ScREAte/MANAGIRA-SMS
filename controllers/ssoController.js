@@ -25,7 +25,7 @@ function backToPage(req, res, message, next) {
   return res.redirect(`/account/login${next === "mira" ? "?next=mira" : ""}`);
 }
 
-const isActive = (connection) => connection && connection.status === "active" && connections.isOn(connection.organization_id);
+const isActive = (connection) => connection && connection.status === "active";
 const nextOf = (value) => (value === "mira" ? "mira" : "");
 
 // How this email signs in, for the login page: { sso: connection or null, password: true/false }.
@@ -346,7 +346,7 @@ module.exports = {
   metadata: async (req, res, db) => {
     try {
       const row = await connections.connectionByPublicId(db, req.params.publicId);
-      if (!row || row.protocol !== "saml" || !connections.isOn(row.organization_id)) return res.status(404).send("Not found");
+      if (!row || row.protocol !== "saml") return res.status(404).send("Not found");
       res.set("Content-Type", "application/xml; charset=utf-8");
       return res.send(saml.metadata(baseOf(req), row));
     } catch (error) {
@@ -361,11 +361,6 @@ module.exports = {
     const role = String(req.session.userRole || "").trim().toLowerCase();
     if (role === "manager" || req.session.accountType === "Organization") return next();
     return res.status(403).json({ success: false, message: "Only a manager can change single sign-on." });
-  },
-
-  guard: (req, res, next) => {
-    if (connections.isOn(req.session.organizationId)) return next();
-    return res.status(404).json({ success: false, message: "Not available." });
   },
 
   state: (req, res, db) => answer(res, async () => {

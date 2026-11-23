@@ -1,4 +1,4 @@
-// Forms on the parent and student portals (feature custom_forms): what to fill in first, then
+// Forms on the parent and student portals: what to fill in first, then
 // what was sent, then what the school shares. One tap opens a form; Send saves it.
 (function () {
   'use strict';

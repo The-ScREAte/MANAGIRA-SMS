@@ -1,4 +1,4 @@
-// The Custom editor (Management Tools › Custom editor, feature custom_forms).
+// The Custom editor (Management Tools › Custom editor).
 // First the sections, lined up. Create New Section offers ready school forms or a blank one.
 // An open section shows where it lives, how it's collected and its fields; the rest sits under
 // More options. Save sends it all; the server cleans it (utils/customForms.js).

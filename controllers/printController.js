@@ -1845,11 +1845,10 @@ const printController = (db) => ({
           choiceResults:   secVis.choiceResults   !== false,
           // Custom editor sections marked "Show on report cards".
           customSections:  secVis.customSections  !== false,
-          // GPA (feature gpa): off until the school turns it on.
+          // GPA: off until the school turns it on.
           gpa:             secVis.gpa === true,
-          // Overall lunch (feature class_lunch): off until the school turns it on.
-          lunch:           secVis.lunch === true
-            && require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) }),
+          // Overall lunch: off until the school turns it on.
+          lunch:           secVis.lunch === true,
         },
       };
 
@@ -1948,7 +1947,7 @@ const printController = (db) => ({
         attendanceMap[row.student_id] = Number(attendanceMap[row.student_id] || 0) + Number(row.days || 0);
       }
 
-      // Overall lunch (Report Settings › Advanced, feature class_lunch): for each student, the
+      // Overall lunch (Report Settings › Advanced): for each student, the
       // term's days with lunch out of the days lunch was taken. One read for the class.
       const lunchMap = new Map();
       if (displaySettings.sections.lunch && students.length) {
@@ -2034,7 +2033,7 @@ const printController = (db) => ({
       // GPA, where the school shows it: each subject's level (Honors, AP), what a level adds, and
       // (feature gpa_credits) its credits, so the report card's term GPA is the transcript's.
       const gpaUtil = require("../utils/gpa");
-      const gpaContext = displaySettings.sections.gpa && gpaUtil.featureOn(organizationId)
+      const gpaContext = displaySettings.sections.gpa
         ? {
             settings: await gpaUtil.settingsFor(db, organizationId),
             levels: await gpaUtil.levelsFor(db, organizationId, { classId: parsedClassId }),
@@ -3270,10 +3269,10 @@ const printController = (db) => ({
         db.query(`SELECT class_id, document_id FROM report_template_classes WHERE organization_id = $1`, [organizationId]),
       ]);
 
-      // GPA weights (feature gpa): what Honors and AP add, each subject's level and (feature
+      // GPA weights: what Honors and AP add, each subject's level and (feature
       // gpa_credits) its credits; credits is null where the school doesn't have course credits.
       const gpaUtil = require("../utils/gpa");
-      const gpaWeights = gpaUtil.featureOn(organizationId) && await gpaUtil.weightsReady(db)
+      const gpaWeights = await gpaUtil.weightsReady(db)
         ? {
             ...(await gpaUtil.settingsFor(db, organizationId)),
             levels: Object.fromEntries(await gpaUtil.levelsFor(db, organizationId)),
@@ -4464,166 +4463,6 @@ const printController = (db) => ({
     } catch (error) {
             req.flash("error", "Error deleting remark.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
-    }
-  },
-
-  saveScoreRemarks: async (req, res) => {
-    await ensureScoreRemarkGradeColumn(db);
-    await ensureScoreRemarkRangeUniqueConstraint(db);
-    const { remark, grade_label, from_percentage, to_percentage, classId, entryType } = req.body;
-    const organizationId = req.session.organizationId;
-    const termId = req.body.termId;
-
-    try {
-      if (!organizationId) {
-        req.flash("error", "Organization ID is not set in session.");
-        return res.redirect(`/print/reportSettings?termId=${termId || ""}`);
-      }
-
-      if (!termId || isNaN(termId)) {
-        req.flash("error", "Invalid or missing term ID.");
-        return res.redirect(`/print/reportSettings`);
-      }
-
-      if (!classId || isNaN(classId)) {
-        req.flash("error", "Invalid or missing class ID.");
-        return res.redirect(`/print/reportSettings?termId=${termId}`);
-      }
-
-      const normalizedRemark = String(remark || "").trim();
-      const normalizedGradeLabelInput = String(grade_label || "").trim();
-      const hasSubmittedRemark = normalizedRemark.length > 0;
-
-      if (entryType === "remark" && !normalizedRemark) {
-        req.flash("error", "Remark text is required.");
-        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
-      }
-
-      if (entryType === "grade" && !normalizedGradeLabelInput) {
-        req.flash("error", "Grade label is required.");
-        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
-      }
-
-      const parsedTermId = parseInt(termId, 10);
-      const parsedClassId = parseInt(classId, 10);
-      const fromPct = parseFloat(from_percentage);
-      const toPct = parseFloat(to_percentage);
-      const formatRangeLabel = (fromValue, toValue) => `${Number(fromValue)}% - ${Number(toValue)}%`;
-
-      const classOwnershipCheck = await db.query(
-        `
-          SELECT class_id
-          FROM classes
-          WHERE class_id = $1
-            AND organization_id = $2
-          LIMIT 1
-        `,
-        [parsedClassId, organizationId]
-      );
-      if (!classOwnershipCheck.rows.length) {
-        req.flash("error", "Access denied: selected class does not belong to your organization.");
-        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-      }
-
-      if (
-        Number.isNaN(fromPct) ||
-        Number.isNaN(toPct) ||
-        fromPct > toPct
-      ) {
-        req.flash("error", "Provide a valid percentage range (numeric values, from <= to).");
-        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-      }
-
-      const existingRangeResult = await db.query(
-        `
-          SELECT id, remark, grade_label
-          FROM score_remarks
-          WHERE organization_id = $1
-            AND class_id = $2
-            AND term_id = $3
-            AND from_percentage = $4
-            AND to_percentage = $5
-          ORDER BY id DESC
-          LIMIT 1
-        `,
-        [organizationId, parsedClassId, parsedTermId, fromPct, toPct]
-      );
-
-      const existingRangeRow = existingRangeResult.rows[0] || null;
-      if (existingRangeRow) {
-        req.flash(
-          "error",
-          `Range ${formatRangeLabel(fromPct, toPct)} already exists for this class/term (remark: ${existingRangeRow.remark || "-"}, grade: ${existingRangeRow.grade_label || "-"}). Use Edit to modify it.`
-        );
-        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-      }
-
-      const overlapRangeResult = await db.query(
-        `
-          SELECT id, from_percentage, to_percentage, remark, grade_label
-          FROM score_remarks
-          WHERE organization_id = $1
-            AND class_id = $2
-            AND term_id = $3
-            AND from_percentage <= $4
-            AND to_percentage >= $5
-          ORDER BY from_percentage ASC
-          LIMIT 1
-        `,
-        [organizationId, parsedClassId, parsedTermId, toPct, fromPct]
-      );
-      const overlapRangeRow = overlapRangeResult.rows[0] || null;
-      if (overlapRangeRow) {
-        req.flash(
-          "error",
-          `Range ${formatRangeLabel(fromPct, toPct)} overlaps existing range ${formatRangeLabel(overlapRangeRow.from_percentage, overlapRangeRow.to_percentage)} for this class/term (remark: ${overlapRangeRow.remark || "-"}, grade: ${overlapRangeRow.grade_label || "-"}).`
-        );
-        return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-      }
-
-      const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
-      const finalGradeLabel = normalizedGradeLabelInput || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
-      const finalRemark = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
-
-      if (entryType === "remark") {
-        const existingRemarkResult = await db.query(
-          `
-            SELECT id, from_percentage, to_percentage
-            FROM score_remarks
-            WHERE organization_id = $1
-              AND class_id = $2
-              AND term_id = $3
-              AND lower(trim(remark)) = lower(trim($4))
-            ORDER BY id DESC
-            LIMIT 1
-          `,
-          [organizationId, parsedClassId, parsedTermId, finalRemark]
-        );
-
-        const existingRemarkRow = existingRemarkResult.rows[0] || null;
-        if (existingRemarkRow) {
-          req.flash(
-            "error",
-            `Remark "${finalRemark}" already exists for range ${formatRangeLabel(existingRemarkRow.from_percentage, existingRemarkRow.to_percentage)} in this class/term. Use a different remark text.`
-          );
-          return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-        }
-      }
-
-      await db.query(
-        `
-          INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `,
-        [organizationId, parsedClassId, parsedTermId, finalRemark, finalGradeLabel, fromPct, toPct]
-      );
-
-      req.flash("success", entryType === "grade" ? "Grade mapping saved successfully." : "Score remark saved successfully.");
-      return res.redirect(`/print/reportSettings?classId=${parsedClassId}&termId=${parsedTermId}`);
-    } catch (error) {
-      console.error("[saveScoreRemarks] error", error);
-      req.flash("error", "Failed to save score remark.");
-      return res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId || ""}`);
     }
   },
 
@@ -9140,7 +8979,7 @@ printController.saveGpaSettings = async (req, res) => {
   try {
     const organizationId = Number(req.session.organizationId);
     const gpaUtil = require("../utils/gpa");
-    if (!organizationId || !gpaUtil.featureOn(organizationId)) return res.status(404).json({ success: false, error: "Not found." });
+    if (!organizationId) return res.status(404).json({ success: false, error: "Not found." });
     const actor = [req.session.firstName, req.session.lastName].filter(Boolean).join(" ") || req.session.userEmail || "Someone";
     const body = { ...(req.body || {}) };
     // The bonuses are the whole school's: its managers and supervisors set them.

@@ -3,7 +3,6 @@
 // access rules: staff limited to some classes only reach those families), so
 // the recipients shown are exactly who a send would reach. Sending is
 // send_message with confirm=true, after the person's yes.
-// Feature: mira_outreach (services/access.js).
 const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 const MAX_FAMILIES = 25;

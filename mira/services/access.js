@@ -40,9 +40,9 @@ need([P.orgBills, P.payments], ["get_fees"]);
 need([P.contacts, P.guardians, P.mailroom], ["find_contact"]);
 need([P.guardians, P.contacts], ["get_guardian_details"]);
 need([P.mailroom, P.guardians, P.contacts], ["draft_message"]);
-need(P.mailroom, ["draft_family_messages"], { feature: "mira_outreach" });
+need(P.mailroom, ["draft_family_messages"]);
 need(P.alumni, ["list_archived_students", "unarchive_students"]);
-rules.find_low_attendance = { allOf: [P.reportBuilder, P.attendance], feature: "mira_outreach" };
+rules.find_low_attendance = { allOf: [P.reportBuilder, P.attendance] };
 // Forms & requests: the same people as the staff Forms page (the server keeps teachers to their classes).
 need([P.customForms, P.students], ["get_form_requests", "remind_form_outstanding"], { feature: "mira_forms" });
 // Admissions
@@ -104,7 +104,6 @@ need(P.sso, ["get_sso_status"]);
 
 // Read tools that belong to a feature of their own (hidden where it's off).
 const READ_TOOL_FEATURES = {
-  get_gpa: ["gpa"], get_lunch: ["class_lunch"], list_custom_forms: ["custom_forms"], get_form_answers: ["custom_forms"],
   get_briefing: ["weekly_briefing"], get_class_settings: ["class_settings"],
 };
 // Read tools whose pages a driver never opens (the server refuses them too).

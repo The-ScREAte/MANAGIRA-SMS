@@ -8,7 +8,7 @@
 
 const classSettings = require("./classSettings");
 const staffAbout = require("./staffAbout");
-const { assistantsOn } = require("./mainTeacher");
+const { assistantReady } = require("./mainTeacher");
 
 const FEATURE = "teacher_cards";
 const isOn = (organizationId) => require("./shards/features").isOn(FEATURE, { organizationId: Number(organizationId) });
@@ -18,7 +18,7 @@ const nameOf = (row) => [row.first_name, row.last_name].filter(Boolean).join(" "
 // audience: "parents" or "students". child: { id, classId }.
 async function forChild(db, organizationId, child, audience) {
   if (!child || !child.id || !child.classId) return { teachers: [], shares: {} };
-  const assistants = await assistantsOn(db, organizationId);
+  const assistants = await assistantReady(db);
   const [{ rows }, sharedMap] = await Promise.all([
     db.query(
       `WITH leads AS (

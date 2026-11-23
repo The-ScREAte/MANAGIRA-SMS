@@ -1,15 +1,13 @@
-// Emergency & pickup sharing (feature "family_sharing"): who else sees a parents &
+// Emergency & pickup sharing: who else sees a parents &
 // guardians section, the driver permission, and the migration being safe to repeat.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const { FEATURES } = require("../utils/shards/features");
 const { PERMISSIONS, PERMISSION_OPTIONS, driverPermissions } = require("../middleware/permissionMiddleware");
 const contacts = require("../utils/contacts");
 
-test("sharing is released to every school", () => {
-  assert.equal(FEATURES.family_sharing.access, "everyone");
+test("sharing can be given to parents, students, teachers and drivers", () => {
   assert.deepEqual(contacts.AUDIENCES, ["parents", "students", "teachers", "drivers"]);
 });
 

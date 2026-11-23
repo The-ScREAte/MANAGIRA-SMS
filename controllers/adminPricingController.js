@@ -129,10 +129,8 @@ async function loadCycles() {
   }
 }
 
-// How many single schools use each add-on, Mira's seats across them, and how many schools
-// are charged for add-ons yet (the "addon_pricing" release).
+// How many single schools use each add-on, and Mira's seats across them.
 async function addonUse() {
-  const features = require("../utils/shards/features");
   const ints = await hubBilling.integrationSql(db);
   const rows = (await db.query(
     `SELECT o.organization_id, ${ints}, ${hubBilling.SEATS_SQL("o")}
@@ -144,7 +142,6 @@ async function addonUse() {
     const using = rows.filter((r) => r[`int_${key}`]);
     use[key] = { schools: using.length, seats: seat ? using.reduce((n, r) => n + (Number(r[`seats_${seat}`]) || 0), 0) : null };
   });
-  use.released = rows.filter((r) => features.isOn("addon_pricing", { organizationId: r.organization_id })).length;
   use.total = rows.length;
   return use;
 }
@@ -683,7 +680,6 @@ async function schoolPricingGet(req, res) {
     unitOf: hubBilling.unitOf,
     unitLabel: hubBilling.unitLabel,
     maxDiscount: orgPricing.MAX_DISCOUNT,
-    released: require("../utils/shards/features").isOn("addon_pricing", { organizationId: org.organization_id }),
     freeOwnReady: await columnReady("organizations", "custom_free_students"),
     freeMonthsChoices: FREE_MONTHS_CHOICES,
   });

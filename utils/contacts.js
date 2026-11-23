@@ -177,7 +177,7 @@ async function listSections(db, organizationId) {
   return rows.map((r) => ({ id: r.section_id, name: r.name, shared: Array.isArray(r.shared_with) ? r.shared_with.filter((a) => AUDIENCES.includes(a)) : [] }));
 }
 
-// ---------- Sharing (feature "family_sharing") ----------
+// ---------- Sharing ----------
 // A section can be shared beyond the office: with parents (who also update it in their
 // portal), students, teachers (the class pickup list) and drivers (with the driver
 // permission "Pickup & Emergency"). The column comes from database/migrations/

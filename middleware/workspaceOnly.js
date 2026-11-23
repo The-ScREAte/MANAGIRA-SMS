@@ -123,6 +123,9 @@ module.exports = (db) => async (req, res, next) => {
   const rule = req.method === "GET" ? ruleFor(req.path) : null;
   if (!rule) return next();
   if (String(req.query.embed || "").toLowerCase() === "workspace") return next();
+  // A page drawn for a PDF or a print (utils/pdfService.js sends X-Managira-Render: pdf) is the page
+  // itself: sent into a workspace, the PDF waited for a page that never came (View Statistics).
+  if (req.get("X-Managira-Render") === "pdf" || req.query.pdf || req.query.print || req.query.export) return next();
   if (String(req.get("Sec-Fetch-Dest") || "").toLowerCase() !== "document") return next();
   if (!req.session || !(req.session.userId || req.session.user) || req.session.guardianId || req.session.studentId) return next();
   try {

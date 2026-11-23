@@ -988,8 +988,8 @@ module.exports = {
       // Everything that needs the class: teachers, subjects, scores, positions and the timetable.
       // With the assessments flow, parents see only approved grades.
       const gradeFlow2 = assessmentApproval.flowOn(organizationId);
-      // Overall lunch (feature class_lunch), unless the class keeps it from parents.
-      const lunchShown = see.lunch && overallLunch.isOn(organizationId);
+      // Overall lunch, unless the class keeps it from parents.
+      const lunchShown = Boolean(see.lunch);
       const [
         mainTeacherResult,
         subjectsResult,
@@ -1213,7 +1213,7 @@ module.exports = {
 
       const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
 
-      // GPA (features gpa and family_gpa), unless the class keeps it from parents (Class settings):
+      // GPA (feature family_gpa), unless the class keeps it from parents (Class settings):
       // this term's, from the grades shown above, and the cumulative over finished terms.
       const gpaInfo = see.gpa && require('../utils/shards/features').isOn('family_gpa', { organizationId })
         ? await require('../utils/gpa').familyGpa(db, organizationId, studentId, {

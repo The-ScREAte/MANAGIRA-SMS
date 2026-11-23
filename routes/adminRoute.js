@@ -524,7 +524,6 @@ module.exports = (db) => {
     // for hubs; payment settings.
     const adminPricing = require('../controllers/adminPricingController');
     router.get('/servicePricing', ensureAdmin, adminPricing.pricingGet);
-    router.get('/dynamicPricing', ensureAdmin, (req, res) => res.redirect('/admin/servicePricing'));
     router.post('/pricing/addons', ensureAdmin, adminPricing.addonsPost);
     router.post('/pricing/cycles', ensureAdmin, adminPricing.cyclesPost);
     router.get('/pricing/plans/:planId(\\d+)/edit', ensureAdmin, adminPricing.planFormGet);

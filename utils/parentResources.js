@@ -33,7 +33,7 @@ async function readSettings(db, organizationId, questionSetId) {
   }
 }
 
-// Whether students see the set's resources with the test (feature learning_resources), and the
+// Whether students see the set's resources with the test, and the
 // teacher's recommendations. Before the column exists: no.
 async function studentExtras(db, organizationId, questionSetId) {
   try {

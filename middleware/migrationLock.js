@@ -22,7 +22,6 @@ module.exports = async function migrationLock(req, res, next) {
   // Staff only: parents and students, and Managira's own staff, are never held back here.
   if (!organizationId || session.guardianId || session.studentId || session.hubId) return next();
   try {
-    if (!migration.featureOn(organizationId)) return next();
     const state = await migration.stateFor(db, organizationId);
     // No sandbox, or Managira turned it off: managers see the request form in Management.
     if (!state || !state.allowed) {

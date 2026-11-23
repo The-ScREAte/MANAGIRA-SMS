@@ -11,7 +11,7 @@ const cf = require("./customForms");
 const FEATURE = "portal_requests";
 const OLD_LIMIT = 60;
 const isOn = (organizationId) => require("./shards/features").isOn(FEATURE, { organizationId: Number(organizationId) });
-const formsAvailable = async (db, organizationId) => cf.featureOn(organizationId) && (await cf.ready(db));
+const formsAvailable = async (db, organizationId) => await cf.ready(db);
 
 // people: [{ id, name, firstName, classId }]. audience: "parent" or "student".
 async function forms(db, organizationId, people, audience, { bucket = "new", day = null, linkFor }) {

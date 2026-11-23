@@ -1,7 +1,7 @@
 "use strict";
 // Authenticator-app codes (TOTP, RFC 6238: SHA-1, 30-second steps, 6 digits) for the people
 // who open a school's data migration or its restricted data, and for Managira's super admins
-// on the Migration queue (feature data_migration). Asked for with the account's password. The
+// on the Migration queue. Asked for with the account's password. The
 // app's code changes every 30 seconds; one either side is accepted for a phone's clock, so a code
 // works for 90 seconds at most, and once. A right code (with the password) then holds for 30
 // minutes in that browser (`fresh`), after which it's asked for again. Set up once by scanning a QR code; ten recovery codes are shown

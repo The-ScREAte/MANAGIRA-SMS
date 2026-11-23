@@ -2858,7 +2858,7 @@
 
                     <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
                     <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
-                    <%# Overall lunch (Report Settings › Advanced, feature class_lunch): days with lunch out of the days lunch was taken this term. %>
+                    <%# Overall lunch (Report Settings › Advanced): days with lunch out of the days lunch was taken this term. %>
                     <% const showLunch = !!displaySettings.sections.lunch; %>
                     <% const lunchText = student.lunch && student.lunch.taken ? student.lunch.days + ' of ' + student.lunch.taken + (student.lunch.taken === 1 ? ' day' : ' days') : '—'; %>
                     <% const lunchCols = showLunch ? 2 : 0; %>

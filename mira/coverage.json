@@ -17,10 +17,7 @@
         "unarchive_students"
       ],
       "never": "Permanently deleting a student",
-      "features": [
-        "student_documents",
-        "student_portfolio"
-      ]
+      "features": []
     },
     "families": {
       "read": [
@@ -32,11 +29,9 @@
       "change": [],
       "never": "Unlinking or merging parents (done on the Parents & guardians page)",
       "features": [
-        "family_sharing",
         "family_link",
         "family_gpa",
         "teacher_cards",
-        "parent_student_hub",
         "portal_requests",
         "alert_rules"
       ]
@@ -52,10 +47,7 @@
         "set_employee_hold"
       ],
       "never": "Staff permissions, roles and sign-in",
-      "features": [
-        "assistant_teacher",
-        "school_roles"
-      ]
+      "features": []
     },
     "classes_and_subjects": {
       "read": [
@@ -79,9 +71,7 @@
         "delete_graduation_year_group",
         "close_graduation_year_group"
       ],
-      "features": [
-        "teacher_class_scope"
-      ]
+      "features": []
     },
     "years_and_terms": {
       "read": [
@@ -134,7 +124,7 @@
       "change": [],
       "never": "Marking attendance is done on the class attendance page",
       "features": [
-        "class_lunch"
+        "attendance_notices"
       ]
     },
     "assessments_and_tests": {
@@ -161,10 +151,7 @@
         "delete_test",
         "delete_question_set"
       ],
-      "features": [
-        "assessment_flow",
-        "learning_resources"
-      ]
+      "features": []
     },
     "reports_and_transcripts": {
       "read": [
@@ -189,7 +176,6 @@
         "delete_remark"
       ],
       "features": [
-        "gpa",
         "gpa_credits",
         "transcript_designs",
         "report_remarks_forms"
@@ -206,7 +192,6 @@
       ],
       "never": "Building or changing forms (done in the Custom editor)",
       "features": [
-        "custom_forms",
         "mira_forms"
       ]
     },
@@ -229,9 +214,7 @@
         "create_activity",
         "add_to_my_calendar"
       ],
-      "features": [
-        "class_activities"
-      ]
+      "features": []
     },
     "announcements": {
       "read": [
@@ -303,8 +286,7 @@
         "delete_saved_report"
       ],
       "features": [
-        "report_builder_more",
-        "transport_report_builder"
+        "report_builder_more"
       ]
     },
     "statistics": {
@@ -346,9 +328,7 @@
         "assign_student_transportation",
         "remove_student_transportation"
       ],
-      "features": [
-        "bus_boarding"
-      ]
+      "features": []
     },
     "paygira": {
       "read": [
@@ -381,9 +361,7 @@
         "set_website_theme",
         "set_website_self_enrollment"
       ],
-      "features": [
-        "website_designs"
-      ]
+      "features": []
     },
     "class_settings": {
       "read": [
@@ -410,10 +388,7 @@
         "set_student_id_settings"
       ],
       "never": "Integrations, single sign-on, API and Mira settings: status only",
-      "features": [
-        "sso",
-        "tenant_config"
-      ]
+      "features": []
     },
     "help_and_whats_new": {
       "read": [
@@ -422,6 +397,9 @@
       ],
       "change": [
         "submit_feedback"
+      ],
+      "features": [
+        "page_finder"
       ]
     },
     "mira_itself": {
@@ -429,25 +407,17 @@
       "change": [],
       "excluded": "Mira's own features",
       "features": [
-        "mira_outreach",
-        "mira_steps",
         "mira_skills",
         "mira_read_more"
       ]
     },
     "billing": {
       "excluded": "Plan, renewal and payment changes are never made from Mira; the Billing & Plan page shows them",
-      "features": [
-        "addon_pricing",
-        "plan_page",
-        "plan_catalog"
-      ]
+      "features": []
     },
     "sign_in_and_security": {
       "excluded": "Passwords, sign-in, verification codes and authenticator settings are never touched from Mira",
       "features": [
-        "smart_login",
-        "login_code",
         "sign_in_authenticator"
       ]
     },
@@ -458,15 +428,13 @@
     "hubs_admin_migration_backups": {
       "excluded": "Outside the school: hubs, other schools, platform admin, data migration and backups",
       "features": [
-        "data_migration",
         "migration_codes"
       ]
     },
     "first_time_setup_and_public_site": {
       "excluded": "One-time setup and Managira's public pages aren't school records",
       "features": [
-        "first_setup",
-        "new_landing"
+        "first_setup"
       ]
     },
     "state_reporting": {

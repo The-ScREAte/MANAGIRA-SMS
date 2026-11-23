@@ -91,7 +91,7 @@ async function reachOf(db, actor) {
 // options: { classQuery, classIds, formId, formQuery, audience: parent|student|all, status: outstanding|completed|all, day }
 async function status(db, actor, options = {}) {
   const organizationId = Number(actor.organizationId);
-  if (!cf.featureOn(organizationId) || !(await cf.ready(db))) throw new FormsError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.", 404);
+  if (!(await cf.ready(db))) throw new FormsError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.", 404);
   const reach = await reachOf(db, actor);
   const { rows: allClasses } = await db.query("SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name", [organizationId]);
   const classes = allClasses.map((r) => ({ id: Number(r.class_id), name: r.class_name }));
@@ -197,7 +197,7 @@ async function status(db, actor, options = {}) {
 // ── Reminders: only the families still outstanding for one parent form, in the classes in reach ─
 async function remind(db, actor, { formId, classQuery = null, classIds = null, siteUrl = "" }) {
   const organizationId = Number(actor.organizationId);
-  if (!cf.featureOn(organizationId) || !(await cf.ready(db))) throw new FormsError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.", 404);
+  if (!(await cf.ready(db))) throw new FormsError("PLAN_FEATURE_OFF", "Forms (the Custom editor) aren't on for this school.", 404);
   const reach = await reachOf(db, actor);
   const section = await cf.getSection(db, organizationId, Number(formId));
   if (!section || section.status !== "live") throw new FormsError("NOT_FOUND", "That form isn't live.", 404);

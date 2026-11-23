@@ -194,8 +194,7 @@ const checkFeatureAccess = async (req, res, next) => {
     );
 
     const alwaysIncluded = routeFeatureCache?.featureName
-      && planCatalog.isCoreName(routeFeatureCache.featureName)
-      && planCatalog.catalogOn(organizationId);
+      && planCatalog.isCoreName(routeFeatureCache.featureName);
     const featureId = alwaysIncluded ? null : routeFeatureCache?.featureId || null;
 
     if (featureId) {

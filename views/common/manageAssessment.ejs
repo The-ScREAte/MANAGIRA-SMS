@@ -964,29 +964,26 @@
   let ctModalIframeLoaded = false;
   // The assessments flow: a new test can get its questions straight away (questions are
   // optional; "Not now" just shows the list).
-  const CT_FLOW = <%= locals.assessmentFlow ? 'true' : 'false' %>;
-  const CT_CAN_ADD_QUESTIONS = <%= (locals.assessmentFlow && canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions) ? 'true' : 'false' %>;
-  if (CT_FLOW) {
-    window.addEventListener('message', function (event) {
-      if (event.origin !== window.location.origin || !event.data || event.data.type !== 'managira:assessments-created') return;
-      closeCreateTestModal();
-      const created = Array.isArray(event.data.created) ? event.data.created : [];
-      if (!created.length || !CT_CAN_ADD_QUESTIONS || !window.AssessmentFlow) { window.location.reload(); return; }
-      window.AssessmentFlow.askAddQuestions({ created: created }).then(function (pick) {
-        if (!pick) { window.location.reload(); return; }
-        window.AssessmentFlow.openQuestions({
-          classId: pick.classId,
-          subjectId: pick.subjectId,
-          termId: pick.termId || ctTermId,
-          schoolYearId: pick.schoolYearId,
-          assessmentId: pick.assessmentId,
-          title: 'Add questions · ' + (pick.title || ''),
-          subtitle: [pick.className, pick.subjectName].filter(Boolean).join(' · '),
-          onDone: function () { window.location.reload(); },
-        });
+  const CT_CAN_ADD_QUESTIONS = <%= (canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions) ? 'true' : 'false' %>;
+  window.addEventListener('message', function (event) {
+    if (event.origin !== window.location.origin || !event.data || event.data.type !== 'managira:assessments-created') return;
+    closeCreateTestModal();
+    const created = Array.isArray(event.data.created) ? event.data.created : [];
+    if (!created.length || !CT_CAN_ADD_QUESTIONS || !window.AssessmentFlow) { window.location.reload(); return; }
+    window.AssessmentFlow.askAddQuestions({ created: created }).then(function (pick) {
+      if (!pick) { window.location.reload(); return; }
+      window.AssessmentFlow.openQuestions({
+        classId: pick.classId,
+        subjectId: pick.subjectId,
+        termId: pick.termId || ctTermId,
+        schoolYearId: pick.schoolYearId,
+        assessmentId: pick.assessmentId,
+        title: 'Add questions · ' + (pick.title || ''),
+        subtitle: [pick.className, pick.subjectName].filter(Boolean).join(' · '),
+        onDone: function () { window.location.reload(); },
       });
     });
-  }
+  });
 
   function openCreateTestModal() {
     const overlay = document.getElementById('ctModalOverlay');
@@ -1011,7 +1008,7 @@
         if (loading) loading.style.display = 'none';
         iframe.style.display = 'block';
       });
-      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace' + (CT_FLOW ? '&flow=1' : '');
+      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace&flow=1';
     }
 
     overlay.classList.add('is-open');

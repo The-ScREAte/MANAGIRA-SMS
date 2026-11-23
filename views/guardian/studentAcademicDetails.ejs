@@ -1267,11 +1267,10 @@
     </div>
   </div>
 
-  <%# With the child's page (parent_student_hub), Schedule, Lunch and (with teacher_cards) Teachers are
+  <%# With the child's page, Schedule, Lunch and (with teacher_cards) Teachers are
       tiles of their own: Academic info keeps to grades, attendance and report cards. %>
-  <% const _tiled = !!(locals.featureOn && featureOn('parent_student_hub')); %>
-  <% const _teachersTiled = _tiled && featureOn('teacher_cards'); %>
-  <% if (!_tiled || !_teachersTiled) { %>
+  <% const _teachersTiled = featureOn('teacher_cards'); %>
+  <% if (!_teachersTiled) { %>
   <div class="staff-schedule-grid">
     <% if (!_teachersTiled) { %>
     <!-- Teacher Information -->
@@ -1327,115 +1326,19 @@
     </details>
     <% } %>
 
-    <% if (!_tiled) { %>
-    <details class="section-details">
-      <summary class="section-summary">
-        <span class="summary-label"><span class="ad-ico" aria-hidden="true"><%- navIcon('schedule') %></span>Class schedule</span>
-        <span class="summary-chevron">›</span>
-      </summary>
-      <div class="section-body">
-        <% if (classSchedule && classSchedule.entries && classSchedule.entries.length > 0) { %>
-          <% 
-            var scheduleUpdatedAt = classSchedule.updatedAt ? new Date(classSchedule.updatedAt) : null;
-            var scheduleUpdatedLabel = (scheduleUpdatedAt && !Number.isNaN(scheduleUpdatedAt.getTime()))
-              ? scheduleUpdatedAt.toLocaleString()
-              : '-';
-          %>
-          <%
-            var slotMap = {};
-            var slotOrder = [];
-            (classSchedule.entries || []).forEach(function(e) {
-              var k = e.startTime;
-              if (!slotMap[k]) {
-                slotMap[k] = { startTime: e.startTime, endTime: e.endTime };
-                slotOrder.push(k);
-              }
-            });
-            slotOrder.sort();
-            var slots = slotOrder.map(function(k) { return slotMap[k]; });
-            var activeDays = classSchedule.groupedByDay.filter(function(d) { return d.items.length > 0; });
-          %>
-          <div class="schedule-shell<%= scheduleWatermarkUrl ? ' with-watermark' : '' %>"<% if (scheduleWatermarkUrl) { %> style="--schedule-watermark-image: url('<%= scheduleWatermarkUrl %>');"<% } %>>
-            <details class="schedule-summary-details" open>
-              <summary class="schedule-summary-toggle">
-                <span class="schedule-summary-toggle-button">
-                  <span class="schedule-summary-toggle-label">Schedule details</span>
-                  <span class="schedule-summary-toggle-icon" aria-hidden="true">›</span>
-                </span>
-              </summary>
-              <div class="schedule-summary-content">
-                <div class="schedule-summary-grid">
-                  <div class="schedule-summary-card"><span>School Year</span><strong><%= classSchedule.schoolYearLabel %></strong></div>
-                  <div class="schedule-summary-card"><span>Term</span><strong><%= classSchedule.termName %></strong></div>
-                  <div class="schedule-summary-card"><span>Columns</span><strong><%= slots.length %></strong></div>
-                  <div class="schedule-summary-card"><span>Updated</span><strong><%= scheduleUpdatedLabel %></strong></div>
-                </div>
-              </div>
-            </details>
-
-            <div class="schedule-table-wrap">
-              <table class="schedule-table">
-                <thead>
-                  <tr>
-                    <th class="schedule-day-cell">Day</th>
-                    <% slots.forEach(function(slot, si) { %>
-                      <th class="schedule-slot-header">
-                        <div class="schedule-slot-header-inner">
-                          <div class="schedule-slot-period">Period <%= si + 1 %></div>
-                          <div class="schedule-slot-time-display"><%= slot.startTime %><br><%= slot.endTime %></div>
-                        </div>
-                      </th>
-                    <% }); %>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% activeDays.forEach(function(day) { %>
-                    <tr>
-                      <th class="schedule-day-cell">
-                        <div class="schedule-day-label-row">
-                          <span class="schedule-day-label-text"><%= day.dayLabel %></span>
-                        </div>
-                      </th>
-                      <% slots.forEach(function(slot) {
-                        var entry = null;
-                        for (var i = 0; i < day.items.length; i++) {
-                          if (day.items[i].startTime === slot.startTime) { entry = day.items[i]; break; }
-                        }
-                        var cellLabel = entry ? (entry.customLabel || entry.subjectName || 'Empty') : 'Empty';
-                        var isCustom = !!(entry && entry.customLabel);
-                        var isEmpty = !entry || !cellLabel || cellLabel === 'Empty';
-                      %>
-                        <td>
-                          <div class="schedule-readonly-cell<% if (isCustom) { %> is-custom-entry<% } %><% if (isEmpty) { %> is-empty<% } %>"><%= cellLabel %></div>
-                        </td>
-                      <% }); %>
-                    </tr>
-                  <% }); %>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        <% } else { %>
-          <p style="color:#94a3b8;font-size:14px;margin:0;">The timetable for this term has not been set up yet.</p>
-        <% } %>
-      </div>
-    </details>
-    <% } %>
   </div>
   <% } %>
 
-  <!-- Attendance Summary (and overall lunch). The class may keep either from parents (Class settings). -->
+  <!-- Attendance Summary. The class may keep it from parents (Class settings). -->
   <%
     const _showAttendance = locals.showAttendance !== false;
-    // Lunch has its own tile on the child's page; here only where there are no tiles.
-    const _lunch = _tiled ? null : (locals.lunch || null);
     const _hasAttendance = _showAttendance && attendance && attendance.length > 0;
   %>
-  <% if (_showAttendance || _lunch) { %>
+  <% if (_showAttendance) { %>
   <div class="section-card">
-    <h2><span class="ad-ico" aria-hidden="true"><%- navIcon('attendance') %></span><%= _showAttendance ? (_lunch ? 'Attendance & lunch' : 'Attendance') : 'Lunch' %></h2>
-    <% if (_hasAttendance || _lunch) { %>
-      <div class="info-grid<%= _hasAttendance && _lunch ? ' info-grid--five' : '' %>">
+    <h2><span class="ad-ico" aria-hidden="true"><%- navIcon('attendance') %></span>Attendance</h2>
+    <% if (_hasAttendance) { %>
+      <div class="info-grid">
         <% if (_hasAttendance) { %>
         <div class="info-item">
           <div class="info-label">Total Days</div>
@@ -1454,12 +1357,6 @@
           <div class="info-value" style="color: #0f5a66;"><%= attendanceSummary.attendanceRate %>%</div>
         </div>
         <% } %>
-        <% if (_lunch) { %>
-        <div class="info-item">
-          <div class="info-label">Lunch</div>
-          <div class="info-value" style="color: #0f5a66;"><%= _lunch.label %></div>
-        </div>
-        <% } %>
       </div>
       <% if (_showAttendance && !_hasAttendance) { %>
         <p class="no-data" style="margin-top: 12px;">No attendance records yet.</p>
@@ -1473,7 +1370,7 @@
   <!-- Current Term Assessments -->
   <div class="section-card">
     <h2>Current Term Performance</h2>
-    <%# GPA (feature gpa) unless the class keeps it from parents (Class settings › Share with › GPA):
+    <%# GPA unless the class keeps it from parents (Class settings › Share with › GPA):
         this term's, from the grades parents can see, and the cumulative over finished terms. %>
     <% const _gpa = locals.gpaInfo || null; %>
     <% if (_gpa) { %>

@@ -2,7 +2,6 @@ const { runTurn } = require("../services/orchestrator");
 const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 const { enhanceDraft } = require("../services/planner");
-const { loadAccess } = require("../services/access");
 const { checkBudget, recordUsage } = require("../services/usageLedger");
 const { loadHistory } = require("../services/orchestrator");
 
@@ -84,14 +83,12 @@ async function postChat(req, res) {
 }
 
 // POST /api/chat/enhance { message, chatId?, className? } -> { text, changed }
-// The Enhance button: the draft made into a clear request for Mira (feature mira_steps). It
+// The Enhance button: the draft made into a clear request for Mira. It
 // reads only the person's own recent messages in their own chat, and never answers the draft.
 async function enhanceMessage(req, res) {
   try {
     const draft = String(req.body?.message || "").trim().slice(0, 4000);
     if (!draft) return res.status(400).json({ error: "Write something to enhance first." });
-    const access = await loadAccess(req.tenant);
-    if (!access.features?.mira_steps) return res.status(404).json({ error: "Not found." });
     const budget = await checkBudget(req.tenant.organizationId);
     if (!budget.allowed) return res.status(429).json({ error: budget.reason });
 

@@ -5,6 +5,8 @@
   const termId = (typeof currentTerm !== 'undefined' && currentTerm) ? currentTerm.term_id : '';
 %>
 
+<link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
+<script src="<%= assetUrl('/js/listPager.js') %>"></script>
 <style>
   :root {
     --border: #e5e7eb;
@@ -972,62 +974,7 @@
   }
   .as-bfield-select:focus { border-color: var(--primary); background: #fff; }
   .as-bfield-select:disabled { opacity: 0.38; cursor: not-allowed; }
-  .as-pagebar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: #fff;
-    flex-wrap: wrap;
-  }
-  .as-pagebar-left,
-  .as-pagebar-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .as-pagebar-label {
-    font-size: 12px;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  .as-pagebar-select {
-    height: 32px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 700;
-    background: #fff;
-    color: #0f172a;
-  }
-  .as-page-btn {
-    border: 1px solid var(--border);
-    background: #fff;
-    color: #0f172a;
-    border-radius: 8px;
-    height: 32px;
-    min-width: 32px;
-    padding: 0 10px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .as-page-btn:disabled {
-    opacity: .42;
-    cursor: not-allowed;
-  }
-  .as-page-info {
-    font-size: 13px;
-    color: #0f172a;
-    font-weight: 800;
-    min-width: 54px;
-    text-align: center;
-  }
+  .as-pager { margin-top: 4px; }
   .as-bulk-id-list {
     display: grid;
     gap: 7px;
@@ -1539,23 +1486,7 @@
 
   </div><!-- end .as-table-wrap -->
 
-  <div class="as-pagebar" id="asPageBar" aria-label="Students pagination">
-    <div class="as-pagebar-left">
-      <span class="as-pagebar-label">Show per page</span>
-      <select class="as-pagebar-select" id="asPageSizeSelect">
-        <option value="20" selected>20</option>
-        <option value="50">50</option>
-        <option value="70">70</option>
-        <option value="100">100</option>
-        <option value="200">200</option>
-      </select>
-    </div>
-    <div class="as-pagebar-right">
-      <button type="button" class="as-page-btn" id="asPagePrev">Prev</button>
-      <span class="as-page-info" id="asPageInfo">1/1</span>
-      <button type="button" class="as-page-btn" id="asPageNext">Next</button>
-    </div>
-  </div>
+  <div class="as-pager" id="asPageBar"></div>
 </div><!-- end .as-wrapper -->
 
 <div class="as-page-busy" id="asPageBusy" aria-live="polite" aria-busy="true">
@@ -1947,12 +1878,14 @@
   var resetBtn     = document.getElementById('asFilterReset');
   var visibleCount = document.getElementById('asVisibleCount');
   var emptyState   = document.getElementById('asEmpty');
-  var pageSizeSelect = document.getElementById('asPageSizeSelect');
-  var pagePrevBtn = document.getElementById('asPagePrev');
-  var pageNextBtn = document.getElementById('asPageNext');
-  var pageInfo = document.getElementById('asPageInfo');
   var studentSortButtons = Array.from(document.querySelectorAll('.as-sort-btn[data-sort-key]'));
   var pagination = { pageSize: 20, currentPage: 1, totalPages: 1 };
+  // The same page bar as every other long list (public/js/listPager.js).
+  var pager = window.ManagiraPager ? ManagiraPager.create({
+    mount: document.getElementById('asPageBar'), key: 'students', label: 'Student pages',
+    onChange: function (st) { pagination.pageSize = st.size; pagination.currentPage = st.page; applyFilters(false); },
+  }) : null;
+  if (pager) pagination.pageSize = pager.state.size;
   var sortState = { key: 'name', direction: 'asc' };
 
   // Filters pop-up: opens from the Filters button, closes on Done, Escape or a click outside.
@@ -2061,9 +1994,7 @@
     visibleCount.textContent = pageCount;
     emptyState.style.display = total === 0 ? 'block' : 'none';
 
-    if (pageInfo) pageInfo.textContent = pagination.currentPage + '/' + pagination.totalPages;
-    if (pagePrevBtn) pagePrevBtn.disabled = pagination.currentPage <= 1 || total === 0;
-    if (pageNextBtn) pageNextBtn.disabled = pagination.currentPage >= pagination.totalPages || total === 0;
+    if (pager) pager.show(total, pagination.currentPage);
   }
 
   function applyFilters(resetPage) {
@@ -2109,28 +2040,6 @@
     searchInput.value=filterClass.value=filterGender.value=filterStatus.value='';
     filters={search:'',classId:'',gender:'',status:''}; applyFilters(true);
   });
-  if (pageSizeSelect) {
-    pageSizeSelect.addEventListener('change', function() {
-      var parsed = parseInt(this.value, 10);
-      pagination.pageSize = Number.isInteger(parsed) && parsed > 0 ? parsed : 20;
-      applyFilters(true);
-    });
-  }
-  if (pagePrevBtn) {
-    pagePrevBtn.addEventListener('click', function() {
-      if (pagination.currentPage <= 1) return;
-      pagination.currentPage -= 1;
-      applyFilters(false);
-    });
-  }
-  if (pageNextBtn) {
-    pageNextBtn.addEventListener('click', function() {
-      if (pagination.currentPage >= pagination.totalPages) return;
-      pagination.currentPage += 1;
-      applyFilters(false);
-    });
-  }
-
   /* ── Selection ───────────────────────────────────────── */
   var selectedIds = new Set();
   var bulkBar       = document.getElementById('asBulkBar');

@@ -1,4 +1,4 @@
-// Before Mira works on a message it understands it and plans it (feature `mira_steps`):
+// Before Mira works on a message it understands it and plans it:
 // one sentence on what the person wants and a few short steps, made by a small, fast model
 // call. The person sees them as Mira works; the main model gets them as its plan. A plan never
 // carries facts: the tools decide those. Quick replies ("yes", "thanks") need no plan.

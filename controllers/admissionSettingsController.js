@@ -58,9 +58,9 @@ module.exports = {
         canFamily ? contacts.getTemplate(db, organizationId).catch(() => ({ sections: [], fields: [] })) : null,
       ]);
       const org = orgRow.rows[0] || {};
-      // Student files on Add student (feature student_documents): required or not, off by default.
+      // Student files on Add student (student files): required or not, off by default.
       const studentDocs = require("../utils/studentDocuments");
-      const filesSettings = canAdmissions && studentDocs.isOn(organizationId) ? await studentDocs.settingsFor(db, organizationId) : null;
+      const filesSettings = canAdmissions ? await studentDocs.settingsFor(db, organizationId) : null;
       const tabs = [website && "online", canAdmissions && "forms", canFamily && "family"].filter(Boolean);
       const tab = tabs.includes(req.query.tab) ? req.query.tab : tabs[0];
       return res.render("common/admissionSettings", {
@@ -100,7 +100,6 @@ module.exports = {
       if (!(await canManage(req))) return res.status(403).json({ success: false, error: "You don't have permission to change admission settings." });
       const organizationId = Number(req.session.organizationId);
       const studentDocs = require("../utils/studentDocuments");
-      if (!studentDocs.isOn(organizationId)) return res.status(404).json({ success: false, error: "Not found" });
       const saved = await studentDocs.saveSettings(db, organizationId, { requiredOnAdd: req.body && req.body.requiredOnAdd === true }, actor(req).userId);
       return res.json({ success: true, requiredOnAdd: saved.requiredOnAdd });
     } catch (err) {

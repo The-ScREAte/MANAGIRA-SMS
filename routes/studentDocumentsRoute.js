@@ -19,10 +19,7 @@ const toId = (value) => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
-const door = [checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res, next) => {
-  if (!documents.isOn(req.session.organizationId)) return res.status(404).send("Not found");
-  return next();
-}];
+const door = [checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS)];
 
 // Back to the student's page (kept inside a workspace panel when it was opened there).
 function backTo(req, studentId) {
@@ -164,7 +161,6 @@ router.get("/file/:documentId(\\d+)", ...door, async (req, res) => {
 // The portfolio on the student page: one term's folder, drawn into the page's Portfolio tab.
 const portfolio = require("../utils/portfolio");
 router.get("/:studentId(\\d+)/portfolio", ...door, async (req, res) => {
-  if (!portfolio.featureOn(req.session.organizationId)) return res.status(404).send("");
   const studentId = await studentOf(req);
   if (!studentId) return res.status(404).send("That student wasn't found.");
   try {
@@ -190,7 +186,6 @@ router.get("/:studentId(\\d+)/portfolio", ...door, async (req, res) => {
 
 // A marked test as a document, or its PDF (?download=1).
 router.get("/:studentId(\\d+)/portfolio/test/:attemptId(\\d+)", ...door, async (req, res) => {
-  if (!portfolio.featureOn(req.session.organizationId)) return res.status(404).send("Not found");
   const studentId = await studentOf(req);
   if (!studentId) return res.status(404).send("That student wasn't found.");
   return require("../controllers/portfolioController").staffTest(req, res, db, studentId);

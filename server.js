@@ -842,18 +842,15 @@ app.use(async (req, res, next) => {
   // or its Keep me logged in time), however busy it has been. One already open starts counting now.
   // The school's rules are read once a minute per server; if they can't be read, nobody is signed out.
   if (!req.session.signedInAt) req.session.signedInAt = now;
-  // Schools get it with Tenant configuration (sandbox first, then everyone once released in admin).
   let tooOld = false;
   let limitMs = null;
-  if (require("./utils/shards/features").isOn("tenant_config", { organizationId: req.session.organizationId })) {
-    try {
-      const settings = await tenantSettings.settingsFor(db, req.session.organizationId);
-      limitMs = tenantSettings.sessionLimitMs(settings, req.session.keepSignedIn);
-      tooOld = now - req.session.signedInAt > limitMs;
-    } catch (_error) {
-      tooOld = false;
-      limitMs = null;
-    }
+  try {
+    const settings = await tenantSettings.settingsFor(db, req.session.organizationId);
+    limitMs = tenantSettings.sessionLimitMs(settings, req.session.keepSignedIn);
+    tooOld = now - req.session.signedInAt > limitMs;
+  } catch (_error) {
+    tooOld = false;
+    limitMs = null;
   }
 
   // Someone who ticked Keep me logged in isn't timed out for a quiet spell.
@@ -1282,9 +1279,9 @@ const landingPages = require("./utils/landing");
 app.use((req, res, next) => {
   res.locals.req = req;
   res.locals.url = req.originalUrl;
-  // Signed-out pages get the public site's header and footer once new_landing is on.
+  // Signed-out marketing pages get the public site's header and footer (views/home/partials).
   res.locals.lp = landingPages;
-  res.locals.newPublicLook = landingPages.isNewLook();
+  res.locals.newPublicLook = true;
   next();
 });
 
@@ -1352,7 +1349,7 @@ app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
 app.get("/calendar/family/:token([a-f0-9]{48}).ics", (req, res) =>
   require("./controllers/familyCalendarController").ics(req, res, db)
 );
-// A student's documents on the student page (feature student_documents).
+// A student's documents on the student page.
 app.use("/common/student-documents", require("./routes/studentDocumentsRoute"));
 // The weekly briefing's settings and preview (feature weekly_briefing).
 app.use("/common/briefing", require("./routes/briefingRoute"));
@@ -1615,9 +1612,8 @@ app.get("/", async (req, res) => {
   }
 
   if (!req.schoolDetails) homeSeo.homePricing = await getHomePricing();
-  // The new homepage: everywhere in development; in production once released in admin (new_landing).
-  const homeView = require("./utils/landing").isNewLook() ? "home/landing" : "index";
-  const homeLocals = homeView === "index" ? homeSeo : { ...homeSeo, layout: false, lp: require("./utils/landing") };
+  const homeView = "home/landing";
+  const homeLocals = { ...homeSeo, layout: false, lp: require("./utils/landing") };
 
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {

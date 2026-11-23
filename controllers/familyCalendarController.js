@@ -1,7 +1,6 @@
 "use strict";
 
 // The calendar pages for parents and students, and their private calendar links.
-const features = require("../utils/shards/features");
 const familyCalendar = require("../utils/familyCalendar");
 const { baseUrl } = require("../utils/workspace");
 const { getOpenAssessments, resolveCurrentStudentTermContext } = require("./studentController");
@@ -33,8 +32,6 @@ const addDays = (key, n) => {
   day.setUTCDate(day.getUTCDate() + n);
   return day.toISOString().slice(0, 10);
 };
-const activitiesOn = (organizationId) => features.isOn("class_activities", { organizationId });
-const hubOn = (organizationId) => features.isOn("parent_student_hub", { organizationId });
 const allowsQuestions = (list) => (list || []).some((name) => /set assessment questions|assessment questions/i.test(String(name)));
 const allowsTestingRoom = (list) => (list || []).some((name) => /testing room|set assessment questions|assessment questions/i.test(String(name)));
 
@@ -107,7 +104,6 @@ function syncHandlers(ownerKind, ownerIdOf, nameOf) {
   return {
     sync: async (req, res, db) => {
       const organizationId = req.session.organizationId;
-      if (!activitiesOn(organizationId)) return res.status(404).json({ success: false });
       try {
         const token = await familyCalendar.feedToken(db, organizationId, ownerKind, ownerIdOf(req));
         return res.json({ success: true, links: familyCalendar.linksFor(baseUrl(req), token, nameOf(req)) });
@@ -117,7 +113,6 @@ function syncHandlers(ownerKind, ownerIdOf, nameOf) {
     },
     reset: async (req, res, db) => {
       const organizationId = req.session.organizationId;
-      if (!activitiesOn(organizationId)) return res.status(404).json({ success: false });
       try {
         const token = await familyCalendar.resetFeed(db, organizationId, ownerKind, ownerIdOf(req));
         return res.json({ success: true, links: familyCalendar.linksFor(baseUrl(req), token, nameOf(req)) });
@@ -135,7 +130,6 @@ const studentSync = syncHandlers("student", (req) => req.session.studentId, scho
 module.exports = {
   guardianPage: async (req, res, db) => {
     const organizationId = req.session.organizationId;
-    if (!activitiesOn(organizationId)) return res.redirect("/guardian/dashboard");
     try {
       const children = await childrenOf(db, organizationId, req.session.guardianId);
       return res.render("guardian/calendar", {
@@ -155,11 +149,10 @@ module.exports = {
 
   guardianFeed: async (req, res, db) => {
     const organizationId = req.session.organizationId;
-    if (!activitiesOn(organizationId)) return res.status(404).json({ success: false });
     const dates = datesFrom(req, res);
     if (!dates) return undefined;
     try {
-      const withWork = hubOn(organizationId) && allowsQuestions(res.locals.allowedFeatures);
+      const withWork = allowsQuestions(res.locals.allowedFeatures);
       const items = await recent(`g:${organizationId}:${req.session.guardianId}:${dates.from}:${dates.to}:${withWork}`, async () => {
         const children = await childrenOf(db, organizationId, req.session.guardianId);
         // What's on the calendar and the work closing don't depend on each other.
@@ -177,9 +170,7 @@ module.exports = {
   guardianSync: guardianSync.sync,
   guardianReset: guardianSync.reset,
 
-  studentPage: async (req, res, db) => {
-    const organizationId = req.session.organizationId;
-    if (!activitiesOn(organizationId)) return res.redirect("/student/dashboard");
+  studentPage: async (req, res) => {
     return res.render("guardian/calendar", {
       title: "Calendar",
       children: [],
@@ -191,7 +182,6 @@ module.exports = {
 
   studentFeed: async (req, res, db) => {
     const organizationId = req.session.organizationId;
-    if (!activitiesOn(organizationId)) return res.status(404).json({ success: false });
     const dates = datesFrom(req, res);
     if (!dates) return undefined;
     try {
@@ -220,7 +210,7 @@ module.exports = {
     try {
       const token = String(req.params.token || "");
       const feed = await familyCalendar.findFeed(db, token);
-      if (!feed || !activitiesOn(feed.organization_id)) return res.status(404).send("Not found");
+      if (!feed) return res.status(404).send("Not found");
       const organizationId = feed.organization_id;
       const from = addDays(new Date().toISOString().slice(0, 10), -60);
       const to = addDays(new Date().toISOString().slice(0, 10), 365);

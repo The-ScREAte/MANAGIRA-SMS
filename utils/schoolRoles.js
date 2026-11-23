@@ -1,5 +1,5 @@
 "use strict";
-// A school's own staff roles (feature school_roles): beside the built-in Manager, Supervisor,
+// A school's own staff roles: beside the built-in Manager, Supervisor,
 // Teacher and Driver, a school adds its own ("Food Service", "Office Clerk") from the staff form.
 // A role is a name, the built-in role it's based on (the account type the person gets) and the
 // permissions it gives. Choosing it on the staff form ticks those permissions (still changeable
@@ -24,10 +24,9 @@ async function ready(db) {
   isReady = Number(r.n) === 2;
   return isReady;
 }
-const on = (organizationId) => require("./shards/features").isOn("school_roles", { organizationId: Number(organizationId) || null });
 
 async function list(db, organizationId) {
-  if (!on(organizationId) || !(await ready(db))) return [];
+  if (!(await ready(db))) return [];
   const { rows } = await db.query(
     `SELECT r.role_id, r.name, r.base_type, r.permissions, (SELECT COUNT(*) FROM users u WHERE u.school_role_id = r.role_id AND u.organization_id = r.organization_id)::int AS people
        FROM school_roles r WHERE r.organization_id = $1 AND r.archived_at IS NULL ORDER BY LOWER(r.name)`,
@@ -44,7 +43,7 @@ async function byId(db, organizationId, roleId) {
 // A new role. `allowed`: the permission keys this school's plan offers; `highRisk`: whether the
 // person making it may give high-risk permissions (and base a role on Manager).
 async function create(db, organizationId, input, { userId = null, allowed = null, highRisk = false, transportOn = true } = {}) {
-  if (!on(organizationId) || !(await ready(db))) return { error: "Roles aren't available yet." };
+  if (!(await ready(db))) return { error: "Roles aren't available yet." };
   const name = String(input.name || "").replace(/\s+/g, " ").trim().slice(0, 60);
   if (name.length < 2) return { error: "Give the role a name." };
   if (BUILT_IN.has(name.toLowerCase())) return { error: `${name} is already one of Managira's roles.` };
@@ -110,7 +109,7 @@ async function forForm(db, organizationId, { available = null, canAssignHighRisk
   const roles = await list(db, organizationId).catch(() => []);
   const giveable = (base) => !canGive || canGive(base);
   return {
-    on: on(organizationId) && (await ready(db)),
+    on: await ready(db),
     canAddManager: Boolean(canAssignHighRisk),
     canAddDriver: Boolean(transportOn) && giveable("Driver"),
     canAddSupervisor: giveable("Supervisor"),
@@ -127,7 +126,7 @@ async function roleOf(db, organizationId, userId) {
 }
 // Names for the staff list: user id → the school role's name.
 async function namesByUser(db, organizationId) {
-  if (!on(organizationId) || !(await ready(db))) return new Map();
+  if (!(await ready(db))) return new Map();
   const { rows } = await db.query(
     "SELECT u.user_id, r.name FROM users u JOIN school_roles r ON r.role_id = u.school_role_id AND r.organization_id = u.organization_id AND r.archived_at IS NULL WHERE u.organization_id = $1",
     [organizationId]
@@ -196,4 +195,4 @@ function handlers(db) {
   };
 }
 
-module.exports = { BASE_TYPES, ready, on, list, byId, create, update, archive, defaultsFor, keep, forForm, roleOf, namesByUser, assign, handlers };
+module.exports = { BASE_TYPES, ready, list, byId, create, update, archive, defaultsFor, keep, forForm, roleOf, namesByUser, assign, handlers };

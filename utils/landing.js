@@ -191,9 +191,4 @@ function brand(key, size = 20) {
   return `<span class="lp-brand">${art}<span>${name}</span></span>`;
 }
 
-// The new public look: everywhere in development; in production once new_landing is released.
-function isNewLook() {
-  return process.env.NODE_ENV !== "production" || require("./shards/features").isOn("new_landing");
-}
-
-module.exports = { MENUS, FOOTER, SIGN_IN, icon, product, brand, isNewLook };
+module.exports = { MENUS, FOOTER, SIGN_IN, icon, product, brand };

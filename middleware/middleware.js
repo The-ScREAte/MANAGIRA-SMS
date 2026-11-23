@@ -2,7 +2,6 @@ const multer = require('multer');
 const db = require('../config/db');
 const { hydrateOrganizationSession } = require('../utils/sessionContext');
 const { createShortCache } = require('../utils/shortCache');
-const features = require('../utils/shards/features');
 
 // "Is this school and account still active?" is asked on every request. A few seconds
 // is soon enough for a hold or removal to take effect, and a change this school saves
@@ -50,7 +49,7 @@ function driverMayOpen(req, res) {
     const held = res.locals?.userPermissions || [];
     const url = req.originalUrl || '';
     if (/^\/common\/page-finder\.json/.test(url)) return true;
-    if (/^\/common\/(calendar|ui-preferences)/.test(url) && features.isOn('class_activities', { organizationId: req.session?.organizationId })) return true;
+    if (/^\/common\/(calendar|ui-preferences)/.test(url)) return true;
     return DRIVER_PAGES.some(({ permission, pages }) => held.includes(permission) && pages.test(url));
 }
 

@@ -39,7 +39,7 @@ test("every tool is placed in an area", () => {
 test("every Managira feature is placed: Mira sees it, or the map says why not", () => {
   const source = fs.readFileSync(path.join(__dirname, "../../utils/shards/features.js"), "utf8");
   const keys = [...source.matchAll(/^\s{2}([a-z][a-z0-9_]*): \{ label:/gm)].map((m) => m[1]);
-  assert.ok(keys.length > 30, "found the features");
+  assert.ok(keys.length > 15, "found the features");
   const placed = new Set(areas.flatMap(([, a]) => a.features || []));
   const loose = keys.filter((key) => !placed.has(key));
   assert.deepEqual(loose, [], `features missing from coverage.json: ${loose.join(", ")}`);

@@ -4,7 +4,6 @@ const {
 } = require("../utils/transportation");
 const { uploadToS3 } = require("../middleware/s3Upload");
 const transportBoarding = require("../utils/transportBoarding");
-const features = require("../utils/shards/features");
 
 function toFloat(value) {
   const parsed = Number.parseFloat(value);
@@ -150,9 +149,9 @@ const driverController = {
         getTransportationIntegrationStatus(db, organizationId),
       ]);
 
-      // Pickup & emergency details the school shares with drivers (feature "family_sharing"),
+      // Pickup & emergency details the school shares with drivers,
       // for this driver's own riders only, with the driver permission "Pickup & Emergency".
-      if (held.includes("driver_family_details") && require("../utils/shards/features").isOn("family_sharing", { organizationId: Number(organizationId) })) {
+      if (held.includes("driver_family_details")) {
         const riders = students.filter((student) => student.hasAccess).map((student) => student.id);
         const family = await require("../utils/contacts").familyDetailsForStudents(db, Number(organizationId), riders, "drivers").catch(() => new Map());
         students.forEach((student) => {
@@ -197,8 +196,8 @@ const driverController = {
         driverProfile,
         driverPhotoUrl: (driverProfile && driverProfile.image_url) || req.session.profileImageUrl || null,
         activeTrip,
-        boardingOn: features.isOn("bus_boarding", { organizationId }),
-        tripBoardings: activeTrip && features.isOn("bus_boarding", { organizationId }) ? await transportBoarding.tripBoardings(db, organizationId, activeTrip.trip_id) : [],
+        boardingOn: true,
+        tripBoardings: activeTrip ? await transportBoarding.tripBoardings(db, organizationId, activeTrip.trip_id) : [],
         lastLocation,
         assignedRoutes,
         students,

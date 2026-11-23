@@ -14,7 +14,7 @@ async function page(req, res, db) {
   const self = toId(s.userId || (s.user && s.user.user_id));
   const admin = isOrgAdmin(s);
   const asked = toId(req.params.userId);
-  if (!organizationId || s.guardianId || s.studentId || !(await staffRoles.on(db, organizationId))) return res.redirect("/");
+  if (!organizationId || s.guardianId || s.studentId || !(await staffRoles.ready(db))) return res.redirect("/");
   const schoolAccount = String(s.accountType || "").toLowerCase() === "organization";
   const userId = asked || (schoolAccount ? null : self);
   if (!userId || (asked && asked !== self && !admin)) {

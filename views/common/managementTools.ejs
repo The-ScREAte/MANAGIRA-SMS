@@ -638,7 +638,7 @@
           </a>
         </li>
         <% } %>
-        <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
+        <% if (menuAccess.customForms) { %>
         <li>
           <a class="nav-link" href="/common/custom-forms" data-no-spa data-section="custom-forms" data-embed-url="/common/custom-forms" data-embed-label="Custom editor">
             <span class="nav-link-icon"><%- navIcon('forms') %></span>
@@ -821,7 +821,6 @@
       </section>
       <% } %>
 
-      <% if (locals.featureOn && featureOn('class_activities')) { %>
       <section class="management-section" id="class-activities">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
@@ -830,7 +829,6 @@
           </div>
         </div>
       </section>
-      <% } %>
       <section class="management-section" id="announcements-events">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
@@ -867,7 +865,7 @@
         <div class="embed-panel-body"><div class="embed-placeholder"><p>Loading Data migration…</p></div></div>
       </section>
       <% } %>
-      <% if (menuAccess.customForms && locals.featureOn && featureOn('custom_forms')) { %>
+      <% if (menuAccess.customForms) { %>
       <section class="management-section" id="custom-forms">
         <div class="embed-panel-body">
           <div class="embed-placeholder">

@@ -21,8 +21,6 @@ const toId = (value) => {
   const id = Number.parseInt(value, 10);
   return Number.isInteger(id) && id > 0 ? id : null;
 };
-const hubOn = (req) => features.isOn("parent_student_hub", { organizationId: req.session.organizationId });
-const activitiesOn = (req) => features.isOn("class_activities", { organizationId: req.session.organizationId });
 // Finished tests the teacher shared and posted (the assessments flow).
 const resultsFor = (req, db, child) => (assessmentApproval.flowOn(req.session.organizationId)
   ? testResults.sharedResults(db, req.session.organizationId, child.id, { classId: child.classId, termId: child.termId }).catch(() => [])
@@ -75,25 +73,29 @@ async function openWorkFor(db, organizationId, child) {
   }));
 }
 
-// Documents the school shared with the child's parents (feature student_documents).
+// Documents the school shared with the child's parents.
 const studentDocs = require("../utils/studentDocuments");
-const familyDocsOn = (req) => studentDocs.isOn(req.session.organizationId);
 // Only while the child's class shares student files with parents (Class settings).
 async function familyDocsFor(req, db, child) {
-  if (!familyDocsOn(req)) return [];
   if ((await parentsSeeChild(db, req.session.organizationId, child.id)).files === false) return [];
   return studentDocs.listFor(db, req.session.organizationId, child.id, { family: true }).catch(() => []);
 }
 
-const guard = (allowed, handler) => async (req, res, db) => {
-  if (!allowed(req)) return backToDashboard(req, res);
+// guard(handler), or guard(allowed, handler) for a page only some children's families may open.
+const guard = (...args) => {
+  const handler = args[args.length - 1];
+  const allowed = args.length > 1 ? args[0] : null;
+  return async (req, res, db) => guarded(req, res, db, allowed, handler);
+};
+async function guarded(req, res, db, allowed, handler) {
+  if (allowed && !allowed(req)) return backToDashboard(req, res);
   try {
     return await handler(req, res, db);
   } catch (error) {
     console.error("[Parent hub]", error.message);
     return backToDashboard(req, res, "That page could not load. Try again.");
   }
-};
+}
 
 const withChild = (handler) => async (req, res, db) => {
   const child = await childFor(req, db);
@@ -102,11 +104,10 @@ const withChild = (handler) => async (req, res, db) => {
 };
 
 // Children of this parent in this school, for the calendar.
-// Whether a child's lunch shows to parents: the school has lunch (class_lunch), the child's class
+// Whether a child's lunch shows to parents: the child's class
 // takes it, and the class shares lunch with parents (Class settings).
 async function lunchShownFor(db, organizationId, child) {
-  const overallLunch = require("../utils/overallLunch");
-  if (!overallLunch.isOn(organizationId) || !child.classId) return false;
+  if (!child.classId) return false;
   const classSettings = require("../utils/classSettings");
   const settings = await classSettings.settingsFor(db, organizationId, child.classId).catch(() => null);
   if (!settings) return true;
@@ -129,12 +130,12 @@ async function childrenOf(db, organizationId, guardianId) {
 
 module.exports = {
   // Opens at once. The numbers on the tiles come from counts below.
-  hub: guard(hubOn, withChild(async (req, res, db, child) => {
+  hub: guard(withChild(async (req, res, db, child) => {
     const [integration, see] = await Promise.all([
       getTransportationIntegrationStatus(db, req.session.organizationId).catch(() => null),
       parentsSeeChild(db, req.session.organizationId, child.id),
     ]);
-    // GPA over finished terms (features gpa and family_gpa), unless the class keeps it from parents
+    // GPA over finished terms (feature family_gpa), unless the class keeps it from parents
     // (Class settings). It stays hidden behind an eye until the parent taps it.
     const gpaInfo = see.gpa !== false && features.isOn("family_gpa", { organizationId: req.session.organizationId })
       ? await require("../utils/gpa").familyGpa(db, req.session.organizationId, child.id, { termGrades: [] }).catch(() => null)
@@ -144,12 +145,12 @@ module.exports = {
       child,
       gpaInfo,
       showSchoolwork: hasQuestions(res),
-      showSchoolDocs: familyDocsOn(req) && see.files !== false,
+      showSchoolDocs: see.files !== false,
       // The class may keep the portfolio from parents (Class settings).
       showPortfolio: see.portfolio !== false,
       // Alerts about this child, unless the class keeps them from parents (Class settings).
       showAlerts: require("../utils/alertRules").featureOn(req.session.organizationId) && see.alerts !== false,
-      showActivities: activitiesOn(req),
+      showActivities: true,
       // The class may keep the bus from parents (Class settings).
       showTransport: Boolean(integration && integration.activated) && see.transport !== false,
       // Forms the school gave a tile of their own (read from the school's cached list).
@@ -166,7 +167,6 @@ module.exports = {
   })),
 
   counts: async (req, res, db) => {
-    if (!hubOn(req)) return res.status(404).json({ success: false });
     try {
       const child = await childFor(req, db);
       if (!child) return res.status(403).json({ success: false });
@@ -176,14 +176,14 @@ module.exports = {
       const [work, sets, upcoming, transport] = await Promise.all([
         hasQuestions(res) ? openWorkFor(db, organizationId, child) : [],
         hasQuestions(res) ? parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId) : [],
-        activitiesOn(req) ? listActivities(db, organizationId, { classIds: child.classId ? [child.classId] : [], from: today }) : [],
+        listActivities(db, organizationId, { classIds: child.classId ? [child.classId] : [], from: today }),
         // Not when the class keeps the bus from parents (Class settings).
         see.transport !== false ? getStudentTransportationSnapshot(db, organizationId, child.id, { imageUrl: res.locals.publicImageUrl }).catch(() => null) : null,
       ]);
       const [files, results, forms, schoolDocs] = await Promise.all([
         parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id))),
         hasQuestions(res) ? resultsFor(req, db, child) : [],
-        // Forms the school asks this family to fill in (feature custom_forms).
+        // Forms the school asks this family to fill in.
         require("./customFormsController").guardianToDo(db, req, child).catch(() => ({ forms: 0, tiles: {}, gone: [] })),
         familyDocsFor(req, db, child),
       ]);
@@ -206,7 +206,7 @@ module.exports = {
     }
   },
 
-  schedule: guard(hubOn, withChild(async (req, res, db, child) => {
+  schedule: guard(withChild(async (req, res, db, child) => {
     const schedule = child.classId && child.termId
       ? await getClassScheduleForTerm(db, { organizationId: req.session.organizationId, classId: child.classId, termId: child.termId })
       : null;
@@ -219,15 +219,15 @@ module.exports = {
   })),
 
   // The child's teachers: main, assistant and subject teachers, with what the class shares.
-  teachers: guard((req) => hubOn(req) && require("../utils/teacherCards").isOn(req.session.organizationId), withChild(async (req, res, db, child) => {
+  teachers: guard((req) => require("../utils/teacherCards").isOn(req.session.organizationId), withChild(async (req, res, db, child) => {
     const { teachers } = await require("../utils/teacherCards").forChild(db, req.session.organizationId, child, "parents");
     res.set("Cache-Control", "private, no-store");
     res.render("guardian/childTeachers", { title: "Teachers", child, teachers });
   })),
 
-  // Lunch on its own page (feature class_lunch): this term's overall lunch and each day taken,
+  // Lunch on its own page: this term's overall lunch and each day taken,
   // only while the child's class takes lunch and shares it with parents (Class settings).
-  lunch: guard(hubOn, withChild(async (req, res, db, child) => {
+  lunch: guard(withChild(async (req, res, db, child) => {
     const organizationId = req.session.organizationId;
     if (!(await lunchShownFor(db, organizationId, child))) return backToDashboard(req, res);
     const overallLunch = require("../utils/overallLunch");
@@ -253,14 +253,14 @@ module.exports = {
   })),
 
   // Alerts for one child (feature alert_rules): a score below or above a percentage, absences.
-  alerts: guard(hubOn, withChild(async (req, res, db, child) => {
+  alerts: guard(withChild(async (req, res, db, child) => {
     const see = await parentsSeeChild(db, req.session.organizationId, child.id);
     if (!require("../utils/alertRules").featureOn(req.session.organizationId) || see.alerts === false) return backToDashboard(req, res);
     res.set("Cache-Control", "private, no-store");
     res.render("guardian/childAlerts", { title: "Alerts", child });
   })),
 
-  activities: guard(activitiesOn, withChild(async (req, res, db, child) => {
+  activities: guard(withChild(async (req, res, db, child) => {
     const all = await listActivities(db, req.session.organizationId, { classIds: child.classId ? [child.classId] : [] });
     const today = new Date().toISOString().slice(0, 10);
     res.render("guardian/childList", {
@@ -272,18 +272,18 @@ module.exports = {
     });
   })),
 
-  homework: guard(hubOn, withChild(async (req, res, db, child) => {
+  homework: guard(withChild(async (req, res, db, child) => {
     const work = await openWorkFor(db, req.session.organizationId, child);
     res.render("guardian/childList", { title: "Homework", child, mode: "work", work: work.filter((row) => row.homework) });
   })),
 
-  testingRoom: guard(hubOn, withChild(async (req, res, db, child) => {
+  testingRoom: guard(withChild(async (req, res, db, child) => {
     const [work, results] = await Promise.all([openWorkFor(db, req.session.organizationId, child), resultsFor(req, db, child)]);
     res.render("guardian/childList", { title: "Testing Room", child, mode: "work", work: work.filter((row) => !row.homework), results });
   })),
 
   // A finished test the teacher shared in full: questions, the child's answers, the right ones.
-  result: guard(hubOn, withChild(async (req, res, db, child) => {
+  result: guard(withChild(async (req, res, db, child) => {
     const result = assessmentApproval.flowOn(req.session.organizationId)
       ? await testResults.review(db, req.session.organizationId, child.id, toId(req.params.attemptId), res.locals.publicImageUrl)
       : null;
@@ -294,14 +294,14 @@ module.exports = {
     return res.render("guardian/childResult", { title: result.title, child, result });
   })),
 
-  documents: guard(hubOn, withChild(async (req, res, db, child) => {
+  documents: guard(withChild(async (req, res, db, child) => {
     const organizationId = req.session.organizationId;
     const sets = await parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId);
     const files = await parentResources.filesForSets(db, organizationId, sets.map((row) => Number(row.question_set_id)));
     const setById = new Map(sets.map((row) => [Number(row.question_set_id), row]));
     const [results, schoolDocs] = await Promise.all([resultsFor(req, db, child), familyDocsFor(req, db, child)]);
     res.render("guardian/childList", {
-      title: results.length ? "Documents & results" : (schoolDocs.length || familyDocsOn(req) ? "Documents" : "Assessment documents"),
+      title: results.length ? "Documents & results" : "Documents",
       child,
       mode: "documents",
       results,
@@ -310,7 +310,7 @@ module.exports = {
     });
   })),
 
-  work: guard(hubOn, withChild(async (req, res, db, child) => {
+  work: guard(withChild(async (req, res, db, child) => {
     const organizationId = req.session.organizationId;
     const setId = toId(req.params.setId);
     const work = (await openWorkFor(db, organizationId, child)).find((row) => row.setId === setId);
@@ -336,7 +336,7 @@ module.exports = {
     });
   })),
 
-  file: guard(hubOn, withChild(async (req, res, db, child) => {
+  file: guard(withChild(async (req, res, db, child) => {
     const organizationId = req.session.organizationId;
     const file = await parentResources.fileById(db, organizationId, toId(req.params.fileId));
     const sets = file ? await parentResources.termSetsForChild(db, organizationId, child.id, child.classId, child.termId) : [];
@@ -355,7 +355,7 @@ module.exports = {
   })),
 
   // A document the school shared with this child's parents: a link that works for a few minutes.
-  studentFile: guard(familyDocsOn, withChild(async (req, res, db, child) => {
+  studentFile: guard(withChild(async (req, res, db, child) => {
     const doc = await studentDocs.findOne(db, req.session.organizationId, toId(req.params.documentId)).catch(() => null);
     const shown = doc && (await parentsSeeChild(db, req.session.organizationId, child.id)).files !== false;
     if (!shown || Number(doc.student_id) !== Number(child.id) || doc.shared_with !== "family") {

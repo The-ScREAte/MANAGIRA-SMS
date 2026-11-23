@@ -212,7 +212,7 @@ body:has(.ex) { background: #f6f7f9; }
 @media (prefers-reduced-motion: reduce) {
   .ex-opt, .ex-btn { transition: none; }
 }
-/* The teacher's recommendations and help on a question (feature learning_resources). */
+/* The teacher's recommendations and help on a question. */
 .ex-notes { margin: 12px 0 0; padding: 12px 14px; border-left: 3px solid var(--org-primary-color, #2563eb); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--org-primary-color, #2563eb) 7%, transparent); text-align: left; }
 .ex-notes strong { display: block; font-size: 13px; }
 .ex-notes p { margin: 3px 0 0; font-size: 13.5px; white-space: pre-wrap; }

@@ -34,21 +34,15 @@ const toId = (value) => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
-const lunchOn = (organizationId) => features.isOn("class_lunch", { organizationId: Number(organizationId) });
 const actorName = (req) => [req.session.firstName, req.session.lastName].filter(Boolean).join(" ")
   || (req.session.user && req.session.user.email) || req.session.organizationName || "Someone";
 
-const gpaOn = (organizationId) => features.isOn("gpa", { organizationId }) && features.isOn("family_gpa", { organizationId });
-// What a school's pages offer: lunch (taking it, and sharing it) only where the school has lunch
-// (feature class_lunch), and sharing GPA only where it has GPA (feature gpa).
-// Student files and the portfolio only where the school has them (student_documents, student_portfolio).
-const filesOn = (organizationId) => features.isOn("student_documents", { organizationId: Number(organizationId) });
-const portfolioOn = (organizationId) => features.isOn("student_portfolio", { organizationId: Number(organizationId) });
+const gpaOn = (organizationId) => features.isOn("family_gpa", { organizationId });
+// What a school's pages offer: sharing GPA only where the school has family GPA (feature family_gpa).
 // A teacher's email, phone and About me only where the school has the Teachers page (teacher_cards).
 const teacherCardsOn = (organizationId) => features.isOn("teacher_cards", { organizationId: Number(organizationId) });
 const alertsOn = (organizationId) => features.isOn("alert_rules", { organizationId: Number(organizationId) });
-const offered = (organizationId, key) => (key !== "lunch" || lunchOn(organizationId)) && (key !== "alerts" || alertsOn(organizationId)) && (key !== "gpa" || gpaOn(organizationId))
-  && (key !== "files" || filesOn(organizationId)) && (key !== "portfolio" || portfolioOn(organizationId))
+const offered = (organizationId, key) => (key !== "alerts" || alertsOn(organizationId)) && (key !== "gpa" || gpaOn(organizationId))
   && (!String(key).startsWith("teacher") || teacherCardsOn(organizationId));
 // The Student portal switch is offered only where the school has the student portal on (Integrations).
 const portalOffered = (db, organizationId) => require("../utils/studentPortal").getStudentPortalIntegrationStatus(db, organizationId)

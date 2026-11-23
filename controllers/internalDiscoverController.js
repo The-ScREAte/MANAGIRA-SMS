@@ -3,7 +3,6 @@
 // What Mira can tell people about, and do, among the newest parts of Managira. Each answer
 // follows what the person could do on the page themselves, and what's on for their school.
 const db = require("../config/db");
-const features = require("../utils/shards/features");
 const activities = require("../utils/classActivities");
 const transportBoarding = require("../utils/transportBoarding");
 const parentResources = require("../utils/parentResources");
@@ -62,36 +61,32 @@ const reply = (handler) => async (req, res) => {
   }
 };
 
-// Described only when the school has it.
+// What's new in Managira.
 const NEW_THINGS = [
-  { feature: "class_activities", title: "Class activities", what: "Teachers add field trips, clubs and other activities to a class, or for the whole school. Parents and students see them and get a notification.", where: "A class's Activities tab, or Management, Events, announcements & activities, Activities tab (/common/manageEventsAnnouncements?tab=activities)", who: "Teachers for their own classes; anyone with Publish Events & Announcements for the whole school" },
-  { feature: "class_activities", title: "A calendar for everyone", what: "Parents see all their children's activities, classes, school events and work closing. Students see their own. Drivers see their bus runs. Anyone can add it to their own Google, Outlook or Apple calendar.", where: "Calendar in the menu (/guardian/calendar, /student/calendar, /common/calendar). Add to my calendar, or Sync & share for staff", who: "Everyone" },
-  { feature: "parent_student_hub", title: "Parent student tiles", what: "Tapping a child opens tiles: academic info, schedule, calendar, activities, homework, testing room, assessment documents, transportation and messages.", where: "Parent portal, then the child's View button", who: "Parents" },
-  { feature: "parent_student_hub", title: "Homework help for parents", what: "When setting up questions, a teacher can show them on the parent portal and attach notes and files, so parents can help. Parents only see what their child can already see.", where: "Assessment question setup, Show on parent portal", who: "Teachers" },
-  { feature: "bus_boarding", title: "Bus boarding", what: "At each stop the driver sees All boarded or Except. If they do nothing, driving off counts everyone as boarded. Parents get a notification.", where: "Driver's trip screen", who: "Drivers; parents are told" },
-  { feature: "bus_boarding", title: "Not coming today", what: "A parent can mark a child as not coming, and a teacher can mark a student from the class's Transportation tab. The driver's list updates. A parent can also ask to stop using the bus; that goes to the transport leads.", where: "Parent portal child card; class Transportation tab", who: "Parents and teachers" },
-  { feature: "sso", title: "Single sign-on", what: "A school can have people sign in through its own provider, using SAML or OpenID Connect: Google Workspace, Microsoft Entra ID, Okta, OneLogin, ClassLink, Clever, JumpCloud, Ping, Auth0, AD FS, Shibboleth or any other. People choose Log in with SSO and enter their email. A manager sets it up and tests it before it can be turned on. It works for Mira too.", where: "Settings, Single sign-on (/account/settings)", who: "Managers with the Single Sign-On permission" },
-  { feature: "smart_login", title: "One login page", what: "A parent, student or hub user who signs in on the main login page is taken to their own portal, once their password is confirmed.", where: "The main login page", who: "Parents, students and hub users" },
+  { title: "Class activities", what: "Teachers add field trips, clubs and other activities to a class, or for the whole school. Parents and students see them and get a notification.", where: "A class's Activities tab, or Management, Events, announcements & activities, Activities tab (/common/manageEventsAnnouncements?tab=activities)", who: "Teachers for their own classes; anyone with Publish Events & Announcements for the whole school" },
+  { title: "A calendar for everyone", what: "Parents see all their children's activities, classes, school events and work closing. Students see their own. Drivers see their bus runs. Anyone can add it to their own Google, Outlook or Apple calendar.", where: "Calendar in the menu (/guardian/calendar, /student/calendar, /common/calendar). Add to my calendar, or Sync & share for staff", who: "Everyone" },
+  { title: "Parent student tiles", what: "Tapping a child opens tiles: academic info, schedule, calendar, activities, homework, testing room, assessment documents, transportation and messages.", where: "Parent portal, then the child's View button", who: "Parents" },
+  { title: "Homework help for parents", what: "When setting up questions, a teacher can show them on the parent portal and attach notes and files, so parents can help. Parents only see what their child can already see.", where: "Assessment question setup, Show on parent portal", who: "Teachers" },
+  { title: "Bus boarding", what: "At each stop the driver sees All boarded or Except. If they do nothing, driving off counts everyone as boarded. Parents get a notification.", where: "Driver's trip screen", who: "Drivers; parents are told" },
+  { title: "Not coming today", what: "A parent can mark a child as not coming, and a teacher can mark a student from the class's Transportation tab. The driver's list updates. A parent can also ask to stop using the bus; that goes to the transport leads.", where: "Parent portal child card; class Transportation tab", who: "Parents and teachers" },
+  { title: "Single sign-on", what: "A school can have people sign in through its own provider, using SAML or OpenID Connect: Google Workspace, Microsoft Entra ID, Okta, OneLogin, ClassLink, Clever, JumpCloud, Ping, Auth0, AD FS, Shibboleth or any other. People choose Log in with SSO and enter their email. A manager sets it up and tests it before it can be turned on. It works for Mira too.", where: "Settings, Single sign-on (/account/settings)", who: "Managers with the Single Sign-On permission" },
+  { title: "One login page", what: "A parent, student or hub user who signs in on the main login page is taken to their own portal, once their password is confirmed.", where: "The main login page", who: "Parents, students and hub users" },
   { title: "Live bus tracking", what: "Parents, students and teachers see the bus moving on the map, with its real route through the stops and an arrival time. If the driver's phone goes quiet, the map says the position is estimated.", where: "Track bus on the parent or student page; a class's Transportation tab", who: "Parents, students and staff" },
   { title: "Driver reports", what: "Drivers report problems from their page. Leads decide who sees each report, and only reports about a student can be shared with that student's parents or teachers.", where: "Report on the driver's page; Transportation, Reports", who: "Drivers and transport leads" },
   { title: "Transportation in Report Builder", what: "Reports on trips, riders and drivers.", where: "Reports, Report Builder", who: "Anyone with Report Builder and transportation access" },
 ];
 
 module.exports = {
-  whatsNew: reply(async (req) => {
-    const person = who(req.query);
+  whatsNew: reply(async () => {
     return {
-      items: NEW_THINGS
-        .filter((item) => !item.feature || features.isOn(item.feature, { organizationId: person.organizationId }))
-        .map(({ title, what, where, who: forWhom }) => ({ title, what, where, who: forWhom })),
-      note: "Only what this school has. Anything not listed isn't available to them yet.",
+      items: NEW_THINGS.map(({ title, what, where, who: forWhom }) => ({ title, what, where, who: forWhom })),
+      note: "Recent additions to Managira. What each person can open still follows their permissions and the school's plan.",
     };
   }),
 
   // ---------- activities ----------
   listActivities: reply(async (req) => {
     const person = who(req.query);
-    if (!features.isOn("class_activities", { organizationId: person.organizationId })) return { available: false, activities: [] };
     const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || "")) ? req.query.from : today();
     const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || "")) ? req.query.to : addDays(from, 60);
     const seesAll = isManager(person) || await can(person, PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS);
@@ -110,7 +105,6 @@ module.exports = {
 
   createActivity: reply(async (req) => {
     const person = who(req.body);
-    if (!features.isOn("class_activities", { organizationId: person.organizationId })) throw refuse("Activities aren't available for this school yet.");
     const named = req.body.className ? await classByName(person.organizationId, req.body.className) : null;
     if (req.body.className && !named) throw refuse(`There's no class named "${req.body.className}" in Managira.`, 404);
     const seesAll = isManager(person) || await can(person, PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS);
@@ -127,7 +121,6 @@ module.exports = {
   // ---------- who's riding ----------
   ridingToday: reply(async (req) => {
     const person = who(req.query);
-    if (!features.isOn("bus_boarding", { organizationId: person.organizationId })) return { available: false };
     const day = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || "")) ? req.query.date : today();
     const allBuses = isManager(person) || await can(person, PERMISSIONS.MANAGE_TRANSPORTATION);
     const reading = await transportBoarding.schoolDay(db, person.organizationId, day);
@@ -156,7 +149,6 @@ module.exports = {
   // ---------- homework help ----------
   showWorkToParents: reply(async (req) => {
     const person = who(req.body);
-    if (!features.isOn("parent_student_hub", { organizationId: person.organizationId })) throw refuse("This isn't available for this school yet.");
     const allowed = isManager(person) || await can(person, PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
     if (!allowed) throw refuse("You need Set Assessment Questions to change this.");
     const id = toId(req.body.questionSetId);
@@ -171,7 +163,6 @@ module.exports = {
   // ---------- single sign-on: read only, and never a secret ----------
   ssoStatus: reply(async (req) => {
     const person = who(req.query);
-    if (!features.isOn("sso", { organizationId: person.organizationId })) return { available: false };
     // Only a manager reaches single sign-on, whatever else someone holds (as on the settings page).
     const managerOnly = ["manager", "organization"].includes(String(person.userRole || person.accountType || "").trim().toLowerCase());
     if (!managerOnly || !(await can(person, PERMISSIONS.MANAGE_SSO))) throw refuse("Only a manager can see the school's single sign-on settings.");

@@ -133,7 +133,7 @@
           <h2 class="ah-card__title" id="apAddons">Add-ons</h2>
           <p class="ap-card__sub">Added each month when a school uses one. Empty is free. Charge each one per school or per seat.</p>
         </div>
-        <span class="ah-bill <%= use.released ? 'ah-bill--blue' : 'ah-bill--muted' %>" title="Who is charged follows the addon_pricing release (Admin › Shards › Releases)"><%= !use.total ? 'No single schools yet' : use.released === use.total ? 'Charged to every school' : `Charged to ${use.released} of ${use.total} schools` %></span>
+        <span class="ah-bill ah-bill--blue"><%= !use.total ? 'No single schools yet' : 'Charged to every school' %></span>
       </div>
       <form action="/admin/pricing/addons" method="POST" data-ah-ajax>
         <input type="hidden" name="part" value="schools" />

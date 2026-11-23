@@ -49,7 +49,7 @@ const setAllowedPermissions = async (req, res, next) => {
     // Custom editor items join it once they can show, so a page saved before then is not kept.
     const stamp = crypto.createHash('md5')
       .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]
-        .concat(res.locals.customFormsReady() && features.isOn('custom_forms', { organizationId: req.session?.organizationId }) ? ['custom_forms'] : [])
+        .concat(res.locals.customFormsReady() ? ['custom_forms'] : [])
         .concat(features.isOn('class_settings', { organizationId: req.session?.organizationId }) ? ['class_settings'] : [])))
       .digest('base64url')
       .slice(0, 12);
@@ -78,7 +78,7 @@ const setAllowedPermissions = async (req, res, next) => {
     }
     // Known before the page is drawn, so Forms is in the menu from the very first page after a
     // restart (one small check per process, then remembered; it never throws).
-    if (features.isOn('custom_forms', { organizationId })) await require('../utils/customForms').ready(db);
+    await require('../utils/customForms').ready(db);
 
     // Platform admins (org-switch) and manager-like roles get all permissions.
     if (isManagerLikeRole(userRole) || isManagerLikeRole(accountType)) {

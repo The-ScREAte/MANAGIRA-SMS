@@ -64,11 +64,10 @@ async function withinScope(db, organizationId, scope, { classId, subjectId }) {
   return true;
 }
 
-// The classes a list may offer this person: a set for a teacher (where the scope is released),
+// The classes a list may offer this person: a set for a teacher,
 // null for everyone else. A page listing classes filters by it, so it never offers a class
 // whose pages would refuse the teacher.
 async function listScope(db, req) {
-  if (!require("./shards/features").isOn("teacher_class_scope", { organizationId: req.session?.organizationId })) return null;
   const scope = await teacherScope(db, req);
   return scope ? scope.classes : null;
 }
@@ -76,8 +75,6 @@ async function listScope(db, req) {
 function requireClassScope(db) {
   return async (req, res, next) => {
     try {
-      // Sandbox schools first: released from Admin › Shards › Releases (teacher_class_scope).
-      if (!require("./shards/features").isOn("teacher_class_scope", { organizationId: req.session?.organizationId })) return next();
       const scope = await teacherScope(db, req);
       if (!scope) return next();
       const source = { ...(req.query || {}), ...(req.body && typeof req.body === "object" ? req.body : {}) };
@@ -106,7 +103,6 @@ function requireClassScope(db) {
 function requireLeadsClass(db) {
   return async (req, res, next) => {
     try {
-      if (!require("./shards/features").isOn("teacher_class_scope", { organizationId: req.session?.organizationId })) return next();
       const scope = await teacherScope(db, req);
       if (!scope) return next();
       const source = { ...(req.query || {}), ...(req.body && typeof req.body === "object" ? req.body : {}) };
@@ -168,7 +164,6 @@ async function studentsInClasses(db, organizationId, studentIds, classIds, termI
 function requireGroupScope(db) {
   return async (req, res, next) => {
     try {
-      if (!require("./shards/features").isOn("teacher_class_scope", { organizationId: req.session?.organizationId })) return next();
       const scope = await teacherScope(db, req);
       if (!scope) return next();
       const source = { ...(req.query || {}), ...(req.body && typeof req.body === "object" ? req.body : {}) };

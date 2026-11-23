@@ -26,4 +26,13 @@ function countQuery(ms) {
   }
 }
 
-module.exports = { requestStats, countQuery };
+// One page load's answers to repeated reads of Managira's own settings and price tables
+// (config/db.js): nothing outlives the request, so nothing can go stale.
+function requestMemo() {
+  const stats = current.getStore();
+  if (!stats) return null;
+  if (!stats.memo) stats.memo = new Map();
+  return stats.memo;
+}
+
+module.exports = { requestStats, countQuery, requestMemo };

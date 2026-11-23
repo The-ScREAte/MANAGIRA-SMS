@@ -9,15 +9,13 @@
 //  - Its add-ons: those it uses, from the one list hubs are priced on too (hubBilling.INTEGRATIONS),
 //    at the standard school price or this school's own. Each is per school, or per seat: Mira per
 //    staff seat (once its free trial is over), the student portal per student with access, the
-//    parent portal per parent with access. Add-ons are charged only where the "addon_pricing"
-//    release is on (utils/shards/features.js).
+//    parent portal per parent with access.
 //
 // The bill (jobs/recurringStripeBilling.js) then applies the billing cycle's discount to the
 // plan and adds the add-ons and the API allowance for each month of the cycle. The school's
 // Billing page shows the same numbers.
 
 const { INTEGRATIONS, INTEGRATION_BY_KEY, SEAT_KEYS, SEATS_SQL, perSeat, unitOf, seatCount, integrationSql, loadAddonPrices, saveAddonPrices } = require("./hubBilling");
-const features = require("./shards/features");
 
 // Before school prices lived with the hub ones (hubBilling.loadAddonPrices): { key: price }.
 const LEGACY_SETTINGS_KEY = "addon_school_prices";
@@ -325,8 +323,6 @@ async function standardPlanMonthly(db, org, { periodStart = null, periodMonths =
 // the bill then shows the add-on at its price, never a wrong "included".
 async function planAddons(db, organizationId) {
   try {
-    // With the plan catalog (sandbox schools first): elsewhere add-ons are priced as before.
-    if (!require("./planCatalog").catalogOn(organizationId)) return new Set();
     const { resolvePlanForOrganization } = require("./accessCache");
     const plan = await resolvePlanForOrganization(db, organizationId);
     if (!plan || !plan.planId) return new Set();
@@ -359,7 +355,6 @@ async function schoolBill(db, organizationId, standardMonthly, { overrides, usag
     usage || schoolUsage(db, organizationId),
     prices || standardAddonPrices(db),
   ]);
-  const charging = features.isOn("addon_pricing", { organizationId });
   // Add-ons the school's plan includes (the portals in every plan, Mira from Pro, transportation
   // in Premium) are part of the plan's price: no charge for them.
   const inPlan = await planAddons(db, organizationId);
@@ -385,8 +380,8 @@ async function schoolBill(db, organizationId, standardMonthly, { overrides, usag
     addons.push({ key, label, unit, unitPrice, quantity, amount: round2(unitPrice * quantity), own: isOwn, free: !(unitPrice > 0), note });
   });
   const plan = planMonthly(standardMonthly, own);
-  const addonsMonthly = charging ? round2(addons.reduce((sum, line) => sum + line.amount, 0)) : 0;
-  return { plan, addons, charging, addonsMonthly, monthly: round2(plan.monthly + addonsMonthly), overrides: own };
+  const addonsMonthly = round2(addons.reduce((sum, line) => sum + line.amount, 0));
+  return { plan, addons, addonsMonthly, monthly: round2(plan.monthly + addonsMonthly), overrides: own };
 }
 
 module.exports = {

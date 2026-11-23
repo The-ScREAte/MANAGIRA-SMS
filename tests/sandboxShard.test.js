@@ -70,8 +70,6 @@ test("a new feature reaches the sandbox only, until it's released", async (t) =>
   await useControl(fakeControl([{ feature_key: NEW, access: "off", organization_ids: [], hub_ids: [], reached_schools: [], reached_hubs: [] }]));
   assert.strictEqual(features.isOn(NEW, { organizationId: SANDBOX_SCHOOL }), false);
 
-  // What was already out for everyone stays that way.
-  assert.strictEqual(features.isOn("transport_report_builder", { organizationId: MAIN_SCHOOL }), true);
 });
 
 test("a failed read keeps the last answer, so a database hiccup can't open a feature to everyone", async (t) => {

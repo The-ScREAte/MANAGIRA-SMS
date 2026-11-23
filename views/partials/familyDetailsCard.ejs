@@ -1,11 +1,10 @@
 <%#
-  Emergency & pickup details the school shares with families (feature
-  "family_sharing"; the school picks who sees each section in Admissions >
-  Admission Settings > Parents & guardians). Parents see and update their own
+  Emergency & pickup details the school shares with families (the school
+  picks who sees each section in Admissions > Admission Settings > Parents &
+  guardians). Parents see and update their own
   (/guardian/family-details); students see their parents' (/student/family-details).
   Shows nothing until something is shared.  locals: mode ("parent" | "student")
 %>
-<% if (locals.featureOn && featureOn('family_sharing')) { %>
 <section class="fd" id="familyDetails" data-mode="<%= mode %>" hidden aria-live="polite"></section>
 <style>
   .fd { margin: 14px 0; }
@@ -165,4 +164,3 @@
       .catch(function () {});
   })();
 </script>
-<% } %>

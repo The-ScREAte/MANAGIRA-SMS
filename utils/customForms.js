@@ -1,5 +1,5 @@
 "use strict";
-// The Custom editor (feature custom_forms). A school designs a section of fields about its
+// The Custom editor. A school designs a section of fields about its
 // students, says where it lives (the classroom, the parent, student or driver portal), for which
 // classes, and how often it's collected: once, every term, every school year, or many times (a
 // log). A section collected once per student can lock when it's sent. Fields are stored with the
@@ -445,10 +445,9 @@ function readySync() {
   if (!tablesReady && Date.now() - lastCheck > 60000) checkTables();
   return tablesReady;
 }
-const featureOn = (organizationId) => features.isOn("custom_forms", { organizationId: Number(organizationId) || null });
 // Report-card remarks collected with the Custom editor, and forms beside each student in the
-// classroom (feature report_remarks_forms, on top of custom_forms).
-const remarksOn = (organizationId) => featureOn(organizationId) && features.isOn("report_remarks_forms", { organizationId: Number(organizationId) || null });
+// classroom (feature report_remarks_forms).
+const remarksOn = (organizationId) => features.isOn("report_remarks_forms", { organizationId: Number(organizationId) || null });
 
 // ── Sections ─────────────────────────────────────────────────────────────────────────────
 function fromRow(row) {
@@ -736,7 +735,7 @@ async function besideFor(db, organizationId, { classId, studentIds, termId = nul
 // under Forms. Read from the school's cached list, so a page pays nothing extra for them.
 const ownTile = (section, place) => section.tile && section.filledBy === place;
 async function tilesFor(db, organizationId, place, { classId = null, builder = false } = {}) {
-  if (!featureOn(organizationId) || !(await ready(db))) return [];
+  if (!(await ready(db))) return [];
   const sections = (await listSections(db, organizationId, { status: "live" })).filter((section) => ownTile(section, place));
   const shown = sections.filter((section) => {
     if (place !== "driver" && classId && !inSection(section, classId)) return false;
@@ -1209,7 +1208,6 @@ async function runReminders(db, { today = todayKey(), siteUrl = process.env.BASE
   for (const row of rows) {
     const section = fromRow(row);
     const organizationId = Number(row.organization_id);
-    if (!featureOn(organizationId)) continue;
     const missing = (await studentsFor(db, organizationId, section)).filter((student) => !student.entries);
     runs += await tellFamilies(db, {
       organizationId, section, studentIds: missing.map((student) => student.id), key: "due", fireKey: section.dueDate, siteUrl, email: true, reminder: true,
@@ -1253,7 +1251,7 @@ async function exportRows(db, organizationId, section, { reachClasses = null, st
 // column (a lunch count), with that day's answers for the class. A school without one costs no
 // query; with one, a single read for the whole class.
 async function attendanceColumns(db, organizationId, { classId, day, builder = false }) {
-  if (!featureOn(organizationId) || !(await ready(db)) || !classId) return [];
+  if (!(await ready(db)) || !classId) return [];
   const sections = (await listSections(db, organizationId, { status: "live" }))
     .filter((section) => section.attendance && inSection(section, classId) && (!section.protected || builder))
     .map((section) => ({ section, fields: quickFields(section).filter((field) => field.type !== "seat") }))
@@ -1283,7 +1281,7 @@ async function attendanceColumns(db, organizationId, { classId, day, builder = f
 async function reportCard(db, organizationId, { classId, termId, studentIds, visibility = null }) {
   const result = { sections: new Map(), remarks: new Map() };
   const out = result.sections;
-  if (!featureOn(organizationId) || !(await ready(db)) || !studentIds || !studentIds.length) return result;
+  if (!(await ready(db)) || !studentIds || !studentIds.length) return result;
   const shown = (section) => !visibility || typeof visibility !== "object" || visibility[section.id] !== false;
   const asRemarks = remarksOn(organizationId);
   const sections = (await listSections(db, organizationId, { status: "live" })).filter((section) => section.reportCard && inSection(section, classId) && shown(section));
@@ -1395,7 +1393,7 @@ async function reportSettingsSections(db, organizationId) {
 
 // Forms a student still has to fill in, for their bell and dashboard.
 async function studentToDo(db, organizationId, studentId) {
-  if (!featureOn(organizationId) || !(await ready(db))) return [];
+  if (!(await ready(db))) return [];
   if (!(await liveFor(db, organizationId, "student")).some((section) => section.filledBy === "student")) return [];
   const student = await studentInfo(db, organizationId, studentId);
   const forms = await portalForms(db, organizationId, student, "student");
@@ -1406,7 +1404,7 @@ async function studentToDo(db, organizationId, studentId) {
 // their own (each says whether it is still to do). Nothing is read when no form is for students.
 async function studentDashboard(db, organizationId, studentId, { day = null } = {}) {
   const none = { toDo: 0, tiles: [] };
-  if (!featureOn(organizationId) || !(await ready(db))) return none;
+  if (!(await ready(db))) return none;
   if (!(await liveFor(db, organizationId, "student")).length) return none;
   const forms = await portalForms(db, organizationId, await studentInfo(db, organizationId, studentId), "student", { day });
   return {
@@ -1418,7 +1416,7 @@ async function studentDashboard(db, organizationId, studentId, { day = null } = 
 module.exports = {
   FIELD_TYPES, ICONS, OPS, keyFrom,
   normalizeSection, normalizeEntry, conditionMet, isVisible, isEmpty, display,
-  ready, readySync, featureOn, staffReach, sectionsForStaff, inSection, liveFor, tilesFor, ownTile,
+  ready, readySync, staffReach, sectionsForStaff, inSection, liveFor, tilesFor, ownTile,
   listSections, getSection, saveSection, deleteSection, saveOrder, entryCounts, forget,
   currentPeriod, periodFor,
   studentsFor, studentInfo, entriesFor, saveEntry, deleteEntry, portalForms, toDoMany,

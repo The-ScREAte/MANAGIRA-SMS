@@ -1,12 +1,10 @@
 "use strict";
-// Help on one question (feature learning_resources): a recommendation to read, a link and up to
+// Help on one question: a recommendation to read, a link and up to
 // three files the teacher uploaded, shown to the student under that question. Stored as
 // assessment_questions.help_json; files live in question-help/<school>/ so a question can only
 // point at files uploaded for its own school.
-const features = require("./shards/features");
 
 const MAX_FILES = 3;
-const featureOn = (organizationId) => features.isOn("learning_resources", { organizationId: Number(organizationId) || null });
 
 // The column comes from database/migrations/2026-11-22_custom_forms_portfolio.sql; until it is
 // there questions save and load exactly as before (checked again each minute).
@@ -64,4 +62,4 @@ function forDisplay(value) {
   return text || link || files.length ? { text, link, files } : null;
 }
 
-module.exports = { featureOn, columnReady, whenChecked, check, forDisplay, MAX_FILES };
+module.exports = { columnReady, whenChecked, check, forDisplay, MAX_FILES };

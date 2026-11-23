@@ -1,15 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("path");
 
-// The plan catalog is released for school 63 only, as on the sandbox.
-const featuresPath = path.join(__dirname, "..", "utils", "shards", "features.js");
-require.cache[featuresPath] = {
-  id: featuresPath,
-  filename: featuresPath,
-  loaded: true,
-  exports: { FEATURES: {}, isOn: (key, { organizationId } = {}) => (key === "plan_catalog" ? Number(organizationId) === 63 : true) },
-};
 const catalog = require("../utils/planCatalog");
 const { permissionOptionsFor, withinPlan } = require("../middleware/permissionMiddleware");
 
@@ -46,12 +37,12 @@ test("Starter, Pro and Premium each open what their plan says", () => {
   });
 });
 
-test("where the catalog isn't released, plans work as before", () => {
-  assert.deepEqual(catalog.withCore([], OTHER), []);
+test("an unreadable plan stays unreadable, and the core is added to a readable one", () => {
   assert.equal(catalog.withCore(null, SANDBOX), null, "an unreadable plan stays unreadable");
-  assert.ok(!keysFor(OTHER, []).includes("manage_assessments"));
-  assert.ok(withinPlan("reports_builder", ["Terminal Report"], OTHER), "Report builder came with report cards");
-  assert.ok(withinPlan("reports_settings", ["Terminal Report"], OTHER), "and so did report settings");
+  assert.ok(catalog.withCore([], OTHER).length > 0, "the core is in every plan");
+  assert.ok(keysFor(OTHER, []).includes("manage_assessments"));
+  assert.ok(!withinPlan("reports_builder", ["Terminal Report"], OTHER), "Report builder is its own plan feature");
+  assert.ok(!withinPlan("reports_settings", ["Terminal Report"], OTHER), "and so is report settings");
 });
 
 test("the plan form offers each feature once, by the plan that first has it, and keeps what it no longer offers", () => {

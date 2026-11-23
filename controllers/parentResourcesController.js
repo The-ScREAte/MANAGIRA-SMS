@@ -2,7 +2,6 @@
 
 // The question set form's parent section: show it on the portal, notes, and files.
 const parentResources = require("../utils/parentResources");
-const features = require("../utils/shards/features");
 
 const toId = (value) => {
   const id = Number.parseInt(value, 10);
@@ -10,9 +9,6 @@ const toId = (value) => {
 };
 
 async function answer(req, res, work) {
-  if (!features.isOn("parent_student_hub", { organizationId: req.session.organizationId })) {
-    return res.status(404).json({ success: false, message: "Not available." });
-  }
   try {
     const result = await work();
     if (!result) return res.status(404).json({ success: false, message: "That set no longer exists." });
@@ -28,8 +24,7 @@ module.exports = {
   read: (req, res, db) => answer(req, res, () => parentResources.readSettings(db, req.session.organizationId, toId(req.query.questionSetId))),
 
   save: (req, res, db) => answer(req, res, async () => {
-    // "Students see these with the test" comes with the learning_resources feature.
-    const students = features.isOn("learning_resources", { organizationId: req.session.organizationId }) && Object.prototype.hasOwnProperty.call(req.body || {}, "students")
+    const students = Object.prototype.hasOwnProperty.call(req.body || {}, "students")
       ? req.body.students === true : undefined;
     const saved = await parentResources.saveSettings(db, req.session.organizationId, toId(req.body?.questionSetId), { show: req.body?.show === true, notes: req.body?.notes, students });
     return saved ? {} : null;
@@ -50,7 +45,6 @@ module.exports = {
 
   // One file for a question's help (utils/questionHelp.js): returned, saved with the question.
   questionHelpFile: async (req, res) => {
-    if (!features.isOn("learning_resources", { organizationId: req.session.organizationId })) return res.status(404).json({ success: false, message: "Not available." });
     const file = req.file;
     if (!file) return res.status(400).json({ success: false, message: "Choose a file first." });
     try {

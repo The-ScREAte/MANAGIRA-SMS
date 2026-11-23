@@ -1,4 +1,4 @@
-/* Student portfolio (feature student_portfolio): parents and students. Scoped to .pf. */
+/* Student portfolio: parents and students. Scoped to .pf. */
 .pf {
   --pf-accent: var(--org-primary-color, #2563eb);
   --pf-surface: var(--ap-surface, #ffffff);

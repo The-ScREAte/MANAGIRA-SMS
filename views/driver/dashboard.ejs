@@ -75,7 +75,7 @@
       <input type="search" class="drv-search" id="drv-students-search" placeholder="Search students" autocomplete="off" aria-label="Search students" />
       <ul class="drv-list" id="drv-students-list"></ul>
     </section>
-    <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+    <% if (locals.customFormsReady && customFormsReady()) { %>
     <%# Forms the school asks drivers to fill in about their riders (Custom editor, "Driver portal"). %>
     <% (locals.formTiles || []).forEach((form) => { %>
     <section class="drv-card" id="form-<%= form.id %>" data-cf-card hidden>
@@ -106,7 +106,7 @@
 }) %></script>
 <script src="/js/driverLocation.js?v=<%= assetVersion %>"></script>
 <script src="<%= assetUrl('/js/driverNav.js') %>"></script>
-<% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+<% if (locals.customFormsReady && customFormsReady()) { %>
 <link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
 <script src="<%= assetUrl('/js/customFormRender.js') %>" defer></script>
 <script src="<%= assetUrl('/js/customFormsFill.js') %>" defer></script>

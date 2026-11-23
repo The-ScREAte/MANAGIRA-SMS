@@ -10,7 +10,6 @@
 // nothing but the wait for the code, and the code page is shown. The right code puts the
 // sign-in back, in another new session, and sends the person where they were going.
 const crypto = require("crypto");
-const features = require("./shards/features");
 const { sendEmailInBackground, renderCleanEmail } = require("./emailHelper");
 const { settingsFor } = require("./tenantSettings");
 
@@ -56,12 +55,7 @@ function masked(email) {
 }
 
 function wanted(session) {
-  if (session.signedInWith === "sso") return false;
-  const role = String(session.userRole || session.accountType || "").trim().toLowerCase();
-  const organizationId = session.organizationId || null;
-  const hubId = session.hubId || null;
-  if (PLATFORM_ROLES.has(role) && !organizationId) return features.isOn("login_code");
-  return features.isOn("login_code", { organizationId, hubId });
+  return session.signedInWith !== "sso";
 }
 
 // `organizationId` / `hubId`: the account's school or hub (it decides the email's look).

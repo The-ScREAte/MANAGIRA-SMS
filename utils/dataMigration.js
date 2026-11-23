@@ -1,5 +1,5 @@
 "use strict";
-// Moving a school from another system (feature data_migration). Steps:
+// Moving a school from another system. Steps:
 //   1 Upload: export files are kept exactly as received (migration_files), so any import can run
 //     again from the source.
 //   2 Auto-map: every column is matched to a Managira field or one of the school's own student
@@ -26,7 +26,6 @@
 
 const crypto = require("crypto");
 const Papa = require("papaparse");
-const features = require("./shards/features");
 const { BoundedMap } = require("./boundedMap");
 const ps = require("./migration/powerschool");
 const roles = require("./migration/roles");
@@ -70,8 +69,6 @@ const ACTIONS = ["map", "custom", "extra", "archive", "exclude", "alert"];
 const SENSITIVE_LABELS = { custody: "Custody or pickup restriction", ssn: "Social Security number", sped: "Special education", medical: "Medical", discipline: "Discipline", programs: "Special programs or benefits", secret: "Codes and PINs", demographics: "Race and ethnicity", identity: "Passport, visa and national ID" };
 // Whole modules Managira doesn't run yet: their columns are kept read-only per student.
 const ARCHIVE_MODULES = ["Special education", "Health records", "Transportation", "Fees", "Library", "Discipline", "Grades history", "Attendance history", "Other"];
-
-const featureOn = (organizationId) => features.isOn("data_migration", { organizationId: Number(organizationId) || null });
 
 const TABLES = ["migration_jobs", "migration_files", "migration_columns", "migration_records", "migration_links", "migration_events", "migration_snapshots", "record_extra_fields",
   "migration_archives", "student_alerts", "student_course_history", "student_attendance_totals", "migration_loaded", "account_mfa",
@@ -2288,7 +2285,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // A custom role becomes one of the school's own roles (Users › Add user), so its name stays
     // with the people who have it: the school's role it was matched to, or one made now (once,
     // by name) from the role the Managira team made.
-    const rolesReady = schoolRoles.on(org) && (await schoolRoles.ready(db));
+    const rolesReady = await schoolRoles.ready(db);
     const schoolRoleOf = new Map();
     const schoolRoleFor = async (choice) => {
       if (!rolesReady || !choice || !choice.custom) return null;
@@ -2754,7 +2751,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     // Class roles (lead or co-teacher, with their dates): links for the ones that hold today. A
     // co-teacher of a homeroom is the class's assistant teacher (where the school has them);
     // of any other section, a teacher of its subject. Every row stays in the person's history.
-    const assistantsAllowed = await require("./mainTeacher").assistantsOn(client, org);
+    const assistantsAllowed = await require("./mainTeacher").assistantReady(client);
     const assists = async (userId, classId) => {
       const { rows: [had] } = await q("SELECT main, assistant FROM user_classes WHERE user_id = $1 AND class_id = $2", [userId, classId]);
       if (!had) {
@@ -3014,7 +3011,7 @@ async function loadLive(db, job, actor, progress = quiet) {
     const keepLists = approved("archive");
     // Lists the school keeps using: a form each (when the Custom editor is there for it).
     const cf = require("./customForms");
-    const formsReady = keepLists && cf.featureOn(org) && (await cf.ready(client));
+    const formsReady = keepLists && (await cf.ready(client));
     const formLists = new Map();
     if (formsReady) for (const l of ((job.totals && job.totals.report && job.totals.report.lists) || [])) if (oldForms.useOf(job, l) === "form") formLists.set(l.label, { list: l, rows: [] });
     const listTotal = await countOf("other");
@@ -3746,7 +3743,7 @@ const busyTask = (db, job) => tasks.openTask(db, job.job_id);
 module.exports = {
   storeUploads, readUploads, startTask, taskStatus, busyTask, MAX_UPLOAD_FILES, snapshot,
   ENTITIES: ps.ENTITIES, TASK_LABELS: tasks.LABELS, SECTIONS, SECTION_LABELS, SENSITIVE_LABELS, ARCHIVE_MODULES, ACTIONS, NOTE_KEYS, MAX_FILE_BYTES,
-  featureOn, ready, event, openJob, stateFor, forget, startJob, stopJob, closeSandbox, sandboxSwitch, switchReady, allowedOf, schoolOnOf, sandboxOf,
+  ready, event, openJob, stateFor, forget, startJob, stopJob, closeSandbox, sandboxSwitch, switchReady, allowedOf, schoolOnOf, sandboxOf,
   currentFiles, columnsOf, confirmColumn, saveNotes, approveExclude, legalNeed, resolveColumn, openItems, customFieldsOf,
   runImport, sandboxSummary, approveSection, blockers, sign, summary, goLive, catchUp, loadLive, purgeDue, queue, needsAcrossSchools,
   staffAccounts, inviteStaff, rollbackJob, rollbackPreview, rollback, startOver, setOption, setListUse, setSchools, leftOf, gradeKey, dayFirstColumns, stepProgress, STEP_ORDER, gpaOf, addAttendance, currentEnrollment, LOADED,

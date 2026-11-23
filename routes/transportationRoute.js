@@ -462,9 +462,6 @@ module.exports = (db) => {
     transportationController.getLiveRoutes(req, res, db)
   );
 
-  router.get("/live/route/:routeId", isAuthenticated, blockGuardians, (req, res) =>
-    transportationController.getLiveByRoute(req, res, db)
-  );
 
   return router;
 };

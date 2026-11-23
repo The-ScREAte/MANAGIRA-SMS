@@ -16,7 +16,7 @@ const admissions = (panel, page, label) => hub("/common/admissions", panel, page
 const PAGES = [
   { label: "Home", group: "Home", url: "/common/orgDashboard", words: "dashboard overview start classes", show: (a, on, ctx) => !ctx.driver },
   { label: "Dashboard", group: "Home", url: "/driver/dashboard", words: "home bus trip driver today", show: (a, on, ctx) => Boolean(ctx.driver) },
-  { label: "Calendar", group: "Home", url: "/common/calendar", words: "events schedule dates", show: (a, on, ctx) => !ctx.driver || on("class_activities") },
+  { label: "Calendar", group: "Home", url: "/common/calendar", words: "events schedule dates", show: () => true },
   { label: "Birthdays", group: "Home", url: "/common/birthdays", words: "students staff today this week", show: (a, on, ctx) => !ctx.driver },
   { label: "Mail Room", group: "Home", url: "/common/mailroom", words: "message parents families email text sms whatsapp send inbox", show: (a, on, ctx) => ctx.can("mailroom") },
 
@@ -37,7 +37,7 @@ const PAGES = [
   { label: "Promotion", group: "School", url: management("promotion", "/promotion/apply", "Promotion"), words: "next grade repeat promote students", show: (a) => a.management.promotion },
   { label: "Assessments", group: "Teaching", url: management("assessment-scores", "/common/manageAssessment", "Assessments"), words: "scores tests exams grades gradebook", show: (a) => a.management.assessments },
   { label: "Assessment questions", group: "Teaching", url: management("assessment-questions", "/common/allClassAssessmentExams", "Assessment Questions"), words: "online test testing room question sets", show: (a) => a.management.questions },
-  { label: "Custom editor", group: "Teaching", url: management("custom-forms", "/common/custom-forms", "Custom editor"), words: "forms sections fields permission slips", show: (a, on) => a.management.customForms && on("custom_forms") },
+  { label: "Custom editor", group: "Teaching", url: management("custom-forms", "/common/custom-forms", "Custom editor"), words: "forms sections fields permission slips", show: (a) => a.management.customForms },
   { label: "Docs & sheets", group: "Teaching", url: management("documents", "/documents", "Docs/Sheets"), words: "documents files spreadsheets", show: (a) => a.management.docs },
   { label: "Events, announcements & activities", group: "School", url: management("announcements-events", "/common/manageEventsAnnouncements", "Events, announcements & activities"), words: "publish news notice event", show: (a) => a.management.events },
   { label: "School website", group: "School", url: management("public-website", "/account/managePublicContent", "School Website"), words: "site design public pages gallery", show: (a) => a.management.website },

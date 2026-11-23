@@ -1,7 +1,6 @@
 "use strict";
 
 // Settings, Tenant configuration: a school's sign-in rules. Managers only.
-const features = require("../utils/shards/features");
 const tenantSettings = require("../utils/tenantSettings");
 const { logOrganizationActivity } = require("../utils/activityLog");
 
@@ -31,12 +30,11 @@ async function authenticatorState(req, db) {
 }
 
 async function state(req, db, settings) {
-  const organizationId = req.session.organizationId;
   return {
     success: true,
     settings,
     choices: { ...tenantSettings.CHOICES, ...tenantSettings.WORD_CHOICES },
-    codeAvailable: features.isOn("login_code", { organizationId }),
+    codeAvailable: true,
     authenticator: await authenticatorState(req, db),
   };
 }
@@ -85,11 +83,6 @@ module.exports = {
     const role = String(req.session.userRole || "").trim().toLowerCase();
     if (role === "manager" || req.session.accountType === "Organization") return next();
     return res.status(403).json({ success: false, message: "Only a manager can change the tenant configuration." });
-  },
-
-  guard: (req, res, next) => {
-    if (features.isOn("tenant_config", { organizationId: req.session.organizationId })) return next();
-    return res.status(404).json({ success: false, message: "Not available." });
   },
 
   get: async (req, res, db) => {

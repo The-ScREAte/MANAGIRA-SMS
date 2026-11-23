@@ -443,7 +443,7 @@
             <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
             <span class="help-menu-text"><strong>Send feedback</strong><small>Tell us what to fix or what you need</small></span>
           </a>
-          <% if (locals.featureOn && featureOn('data_migration') && String(req.session.accountType || '').toLowerCase() !== 'organization') { %>
+          <% if (String(req.session.accountType || '').toLowerCase() !== 'organization') { %>
           <a class="help-menu-item" role="menuitem" href="/common/my-access">
             <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
             <span class="help-menu-text"><strong>Your access</strong><small>Your role, classes and what you can do</small></span>
@@ -551,7 +551,6 @@
           School Website
         </a></li>
         <% } %>
-        <% if (locals.featureOn && featureOn('class_activities')) { %>
         <li class="nav-item"><a href="/guardian/activities" class="management-link">
           <span class="menu-icon"><%- navIcon('activities') %></span>
           Activities
@@ -560,7 +559,6 @@
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
         </a></li>
-        <% } %>
         <li class="nav-item"><a href="/guardian/reports" class="management-link">
           <span class="menu-icon"><%- navIcon('messages') %></span>
           Messages
@@ -591,7 +589,6 @@
           School Website
         </a></li>
         <% } %>
-        <% if (locals.featureOn && featureOn('class_activities')) { %>
         <li class="nav-item"><a href="/student/activities" class="management-link">
           <span class="menu-icon"><%- navIcon('activities') %></span>
           Activities
@@ -600,7 +597,6 @@
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
         </a></li>
-        <% } %>
         <% if (_studentCanUseTestingRoom) { %>
         <li class="nav-item"><a href="/student/testing-room" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('questions') %></span>
@@ -621,12 +617,10 @@
           <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
-        <% if (locals.featureOn && featureOn('class_activities')) { %>
         <li class="nav-item"><a href="/common/calendar" class="management-link" data-no-spa>
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
         </a></li>
-        <% } %>
         <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.any) { %>
         <li class="nav-item"><a href="/common/management" class="nav-item-link management-link" data-no-spa>
           <span class="menu-icon"><%- navIcon('management') %></span>

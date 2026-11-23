@@ -36,7 +36,7 @@ async function passwordOf(db, account) {
   const sql = account.kind === "organization" ? "SELECT password FROM organizations WHERE organization_id = $1" : "SELECT password FROM users WHERE user_id = $1";
   return ((await db.query(sql, [account.id])).rows[0] || {}).password || null;
 }
-const allowedHere = async (req, db) => orgOf(req) && isOrgAdmin(req.session) && m.featureOn(orgOf(req)) && (await m.ready(db));
+const allowedHere = async (req, db) => orgOf(req) && isOrgAdmin(req.session) && (await m.ready(db));
 
 async function verifyPage(req, res, db) {
   if (!(await allowedHere(req, db))) return res.redirect("/");
@@ -307,7 +307,7 @@ async function page(req, res, db) {
     fieldHomes: Object.fromEntries(Object.entries(require("../utils/studentFormFields").SECTIONS).filter(([key]) => key !== "guardian")),
     transportOn,
     // Lists the school keeps using become forms in the Custom editor (where the school has it).
-    formsOn: on("check", "live") ? require("../utils/customForms").featureOn(job.organization_id) && (await require("../utils/customForms").ready(db)) : false,
+    formsOn: on("check", "live") ? await require("../utils/customForms").ready(db) : false,
     topicOrder: require("../utils/migration/forms").TOPIC_ORDER,
     apps: on("check", "live") ? require("../utils/migration/apps").appsFrom(((job.totals && job.totals.report) || {}).lists, { areaLabels: Object.fromEntries(require("../utils/apiAccess").API_AREAS.map((a) => [a.key, a.label])) }) : [], matches, task: shownTask, docs, uploads, nextStep: NEXT_STEP, fieldChoices: m.fieldChoices(columns), fieldTypeOf: m.fieldTypeOf, maxFileMb: m.MAX_FILE_BYTES / 1048576, maxFiles: m.MAX_UPLOAD_FILES,
     entities: m.ENTITIES, sections: m.SECTIONS, sectionLabels: m.SECTION_LABELS, sensitiveLabels: m.SENSITIVE_LABELS, noteKeys: m.NOTE_KEYS,

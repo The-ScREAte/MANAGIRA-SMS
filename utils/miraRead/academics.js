@@ -36,10 +36,9 @@ function noDrivers(actor, what) {
   if (isDriver(actor)) throw new ReadError("PERMISSION_DENIED", `Drivers can't see ${what}.`);
 }
 
-// A teacher's classes and subjects where the class scope is released (utils/classScope.js), or
-// null for everyone else (their permissions decide).
+// A teacher's classes and subjects (utils/classScope.js), or null for everyone else (their
+// permissions decide).
 async function teacherScope(db, actor) {
-  if (!on("teacher_class_scope", actor)) return null;
   return classScope.teacherScope(db, reqFor(actor));
 }
 
@@ -305,7 +304,7 @@ const SUBJECT_TOTALS_SQL = `
 
 async function flowState(organizationId) {
   const approval = require("../assessmentApproval");
-  return (await approval.whenColumnsChecked()) && approval.flowUi(organizationId);
+  return await approval.whenColumnsChecked();
 }
 
 // The subjects of these classes a person may open in the gradebook: a teacher's own subjects,
@@ -626,7 +625,7 @@ module.exports = {
       const designsOn = on("transcript_designs", actor);
       let summary = null;
       if (designsOn) {
-        if (gpa.featureOn(org)) summary = await gpa.transcriptGpa(db, org, scores);
+        summary = await gpa.transcriptGpa(db, org, scores);
       } else if (await gpa.schoolShowsGpa(db, org)) {
         const [settings, levels] = await Promise.all([
           gpa.settingsFor(db, org),
@@ -701,7 +700,6 @@ module.exports = {
       await needAny(db, actor, ["reports_terminal", "generate_transcripts"], "Terminal Reports or Generate Transcripts");
       const org = actor.organizationId;
       const gpa = require("../gpa");
-      if (!gpa.featureOn(org)) throw new ReadError("PLAN_FEATURE_OFF", "GPA isn't on for your school.");
       const scope = await teacherScope(db, actor);
       // A GPA covers every subject, so a teacher sees it only for a class they lead.
       const term = await resolveTerm(db, org, q.term);
@@ -913,7 +911,6 @@ module.exports = {
       noDrivers(actor, "lunch");
       const org = actor.organizationId;
       const overallLunch = require("../overallLunch");
-      if (!overallLunch.isOn(org)) throw new ReadError("PLAN_FEATURE_OFF", "Lunch isn't on for your school.");
       await needAny(db, actor, ["mark_attendance"], "Mark Attendance");
       const scope = await teacherScope(db, actor);
       const reach = scope ? scope.mainClasses : null; // lunch is taken on the attendance page: classes they lead

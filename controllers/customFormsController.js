@@ -1,5 +1,5 @@
 "use strict";
-// The Custom editor (feature custom_forms, utils/customForms.js).
+// The Custom editor (utils/customForms.js).
 //   Builders (permission Custom Editor): /common/custom-forms in Management Tools
 //   designs sections and reads every answer.
 //   Staff fill classroom sections in the classroom's Forms tab; drivers fill driver sections in
@@ -36,27 +36,23 @@ const inReach = (reach, student) => Boolean(student) && (reach.students
   ? reach.students.has(student.id)
   : Boolean(student.classId) && (reach.all || reach.classes.has(student.classId)));
 
-// The feature is on for this school and its tables exist.
+// The custom forms tables exist.
 async function available(db, req) {
-  return cf.featureOn(orgOf(req)) && (await cf.ready(db));
+  return await cf.ready(db);
 }
 const wantsJson = (req) => req.method !== "GET" || req.xhr || /json/i.test(req.get("accept") || "") && !/html/i.test(req.get("accept") || "");
 const notAvailable = async (req, res, db) => {
   if (wantsJson(req)) return fail(res, 404, "Custom forms aren't available here yet.");
-  // Switched on but its tables aren't there yet: say so on the page (also inside the hub).
-  if (cf.featureOn(orgOf(req))) {
-    const isEmbedded = isEmbeddedRequest(req, req.path.startsWith("/custom-forms") ? "customForms" : "forms");
-    return res.status(503).render("common/customFormsSetup", {
-      title: "Custom editor",
-      builder: db ? await isBuilder(db, req) : false,
-      isEmbedded,
-      hideGlobalHeader: isEmbedded,
-      hideGlobalFooter: isEmbedded,
-      hideGlobalChatbot: true,
-    });
-  }
-  req.flash("error", "Custom forms aren't available for this school yet.");
-  return res.redirect("/common/orgDashboard");
+  // Its tables aren't there yet: say so on the page (also inside the hub).
+  const isEmbedded = isEmbeddedRequest(req, req.path.startsWith("/custom-forms") ? "customForms" : "forms");
+  return res.status(503).render("common/customFormsSetup", {
+    title: "Custom editor",
+    builder: db ? await isBuilder(db, req) : false,
+    isEmbedded,
+    hideGlobalHeader: isEmbedded,
+    hideGlobalFooter: isEmbedded,
+    hideGlobalChatbot: true,
+  });
 };
 
 async function classesOf(db, organizationId, only = null) {
@@ -148,8 +144,8 @@ async function editorPage(req, res, db) {
       icons: cf.ICONS,
       answerIcons: cf.ANSWER_ICONS,
       remarks: remarks ? { slots: remarks.slots, template: cf.remarksSection(remarks) } : null,
-      // Lunch is built into attendance (feature class_lunch): the library doesn't offer a lunch count then.
-      builtInLunch: require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) }),
+      // Lunch is built into attendance: the library doesn't offer a lunch count.
+      builtInLunch: true,
     },
   });
 }

@@ -185,7 +185,6 @@ test("email links name their shard, except on the control shard", () => {
 });
 
 test("a feature with no saved choice follows its default", () => {
-  assert.equal(features.isOn("transport_report_builder", { organizationId: 5 }), true);
   assert.equal(features.isOn("no_such_feature", { organizationId: 5 }), true);
 });
 

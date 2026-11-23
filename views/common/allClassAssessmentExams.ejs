@@ -2820,7 +2820,6 @@
       }
     }
   </style>
-<% if (locals.assessmentFlow) { %>
   <style>
     /* The assessments flow: each set is one slim row across the page. */
     .exam-grid, .assessment-group-list { grid-template-columns: 1fr; gap: 6px; }
@@ -2835,7 +2834,6 @@
     .class-group-divider { margin-bottom: 8px; }
     .subject-group { margin-bottom: 10px; }
   </style>
-<% } %>
 <style>
   .qh { flex: 1 1 auto; min-width: 0; text-align: left; }
   .qh, .qh__title, .qh__sub { text-align: left !important; }
@@ -3237,7 +3235,6 @@
           <div class="qm-topbar-icon">📋</div>
           <div>
             <h2 class="qm-topbar-title" id="question-modal-title">Create Questions</h2>
-            <% if (!locals.assessmentFlow) { %><p class="qm-topbar-sub">Fill in the details below and add your questions</p><% } %>
           </div>
         </div>
         <div class="qm-topbar-right">
@@ -8028,7 +8025,6 @@
         });
       }
 
-      <% if (locals.assessmentFlow) { %>
       // The assessments flow (public/js/questionBuilderFlow.js) works through these.
       window.QuestionBuilderHooks = {
         buildQuestionItem: buildQuestionItem,
@@ -8073,12 +8069,11 @@
         },
       };
       window.QuestionBuilderFlowConfig = <%- JSON.stringify({ open: locals.flowOpen || null, embedded: Boolean(isEmbedded), organizationId: Number(organizationId), termId: Number(termId), canCreateAssessments: Boolean(locals.canCreateAssessments), extras: Boolean(locals.questionExtras) }).replace(/</g, '\\u003c') %>;
-      <% } %>
     })();
   </script>
-<%# Resources & recommendations and help on each question (feature learning_resources): setResources.js takes the place of the older parent-only box. %>
-<% if (locals.featureOn && featureOn('learning_resources') && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><% } %>
-<% if (locals.featureOn && featureOn('parent_student_hub')) { %><link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script><% } %>
-<% if (locals.assessmentFlow) { %><link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script><% } %>
+<%# Resources & recommendations and help on each question: setResources.js takes the place of the older parent-only box. %>
+<link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
 </body>
 </html>

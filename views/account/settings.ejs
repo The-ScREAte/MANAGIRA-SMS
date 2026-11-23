@@ -3178,7 +3178,6 @@
       const schoolAddonsMonthly = _schoolPricing ? Number(_schoolPricing.addonsMonthly || 0) : 0;
       // Every add-on the school uses, each with what it costs a month (or that it is free or in the plan).
       const schoolAddonLines = _schoolPricing ? (_schoolPricing.addons || []) : [];
-      const _addonsCharged = Boolean(_schoolPricing && _schoolPricing.charging);
       const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1;
       const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0;
       const apiAddonMonthly = (typeof apiAddonMonthlyUsd !== 'undefined' && Number(apiAddonMonthlyUsd) > 0) ? Number(apiAddonMonthlyUsd) : 0;
@@ -3216,9 +3215,9 @@
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
         const _isManager = String(locals.userRole || '').toLowerCase() === 'manager' || locals.accountType === 'Organization';
-        const _canSso = Boolean(locals.featureOn && featureOn('sso') && (locals.userPermissions || []).includes('manage_sso') && _isManager);
+        const _canSso = Boolean((locals.userPermissions || []).includes('manage_sso') && _isManager);
         // Tenant configuration: a manager's sign-in rules, with Single sign-on under it.
-        const _canTenant = Boolean(locals.featureOn && featureOn('tenant_config') && (locals.userPermissions || []).includes('manage_settings') && _isManager);
+        const _canTenant = Boolean((locals.userPermissions || []).includes('manage_settings') && _isManager);
         const _settingsAccess = workspaceAccess().settings;
         const _canProfileSettings = _canCustomizeSettings && _settingsAccess.profile;
         const _canIntegrationSettings = _canCustomizeSettings && _settingsAccess.integrations;
@@ -4103,7 +4102,7 @@
                       <div class="current-plan-price-label"><%= line.label %></div>
                       <div class="current-plan-price-value-sub"><%
                         if (line.included) { %>Included in your plan<% }
-                        else if (!_addonsCharged || !(line.amount > 0)) { %>Free<%= line.note && /trial/.test(line.note) ? ` (${line.note})` : '' %><% }
+                        else if (!(line.amount > 0)) { %>Free<%= line.note && /trial/.test(line.note) ? ` (${line.note})` : '' %><% }
                         else { %><%= formatCurrentPlanAmount(line.amount) %> a month<%= line.quantity > 1 || /seat|per (student|parent|rider|driver)/.test(line.unit === 'seat' ? 'seat' : '') ? ` (${line.note || line.quantity} × ${formatCurrentPlanAmount(line.unitPrice)})` : '' %><% } %></div>
                     </div>
                     <% }) %>

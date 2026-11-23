@@ -4106,7 +4106,6 @@ const commonController = {
       // with Events & Announcements, otherwise a teacher's own classes; the server checks again).
       let canAddActivity = false;
       const dashboardActivitiesPromise = (async () => {
-        if (!require("../utils/shards/features").isOn("class_activities", { organizationId: Number(organizationId) })) return null;
         const held = res.locals.userPermissions || [];
         const role = String(req.session.userRole || req.session.accountType || "").trim().toLowerCase();
         const seesAll = ["organization", "admin", "mini admin", "manager", "supervisor", "superviser"].includes(role) || held.includes("publish_events_announcements");
@@ -4726,7 +4725,6 @@ const commonController = {
 
       // One content model for every website layout (views/partials/website).
       const websiteView = require("../utils/websiteView");
-      const websiteFeatureOn = (key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) });
       const site = websiteView.buildSiteModel({
         orgDetails,
         aboutDetails,
@@ -4737,10 +4735,9 @@ const commonController = {
         announcements,
         extras: websiteExtras,
         page: websitePage,
-        isOn: websiteFeatureOn,
         // Staff of this school can preview another layout before saving it.
         layout: (req.query.previewLayout
-          && websiteView.layoutsFor(websiteFeatureOn).some((l) => l.value === String(req.query.previewLayout))
+          && websiteView.layoutsFor().some((l) => l.value === String(req.query.previewLayout))
           && req.session && String(req.session.organizationId) === String(organizationId))
           ? String(req.query.previewLayout)
           : publicDashboardLayout,
@@ -5014,7 +5011,7 @@ const commonController = {
     // A school that requires files on Add student (Admission Settings › Student files): each student
     // filled in needs at least one, checked before anything is saved.
     const studentDocsModule = require("../utils/studentDocuments");
-    if (studentDocsModule.isOn(organizationId) && (await studentDocsModule.settingsFor(db, organizationId)).requiredOnAdd) {
+    if ((await studentDocsModule.settingsFor(db, organizationId)).requiredOnAdd) {
       const missing = indexes.filter((index) => {
         if (index === "single") return !uploadedFiles.some((file) => String(file.fieldname || "").startsWith("studentDoc_"));
         const named = String(body[`firstName_${index}`] || body[`firstName___${index}`] || body[`lastName_${index}`] || body[`lastName___${index}`] || "").trim();
@@ -5751,7 +5748,7 @@ const commonController = {
       const skipSummaryMessage = emptyFormsSkippedCount > 0
         ? ` ${emptyFormsSkippedCount} empty form(s) were skipped.`
         : '';
-      // Files sent with each student (feature student_documents), saved once the students are.
+      // Files sent with each student, saved once the students are.
       let filesMessage = "";
       const fileProblems = [];
       let filesAdded = 0;
@@ -8499,11 +8496,11 @@ const commonController = {
       const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
       const studentIdSettings = sidSettingsResult.rows[0] || {};
 
-      // The student's documents (feature student_documents): what this person may see.
+      // The student's documents: what this person may see.
       const studentDocs = require("../utils/studentDocuments");
       // Everything below is independent: read side by side (each is its own round trip).
       const [documentsList, oldSystem, archiveStatus, customAnswerRows] = await Promise.all([
-        (async () => (studentDocs.isOn(req.session.organizationId) && (await studentDocs.ready(db).catch(() => false))
+        (async () => ((await studentDocs.ready(db).catch(() => false))
           ? await studentDocs.listFor(db, req.session.organizationId, student.student_id, { req }).catch(() => []) : null))(),
         require("./dataMigrationController").studentOldSystem(db, req, student.student_id).catch(() => null),
         getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
@@ -8513,7 +8510,7 @@ const commonController = {
       res.render("common/studentDetails", {
         isEmbedded,
         studentDocuments: documentsOn
-          ? { portfolio: require("../utils/portfolio").featureOn(req.session.organizationId), list: documentsList, types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
+          ? { portfolio: true, list: documentsList, types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
           : null,
         // From a data migration: alerts (custody), extra fields and read-only archives.
         oldSystem,
@@ -8666,7 +8663,7 @@ const commonController = {
       // The school's own fields, with this student's answers.
       const customAnswers = await studentFormFields.answersFor(db, organizationId, { studentId: Number(studentId) }, "student").catch(() => []);
 
-      // Files on the student's record (feature student_documents).
+      // Files on the student's record.
       const filesConfig = await studentDocsForm(db, req, { studentId: Number(studentId) });
       res.render("common/editStudent", {
         title: "Edit Student",
@@ -9048,7 +9045,7 @@ const commonController = {
       }
 
       const successMessages = ["Student updated successfully."];
-      // Files on the student's record (feature student_documents): new ones, changes and removals.
+      // Files on the student's record: new ones, changes and removals.
       const filesResult = await saveStudentDocsFromForm(db, req, { studentId: Number(studentId), prefix: "studentDoc_new", edits: true }).catch((error) => {
         console.error("[EditStudent] files:", error.message);
         return { added: 0, problems: ["Some files couldn't be saved. Try again from the student's page."], changed: 0, removed: 0 };
@@ -9296,41 +9293,6 @@ const commonController = {
       res.redirect(`/common/editStudent?studentId=${studentId}`);
     } finally {
       client.release();
-    }
-  },
-
-  getAttendanceForClass: async (req, res, db) => {
-    const { classId, termId } = req.query;
-    const organizationId = req.session.organizationId;
-
-    if (!termId) {
-      return res.status(400).send("Term ID is required");
-    }
-    if (!organizationId) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    try {
-      const result = await db.query(
-        `
-          SELECT attendance_id,
-                 student_id,
-                 class_id,
-                 term_id,
-                 organization_id,
-                 status,
-                 marked_by,
-                 marked_at,
-                 updated_at,
-                 date::text AS date
-          FROM attendance_records
-          WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-        `,
-        [classId, termId, organizationId]
-      );
-      res.json({ success: true, attendance: result.rows });
-    } catch (error) {
-      res.json({ success: false, error: error.message });
     }
   },
 
@@ -9587,8 +9549,7 @@ const commonController = {
 
       // Attendance: the drawn days' marks, the overall figures for the whole term (one aggregate), and
       // which of the past week's school days nobody has marked yet. Lunch the same way. All side by side.
-      const lunchOn = require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })
-        && (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
+      const lunchOn = (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
       const newestDay = allDisplayDates.length ? allDisplayDates[allDisplayDates.length - 1] : attendanceTodayKey;
       const weekFrom = new Date(new Date(`${newestDay}T00:00:00Z`).getTime() - 6 * 86400000).toISOString().slice(0, 10);
       const weekDays = countableDates.filter((d) => d >= weekFrom && d !== newestDay && d !== attendanceTodayKey && !offDays[d]);
@@ -9658,7 +9619,7 @@ const commonController = {
       const marked = new Set(markedWeekResult.rows.map((r) => r.day));
       const missedDays = weekDays.filter((d) => !marked.has(d));
 
-      // Lunch taken each day (feature class_lunch): student -> day -> true / false, for the drawn days;
+      // Lunch taken each day: student -> day -> true / false, for the drawn days;
       // the overall figure comes from the whole term's totals.
       const lunchMap = {};
       lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
@@ -9715,9 +9676,6 @@ const commonController = {
   saveLunch: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
-    if (!require("../utils/shards/features").isOn("class_lunch", { organizationId: Number(organizationId) })) {
-      return res.status(404).json({ success: false, message: "Lunch is not switched on for your school." });
-    }
     const classId = Number(req.body.classId);
     const termId = Number(req.body.termId);
     const day = String(req.body.date || "");
@@ -9962,7 +9920,7 @@ const commonController = {
       // Who is in charge of each class today, so the form can show it and say which have nobody.
       const classMainTeachers = Object.fromEntries(await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map()));
       // Each class's assistant teachers, where the school can choose them (null: no Assistant choice).
-      const classAssistants = await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId)
+      const classAssistants = await require("../utils/mainTeacher").assistantReady(db)
         ? Object.fromEntries(await require("../utils/mainTeacher").assistantsByClass(db, req.session.organizationId).catch(() => new Map()))
         : null;
 
@@ -10185,7 +10143,7 @@ const commonController = {
         shown: true,
         canLead: account_type !== "Driver",
         assistantClassIds: req.body.assistantClasses,
-        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantsOn(db, organizationId),
+        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantReady(db),
       });
 
       if (safeSubjectIds.length > 0) {
@@ -11005,7 +10963,7 @@ const commonController = {
       const hiddenHeldPermissions = rawSelectedPermissions.filter((permissionKey) => !availablePermissionKeys.has(permissionKey));
 
       const mainTeachers = await require("../utils/mainTeacher").mainTeachersByClass(db, req.session.organizationId).catch(() => new Map());
-      const classAssistants = await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId)
+      const classAssistants = await require("../utils/mainTeacher").assistantReady(db)
         ? Object.fromEntries(await require("../utils/mainTeacher").assistantsByClass(db, req.session.organizationId).catch(() => new Map()))
         : null;
 
@@ -11264,7 +11222,7 @@ const commonController = {
         shown: req.body.mainClassesShown === "1",
         canLead: accountType !== "Driver",
         assistantClassIds: req.body.assistantClasses,
-        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantsOn(db, req.session.organizationId),
+        assistantShown: req.body.assistantClassesShown === "1" && await require("../utils/mainTeacher").assistantReady(db),
       });
 
       await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
@@ -11729,40 +11687,34 @@ const commonController = {
 
       // The assessments flow: each score's state, what waits in each column, this person's
       // columns, and the + that adds an assessment (and its questions).
-      const assessmentFlow = assessmentApproval.flowUi(organizationId);
       let gradebookPrefs = { lastN: null, hidden: [] };
       const questionSetByAssessment = {};
-      if (assessmentFlow) {
-        const counts = new Map();
-        results.forEach((row) => {
-          if (row.pending_since) counts.set(Number(row.assessment_id), (counts.get(Number(row.assessment_id)) || 0) + 1);
-        });
-        assessments.forEach((row) => { row.waiting_count = counts.get(Number(row.assessment_id)) || 0; });
-        const saved = await require("../utils/uiPreferences").getPreference(req.session, "gradebook-view").catch(() => null);
-        if (saved && typeof saved === "object") {
-          const lastN = Number(saved.lastN);
-          gradebookPrefs = {
-            lastN: [1, 2, 3, 4, 5].includes(lastN) ? lastN : null,
-            hidden: Array.isArray(saved.hidden) ? saved.hidden.filter((key) => ["raw", "scaled", "percent", "grade", "position"].includes(key)) : [],
-          };
-        }
-        if (assessments.length) {
-          const sets = await db.query(
-            `SELECT DISTINCT ON (assessment_id) assessment_id, question_set_id, LOWER(COALESCE(review_status, 'pending')) AS review_status
-               FROM assessment_question_sets
-              WHERE organization_id = $1 AND assessment_id = ANY($2::int[]) AND retake_student_id IS NULL
-              ORDER BY assessment_id, question_set_id DESC`,
-            [organizationId, assessments.map((row) => Number(row.assessment_id))]
-          ).catch(() => ({ rows: [] }));
-          sets.rows.forEach((row) => { questionSetByAssessment[row.assessment_id] = { id: Number(row.question_set_id), status: row.review_status }; });
-        }
+      const counts = new Map();
+      results.forEach((row) => {
+        if (row.pending_since) counts.set(Number(row.assessment_id), (counts.get(Number(row.assessment_id)) || 0) + 1);
+      });
+      assessments.forEach((row) => { row.waiting_count = counts.get(Number(row.assessment_id)) || 0; });
+      const saved = await require("../utils/uiPreferences").getPreference(req.session, "gradebook-view").catch(() => null);
+      if (saved && typeof saved === "object") {
+        const lastN = Number(saved.lastN);
+        gradebookPrefs = {
+          lastN: [1, 2, 3, 4, 5].includes(lastN) ? lastN : null,
+          hidden: Array.isArray(saved.hidden) ? saved.hidden.filter((key) => ["raw", "scaled", "percent", "grade", "position"].includes(key)) : [],
+        };
       }
-      const schoolYearIdForTerm = assessmentFlow
-        ? (await db.query("SELECT school_year_id FROM terms WHERE term_id = $1 AND organization_id = $2", [currentTerm.term_id, organizationId])).rows[0]?.school_year_id || null
-        : null;
+      if (assessments.length) {
+        const sets = await db.query(
+          `SELECT DISTINCT ON (assessment_id) assessment_id, question_set_id, LOWER(COALESCE(review_status, 'pending')) AS review_status
+             FROM assessment_question_sets
+            WHERE organization_id = $1 AND assessment_id = ANY($2::int[]) AND retake_student_id IS NULL
+            ORDER BY assessment_id, question_set_id DESC`,
+          [organizationId, assessments.map((row) => Number(row.assessment_id))]
+        ).catch(() => ({ rows: [] }));
+        sets.rows.forEach((row) => { questionSetByAssessment[row.assessment_id] = { id: Number(row.question_set_id), status: row.review_status }; });
+      }
+      const schoolYearIdForTerm = (await db.query("SELECT school_year_id FROM terms WHERE term_id = $1 AND organization_id = $2", [currentTerm.term_id, organizationId])).rows[0]?.school_year_id || null;
 
       res.render("common/assessment", {
-        assessmentFlow,
         gradebookPrefs,
         questionSetByAssessment,
         schoolYearIdForTerm,
@@ -12699,9 +12651,9 @@ const commonController = {
         if (questions[i].questionType === "image_label") questions[i].answerKey = checked.answerKey;
       }
     }
-    // Help on each question (feature learning_resources): only files uploaded for this school.
+    // Help on each question: only files uploaded for this school.
     const questionHelp = require("../utils/questionHelp");
-    const helpColumn = questionHelp.featureOn(organizationId) && (await questionHelp.whenChecked());
+    const helpColumn = await questionHelp.whenChecked();
     questions.forEach((question) => { question.help = helpColumn ? questionHelp.check(question.help, organizationId) : null; });
     const parentShareGiven = Object.prototype.hasOwnProperty.call(req.body || {}, "parentShare");
     const parentShare = ["grade", "full"].includes(String(req.body.parentShare || "")) ? String(req.body.parentShare) : null;
@@ -12742,7 +12694,7 @@ const commonController = {
       }
       const isEditingExistingSet = Number.isInteger(questionSetId) && questionSetId > 0;
       const questionFlow = assessmentApproval.flowOn(organizationId);
-      if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet && assessmentApproval.flowUi(organizationId)) {
+      if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet) {
         // Adding questions is what turns them on for this assessment.
         await client.query(
           "UPDATE assessments SET show_question_set_on_dashboard = TRUE WHERE assessment_id = $1 AND organization_id = $2",
@@ -13731,7 +13683,6 @@ NUMBERING:
       res.render("common/manageAssessment", {
         title: "Manage Assessments",
         // After a new test: "Add questions now?" (the assessments flow).
-        assessmentFlow: assessmentApproval.flowUi(organizationId),
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -14352,10 +14303,9 @@ NUMBERING:
       // page): straight to that assessment's questions, and the page that opened it is told
       // when they're saved or closed.
       await assessmentApproval.whenColumnsChecked();
-      const assessmentFlow = assessmentApproval.flowUi(organizationId);
       // Pictures and sharing need the flow's columns.
       const questionExtras = assessmentApproval.flowOn(organizationId);
-      const flowOpen = assessmentFlow && String(req.query.flow || "") === "1"
+      const flowOpen = String(req.query.flow || "") === "1"
         ? {
             mode: String(req.query.open || "") === "edit" ? "edit" : "new",
             assessmentId: Number.parseInt(req.query.assessmentId, 10) || null,
@@ -14366,7 +14316,7 @@ NUMBERING:
             schoolYearId: Number(activeTermRow.school_year_id) || null,
           }
         : null;
-      const canCreateAssessments = assessmentFlow && await userHasPermission(
+      const canCreateAssessments = await userHasPermission(
         db,
         {
           userId: req.session.user?.user_id || req.session.userId || null,
@@ -14379,7 +14329,6 @@ NUMBERING:
       ).catch(() => false);
       return res.render("common/allClassAssessmentExams", {
         title: "All Class Assessment Questions",
-        assessmentFlow,
         flowOpen,
         canCreateAssessments,
         questionExtras,
@@ -16765,7 +16714,7 @@ NUMBERING:
 
       // From the assessments flow (a gradebook's +, the questions page): this class and
       // subject come ticked, and the page tells the page that opened it what was made.
-      const flow = assessmentApproval.flowUi(organizationId) && String(req.query.flow || "") === "1";
+      const flow = String(req.query.flow || "") === "1";
       const prefillClassId = flow ? Number.parseInt(req.query.classId, 10) || null : null;
       const prefillSubjectId = flow ? Number.parseInt(req.query.subjectId, 10) || null : null;
 
@@ -17428,15 +17377,13 @@ NUMBERING:
         .map((studentRow) => Number(studentRow.student_id))
         .filter((studentIdValue) => Number.isInteger(studentIdValue) && studentIdValue > 0);
 
-      // The class pickup list (feature "family_sharing"): who each student goes home with,
+      // The class pickup list: who each student goes home with,
       // and the emergency & pickup details the school shares with teachers.
       let classPickup = null;
-      if (require("../utils/shards/features").isOn("family_sharing", { organizationId: Number(organizationId) })) {
-        const contactsUtil = require("../utils/contacts");
-        const sharedWithTeachers = await contactsUtil.sharedSections(db, Number(organizationId), "teachers").catch(() => []);
-        if (sharedWithTeachers.length) {
-          classPickup = Object.fromEntries(await contactsUtil.familyDetailsForStudents(db, Number(organizationId), classStudentIds, "teachers").catch(() => new Map()));
-        }
+      const contactsUtil = require("../utils/contacts");
+      const sharedWithTeachers = await contactsUtil.sharedSections(db, Number(organizationId), "teachers").catch(() => []);
+      if (sharedWithTeachers.length) {
+        classPickup = Object.fromEntries(await contactsUtil.familyDetailsForStudents(db, Number(organizationId), classStudentIds, "teachers").catch(() => new Map()));
       }
 
       const transportationIntegration = await getTransportationIntegrationStatus(db, organizationId).catch(
@@ -17683,7 +17630,7 @@ NUMBERING:
       } else if (routePanel === 'pickup') {
         initialWorkspaceRoute = { panel: 'pickup', itemId: '' };
       } else if (routePanel === 'forms') {
-        // The class's Custom editor sections (feature custom_forms); /forms/12 is one with a
+        // The class's Custom editor sections; /forms/12 is one with a
         // menu item of its own.
         initialWorkspaceRoute = { panel: 'forms', itemId: /^\d+$/.test(routeItemId) ? routeItemId : '' };
       } else if (routePanel === 'settings') {
@@ -19393,8 +19340,7 @@ NUMBERING:
       }));
 
       // Activities sit here too (one place for what's coming up): the same permission.
-      const activitiesHere = require("../utils/shards/features").isOn("class_activities", { organizationId: Number(req.session.organizationId) })
-        && res.locals.workspaceAccess().management.activities;
+      const activitiesHere = res.locals.workspaceAccess().management.activities;
       const activityClasses = activitiesHere
         ? (await db.query(
             "SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY LOWER(class_name)",
@@ -23066,7 +23012,7 @@ NUMBERING:
       ]);
       const t = totals.rows[0] || { total: 0, present: 0, late: 0, absent: 0 };
       const lunchTotals = lunch.get(studentId);
-      const lunchShown = overallLunch.isOn(organizationId) && classShare.lunch !== false;
+      const lunchShown = classShare.lunch !== false;
       return res.json({
         success: true,
         // "Present" counts everyone who came (a late arrival is a present student marked late).
@@ -25846,11 +25792,11 @@ function studentPortalPasswordEmail({ organizationId, organizationName, firstNam
   };
 }
 
-// What the Add student and Edit student forms need for a student's files (feature student_documents),
-// or null when the feature is off or its table isn't there yet.
+// What the Add student and Edit student forms need for a student's files,
+// or null when its table isn't there yet.
 async function studentDocsForm(db, req, { studentId = null } = {}) {
   const studentDocs = require("../utils/studentDocuments");
-  if (!studentDocs.isOn(req.session.organizationId) || !(await studentDocs.ready(db).catch(() => false))) return null;
+  if (!(await studentDocs.ready(db).catch(() => false))) return null;
   return {
     types: studentDocs.TYPES,
     sharing: studentDocs.SHARING,
@@ -25865,7 +25811,6 @@ async function studentDocsForm(db, req, { studentId = null } = {}) {
 // Saves the files sent with Add student or Edit student; a flash note says what was added or refused.
 async function saveStudentDocsFromForm(db, req, { studentId, prefix, edits = false }) {
   const studentDocs = require("../utils/studentDocuments");
-  if (!studentDocs.isOn(req.session.organizationId)) return null;
   const user = req.session.user || {};
   const actor = { id: Number(user.user_id || req.session.userId) || null, name: [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || String(req.session.organizationName || "") };
   const manager = studentDocs.isManagerRole(req);

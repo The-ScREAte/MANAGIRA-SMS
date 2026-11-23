@@ -1,4 +1,4 @@
-// "Help for this question" on each question card (feature learning_resources): a recommendation,
+// "Help for this question" on each question card: a recommendation,
 // a link and up to three files. Saved with the question (utils/questionHelp.js) and shown to the
 // student under it. The question form calls QuestionHelp.decorate(card, question) for each card
 // and QuestionHelp.helpOf(card) when it saves.

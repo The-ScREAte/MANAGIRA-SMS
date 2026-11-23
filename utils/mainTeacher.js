@@ -4,7 +4,7 @@
 // schedule, and work on every subject and report card of the class. One per class
 // (user_classes.main). It is chosen on the staff form, beside the person's classes and
 // permissions, and nowhere else; pages that list classes say which ones have nobody in charge.
-// Assistant teachers (feature assistant_teacher, user_classes.assistant): any number per class.
+// Assistant teachers (user_classes.assistant): any number per class.
 // They see and work on the whole class like its main teacher (every subject, attendance, the
 // students' pages), but aren't in charge: the schedule and "nobody in charge" stay the main
 // teacher's. Chosen beside Main teacher on the staff form.
@@ -22,10 +22,6 @@ async function assistantReady(db) {
   return assistantColumn;
 }
 const forgetAssistantCheck = () => { assistantColumn = false; checkedAt = 0; }; // tests
-// The school can choose assistants: released to it, and the column is there.
-async function assistantsOn(db, organizationId) {
-  return require("./shards/features").isOn("assistant_teacher", { organizationId: Number(organizationId) || null }) && (await assistantReady(db));
-}
 // The SQL that says a user_classes row (alias) gives the whole class: main teacher or assistant.
 const wholeClassSql = async (db, alias = "uc") => ((await assistantReady(db)) ? `(COALESCE(${alias}.main, FALSE) OR COALESCE(${alias}.assistant, FALSE))` : `COALESCE(${alias}.main, FALSE)`);
 
@@ -147,4 +143,4 @@ async function saveClasses(client, { organizationId, userId, classIds, mainClass
   return { classes, leads, assists };
 }
 
-module.exports = { mainTeachersByClass, assistantsByClass, classesWithoutMainTeacher, saveClasses, idList, assistantReady, assistantsOn, wholeClassSql, forgetAssistantCheck };
+module.exports = { mainTeachersByClass, assistantsByClass, classesWithoutMainTeacher, saveClasses, idList, assistantReady, wholeClassSql, forgetAssistantCheck };

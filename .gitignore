@@ -4,10 +4,10 @@ node_modules
 .qodo
 s3-policy-backup-*.json
 tmp-google-sync-audit-*.json
-s3-policy-backup-*.json
 uploads/*
 
 # Local editor settings can hold connection details.
 .vscode/settings.json
 dist/
 uploads/
+.DS_Store

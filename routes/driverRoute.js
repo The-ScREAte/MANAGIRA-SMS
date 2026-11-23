@@ -17,7 +17,7 @@ module.exports = (db) => {
     driverController.settingsPost(req, res, db)
   );
 
-  // Forms the school asks drivers to fill in about their riders (feature custom_forms).
+  // Forms the school asks drivers to fill in about their riders.
   const customForms = require("../controllers/customFormsController");
   router.get("/forms/data", isDriverAuthenticated, (req, res) => customForms.data(req, res, db));
   router.get("/forms/:id(\\d+)/students", isDriverAuthenticated, (req, res) => customForms.students(req, res, db));

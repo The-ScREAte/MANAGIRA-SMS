@@ -174,7 +174,7 @@
 
 <div id="ctDialog" role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
 
-<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: Boolean(locals.featureOn && featureOn('family_sharing')) }).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: true }).replace(/</g, '\\u003c') %></script>
 <script>
 (function () {
   const root = document.getElementById('ctRoot');
@@ -247,7 +247,7 @@
     </section>`;
   }
 
-  // Who else sees a section (feature "family_sharing"): parents can also update it in their portal.
+  // Who else sees a section: parents can also update it in their portal.
   const AUDIENCES = [
     { key: 'parents', label: 'Parents', hint: 'See and update it in the parent portal' },
     { key: 'students', label: 'Students', hint: 'See it in the student portal' },

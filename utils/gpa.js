@@ -1,5 +1,5 @@
 "use strict";
-// GPA (feature gpa). Transcripts always print it (each term, and over all of Managira's finished
+// GPA. Transcripts always print it (each term, and over all of Managira's finished
 // terms); report cards print the term's GPA where Report Settings › Advanced ticks "GPA"; parents
 // and the student see this term's and the cumulative GPA unless the class turns it off (Class
 // settings › Share with › GPA, familyGpa).
@@ -101,7 +101,6 @@ const gpaOfGrades = (labels) => totalsOf((labels || []).map((grade) => ({ grade 
 // Report Settings' GPA switch (sections.gpa): the original transcript page shows GPA only when a
 // school turned it on (used while transcript_designs isn't released to the school).
 async function schoolShowsGpa(db, organizationId) {
-  if (!featureOn(organizationId)) return false;
   const { rows } = await db.query(
     "SELECT 1 FROM report_settings WHERE organization_id = $1 AND display_settings->'sections'->>'gpa' = 'true' LIMIT 1",
     [organizationId]
@@ -117,8 +116,7 @@ const formatGpa = (value) => (value === null || value === undefined || !Number.i
 // Credits as a transcript prints them: 1.00, 0.50, 2.25.
 const formatCredits = (value) => (value === null || value === undefined || !Number.isFinite(Number(value)) ? "—" : Number(value).toFixed(2));
 
-const featureOn = (organizationId) => features.isOn("gpa", { organizationId: Number(organizationId) || null });
-const creditsOn = (organizationId) => featureOn(organizationId) && features.isOn("gpa_credits", { organizationId: Number(organizationId) || null });
+const creditsOn = (organizationId) => features.isOn("gpa_credits", { organizationId: Number(organizationId) || null });
 
 // Each course's transcript summary in order, the way a registrar prints it: for every term (rows
 // grouped by `keyOf`, in the order given), its own totals and the cumulative totals up to and
@@ -349,7 +347,6 @@ const shown = (g) => (g && g.unweighted !== null ? { unweighted: formatGpa(g.unw
 // waiting for the teacher's ✓. Null when there's nothing to show (no letter grades, or the
 // school doesn't have GPA).
 async function familyGpa(db, organizationId, studentId, { termGrades = [] } = {}) {
-  if (!featureOn(organizationId)) return null;
   const [settings, ended] = await Promise.all([
     settingsFor(db, organizationId),
     endedTermGrades(db, organizationId, studentId, { families: true }),
@@ -398,7 +395,7 @@ const SCALE_TEXT = "A 4.0 · B 3.0 · C 2.0 · D 1.0 · F 0 (+ adds 0.3, − tak
 
 module.exports = {
   schoolShowsGpa,
-  pointsFor, gpaOfGrades, gpaOf, totalsOf, termByTerm, creditsOf, formatGpa, formatCredits, featureOn, creditsOn,
+  pointsFor, gpaOfGrades, gpaOf, totalsOf, termByTerm, creditsOf, formatGpa, formatCredits, creditsOn,
   weightsReady, creditsReady, settingsFor, levelsFor, creditsFor, subjectsGpaInfo, saveSettings, sourceGpaOf,
   endedTermGrades, familyGpa, transcriptGpa, transcriptFromRows, termKeyOf, LEVELS, DEFAULT_SETTINGS, DEFAULT_CREDITS, MAX_CREDITS, SCALE, SCALE_TEXT,
 };

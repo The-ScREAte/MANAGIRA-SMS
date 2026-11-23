@@ -118,15 +118,13 @@
               </button>
             </li>
             <% } %>
-            <% if (locals.featureOn && featureOn('class_activities')) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="activities" onclick="openWorkspaceTabByKey('activities')">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('activities') %></span>
                 <span class="nav-link-label">Activities</span>
               </button>
             </li>
-            <% } %>
-            <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+            <% if (locals.customFormsReady && customFormsReady()) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="forms" onclick="openWorkspaceTabByKey('forms')">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('forms') %></span>
@@ -689,7 +687,7 @@
               <%- include('../partials/classSettingsPanel', { panel: classSettingsPanel }) %>
             <% } %>
 
-            <% if (locals.featureOn && featureOn('custom_forms') && locals.customFormsReady && customFormsReady()) { %>
+            <% if (locals.customFormsReady && customFormsReady()) { %>
             <section class="workspace-panel" id="panel-forms" data-panel-key="forms">
               <link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
               <%# Classroom sections the school built in the Custom editor, filled in here for this class.
@@ -701,13 +699,11 @@
             <% } %>
 
             <%# Activities belong to the class, not to the bus: its panel exists whenever the menu item does. %>
-            <% if (locals.featureOn && featureOn('class_activities')) { %>
             <section class="workspace-panel" id="panel-activities" data-panel-key="activities">
               <link rel="stylesheet" href="<%= assetUrl('/css/activities.css') %>" />
               <div data-activities data-class-id="<%= classId %>"></div>
               <script src="<%= assetUrl('/js/activities.js') %>" defer></script>
             </section>
-            <% } %>
             <% if (transportActive) { %>
             <section class="workspace-panel" id="panel-transportation" data-panel-key="transportation">
               <%
@@ -761,12 +757,9 @@
               </div>
               <% } %>
               <input type="search" class="tp-search" id="tpRiderSearch" placeholder="Search students" autocomplete="off" aria-label="Search students" style="display:block;box-sizing:border-box;width:100%;height:38px;margin:10px 0;padding:0 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:transparent;color:inherit;" />
-              <% const _boardingOn = locals.featureOn && featureOn('bus_boarding'); %>
-              <% if (_boardingOn) { %>
               <link rel="stylesheet" href="<%= assetUrl('/css/busBoarding.css') %>" />
               <script src="<%= assetUrl('/js/busBoarding.js') %>" defer></script>
-              <% } %>
-              <div class="tp-routes"<% if (_boardingOn) { %> data-class-riding="<%= classId %>"<% } %>>
+              <div class="tp-routes" data-class-riding="<%= classId %>">
                 <% tpRoutes.forEach(function(route) { %>
                 <details class="tp-route" style="--route:<%= route.color %>">
                   <summary class="tp-route__head">
@@ -780,16 +773,16 @@
                     <svg class="tp-route__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                   </summary>
                   <div class="tp-riders" role="list">
-                    <div class="tp-rider tp-rider--head<%= _boardingOn ? ' tp-rider--today' : '' %>" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span><% if (_boardingOn) { %><span>Today</span><% } %></div>
+                    <div class="tp-rider tp-rider--head tp-rider--today" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span><span>Today</span></div>
                     <% route.riders.forEach(function(row) { %>
-                    <div class="tp-rider<%= _boardingOn ? ' tp-rider--today' : '' %>" role="listitem" tabindex="0"
+                    <div class="tp-rider tp-rider--today" role="listitem" tabindex="0"
                       onkeydown="if ((event.key === 'Enter' || event.key === ' ') && event.target === this) { event.preventDefault(); this.click(); }"
                       onclick="if (!event.target.closest('.tp-coming')) openStudentTransportModal(<%= row.studentId %>, '<%= String(row.studentName || '').replace(/'/g, "\\'") %>', event)">
                       <span class="tp-rider__name"><%= row.studentName %></span>
                       <span class="tp-rider__stop"><%= row.stopName || '—' %></span>
                       <span class="tp-rider__time"><%= tpTime(row.pickupTime) || '—' %></span>
                       <span class="tp-rider__time tp-rider__time--off"><%= tpTime(row.dropoffTime) || '—' %></span>
-                      <% if (_boardingOn) { %><button type="button" class="tp-coming" data-coming="<%= row.studentId %>" aria-pressed="true">Coming</button><% } %>
+                      <button type="button" class="tp-coming" data-coming="<%= row.studentId %>" aria-pressed="true">Coming</button>
                     </div>
                     <% }); %>
                   </div>

@@ -4,7 +4,6 @@
 // seeing posted_score / posted_choice (what they saw before; nothing for a new score) until
 // the teacher approves it on the gradebook. A result without pending_since is what everyone
 // sees, so scores from before the flow, or from a school without it, need nothing done.
-const features = require("./shards/features");
 const { createNotifications } = require("./notificationService");
 
 // The flow needs the columns from database/migrations/2026-11-12_assessment_flow.sql. Until
@@ -38,10 +37,8 @@ async function whenColumnsChecked() {
   return columnsKnownReady;
 }
 
-// The new screens (toolbar, Filter, columns, + Assessment, the questions prompts): only the
-// feature decides. Approval, the dots, pictures and sharing also need the columns (flowOn).
-const flowUi = (organizationId) => features.isOn("assessment_flow", { organizationId: Number(organizationId) || null });
-const flowOn = (organizationId) => columnsReady() && flowUi(organizationId);
+// Approval, the dots, pictures and sharing need the columns (flowOn).
+const flowOn = () => columnsReady();
 
 // What parents and the student see of a result row aliased `a` (SQL). With the flow off it's
 // the score itself, as before.
@@ -218,4 +215,4 @@ function hideWaitingTotals(rows) {
   return rows;
 }
 
-module.exports = { flowUi, flowOn, columnsReady, whenColumnsChecked, hideWaitingTotals, visibleScore, visibleChoice, waitingSql, cellState, approve, waitingCounts, tellFamilies, placeOnlineResult };
+module.exports = { flowOn, columnsReady, whenColumnsChecked, hideWaitingTotals, visibleScore, visibleChoice, waitingSql, cellState, approve, waitingCounts, tellFamilies, placeOnlineResult };

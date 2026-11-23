@@ -43,12 +43,12 @@ module.exports = (db) => {
   router.get("/child/work/:setId", isGuardianAuthenticated, (req, res) => parentHub.work(req, res, db));
   router.get("/child/file/:fileId", isGuardianAuthenticated, (req, res) => parentHub.file(req, res, db));
   router.get("/child/student-file/:documentId(\\d+)", isGuardianAuthenticated, (req, res) => parentHub.studentFile(req, res, db));
-  // Forms the school asks the family to fill in, and ones it shares (feature custom_forms).
+  // Forms the school asks the family to fill in, and ones it shares.
   const customForms = require("../controllers/customFormsController");
   router.get("/child/forms", isGuardianAuthenticated, (req, res) => customForms.guardianPage(req, res, db));
   router.post("/child/forms/:sectionId(\\d+)", isGuardianAuthenticated, express.json({ limit: "512kb" }), (req, res) => customForms.guardianSave(req, res, db));
   router.post("/child/forms/:sectionId(\\d+)/upload", isGuardianAuthenticated, upload.single("file"), (req, res) => customForms.guardianUpload(req, res, db));
-  // The child's portfolio, a folder per term (feature student_portfolio).
+  // The child's portfolio, a folder per term.
   const portfolioController = require("../controllers/portfolioController");
   router.get("/child/portfolio", isGuardianAuthenticated, (req, res) => portfolioController.guardianPage(req, res, db));
   router.get("/child/portfolio/test/:attemptId(\\d+)", isGuardianAuthenticated, (req, res) => portfolioController.guardianTest(req, res, db));

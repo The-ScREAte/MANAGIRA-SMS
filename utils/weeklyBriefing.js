@@ -441,7 +441,7 @@ async function busFor(db, organizationId, studentIds, past, timeZone) {
 async function formsAndRecordsFor(db, organizationId, students, past, audience) {
   const forms = require("./customForms");
   const out = { forms: new Map(), records: new Map() };
-  if (!forms.featureOn(organizationId) || !(await forms.ready(db).catch(() => false))) return out;
+  if (!(await forms.ready(db).catch(() => false))) return out;
   const portal = audience === "parents" ? "parent" : "student";
   const live = await forms.liveFor(db, organizationId, portal).catch(() => []);
   if (!live.length) return out;

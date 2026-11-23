@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const { countQuery } = require('../utils/requestStats');
+const { countQuery, requestMemo } = require('../utils/requestStats');
 require('dotenv').config();
 
 const dbConnectionString = process.env.DB_CONNECTION_STRING;
@@ -187,9 +187,36 @@ function runSchemaOnce(args) {
   return run;
 }
 
+// Managira's own settings and price tables change only from the admin pages, yet one page load
+// can read the same row several times (Settings read app_settings 12 times). Within a request a
+// read is asked once; any write to these tables forgets them. Callers get their own copies.
+const MEMO_TABLES = new Set(['app_settings', 'pricing_regions', 'pricing_region_countries', 'plan_region_prices', 'dynamic_billing_cycles']);
+const tablesIn = (sql) => [...sql.matchAll(/\b(?:from|join|into|update)\s+"?([a-z_][a-z0-9_]*)"?/gi)].map((m) => m[1].toLowerCase());
+function memoized(args) {
+  const sql = sqlTextOf(args);
+  if (!sql || typeof args[args.length - 1] === 'function' || (args[0] && typeof args[0] === 'object')) return null;
+  const memo = requestMemo();
+  if (!memo || memo.off) return null;
+  const tables = tablesIn(sql);
+  if (!tables.some((name) => MEMO_TABLES.has(name))) return null;
+  if (!/^\s*select\b/i.test(sql) || /\bfor\s+(update|share)\b/i.test(sql) || !tables.every((name) => MEMO_TABLES.has(name))) {
+    memo.clear(); // a write (or a mixed read) on these tables: later reads ask again
+    return null;
+  }
+  const key = sql + '\u0000' + JSON.stringify(args[1] || []);
+  if (!memo.has(key)) {
+    const startedAt = process.hrtime.bigint();
+    const counted = () => { dbMetrics.totalQueries += 1; countQuery(Number(process.hrtime.bigint() - startedAt) / 1e6); };
+    memo.set(key, queryWithRetry(args).then((result) => { counted(); return result; }, (error) => { counted(); memo.delete(key); throw error; }));
+  }
+  return memo.get(key).then((result) => ({ ...result, rows: result.rows.map((row) => ({ ...row })) }));
+}
+
 pool.query = async (...args) => {
   const schemaRun = runSchemaOnce(args);
   if (schemaRun) return schemaRun;
+  const remembered = memoized(args);
+  if (remembered) return remembered;
   const startedAt = process.hrtime.bigint();
   try {
     return await queryWithRetry(args);
@@ -217,6 +244,9 @@ pool.query = async (...args) => {
 const originalConnect = pool.connect.bind(pool);
 pool.connect = async (...args) => {
   if (typeof args[0] === 'function') return originalConnect(...args);
+  // A transaction's writes don't pass pool.query: from here this request reads fresh.
+  const memo = requestMemo();
+  if (memo) { memo.clear(); memo.off = true; }
   const startedAt = Date.now();
   for (let attempt = 0; ; attempt += 1) {
     try {

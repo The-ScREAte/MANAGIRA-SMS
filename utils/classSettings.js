@@ -61,7 +61,7 @@ function normalizeNotices(raw) {
 }
 
 const DEFAULTS = Object.freeze({
-  // Take lunch beside attendance on the class attendance page (also needs the class_lunch feature).
+  // Take lunch beside attendance on the class attendance page.
   lunch: true,
   // Whether this class's students may use the student portal: on, and management or the class can
   // turn it off (the invite on a student's page and its endpoints follow it).

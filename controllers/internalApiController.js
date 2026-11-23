@@ -136,7 +136,7 @@ async function validateSession(req, res) {
       if (now - lastActivity > require("../utils/keepSignedIn").idleLimitFor(sessionData, IDLE_TIMEOUT_MS)) {
         return res.status(401).json({ error: "Session expired due to inactivity." });
       }
-      if (sessionData.signedInAt && require("../utils/shards/features").isOn("tenant_config", { organizationId: sessionData.organizationId })) {
+      if (sessionData.signedInAt) {
         const tenantSettings = require("../utils/tenantSettings");
         const settings = await tenantSettings.settingsFor(db, sessionData.organizationId).catch(() => null);
         if (settings && now - sessionData.signedInAt > tenantSettings.sessionLimitMs(settings, sessionData.keepSignedIn)) {
@@ -441,7 +441,7 @@ async function getMiraActivationStatusApi(req, res) {
 // can't do, and why: not given to them, or not in the school's plan.
 // Parents and students hold no staff permission.
 // The features Mira needs to know about (its own, and the ones some of its read tools depend on).
-const MIRA_FEATURES = ["mira_outreach", "mira_steps", "mira_skills", "mira_forms", "mira_read_more", "gpa", "class_lunch", "custom_forms", "weekly_briefing", "student_documents", "student_portfolio", "class_settings"];
+const MIRA_FEATURES = ["mira_skills", "mira_forms", "mira_read_more", "weekly_briefing", "class_settings"];
 async function getMiraAccessApi(req, res) {
   try {
     const organizationId = parseInt(req.query.organizationId, 10);
@@ -3522,10 +3522,8 @@ async function getTransportationLiveStatusApi(req, res) {
       return res.json(report);
     }
 
-    // Bus/route-anchored lookup - staff only (matches the real
-    // GET /transportation/live/route/:routeId, open to any authenticated
-    // staff member, not something a parent/student would ask about in the
-    // abstract).
+    // Bus/route-anchored lookup - staff only (not something a parent or
+    // student would ask about in the abstract).
     if (tenant.viewerType !== "staff") {
       return res.status(422).json({ error: "Ask about your own student's transportation instead of a specific bus/route." });
     }
@@ -5458,7 +5456,7 @@ async function setWebsiteLayoutApi(req, res) {
     const organizationId = await assertCanManageWebsite(req);
     const layout = String(req.body?.layout || "").trim();
     const schoolLayouts = require("../utils/websiteView")
-      .layoutsFor((key) => require("../utils/shards/features").isOn(key, { organizationId: Number(organizationId) }))
+      .layoutsFor()
       .map((l) => l.value);
     if (!WEBSITE_LAYOUTS.has(layout) || !schoolLayouts.includes(layout)) {
       return res.status(400).json({ error: WEBSITE_LAYOUTS.has(layout)

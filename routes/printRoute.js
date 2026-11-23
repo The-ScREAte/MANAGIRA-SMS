@@ -81,7 +81,6 @@ module.exports = (db) => {
         }
     }); // Which report card layout each class uses
     router.post('/gpaSettings', isAuthenticated, canManageReports, express.json(), require('../controllers/printController').saveGpaSettings); // GPA weights: Honors, AP and each subject's level
-    router.post('/saveScoreRemarks', isAuthenticated, canManageReports, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
 // Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, canManageReports, printController.saveRemarks); // Save remarks

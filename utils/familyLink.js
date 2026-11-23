@@ -251,8 +251,12 @@ function followChild(db) {
         [studentId, Number(session.guardianId)]
       );
       const row = rows[0];
-      if (!row || (row.mine && Number(row.organization_id) === Number(session.organizationId))) return next();
+      // A child of the school already open is the page's to check (it refuses someone else's
+      // child); switching only ever moves to another school, so the redirect can't come back here.
+      if (!row || Number(row.organization_id) === Number(session.organizationId)) return next();
+      const before = `${session.organizationId}:${session.guardianId}`;
       await switchToChild(db, req, row.organization_id, studentId);
+      if (`${session.organizationId}:${session.guardianId}` === before) return next();
       await new Promise((resolve, reject) => session.save((error) => (error ? reject(error) : resolve())));
       return res.redirect(req.originalUrl);
     } catch (_) {
