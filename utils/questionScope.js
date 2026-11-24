@@ -92,3 +92,4 @@ function requireQuestionScope(db, { resourceParam = null } = {}) {
 }
 
 module.exports = { teacherSubjectIds, requireQuestionScope };
+

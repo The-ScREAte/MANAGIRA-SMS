@@ -646,7 +646,16 @@
       .es-in-drawer .es-card--sticky { position: static; }
       .es-in-drawer .es-image-section { flex-direction: row; align-items: center; text-align: left; gap: 16px; }
       .es-in-drawer .es-student-img { width: 72px; height: 72px; }
-      .es-in-drawer .es-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .es-in-drawer .es-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; align-items: start; }
+      .es-in-drawer .es-guardian-entry .es-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .es-in-drawer .es-card { padding: 14px 16px; margin-bottom: 12px; border-radius: 12px; }
+      .es-in-drawer .es-card--sticky .es-section-title { display: none; }
+      .es-in-drawer .es-section-title { margin: 0 0 10px; padding-bottom: 8px; font-size: 14px; }
+      .es-in-drawer .es-guardian-entry { padding: 12px; margin-bottom: 10px; }
+      .es-in-drawer .es-upload-label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      @media (max-width: 760px) {
+        .es-in-drawer .es-form-grid, .es-in-drawer .es-guardian-entry .es-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
       .es-in-drawer .es-top-bar { display: none; }
       .es-in-drawer .es-profile-summary { display: none; }
     </style>
@@ -1032,7 +1041,7 @@
           <input type="date" id="esDateOfBirth" name="dateOfBirth" value="<%= student.date_of_birth ? (student.date_of_birth instanceof Date ? student.date_of_birth : new Date(student.date_of_birth)).toISOString().slice(0, 10) : '' %>" <%= student.date_of_birth_unknown ? '' : 'required' %>>
           <label style="display:flex;align-items:center;gap:6px;font-size:0.66rem;margin:4px 0 0;color:#64748b;">
             <input type="checkbox" id="esDateOfBirthUnknown" name="dateOfBirthUnknown" value="true" <%= student.date_of_birth_unknown ? 'checked' : '' %>>
-            N/K (Date of birth not known)
+            Not known
           </label>
         </div>
         <div class="es-field">
@@ -1147,14 +1156,14 @@
           </div>
         <% }); %>
       </div>
-      <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add parent or guardian</button>
+      <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add parent / guardian</button>
     </div>
 
     <!-- Actions -->
     <div class="es-action-row">
       <button type="submit" id="esUpdateStudentBtn" class="es-btn-primary">
         <span class="es-btn-spinner" aria-hidden="true"></span>
-        <span class="es-btn-label">Save changes</span>
+        <span class="es-btn-label">Save</span>
       </button>
 
       <div class="es-action-menu">

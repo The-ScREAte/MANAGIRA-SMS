@@ -55,7 +55,7 @@
     function withTerm(url) { return termId ? url + (url.indexOf('?') === -1 ? '?' : '&') + 'termId=' + encodeURIComponent(termId) : url; }
     root.classList.add('cf', 'cf-fillbox');
     if (!sections.length) {
-      root.innerHTML = '<div class="cf-blank"><strong>No forms here yet</strong>' + esc(opts.emptyText || 'Forms the school builds in the Custom editor show here.') + '</div>';
+      root.innerHTML = '<div class="cf-blank"><strong>No forms</strong></div>';
       return;
     }
     root.innerHTML = (sections.length > 1 ? '<div class="cf-fill__picks" role="tablist" aria-label="Forms"></div>' : '') + '<div class="cf-card cf-fill__main"></div>';
@@ -84,18 +84,18 @@
     }
     function head() {
       var s = state.section;
-      var who = s.filledBy === 'staff' ? 'Filled in by staff' : s.filledBy === 'driver' ? 'Filled in by drivers' : s.filledBy === 'parent' ? 'Parents fill this in. You can read what they send.' : 'Students fill this in. You can read what they send.';
+      var who = s.filledBy === 'staff' ? 'Staff' : s.filledBy === 'driver' ? 'Drivers' : s.filledBy === 'parent' ? 'Parents' : 'Students';
       return '<div class="cf-fill__head"><span class="cf-iconbox">' + icon(s.icon) + '</span><div style="min-width:0"><h3>' + esc(s.name) + '</h3><p>' + esc(who)
-        + (s.repeat === 'term' ? ' · Every term' : s.repeat === 'year' ? ' · Every year' : '') + (s.once ? ' · Locked once sent' : '') + (s.dueDate ? ' · Due ' + esc(when(s.dueDate + 'T00:00:00')) : '') + '</p></div>'
+        + (s.repeat === 'term' ? ' · Every term' : s.repeat === 'year' ? ' · Every year' : '') + (s.once ? ' · Locked' : '') + (s.dueDate ? ' · Due ' + esc(when(s.dueDate + 'T00:00:00')) : '') + '</p></div>'
         + '<span class="cf-progress" data-progress></span></div>'
         + viewsHtml() + keyHtml()
         + '<div class="cf-toolbar">'
         // The list is searched by name; a chart shows everyone at once.
         + (state.view === 'list' ? '<label class="cf-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>'
-        + '<input type="search" class="cf-input" data-q placeholder="Find a student" aria-label="Find a student" value="' + esc(state.q) + '" /></label>' : '<span class="cf-spacer"></span>')
+        + '<input type="search" class="cf-input" data-q placeholder="Find" aria-label="Find a student" value="' + esc(state.q) + '" /></label>' : '<span class="cf-spacer"></span>')
         // Staff can take the answers away as a spreadsheet, and nudge families who haven't replied.
         + (base === '/common/forms' ? '<a class="cf-btn cf-btn--sm" href="' + base + '/' + s.id + '/export.csv" download>' + icon('download', 15) + 'Download</a>' : '')
-        + (base === '/common/forms' && s.filledBy === 'parent' && s.status === 'live' ? '<button type="button" class="cf-btn cf-btn--sm" data-remind>' + icon('send', 15) + 'Send a reminder</button>' : '')
+        + (base === '/common/forms' && s.filledBy === 'parent' && s.status === 'live' ? '<button type="button" class="cf-btn cf-btn--sm" data-remind>' + icon('send', 15) + 'Remind</button>' : '')
         + '</div>';
     }
     function load(thenStudent) {
@@ -438,7 +438,6 @@
       document.body.appendChild(el);
       var onKey = function (e) { if (e.key === 'Escape') closeDrawer(); };
       document.addEventListener('keydown', onKey);
-      back.addEventListener('click', closeDrawer);
       el.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeDrawer(); });
       drawer = { el: el, back: back, onKey: onKey, studentId: studentId, section: s };
       closeActive = closeDrawer;
@@ -453,7 +452,7 @@
     function entryCard(en, canEdit) {
       var kind = en.savedByType === 'parent' ? ' (parent)' : en.savedByType === 'student' ? ' (student)' : en.savedByType === 'driver' ? ' (driver)' : '';
       return '<div class="cf-entry"><div class="cf-entry__head"><strong>' + esc(when(en.updatedAt || en.createdAt)) + '</strong><span>' + esc((en.savedBy || '') + kind) + '</span><span class="cf-spacer"></span>'
-        + (canEdit ? '<button type="button" class="cf-btn cf-btn--sm" data-edit="' + en.id + '">Edit</button><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost cf-btn--danger" data-delete="' + en.id + '" aria-label="Delete entry">' + icon('trash', 14) + '</button>' : '')
+        + (canEdit ? '<button type="button" class="cf-btn cf-btn--sm" data-edit="' + en.id + '">Edit</button><button type="button" class="cf-btn cf-btn--sm cf-btn--ghost cf-btn--danger" data-delete="' + en.id + '" aria-label="Delete">' + icon('trash', 14) + '</button>' : '')
         + '</div><div class="cf-entry__body" data-view="' + en.id + '"></div></div>';
     }
     function drawStudent() {
@@ -470,22 +469,21 @@
         var entry = entries[0];
         // A family's form that hasn't come in: staff can enter one handed in on paper.
         if (!entry && d.paper) {
-          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>' + (s.filledBy === 'parent' ? 'The family hasn’t sent it.' : 'The student hasn’t sent it.')
-            + '<br><button type="button" class="cf-btn" data-paper style="margin-top:14px">Received on paper? Fill it in</button></div>';
+          body.innerHTML = '<div class="cf-blank"><strong>Not sent</strong><button type="button" class="cf-btn" data-paper style="margin-top:14px">Fill in (paper)</button></div>';
           body.onclick = function (e) { if (e.target.closest('[data-paper]')) editEntry(null); };
           return;
         }
         if (editable) return editEntry(entry || null);
         if (!entry) {
-          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong>Nobody has filled it in.</div>';
+          body.innerHTML = '<div class="cf-blank"><strong>Nothing yet</strong></div>';
           return;
         }
-        body.innerHTML = (d.locked ? '<div class="cf-note" style="margin:0 0 12px">' + icon('lock', 16) + '<span>Submitted. It can only be sent once.</span></div>' : '') + entryCard(entry, false);
+        body.innerHTML = (d.locked ? '<div class="cf-note" style="margin:0 0 12px">' + icon('lock', 16) + '<span>Locked</span></div>' : '') + entryCard(entry, false);
         R.view(body.querySelector('[data-view]'), s, entry.data);
         return;
       }
-      body.innerHTML = (editable ? '<button type="button" class="cf-btn cf-btn--primary" data-add style="margin-bottom:14px">' + icon('plus', 15) + 'Add entry</button>' : '')
-        + (entries.length ? entries.map(function (en) { return entryCard(en, editable); }).join('') : '<div class="cf-blank"><strong>No entries yet</strong>' + (editable ? 'Add the first one.' : '') + '</div>');
+      body.innerHTML = (editable ? '<button type="button" class="cf-btn cf-btn--primary" data-add style="margin-bottom:14px">' + icon('plus', 15) + 'Add</button>' : '')
+        + (entries.length ? entries.map(function (en) { return entryCard(en, editable); }).join('') : '<div class="cf-blank"><strong>No entries</strong></div>');
       Array.prototype.forEach.call(body.querySelectorAll('[data-view]'), function (v) {
         var en = entries.filter(function (x) { return String(x.id) === v.getAttribute('data-view'); })[0];
         R.view(v, s, en.data);
@@ -495,7 +493,7 @@
         var ed = e.target.closest('[data-edit]');
         if (ed) return editEntry(entries.filter(function (x) { return String(x.id) === ed.getAttribute('data-edit'); })[0]);
         var del = e.target.closest('[data-delete]');
-        if (del && window.confirm('Delete this entry? It can’t be undone.')) {
+        if (del && window.confirm('Delete this entry?')) {
           api(base + '/' + s.id + '/entry/' + del.getAttribute('data-delete') + '/delete', {}).then(function () {
             d.entries = d.entries.filter(function (x) { return String(x.id) !== del.getAttribute('data-delete'); });
             drawStudent();
@@ -512,9 +510,8 @@
       body.onclick = null;
       // A section collected again starts from last time's answers.
       var start = entry ? entry.data : (!s.multiple && drawer.data.previous) || {};
-      body.innerHTML = (s.once ? '<div class="cf-note" style="margin:0 0 14px">' + icon('lock', 16) + '<span>Once it’s submitted it can’t be changed.</span></div>' : '')
-        + (!entry && !s.multiple && drawer.data.previous ? '<div class="cf-note" style="margin:0 0 14px">' + icon('info', 16) + '<span>Filled in with last time’s answers. Check them, then save.</span></div>' : '')
-        + (entry && entry.savedBy ? '<p class="cf-card__sub" style="margin:0 0 14px">Last saved ' + esc(when(entry.updatedAt)) + ' by ' + esc(entry.savedBy) + '</p>' : '') + '<div data-form></div>';
+      body.innerHTML = (s.once ? '<div class="cf-note" style="margin:0 0 14px">' + icon('lock', 16) + '<span>Locked once submitted</span></div>' : '')
+        + (entry && entry.savedBy ? '<p class="cf-card__sub" style="margin:0 0 14px">' + esc(when(entry.updatedAt)) + ' · ' + esc(entry.savedBy) + '</p>' : '') + '<div data-form></div>';
       drawer.form = R.mount(body.querySelector('[data-form]'), s, {
         values: start,
         upload: function (file) {

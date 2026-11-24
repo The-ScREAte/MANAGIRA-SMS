@@ -14,9 +14,9 @@
 .pr-box--v2 .pr-linkrow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
 .pr-box--v2 .pr-linkrow input { margin: 0; padding: 7px 10px; border: 1px solid var(--border, #e5e9ef); border-radius: 8px; font: inherit; font-size: 13.5px; }
 .pr-box--v2 .pr-hint { margin: 6px 0 0; color: var(--muted, #64748b); font-size: 12px; }
-.pr-box--v2 .pr-who { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #e5e9ef); }
+.pr-box--v2 .pr-who { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 22px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, #e5e9ef); }
 .pr-box--v2 .pr-who > span { color: var(--muted, #64748b); font-size: 12.5px; font-weight: 600; }
-.pr-box--v2 .pr-switch { align-items: flex-start; font-weight: 600; }
+.pr-box--v2 .pr-switch { align-items: center; font-weight: 600; }
 .pr-box--v2 .pr-switch small { display: block; color: var(--muted, #64748b); font-size: 12px; font-weight: 400; }
 @media (max-width: 560px) { .pr-box--v2 .pr-linkrow { grid-template-columns: minmax(0, 1fr); } }
 

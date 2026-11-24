@@ -20,18 +20,52 @@
     scroller.scrollLeft = scroller.scrollWidth;
   }
 
-  // ---- One Filter: which students (the page's own filter does the hiding) and how many
-  // assessments show (all, scrolling for older ones, or the last few; remembered).
+  // ---- One Filter (as on the attendance page): which students, and how much to show. "Show" is built
+  // from the assessments on this page: all, the last 1, 2, 3 ... up to how many there are, or one
+  // assessment. The range is remembered on any device; one assessment is for this visit only.
   var filterBtn = document.getElementById('gb-filter-btn');
   var filterMenu = document.getElementById('gb-filter-menu');
   var filterLabel = document.getElementById('gb-filter-label');
   var genderSelect = document.getElementById('assessment-gender-filter');
+  var studentsSelect = document.getElementById('gb-students-select');
+  var showSelect = document.getElementById('gb-show-select');
+  var resetBtn = document.getElementById('gb-filter-reset');
   var STUDENT_LABELS = { all: 'All students', male: 'Male', female: 'Female' };
+  var only = null; // the one assessment shown, when chosen
   function studentChoice() { return genderSelect ? String(genderSelect.value || 'all') : 'all'; }
+  function columnTitle(index) {
+    var th = document.querySelector('th[data-gb-col="' + index + '"]');
+    var span = th && th.querySelector('span');
+    var node = span && span.firstChild;
+    return (node && node.textContent ? node.textContent : (span ? span.textContent : 'Assessment ' + (index + 1))).replace(/\s+/g, ' ').replace(/\s*\(\d+(\.\d+)?%\)\s*$/, '').trim();
+  }
+  // The "Last N" choices: every number while there are few assessments, then 5, 10, 15 ...
+  function lastChoices() {
+    var out = [];
+    for (var n = 1; n < columnCount; n++) { if (n <= 12 || n % 5 === 0) out.push(n); }
+    return out;
+  }
+  function buildShow() {
+    if (!showSelect) return;
+    var html = '<optgroup label="Range (remembered)"><option value="all">All assessments</option>';
+    lastChoices().forEach(function (n) { html += '<option value="last:' + n + '">' + (n === 1 ? 'Last assessment' : 'Last ' + n + ' assessments') + '</option>'; });
+    html += '</optgroup>';
+    if (columnCount > 1) {
+      html += '<optgroup label="One assessment">';
+      for (var i = columnCount - 1; i >= 0; i--) html += '<option value="one:' + i + '">' + columnTitle(i).replace(/[<>&"]/g, '') + '</option>';
+      html += '</optgroup>';
+    }
+    showSelect.innerHTML = html;
+  }
+  function showValue() {
+    if (only !== null) return 'one:' + only;
+    return view.lastN && columnCount > view.lastN ? 'last:' + view.lastN : 'all';
+  }
   function applyColumns() {
-    var hideBefore = view.lastN && columnCount > view.lastN ? columnCount - view.lastN : 0;
+    var hideBefore = only === null && view.lastN && columnCount > view.lastN ? columnCount - view.lastN : 0;
     document.querySelectorAll('[data-gb-col]').forEach(function (cell) {
-      cell.classList.toggle('gb-off', Number(cell.getAttribute('data-gb-col')) < hideBefore);
+      var index = Number(cell.getAttribute('data-gb-col'));
+      cell.classList.toggle('gb-off', only !== null ? index !== only : index < hideBefore);
     });
     syncFilter();
   }
@@ -39,21 +73,13 @@
     var students = studentChoice();
     var parts = [];
     if (students !== 'all') parts.push(STUDENT_LABELS[students] || students);
-    if (view.lastN) parts.push(columnCount > view.lastN ? 'Last ' + view.lastN + ' of ' + columnCount : 'Last ' + view.lastN);
-    if (filterLabel) filterLabel.textContent = parts.length ? parts.join(' · ') : 'Filter';
+    if (only !== null) parts.push(columnTitle(only));
+    else if (view.lastN && columnCount > view.lastN) parts.push(view.lastN === 1 ? 'Last assessment' : 'Last ' + view.lastN);
+    if (filterLabel) filterLabel.textContent = parts.join(' · ');
     if (filterBtn) filterBtn.classList.toggle('is-active', parts.length > 0);
-    if (!filterMenu) return;
-    filterMenu.querySelectorAll('[data-gb-last]').forEach(function (item) {
-      var value = item.getAttribute('data-gb-last');
-      var on = value ? Number(value) === view.lastN : !view.lastN;
-      item.setAttribute('aria-checked', on ? 'true' : 'false');
-      item.classList.toggle('is-on', on);
-    });
-    filterMenu.querySelectorAll('[data-gb-students]').forEach(function (item) {
-      var on = item.getAttribute('data-gb-students') === students;
-      item.setAttribute('aria-checked', on ? 'true' : 'false');
-      item.classList.toggle('is-on', on);
-    });
+    if (studentsSelect) studentsSelect.value = students;
+    if (showSelect) showSelect.value = showValue();
+    if (resetBtn) resetBtn.disabled = parts.length === 0;
   }
   function saveView() {
     fetch('/common/gradebook/view', {
@@ -67,6 +93,22 @@
     if (filterMenu && except !== filterMenu) { filterMenu.hidden = true; if (filterBtn) filterBtn.setAttribute('aria-expanded', 'false'); }
     if (sumPop && except !== sumPop) { sumPop.hidden = true; if (sumBtn) sumBtn.setAttribute('aria-expanded', 'false'); }
   }
+  function setStudents(value) {
+    if (!genderSelect) return;
+    genderSelect.value = value;
+    genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function chooseShow(value) {
+    if (value.indexOf('one:') === 0) { only = Number(value.slice(4)); }
+    else {
+      only = null;
+      view.lastN = value.indexOf('last:') === 0 ? Number(value.slice(5)) : null;
+      saveView();
+    }
+    applyColumns();
+    requestAnimationFrame(showNewest);
+  }
+  buildShow();
   if (filterBtn && filterMenu) {
     filterBtn.addEventListener('click', function (event) {
       event.stopPropagation();
@@ -75,21 +117,15 @@
       filterMenu.hidden = !open;
       filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
-    filterMenu.addEventListener('click', function (event) {
-      event.stopPropagation();
-      var students = event.target.closest('[data-gb-students]');
-      if (students && genderSelect) {
-        genderSelect.value = students.getAttribute('data-gb-students');
-        genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        syncFilter();
-        return;
-      }
-      var item = event.target.closest('[data-gb-last]');
-      if (!item) return;
-      var value = item.getAttribute('data-gb-last');
-      view.lastN = value ? Number(value) : null;
-      applyColumns();
+    filterMenu.addEventListener('click', function (event) { event.stopPropagation(); });
+    if (studentsSelect) studentsSelect.addEventListener('change', function () { setStudents(studentsSelect.value); syncFilter(); });
+    if (showSelect) showSelect.addEventListener('change', function () { chooseShow(showSelect.value); });
+    if (resetBtn) resetBtn.addEventListener('click', function () {
+      setStudents('all');
+      only = null;
+      view.lastN = null;
       saveView();
+      applyColumns();
       requestAnimationFrame(showNewest);
     });
   }
@@ -180,7 +216,7 @@
     if (hasUnsaved()) {
       flow.dialog({
         title: 'Save your changes first',
-        text: 'Some scores on this page aren’t saved yet. Save them, then approve “' + title + '”.',
+        text: 'Some scores on this page aren’t saved yet. Save them, then post “' + title + '”.',
         buttons: [{ label: 'Cancel', value: false }, { label: 'Save now', value: true, primary: true }],
       }).then(function (yes) {
         if (yes) document.getElementById('header-save-scores-button').click();
@@ -190,7 +226,7 @@
     flow.confirm({
       title: 'Post ' + waiting + ' grade' + (waiting === 1 ? '' : 's') + ' for “' + title + '”?',
       text: 'Parents and the student will see ' + (waiting === 1 ? 'it' : 'them') + ', and each family gets a notice. You can still change a grade later; it then waits for your approval again.',
-      okLabel: 'Approve and post',
+      okLabel: 'Post',
     }).then(function (yes) {
       if (!yes) return;
       btn.disabled = true;
@@ -245,6 +281,33 @@
               });
             });
         },
+      });
+    });
+  }
+
+  // ---- Review: the existing questions panel, with only the tests that have written answers waiting;
+  // a small count beside the button says how many answers wait.
+  var toMarkBtn = document.getElementById('gb-to-mark');
+  var reviewCount = document.getElementById('gb-review-count');
+  if (toMarkBtn && reviewCount) {
+    fetch('/common/assessment/mark/counts?classId=' + encodeURIComponent(cfg.classId) + '&termId=' + encodeURIComponent(cfg.termId), {
+      credentials: 'same-origin', headers: { Accept: 'application/json' },
+    }).then(function (res) { return res.json(); }).then(function (data) {
+      var n = data && data.success && data.bySubject ? Number(data.bySubject[cfg.subjectId] || 0) : 0;
+      if (n > 0) { reviewCount.textContent = String(n); reviewCount.hidden = false; toMarkBtn.title = n + (n === 1 ? ' answer waits' : ' answers wait') + ' for review'; }
+    }).catch(function () {});
+  }
+  if (toMarkBtn && flow) {
+    toMarkBtn.addEventListener('click', function () {
+      flow.openQuestions({
+        classId: cfg.classId,
+        subjectId: cfg.subjectId,
+        termId: cfg.termId,
+        schoolYearId: cfg.schoolYearId,
+        toMark: true,
+        title: 'Review',
+        subtitle: [cfg.className, cfg.subjectName].filter(Boolean).join(' · '),
+        onDone: reload,
       });
     });
   }

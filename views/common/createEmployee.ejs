@@ -23,7 +23,7 @@
     }
 
     .create-employee-page {
-      max-width: 720px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 12px 12px 66px;
     }
@@ -85,7 +85,7 @@
     .ce-footer-bar-inner {
       display: flex;
       justify-content: flex-start;
-      max-width: 720px;
+      max-width: 900px;
       margin: 0 auto;
     }
 
@@ -169,11 +169,11 @@
 
     .form-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 12px;
     }
 
-    @media (max-width: 500px) {
+    @media (max-width: 640px) {
       .form-row {
         grid-template-columns: 1fr;
       }
@@ -592,7 +592,7 @@
           submitButton.disabled = true;
           submitButton.classList.add('is-loading');
           submitButton.setAttribute('aria-busy', 'true');
-          if (submitLabel) submitLabel.textContent = 'Creating Employee...';
+          if (submitLabel) submitLabel.textContent = 'Creating...';
         };
 
         form.addEventListener("submit", function(e) {
@@ -634,30 +634,48 @@
       <form id="createEmployeeForm" action="/common/createEmployee<%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '' %>" method="post">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="firstName">First Name</label>
-            <input type="text" id="firstName" name="firstName" class="form-input" required placeholder="John">
+            <label class="form-label" for="firstName">First name</label>
+            <input type="text" id="firstName" name="firstName" class="form-input" required placeholder="First name">
           </div>
           <div class="form-group">
-            <label class="form-label" for="lastName">Last Name</label>
-            <input type="text" id="lastName" name="lastName" class="form-input" required placeholder="Doe">
+            <label class="form-label" for="lastName">Last name</label>
+            <input type="text" id="lastName" name="lastName" class="form-input" required placeholder="Last name">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input type="email" id="email" name="email" class="form-input" required placeholder="Email">
           </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row" style="grid-template-columns: 1fr 1fr;">
           <div class="form-group">
-            <label class="form-label" for="email">Email Address</label>
-            <input type="email" id="email" name="email" class="form-input" required placeholder="john.doe@example.com">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="dateOfBirth">Date of Birth</label>
+            <label class="form-label" for="dateOfBirth">Date of birth</label>
             <input type="date" id="dateOfBirth" name="dateOfBirth" class="form-input">
           </div>
+
+          <div class="form-group">
+            <label class="form-label" for="account_type">Role</label>
+            <select id="account_type" name="account_type" class="form-select" required>
+              <option value="">Select role</option>
+              <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager">Manager</option><% } %>
+              <%# Only the roles this person may give (a lead driver adds drivers; utils/staffChangeGuard.js). %>
+              <% const _canGive = (type) => typeof canGiveRoles === 'undefined' || canGiveRoles.includes(type); %>
+              <% if (_canGive('Supervisor')) { %><option value="Supervisor">Supervisor</option><% } %>
+              <% if (_canGive('Teacher')) { %><option value="Teacher">Teacher</option><% } %>
+              <%# A driver is there for transportation alone: offered while the school has it switched on. %>
+              <% if (!(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver">Driver</option><% } %>
+              <%- include('../partials/schoolRoles', { part: 'options' }) %>
+            </select>
+            <%- include('../partials/schoolRoles', { part: 'panel' }) %>
+          </div>
+
+        
         </div>
 
 
         <div class="ce-section">
           <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classes' }) %>
-          <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
+          <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers get classes, not subjects.</p>
 
           <div class="collapsible-content" id="collapse-all-classes" style="display: none;">
             <% if (!classes.length) { %><p class="permissions-note">This school has no classes yet.</p><% } %>
@@ -677,23 +695,7 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="account_type">Role</label>
-          <select id="account_type" name="account_type" class="form-select" required>
-            <option value="">-- Select Role --</option>
-            <% if (typeof canAssignHighRisk === 'undefined' || canAssignHighRisk) { %><option value="Manager">Manager</option><% } %>
-            <%# Only the roles this person may give (a lead driver adds drivers; utils/staffChangeGuard.js). %>
-            <% const _canGive = (type) => typeof canGiveRoles === 'undefined' || canGiveRoles.includes(type); %>
-            <% if (_canGive('Supervisor')) { %><option value="Supervisor">Supervisor</option><% } %>
-            <% if (_canGive('Teacher')) { %><option value="Teacher">Teacher</option><% } %>
-            <%# A driver is there for transportation alone: offered while the school has it switched on. %>
-            <% if (!(typeof integrationSwitches !== 'undefined' && integrationSwitches && integrationSwitches.transportation === false)) { %><option value="Driver">Driver</option><% } %>
-            <%- include('../partials/schoolRoles', { part: 'options' }) %>
-          </select>
-          <%- include('../partials/schoolRoles', { part: 'panel' }) %>
-        </div>
-
-        <%- include('../partials/employeeSignIn', { signInIsExisting: false }) %>
+<%- include('../partials/employeeSignIn', { signInIsExisting: false }) %>
 
         <div class="ce-section" id="permission-assignment-group">
           <h3 class="ce-section-title">Permissions</h3>
@@ -710,9 +712,9 @@
 
   <div class="ce-footer-bar">
     <div class="ce-footer-bar-inner">
-      <button type="submit" form="createEmployeeForm" class="btn-primary" data-ack-submit disabled title="Confirm the access below first">
+      <button type="submit" form="createEmployeeForm" class="btn-primary" data-ack-submit disabled title="Confirm first">
         <span class="btn-spinner" aria-hidden="true"></span>
-        <span class="btn-label">Create Employee</span>
+        <span class="btn-label">Create</span>
       </button>
     </div>
   </div>

@@ -13,13 +13,15 @@
   const _input = locals.inputClass || 'form-input';
   const _req = locals.requiredMark || '<span class="req">*</span>';
 %>
+<% if (!locals.__fhLinked) { locals.__fhLinked = true; %><link rel="stylesheet" href="/css/fieldHelp.css"><script src="/js/fieldHelp.js" defer></script><% } %>
 <% _cf.forEach(function (f) {
   const name = 'cf' + f.id + _suffix;
   const v = _vals[f.id] != null ? String(_vals[f.id]) : '';
   const req = f.required ? 'required' : '';
 %>
-  <div class="<%= _group %> scf-field<%= f.type === 'long_text' ? ' scf-wide' : '' %>">
-    <label class="<%= _label %>"><%= f.label %><% if (f.required) { %><%- _req %><% } %></label>
+  <% const _full = f.width === 'full' || (f.width !== 'half' && f.type === 'long_text'); %>
+  <div class="<%= _group %> scf-field<%= _full ? ' scf-wide' : '' %>">
+    <label class="<%= _label %>"><%= f.label %><% if (f.required) { %><%- _req %><% } %><% if (f.helpText) { %><span class="fh"><button type="button" class="fh__btn" aria-label="About <%= f.label %>" aria-describedby="fh<%= f.id %><%= _suffix %>">?</button><span class="fh__tip" role="tooltip" id="fh<%= f.id %><%= _suffix %>"><%= f.helpText %></span></span><% } %></label>
     <% if (f.type === 'long_text') { %>
       <textarea class="<%= _input %>" name="<%= name %>" rows="3" maxlength="4000" <%= req %>><%= v %></textarea>
     <% } else if (f.type === 'number') { %>
@@ -41,6 +43,5 @@
     <% } else { %>
       <input type="text" class="<%= _input %>" name="<%= name %>" value="<%= v %>" maxlength="500" <%= req %>>
     <% } %>
-    <% if (f.helpText) { %><small class="scf-help"><%= f.helpText %></small><% } %>
   </div>
 <% }) %>

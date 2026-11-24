@@ -60,7 +60,7 @@
   .mira-info-overlay.show { opacity: 1; visibility: visible; }
   .mira-info-drawer {
     position: absolute; inset: 0 0 0 auto; display: flex; flex-direction: column;
-    width: min(560px, 100%); height: 100%; background: #fff;
+    width: min(1040px, 100%); height: 100%; background: #fff;
     border-left: 1px solid #e2e8f0; box-shadow: -16px 0 40px rgba(15, 23, 42, 0.12);
     transform: translateX(100%); transition: transform 0.24s ease;
   }
@@ -205,18 +205,18 @@
   }
   .mira-toggle-row .label { font-weight: 600; font-size: 0.9rem; color: #111827; }
   .mira-toggle-row .sub { color: #6b7280; font-size: 0.78rem; margin-top: 2px; }
-  .mira-switch { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
+  .mira-switch { position: relative; display: inline-block; width: 26px; height: 15px; flex-shrink: 0; }
   .mira-switch input { opacity: 0; width: 0; height: 0; }
   .mira-switch-slider {
     position: absolute; cursor: pointer; inset: 0; background: #d1d5db;
     border-radius: 999px; transition: background 0.18s ease;
   }
   .mira-switch-slider::before {
-    content: ""; position: absolute; height: 14px; width: 14px; left: 2px; top: 2px;
+    content: ""; position: absolute; height: 11px; width: 11px; left: 2px; top: 2px;
     background: #fff; border-radius: 50%; transition: transform 0.18s ease;
   }
   .mira-switch input:checked + .mira-switch-slider { background: var(--org-primary-color, #01535b); }
-  .mira-switch input:checked + .mira-switch-slider::before { transform: translateX(14px); }
+  .mira-switch input:checked + .mira-switch-slider::before { transform: translateX(11px); }
   .mira-switch input:disabled + .mira-switch-slider { opacity: 0.6; cursor: default; }
 
   .mira-permissions-label { font-weight: 600; font-size: 0.86rem; margin: 0 0 3px; color: #111827; }
@@ -281,7 +281,7 @@
       <% } %>
     </div>
   </div>
-  <div class="mira-info-overlay" id="mira-info-overlay">
+  <div class="mira-info-overlay" id="mira-info-overlay" data-below-header="show" data-popup-lift>
     <aside class="mira-info-drawer" id="mira-info-drawer" role="dialog" aria-modal="true" aria-labelledby="mira-info-drawer-title" tabindex="-1">
       <header class="mira-info-drawer-head">
         <h2 id="mira-info-drawer-title">Mira information</h2>
@@ -423,7 +423,7 @@
 
     infoCloseButton.addEventListener('click', closeInfoDrawer);
     infoOverlay.addEventListener('click', function (event) {
-      if (event.target === infoOverlay) closeInfoDrawer();
+      /* panels close only with X or Escape */
     });
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && infoOverlay.classList.contains('show')) closeInfoDrawer();
@@ -495,3 +495,4 @@
   }
 })();
 </script>
+<script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>

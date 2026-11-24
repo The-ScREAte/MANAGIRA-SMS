@@ -211,17 +211,17 @@
       (p.photo ? '<img class="ux-avatar" src="' + esc(p.photo) + '" alt="" data-initials="' + esc(initials) + '" />' : '<span class="ux-avatar">' + esc(initials) + '</span>') +
       '<div><div class="ux-who__name">' + esc(p.name) + '</div><span class="ws-pill ' + pill + '">' + esc(p.status === 'Active' ? 'Portal active' : p.status) + '</span></div></div>' +
       '<section class="ux-sec"><h3>Contact</h3>' + kv('Email', p.email) + kv('Phone', p.phone) + kv('Address', p.address) + kv('Hometown', p.hometown) +
-        (!p.email && !p.phone && !p.address ? '<p class="ux-muted">No contact details.</p>' : '') + '</section>' +
+        (!p.email && !p.phone && !p.address ? '<p class="ux-muted">None</p>' : '') + '</section>' +
       '<section class="ux-sec"><h3>Children <span class="ux-count">' + p.children.length + '</span></h3>' +
         (p.children.length ? p.children.map(function (c) {
           return '<button type="button" class="gx-kid" data-child="' + esc(c.id) + '" title="Open ' + esc(c.name) + '"><strong>' + esc(c.name) + '</strong><span>' + esc(c.className || 'No class') +
             (c.relationship ? ' · ' + esc(c.relationship) : '') + (c.archived ? ' · <b class="gx-archived">Graduated or left</b>' : '') + '</span></button>';
-        }).join('') : '<p class="ux-muted">No children linked.</p>') + '</section>' +
+        }).join('') : '<p class="ux-muted">None</p>') + '</section>' +
       '<section class="ux-sec"><h3>Parent portal</h3>' + kv('Status', p.status) + kv('Sign-in email', p.loginEmail) + kv('Sign-in phone', p.loginPhone) + kv('Last sign-in', p.lastLogin) + '</section>' +
       '<div class="ux-actions">' +
-        (canInvite ? '<button type="button" class="ws-btn" id="uxInvite"><i class="fa-solid fa-key" aria-hidden="true"></i> ' + (p.status === 'Active' ? 'Send password reset' : 'Send password setup') + '</button>' : '') +
+        (canInvite ? '<button type="button" class="ws-btn" id="uxInvite"><i class="fa-solid fa-key" aria-hidden="true"></i> ' + (p.status === 'Active' ? 'Send reset' : 'Send setup') + '</button>' : '') +
         '<button type="button" class="ws-btn" id="uxProfile"><i class="fa-solid fa-image" aria-hidden="true"></i> Photo &amp; children</button>' +
-        '<button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit details</button>' +
+        '<button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>' +
       '</div><div id="uxNotice"></div>';
     get('uxPanelBody').innerHTML = html;
     var photo = get('uxPanelBody').querySelector('img.ux-avatar');
@@ -340,7 +340,6 @@
     if (row) row.focus();
   }
   get('uxClose').addEventListener('click', close);
-  get('uxBackdrop').addEventListener('click', close);
   get('uxBack').addEventListener('click', function () {
     if (card && card.isOpen()) { card.requestClose(); return; }
     var frame = get('uxEditFrame');

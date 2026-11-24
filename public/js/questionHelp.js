@@ -38,12 +38,10 @@
     };
     var box = document.createElement('div');
     box.className = 'qm-field qh';
-    box.innerHTML = '<button type="button" class="qh-toggle" aria-expanded="false">' + ICON + '<span class="qh-toggle__text">Add help or a resource</span></button>'
+    box.innerHTML = '<button type="button" class="qh-toggle" aria-expanded="false">' + ICON + '<span class="qh-toggle__text">Add a hint</span></button>'
       + '<div class="qh-body" hidden>'
-      + '<label class="qh-label">Recommendation<textarea class="qh-text" rows="2" maxlength="2000" placeholder="A hint, what to revise, or where to look"></textarea></label>'
-      + '<div class="qh-row"><label class="qh-label">Link<input type="url" class="qh-url" placeholder="https://" /></label><label class="qh-label">Link name<input type="text" class="qh-linkname" maxlength="120" placeholder="e.g. Video on fractions" /></label></div>'
-      + '<div class="qh-label">Files<ul class="qh-files"></ul><label class="qh-upload">Attach a file<input type="file" hidden /></label><span class="qh-status" role="status"></span></div>'
-      + '<p class="qh-note">Students see this under the question.</p>'
+      + '<label class="qh-label">Hint<textarea class="qh-text" rows="2" maxlength="2000" placeholder="A hint, or where to look"></textarea></label>'
+      + '<ul class="qh-files"></ul>'
       + '</div>';
     var anchor = card.querySelector('.qbf-media') || (card.querySelector('.question-text-editor') ? card.querySelector('.question-text-editor').closest('.qm-field') : null);
     var body = card.querySelector('.qm-question-card-body');
@@ -52,19 +50,16 @@
     else card.appendChild(box);
 
     var text = box.querySelector('.qh-text');
-    var url = box.querySelector('.qh-url');
-    var name = box.querySelector('.qh-linkname');
-    var status = box.querySelector('.qh-status');
     text.value = h.text;
-    url.value = h.link.url;
-    name.value = h.link.label;
+    // Files and a link added earlier stay for students until removed here; new ones go in the test's Resources.
     function renderFiles() {
-      box.querySelector('.qh-files').innerHTML = h.files.map(function (f, i) {
+      var rows = h.files.map(function (f, i) {
         return '<li><a href="' + esc(fileHref(f)) + '" target="_blank" rel="noopener">' + esc(f.name) + '</a><button type="button" data-qh-remove="' + i + '">Remove</button></li>';
-      }).join('');
-      box.querySelector('.qh-upload').hidden = h.files.length >= MAX_FILES;
+      });
+      if (h.link && h.link.url) rows.push('<li><a href="' + esc(h.link.url) + '" target="_blank" rel="noopener">' + esc(h.link.label || h.link.url) + '</a><button type="button" data-qh-remove="link">Remove</button></li>');
+      box.querySelector('.qh-files').innerHTML = rows.join('');
       var label = summary(h);
-      box.querySelector('.qh-toggle__text').textContent = label || 'Add help or a resource';
+      box.querySelector('.qh-toggle__text').textContent = label ? 'Hint added' : 'Hint';
       box.classList.toggle('has-help', Boolean(label));
     }
     renderFiles();
@@ -76,27 +71,15 @@
     });
     box.addEventListener('input', function () {
       h.text = text.value;
-      h.link = { url: url.value.trim(), label: name.value.trim() };
       renderFiles();
     });
     box.addEventListener('click', function (e) {
       var rm = e.target.closest('[data-qh-remove]');
       if (!rm) return;
-      h.files.splice(Number(rm.getAttribute('data-qh-remove')), 1);
+      var which = rm.getAttribute('data-qh-remove');
+      if (which === 'link') h.link = { url: '', label: '' };
+      else h.files.splice(Number(which), 1);
       renderFiles();
-    });
-    box.querySelector('input[type="file"]').addEventListener('change', function () {
-      var file = this.files && this.files[0];
-      var input = this;
-      if (!file) return;
-      status.textContent = 'Uploading…';
-      var form = new FormData();
-      form.append('file', file);
-      fetch('/common/assessment/questions/help-file', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: form })
-        .then(function (res) { return res.json().then(function (j) { if (!res.ok || !j.success) throw new Error(j.message || 'That file could not be uploaded.'); return j.file; }); })
-        .then(function (saved) { h.files.push(saved); status.textContent = ''; renderFiles(); })
-        .catch(function (err) { status.textContent = err.message; })
-        .then(function () { input.value = ''; });
     });
   }
 
@@ -114,3 +97,4 @@
   // Cards drawn before this file loaded (a restored draft).
   Array.prototype.forEach.call(document.querySelectorAll('#question-items .qm-question-card'), function (card) { decorate(card, {}); });
 })();
+

@@ -17,8 +17,8 @@
       + '<label class="sff__field sff__field--file"><span>File' + (required ? ' <em class="sff__req">required</em>' : '') + '</span>'
       + '<input type="file" name="studentDoc_' + key + '"' + (required ? ' required' : '') + ' accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.doc,.docx,application/pdf,image/*"></label>'
       + '<label class="sff__field"><span>Type</span><select name="docType_' + key + '" data-sff-type>' + opt(_sfTypes, true) + '</select></label>'
-      + '<label class="sff__field"><span>Title</span><input type="text" name="docTitle_' + key + '" maxlength="140" placeholder="e.g. Blue Cross card"></label>'
-      + '<label class="sff__field"><span>Who can see it</span><select name="docSharing_' + key + '" data-sff-sharing>' + shareOpts + '</select></label>'
+      + '<label class="sff__field"><span>Title</span><input type="text" name="docTitle_' + key + '" maxlength="140" placeholder="Title"></label>'
+      + '<label class="sff__field"><span>Visible to</span><select name="docSharing_' + key + '" data-sff-sharing>' + shareOpts + '</select></label>'
       + (required ? '' : '<button type="button" class="sff__remove" data-sff-remove aria-label="Remove this file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>')
       + '</div>';
   };
@@ -36,7 +36,7 @@
       <label class="sff__field"><span>Type</span>
         <select name="docEditType_<%= d.id %>"><% _sfTypes.forEach(function (t) { %><option value="<%= t.key %>" <%= t.key === d.docType ? 'selected' : '' %>><%= t.label %></option><% }) %></select></label>
       <label class="sff__field"><span>Title</span><input type="text" name="docEditTitle_<%= d.id %>" maxlength="140" value="<%= d.title %>"></label>
-      <label class="sff__field"><span>Who can see it</span>
+      <label class="sff__field"><span>Visible to</span>
         <select name="docEditSharing_<%= d.id %>"><% _sfSharing.forEach(function (o) { %><option value="<%= o.key %>" <%= o.key === d.sharing ? 'selected' : '' %>><%= _sfShareLabel[o.key] || o.label %></option><% }) %></select></label>
       <label class="sff__remove-tick"><input type="checkbox" name="removeDoc" value="<%= d.id %>"> Remove</label>
     </div>
@@ -47,9 +47,8 @@
   <div class="sff__foot">
     <button type="button" class="sff__add" data-sff-add>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      Add a file
+      Add file
     </button>
-    <span class="sff__hint">PDF, picture or Word, up to <%= sf.maxMb %> MB each.</span>
   </div>
   <template data-sff-row><%- _sfRow('{{KEY}}', false) %></template>
 </div>

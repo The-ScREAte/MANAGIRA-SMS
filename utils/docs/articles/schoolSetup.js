@@ -66,9 +66,9 @@ module.exports = [
         title: "Create a school year",
         steps: [
           ["Open <strong>Management</strong>, then <strong>School years &amp; terms</strong>, and select <strong>New school year</strong>.", "school-years.webp", "Management, School years: the current year and term are marked with a dot."],
-          "Enter the <strong>School Year Label</strong> (for example <em>2026 - 2027</em>) with its start and end dates.",
-          "Add each term or semester with its <strong>Term Name</strong>, <strong>Start Date</strong> and <strong>End Date</strong>. Terms can't overlap.",
-          "Select <strong>Register School Year</strong>.",
+          "Enter the <strong>School year</strong> (for example <em>2026 - 2027</em>) with its start and end dates.",
+          "Add each term or semester with its <strong>Name</strong>, <strong>Start</strong> and <strong>End</strong>. Terms can't overlap.",
+          "Select <strong>Register</strong>.",
         ],
         example: "A middle school uses two semesters: <em>Fall Semester</em> (August 17 to December 18) and <em>Spring Semester</em> (January 5 to May 28).",
       },

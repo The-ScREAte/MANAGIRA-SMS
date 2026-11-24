@@ -107,6 +107,11 @@
                 <span class="ex-q__pts"><%= pts %> pt<%= pts === 1 ? '' : 's' %></span>
               </div>
               <div class="ex-q__text"><%- question.question_html || '' %></div>
+              <% if (question.rubric) { %>
+                <ul class="ex-rubric" aria-label="How this answer is marked">
+                  <% question.rubric.criteria.forEach((criterion) => { %><li><span><%= criterion.name %></span><b><%= criterion.marks %></b></li><% }) %>
+                </ul>
+              <% } %>
               <% if (question.help) { %>
                 <details class="ex-help">
                   <summary>Help for this question</summary>

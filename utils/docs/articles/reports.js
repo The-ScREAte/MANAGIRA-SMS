@@ -126,7 +126,7 @@ module.exports = [
           "Choose <strong>Sheet</strong> (best for most report cards: rows, columns, borders and merged cells) or <strong>Doc</strong> (a letter-style card). Name it, for example <em>7th Grade report card</em>, and select <strong>Create</strong>.",
           ["Lay out the card as you would in a spreadsheet: the school's name at the top, labels in bold, a header row for subjects. Changes save as you go.", "rt-editor.webp", "A finished layout: labels in bold, and a field in each cell where data goes."],
         ],
-        tip: "Want a head start? Open <strong>Fields</strong> and, under <strong>Start from a sample</strong>, choose <strong>Scores</strong>, <strong>Tick boxes</strong> or <strong>Nursery card</strong> for a complete layout you can adjust. Undo brings back what you had.",
+        tip: "Want a head start? Open <strong>Fields</strong> and, under <strong>Samples</strong>, choose <strong>Scores</strong>, <strong>Tick boxes</strong> or <strong>Nursery card</strong> for a complete layout you can adjust. Undo brings back what you had.",
       },
       {
         title: "Bring in your card from Excel",

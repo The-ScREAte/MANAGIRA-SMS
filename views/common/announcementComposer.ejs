@@ -18,8 +18,12 @@
       --bg-page: #f8fafc;
     }
     body.ann-composer-page { font-family: var(--font-family); background: var(--bg-page); margin: 0; }
-    .ann-form-wrap { max-width: 720px; margin: 0 auto; padding: 28px 24px 80px; }
-    .ann-field { margin-bottom: 18px; }
+    .ann-form-wrap { max-width: 720px; margin: 0 auto; padding: 18px 24px 80px; }
+    .ann-field { margin-bottom: 12px; }
+    .ann-checks { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0 0 14px; }
+    .ann-checks label { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+    .ann-row { flex-wrap: wrap; }
+    .ann-row > .ann-field { flex: 1 1 200px; }
     .ann-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
     .ann-field .hint { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; }
     .ann-field input[type=text], .ann-field input[type=url], .ann-field input[type=number],
@@ -27,9 +31,10 @@
       width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border);
       border-radius: 8px; font-size: 0.85rem; font-family: inherit;
     }
-    .ann-field textarea { min-height: 110px; resize: vertical; }
-    .ann-row { display: flex; gap: 16px; }
-    .ann-row > .ann-field { flex: 1; min-width: 0; }
+    .ann-field input:not([type=checkbox]), .ann-field select, .ann-field textarea, .ann-org-tools input:not([type=checkbox]), .ann-cta-row input:not([type=checkbox]), .ann-cta-row select, .ann-advanced input { margin: 0; }
+    .ann-field textarea { min-height: 84px; resize: vertical; }
+    .ann-row { display: flex; gap: 12px; }
+    .ann-row > .ann-field { min-width: 0; }
     /* Phones: fields one under the other, so nothing is squeezed or cut off. */
     @media (max-width: 560px) {
       .ann-row { flex-direction: column; gap: 0; }
@@ -53,7 +58,7 @@
     .ann-cta-row label { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; white-space: nowrap; }
     .ann-cta-row button.remove { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 1rem; }
     .ann-add-link { background: none; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; color: var(--primary); width: 100%; }
-    .ann-target-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+    .ann-target-group { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
     .ann-target-group h4 { margin: 0 0 8px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
     .ann-checkbox-grid { display: flex; flex-wrap: wrap; gap: 10px; }
     .ann-checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
@@ -88,33 +93,10 @@
   <%- include('../partials/adminDrawer') %>
   <div class="ann-form-wrap">
     <form id="annForm">
-      <div class="ann-field">
-        <label>Title</label>
-        <input type="text" id="ann_title" value="<%= a ? a.title : '' %>" maxlength="255" required>
-      </div>
-
-      <div class="ann-field">
-        <label>Message</label>
-        <textarea id="ann_body" required><%= a ? a.body : '' %></textarea>
-        <div class="hint">Plain text. Links are clickable.</div>
-      </div>
-
-      <div class="ann-field">
-        <label>Image (optional)</label>
-        <input type="file" id="ann_image_file" accept="image/*">
-        <input type="hidden" id="ann_image_url" value="<%= a && a.image_url ? a.image_url : '' %>">
-        <img id="ann_image_preview" class="ann-image-preview" src="<%= a && a.image_url ? publicImageUrl(a.image_url) : '' %>" style="<%= a && a.image_url ? 'display:block;' : '' %>">
-      </div>
-
       <div class="ann-row">
-        <div class="ann-field">
-          <label>Display type</label>
-          <div class="ann-segmented" id="ann_display_type_toggle">
-            <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Pop-up</button>
-            <button type="button" data-value="banner" class="<%= (a && a.display_type === 'banner') ? 'active' : '' %>">Banner</button>
-            <button type="button" data-value="dashboard" class="<%= (a && a.display_type === 'dashboard') ? 'active' : '' %>">Dashboard notice</button>
-          </div>
-          <div class="hint" id="ann_display_type_hint"></div>
+        <div class="ann-field" style="flex:2;">
+          <label>Title</label>
+          <input type="text" id="ann_title" value="<%= a ? a.title : '' %>" maxlength="255" placeholder="Title" required>
         </div>
         <div class="ann-field">
           <label>Style</label>
@@ -126,38 +108,47 @@
         </div>
       </div>
 
-      <div class="ann-field" id="ann_position_field">
-        <label>Pop-up position</label>
-        <div class="ann-segmented ann-segmented-3" id="ann_position_toggle">
-          <button type="button" data-value="center" class="<%= (!a || a.position === 'center' || !a.position) ? 'active' : '' %>">Center</button>
-          <button type="button" data-value="bottom-left" class="<%= (a && a.position === 'bottom-left') ? 'active' : '' %>">Bottom left</button>
-          <button type="button" data-value="bottom-right" class="<%= (a && a.position === 'bottom-right') ? 'active' : '' %>">Bottom right</button>
-        </div>
-        <div class="hint">Center shows a classic, blocking dialog. Bottom corners show a smaller card and let people keep using the page. Banners always sit at the top, so this only applies to pop-ups. Phones always use Center (no room for a corner card).</div>
-      </div>
-
-      <div class="ann-field ann-toggle-row">
-        <input type="checkbox" id="ann_dismissible" <%= (!a || a.dismissible) ? 'checked' : '' %>>
-        <label for="ann_dismissible" style="margin:0;">People can close it</label>
-      </div>
-
       <div class="ann-field">
-        <label>Buttons (optional)</label>
-        <div id="ann_cta_rows"></div>
-        <button type="button" class="ann-add-link" id="ann_add_cta">+ Add link</button>
+        <label>Message</label>
+        <textarea id="ann_body" placeholder="Message" required><%= a ? a.body : '' %></textarea>
       </div>
 
       <div class="ann-row">
         <div class="ann-field">
-          <label>How often to show it</label>
+          <label>Display</label>
+          <div class="ann-segmented" id="ann_display_type_toggle">
+            <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Pop-up</button>
+            <button type="button" data-value="banner" class="<%= (a && a.display_type === 'banner') ? 'active' : '' %>">Banner</button>
+            <button type="button" data-value="dashboard" class="<%= (a && a.display_type === 'dashboard') ? 'active' : '' %>">Dashboard</button>
+          </div>
+        </div>
+        <div class="ann-field" id="ann_position_field">
+          <label>Position</label>
+          <div class="ann-segmented ann-segmented-3" id="ann_position_toggle">
+            <button type="button" data-value="center" class="<%= (!a || a.position === 'center' || !a.position) ? 'active' : '' %>">Center</button>
+            <button type="button" data-value="bottom-left" class="<%= (a && a.position === 'bottom-left') ? 'active' : '' %>">Bottom left</button>
+            <button type="button" data-value="bottom-right" class="<%= (a && a.position === 'bottom-right') ? 'active' : '' %>">Bottom right</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ann-row">
+        <div class="ann-field">
+          <label>Image</label>
+          <input type="file" id="ann_image_file" accept="image/*">
+          <input type="hidden" id="ann_image_url" value="<%= a && a.image_url ? a.image_url : '' %>">
+          <img id="ann_image_preview" class="ann-image-preview" src="<%= a && a.image_url ? publicImageUrl(a.image_url) : '' %>" style="<%= a && a.image_url ? 'display:block;' : '' %>">
+        </div>
+        <div class="ann-field">
+          <label>Frequency</label>
           <select id="ann_frequency">
-            <% [['once','Once'],['until_dismissed','Until they close it'],['once_per_session','Once per sign-in'],['every_login','Every time they sign in'],['daily','Once a day'],['n_times','A set number of times'],['until_date','Until the end date']].forEach(([f, label]) => { %>
+            <% [['once','Once'],['until_dismissed','Until closed'],['once_per_session','Once per sign-in'],['every_login','Every sign-in'],['daily','Daily'],['n_times','Set number of times'],['until_date','Until end date']].forEach(([f, label]) => { %>
               <option value="<%= f %>" <%= a && a.frequency === f ? 'selected' : '' %>><%= label %></option>
             <% }) %>
           </select>
         </div>
         <div class="ann-field" id="ann_max_views_field" style="display:none;">
-          <label>Number of times</label>
+          <label>Times</label>
           <input type="number" id="ann_max_views" min="1" value="<%= a && a.max_views ? a.max_views : 3 %>">
         </div>
       </div>
@@ -168,18 +159,27 @@
           <input type="datetime-local" id="ann_starts_at" data-iso="<%= a && a.starts_at ? a.starts_at.toISOString() : '' %>">
         </div>
         <div class="ann-field">
-          <label>Ends (optional)</label>
+          <label>Ends</label>
           <input type="datetime-local" id="ann_ends_at" data-iso="<%= a && a.ends_at ? a.ends_at.toISOString() : '' %>">
         </div>
       </div>
 
-      <div class="ann-field ann-toggle-row">
-        <input type="checkbox" id="ann_is_active" <%= (!a || a.is_active) ? 'checked' : '' %>>
-        <label for="ann_is_active" style="margin:0;">Published (untick to save without showing it)</label>
+      <div class="ann-field">
+        <label>Buttons</label>
+        <div id="ann_cta_rows"></div>
+        <button type="button" class="ann-add-link" id="ann_add_cta">+ Add link</button>
+      </div>
+
+      <div class="ann-checks">
+        <label class="ann-toggle-row"><input type="checkbox" id="ann_dismissible" <%= (!a || a.dismissible) ? 'checked' : '' %>> Closable</label>
+        <label class="ann-toggle-row"><input type="checkbox" id="ann_is_active" <%= (!a || a.is_active) ? 'checked' : '' %>> Published</label>
+        <% if (!a) { %>
+          <label class="ann-toggle-row"><input type="checkbox" id="ann_notify" checked> Notification bell</label>
+        <% } %>
       </div>
 
       <div class="ann-field">
-        <label>Who should see it</label>
+        <label>Who</label>
         <div class="ann-target-group">
           <h4>People</h4>
           <div class="ann-chip-grid">
@@ -188,7 +188,6 @@
               <label class="ann-chip"><input type="checkbox" class="ann-role-check" value="<%= r %>" <%= on ? 'checked' : '' %>><span><%= label %></span></label>
             <% }) %>
           </div>
-          <% if (global) { %><div class="hint">Leave all unticked to reach everyone in the chosen schools.</div><% } %>
         </div>
 
         <% if (global) { %>
@@ -212,21 +211,18 @@
         <% } %>
 
         <details class="ann-advanced" <%= existingUserTargets.length ? 'open' : '' %>>
-          <summary>Specific people (optional)</summary>
-          <input type="text" id="ann_user_ids" value="<%= existingUserTargets.join(', ') %>" placeholder="Staff user IDs, separated by commas">
+          <summary>Specific people</summary>
+          <input type="text" id="ann_user_ids" value="<%= existingUserTargets.join(', ') %>" placeholder="Optional: staff user IDs, comma separated">
         </details>
 
-        <% if (!a) { %>
-          <label class="ann-toggle-row ann-notify"><input type="checkbox" id="ann_notify" checked> Also send it to their notification bell</label>
-        <% } %>
-        <div class="ann-estimate" id="ann_estimate">Estimated recipients: &mdash;</div>
+        <div class="ann-estimate" id="ann_estimate">&mdash;</div>
       </div>
 
       <div class="ann-error" id="ann_error"></div>
 
       <div class="ann-submit-bar">
         <button type="button" class="ann-btn-secondary" onclick="window.parent && window.parent.postMessage({managiraDrawerSaved:false}, window.location.origin)">Cancel</button>
-        <button type="submit" class="ann-btn-primary"><%= a ? 'Save changes' : 'Create announcement' %></button>
+        <button type="submit" class="ann-btn-primary"><%= a ? 'Save' : 'Create' %></button>
       </div>
     </form>
   </div>
@@ -249,15 +245,9 @@
 
     // Display-type segmented toggle
     const positionField = document.getElementById('ann_position_field');
-    const DISPLAY_TYPE_HINTS = {
-      modal: 'A pop-up when people open Managira.',
-      banner: 'A strip across the top of every page.',
-      dashboard: 'A notice at the top of the school dashboard' + (isGlobal ? ' (and the admin dashboard for the Managira team).' : '.'),
-    };
     function syncPositionVisibility() {
       const type = document.querySelector('#ann_display_type_toggle button.active').dataset.value;
       positionField.style.display = type === 'modal' ? 'block' : 'none';
-      document.getElementById('ann_display_type_hint').textContent = DISPLAY_TYPE_HINTS[type] || '';
     }
     document.querySelectorAll('#ann_display_type_toggle button').forEach(btn => {
       btn.addEventListener('click', function () {
@@ -319,7 +309,7 @@
           '<option value="secondary"' + (link.style === 'secondary' ? ' selected' : '') + '>Secondary</option>' +
           '<option value="link"' + (link.style === 'link' ? ' selected' : '') + '>Link</option>' +
         '</select>' +
-        '<label><input type="checkbox" class="cta-ack"' + (link.ack_required ? ' checked' : '') + '> Ack required</label>' +
+        '<label><input type="checkbox" class="cta-ack"' + (link.ack_required ? ' checked' : '') + '> Ack</label>' +
         '<button type="button" class="remove">&times;</button>';
       row.querySelector('.remove').addEventListener('click', () => row.remove());
       ctaRowsContainer.appendChild(row);
@@ -337,7 +327,7 @@
       function syncOrgPicker() {
         orgPicker.style.display = allOrgsCheckbox.checked ? 'none' : 'block';
         const n = orgChecks.filter(c => c.checked).length;
-        document.getElementById('ann_org_count').textContent = n ? n + ' school' + (n === 1 ? '' : 's') + ' selected' : 'No schools selected yet';
+        document.getElementById('ann_org_count').textContent = n ? n + ' school' + (n === 1 ? '' : 's') + ' selected' : 'None selected';
       }
       allOrgsCheckbox.addEventListener('change', syncOrgPicker);
       orgChecks.forEach(c => c.addEventListener('change', syncOrgPicker));
@@ -393,7 +383,7 @@
       fetch('/announcements/estimate-recipients?' + params.toString(), { credentials: 'same-origin' })
         .then(r => r.json())
         .then(data => {
-          document.getElementById('ann_estimate').textContent = data.estimate != null ? 'Reaches about ' + data.estimate + ' ' + (data.estimate === 1 ? 'person' : 'people') + ' who can sign in' : 'Estimated recipients: —';
+          document.getElementById('ann_estimate').textContent = data.estimate != null ? 'About ' + data.estimate + ' ' + (data.estimate === 1 ? 'person' : 'people') : '—';
         })
         .catch(() => {});
     }
@@ -425,7 +415,7 @@
       <% if (global) { %>
         payload.tenant_id = null;
         if (!allOrgsCheckbox.checked && !orgChecks.some(c => c.checked)) {
-          errorBox.textContent = 'Choose at least one school, or tick All schools.';
+          errorBox.textContent = 'Choose a school.';
           errorBox.style.display = 'block';
           return;
         }
@@ -434,14 +424,14 @@
         }
       <% } else { %>
         if (!payload.targets.length) {
-          errorBox.textContent = 'Choose who should see this announcement.';
+          errorBox.textContent = 'Choose who sees it.';
           errorBox.style.display = 'block';
           return;
         }
       <% } %>
 
       if (!payload.title || !payload.body) {
-        errorBox.textContent = 'Add a title and a message.';
+        errorBox.textContent = 'Add a title and message.';
         errorBox.style.display = 'block';
         return;
       }

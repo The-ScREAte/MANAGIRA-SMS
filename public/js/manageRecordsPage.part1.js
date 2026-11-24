@@ -1095,7 +1095,6 @@
         if (input) input.checked = true;
         const custom = value === 'custom';
         document.getElementById('rsyYearDates').hidden = custom;
-        document.getElementById('rsyPlanHint').hidden = custom;
       }
       function fillRsyTerms() {
         const planner = rsyPlanner();
@@ -1171,23 +1170,25 @@
             <div style="position: relative;">
               <button type="button" class="rsy-term-menu-btn" onclick="toggleRsyTermDeleteMenu(event, this)">⋮</button>
               <div class="rsy-term-menu-dropdown">
-                <button type="button" class="rsy-term-menu-item" onclick="removeRsyField(this)">🗑️ Remove Term</button>
+                <button type="button" class="rsy-term-menu-item" onclick="removeRsyField(this)">🗑️ Remove</button>
               </div>
             </div>
           </div>
+          <div class="rsy-term-fields">
           <div class="rsy-form-group">
-            <label class="rsy-form-label">Term Name</label>
-            <input type="text" name="terms[${termIndex}][termName]" list="term-library" autocomplete="off" class="rsy-form-input" placeholder="e.g., 1st Semester, Fall Term" required>
+            <label class="rsy-form-label">Name</label>
+            <input type="text" name="terms[${termIndex}][termName]" list="term-library" autocomplete="off" class="rsy-form-input" placeholder="e.g. 1st Semester" required>
           </div>
           <div class="rsy-date-row">
             <div class="rsy-form-group" style="margin-bottom:0;">
-              <label class="rsy-form-label">Start Date</label>
+              <label class="rsy-form-label">Start</label>
               <input type="date" name="terms[${termIndex}][startDate]" class="rsy-form-input" required>
             </div>
             <div class="rsy-form-group" style="margin-bottom:0;">
-              <label class="rsy-form-label">End Date</label>
+              <label class="rsy-form-label">End</label>
               <input type="date" name="terms[${termIndex}][endDate]" class="rsy-form-input" required>
             </div>
+          </div>
           </div>
         `;
         if (values) {
@@ -1329,7 +1330,7 @@
         const overlay = document.getElementById('rsyModalOverlay');
         if (overlay) {
           overlay.addEventListener('click', function (event) {
-            if (event.target === overlay) closeRegisterSchoolYearModal();
+            /* closes only with X or Escape */
           });
         }
 

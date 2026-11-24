@@ -93,6 +93,7 @@
     <% } %>
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+    <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/embedPopupLift.js') %>" defer></script><% } %>
 <script>
   (function () {
     try {
@@ -260,6 +261,7 @@
 
             /* ---------- Managira Compact Headings ---------- */
             body.managira-compact main h1 { font-size: 1.25rem; line-height: 1.3; }
+            body.managira-compact main :is(.cset-page__title, .mr-header h1, .as-head h1, .pa-head h1) { font-size: 1.375rem; font-weight: 700; font-family: Inter, sans-serif; }
             body.managira-compact main h2 { font-size: 1.05rem; line-height: 1.3; }
             body.managira-compact main h3 { font-size: 0.95rem; line-height: 1.3; }
             body.managira-compact main h4 { font-size: 0.875rem; line-height: 1.3; }

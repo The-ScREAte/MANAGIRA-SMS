@@ -7,24 +7,24 @@
 %>
 <link rel="stylesheet" href="/css/admin.css" />
 <style>
-  .frq { --ink: #102542; --muted: #5b6b82; --line: #e2e8f0; --accent: #0f766e; --accent-soft: #ecfdf5; max-width: 860px; margin: 0 auto; padding: 24px 18px 90px; color: var(--ink); font-family: inherit; }
+  .frq { --ink: #102542; --muted: #5b6b82; --line: #e2e8f0; --accent: #0f766e; --accent-soft: #ecfdf5; max-width: 860px; margin: 0 auto; padding: 14px 18px 70px; color: var(--ink); font-family: inherit; }
   .frq * { box-sizing: border-box; }
   .frq-back { display: inline-flex; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-decoration: none; margin-bottom: 12px; }
   .frq h1 { margin: 0 0 4px; font-size: 1.5rem; font-weight: 800; }
   .frq-sub { margin: 0 0 18px; color: var(--muted); font-size: 0.92rem; }
-  .frq-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; counter-reset: step; }
+  .frq-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; counter-reset: step; }
   .frq-steps li { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 0.84rem; font-weight: 700; color: var(--muted); cursor: pointer; }
   .frq-steps li::before { counter-increment: step; content: counter(step); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9; font-size: 0.78rem; }
   .frq-steps li.current { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12); }
   .frq-steps li.current::before, .frq-steps li.done::before { background: var(--accent); color: #fff; }
-  .frq-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .frq-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
   .frq-card h2 { margin: 0 0 4px; font-size: 1.1rem; }
   .frq-card > p.hint { margin: 0 0 16px; color: var(--muted); font-size: 0.86rem; }
-  .frq-field { display: grid; gap: 6px; margin-bottom: 16px; }
+  .frq-field { display: grid; gap: 5px; margin-bottom: 12px; align-content: start; }
   .frq-field > span { font-size: 0.84rem; font-weight: 700; }
   .frq-field small { color: var(--muted); font-size: 0.78rem; }
   .frq input[type="text"], .frq input[type="number"], .frq input[type="date"], .frq input[type="search"], .frq textarea, .frq select { width: 100%; margin: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; font-size: 0.92rem; color: var(--ink); background: #fff; }
-  .frq textarea { min-height: 90px; resize: vertical; }
+  .frq textarea { min-height: 70px; resize: vertical; }
   .frq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .frq-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
   .frq-seg label, .frq-chip { position: relative; cursor: pointer; }
@@ -32,7 +32,7 @@
   .frq-seg span, .frq-chip span { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.86rem; font-weight: 700; color: var(--muted); background: #fff; transition: all 0.15s ease; }
   .frq-seg input:checked + span, .frq-chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
   .frq-seg input:focus-visible + span, .frq-chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .frq-switch { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; cursor: pointer; }
+  .frq-switch { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; cursor: pointer; }
   .frq-switch input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: 0 0 auto; }
   .frq-switch strong { display: block; font-size: 0.9rem; }
   .frq-switch small { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
@@ -71,45 +71,44 @@
 <% if (embedded) { %><%- include('../partials/adminDrawer') %><% } %>
 <div class="frq">
   <% if (!embedded) { %><a class="frq-back" href="/admin/announcements">&larr; Announcements</a><% } %>
-  <h1><%= r ? 'Edit feedback request' : 'Request feedback' %></h1>
-  <p class="frq-sub">Ask schools, staff, parents and students to rate their experience with stars and a short comment.</p>
+  <% if (!embedded) { %><h1><%= r ? 'Edit feedback request' : 'Request feedback' %></h1><% } %>
   <%- include('../partials/flash') %>
   <% if (r && r.hasResponses) { %>
-    <p class="frq-sub" style="color:#92400e;">People have already answered this request. Changes apply to new answers.</p>
+    <p class="frq-sub" style="color:#92400e;">Already answered. Changes apply to new answers.</p>
   <% } %>
 
   <ol class="frq-steps" id="frqSteps">
     <li data-go="1" class="current">Details</li>
     <li data-go="2">Audience</li>
     <li data-go="3">Schedule</li>
-    <li data-go="4">Review &amp; send</li>
+    <li data-go="4">Review</li>
   </ol>
 
   <form id="frqForm" novalidate>
     <!-- 1. Details -->
     <section class="frq-card frq-step" data-step="1">
-      <h2>Feedback details</h2>
-      <p class="hint">What people will see when they're asked.</p>
-      <label class="frq-field"><span>Title</span><input type="text" name="title" maxlength="160" value="<%= r ? r.title : 'How are we doing?' %>" required></label>
-      <label class="frq-field"><span>Message (optional)</span><textarea name="description" maxlength="1200" placeholder="We value your feedback. Please rate your experience and share anything that could help us improve."><%= r ? (r.description || '') : 'We value your feedback. Please rate your experience and share any comments that could help us improve.' %></textarea></label>
-      <label class="frq-field"><span>Rating question</span><input type="text" name="question" maxlength="200" value="<%= r ? r.question : 'How would you rate your experience?' %>"></label>
+      <div class="frq-row">
+      <label class="frq-field"><span>Title</span><input type="text" name="title" maxlength="160" value="<%= r ? r.title : 'How are we doing?' %>" placeholder="Title" required></label>
+      <label class="frq-field"><span>Question</span><input type="text" name="question" maxlength="200" value="<%= r ? r.question : 'How would you rate your experience?' %>" placeholder="Rating question"></label>
+      </div>
+      <label class="frq-field"><span>Message</span><textarea name="description" maxlength="1200" placeholder="Optional message"><%= r ? (r.description || '') : 'We value your feedback. Please rate your experience and share any comments that could help us improve.' %></textarea></label>
+      <div class="frq-row">
       <div class="frq-field">
         <span>Comment</span>
         <div class="frq-seg">
-          <% [['optional', 'Optional'], ['required', 'Required'], ['off', 'No comment box']].forEach(([v, label]) => { %>
+          <% [['optional', 'Optional'], ['required', 'Required'], ['off', 'None']].forEach(([v, label]) => { %>
             <label><input type="radio" name="commentMode" value="<%= v %>" <%= (r ? r.comment_mode : 'optional') === v ? 'checked' : '' %>><span><%= label %></span></label>
           <% }) %>
         </div>
       </div>
       <label class="frq-field" id="frqPromptField"><span>Comment label</span><input type="text" name="commentPrompt" maxlength="160" value="<%= r && r.comment_prompt ? r.comment_prompt : '' %>" placeholder="Tell us more"></label>
-      <label class="frq-switch"><input type="checkbox" name="anonymous" <%= r && r.anonymous ? 'checked' : '' %> <%= r && r.hasResponses ? 'disabled' : '' %>><span><strong>Anonymous</strong><small>Names and emails are not saved. You still see role and school, and each person can answer only once.</small></span></label>
-      <label class="frq-switch"><input type="checkbox" name="allowEdit" <%= r && r.allow_edit ? 'checked' : '' %>><span><strong>Let people edit their answer</strong><small>They can change their rating and comment until the next period starts.</small></span></label>
+      </div>
+      <div class="frq-row"><label class="frq-switch"><input type="checkbox" name="anonymous" <%= r && r.anonymous ? 'checked' : '' %> <%= r && r.hasResponses ? 'disabled' : '' %>><span><strong>Anonymous</strong></span></label>
+      <label class="frq-switch"><input type="checkbox" name="allowEdit" <%= r && r.allow_edit ? 'checked' : '' %>><span><strong>Editable answers</strong></span></label></div>
     </section>
 
     <!-- 2. Audience -->
     <section class="frq-card frq-step" data-step="2" hidden>
-      <h2>Who should answer</h2>
-      <p class="hint">Choose one or more groups, then the schools.</p>
       <div class="frq-field">
         <span>People</span>
         <div class="frq-seg">
@@ -120,7 +119,7 @@
       </div>
       <div class="frq-field">
         <span>Schools</span>
-        <label class="frq-switch"><input type="checkbox" name="allOrganizations" id="frqAllOrgs" <%= !r || r.all_organizations ? 'checked' : '' %>><span><strong>All schools (<%= orgs.length %>)</strong><small>Includes schools that join later.</small></span></label>
+        <label class="frq-switch"><input type="checkbox" name="allOrganizations" id="frqAllOrgs" <%= !r || r.all_organizations ? 'checked' : '' %>><span><strong>All schools (<%= orgs.length %>)</strong></span></label>
         <div class="frq-orgs" id="frqOrgPicker" hidden>
           <div class="frq-org-tools">
             <input type="search" id="frqOrgSearch" placeholder="Search schools" autocomplete="off">
@@ -139,30 +138,26 @@
 
     <!-- 3. Schedule -->
     <section class="frq-card frq-step" data-step="3" hidden>
-      <h2>Schedule</h2>
-      <p class="hint">How often people are asked. Each person answers once per period.</p>
       <div class="frq-row">
         <label class="frq-field"><span>Frequency</span>
           <select name="frequency" id="frqFrequency">
-            <% [['once', 'Once'], ['monthly', 'Once a month'], ['quarterly', 'Every 3 months'], ['semiannual', 'Every 6 months'], ['yearly', 'Once a year'], ['custom', 'Custom']].forEach(([v, label]) => { %>
+            <% [['once', 'Once'], ['monthly', 'Monthly'], ['quarterly', 'Every 3 months'], ['semiannual', 'Every 6 months'], ['yearly', 'Yearly'], ['custom', 'Custom']].forEach(([v, label]) => { %>
               <option value="<%= v %>" <%= freq === v ? 'selected' : '' %>><%= label %></option>
             <% }) %>
           </select>
         </label>
-        <label class="frq-field" id="frqCustomField" hidden><span>Every how many days</span><input type="number" name="customDays" min="1" max="730" value="<%= r && r.custom_days ? r.custom_days : 60 %>"></label>
+        <label class="frq-field" id="frqCustomField" hidden><span>Days between</span><input type="number" name="customDays" min="1" max="730" value="<%= r && r.custom_days ? r.custom_days : 60 %>"></label>
       </div>
       <div class="frq-row">
-        <label class="frq-field"><span>Start date</span><input type="date" name="startsAt" value="<%= r ? r.startsAt : '' %>"><small>Leave empty to start now.</small></label>
-        <label class="frq-field"><span>End date (optional)</span><input type="date" name="endsAt" value="<%= r ? r.endsAt : '' %>"><small>Stops asking after this date.</small></label>
+        <label class="frq-field"><span>Start date</span><input type="date" name="startsAt" value="<%= r ? r.startsAt : '' %>"></label>
+        <label class="frq-field"><span>End date</span><input type="date" name="endsAt" value="<%= r ? r.endsAt : '' %>"></label>
       </div>
-      <label class="frq-switch"><input type="checkbox" name="requireResponse" <%= r && r.require_response ? 'checked' : '' %>><span><strong>Require a response</strong><small>People can't close the request until they answer. Otherwise they can choose "Not now" and are reminded later.</small></span></label>
-      <label class="frq-switch"><input type="checkbox" name="notify" <%= !r || r.notify ? 'checked' : '' %>><span><strong>Send a notification</strong><small>Adds it to their notification bell when it opens (and at the start of each new period).</small></span></label>
+      <div class="frq-row"><label class="frq-switch"><input type="checkbox" name="requireResponse" <%= r && r.require_response ? 'checked' : '' %>><span><strong>Response required</strong></span></label>
+      <label class="frq-switch"><input type="checkbox" name="notify" <%= !r || r.notify ? 'checked' : '' %>><span><strong>Notify</strong></span></label></div>
     </section>
 
     <!-- 4. Review -->
     <section class="frq-card frq-step" data-step="4" hidden>
-      <h2>Review &amp; send</h2>
-      <p class="hint">This is what people will see.</p>
       <div class="frq-preview" aria-hidden="true">
         <h3 id="pvTitle"></h3>
         <p id="pvDescription"></p>
@@ -221,9 +216,9 @@
     function validate(step) {
       var p = payload('draft');
       if (step >= 1 && !p.title) return { step: 1, message: 'Add a title.' };
-      if (step >= 2 && !p.roles.length) return { step: 2, message: 'Choose at least one group of people.' };
-      if (step >= 2 && !p.allOrganizations && !p.organizationIds.length) return { step: 2, message: 'Choose at least one school, or select all schools.' };
-      if (step >= 3 && p.frequency === 'custom' && !(Number(p.customDays) > 0)) return { step: 3, message: 'Set how many days between requests.' };
+      if (step >= 2 && !p.roles.length) return { step: 2, message: 'Choose who answers.' };
+      if (step >= 2 && !p.allOrganizations && !p.organizationIds.length) return { step: 2, message: 'Choose a school.' };
+      if (step >= 3 && p.frequency === 'custom' && !(Number(p.customDays) > 0)) return { step: 3, message: 'Set the days between.' };
       if (step >= 3 && p.startsAt && p.endsAt && p.endsAt <= p.startsAt) return { step: 3, message: 'The end date must be after the start date.' };
       return null;
     }
@@ -304,7 +299,7 @@
         var box = document.getElementById('frqEstimate');
         if (!p.roles.length || (!p.allOrganizations && !p.organizationIds.length)) {
           lastEstimate = null;
-          box.textContent = 'Choose who should answer to see how many people this reaches.';
+          box.textContent = 'Choose people and schools.';
           return;
         }
         var params = new URLSearchParams({ roles: p.roles.join(','), organizationIds: p.organizationIds.join(','), allOrganizations: p.allOrganizations ? '1' : '0' });
@@ -314,9 +309,9 @@
             if (!data.success) throw new Error();
             lastEstimate = data;
             var parts = Object.keys(data.byRole).map(function (k) { return data.byRole[k] + ' ' + (roleLabels[k] || k).toLowerCase(); });
-            box.textContent = 'Reaches ' + data.total + ' ' + (data.total === 1 ? 'person' : 'people') + ' in ' + data.schools + ' ' + (data.schools === 1 ? 'school' : 'schools') + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '.';
+            box.textContent = '' + data.total + ' ' + (data.total === 1 ? 'person' : 'people') + ' in ' + data.schools + ' ' + (data.schools === 1 ? 'school' : 'schools') + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '.';
           })
-          .catch(function () { box.textContent = 'Could not count recipients right now.'; });
+          .catch(function () { box.textContent = 'Could not count.'; });
       }, 200);
     }
     estimate();
@@ -329,7 +324,7 @@
       document.getElementById('pvComment').textContent = p.commentMode === 'off' ? '' : (p.commentPrompt || (p.commentMode === 'required' ? 'Tell us more' : 'Tell us more (optional)')) + (p.commentMode === 'required' ? ' - required' : '');
       var orgCount = p.organizationIds.length;
       document.getElementById('rvAudience').textContent = p.roles.map(function (r) { return roleLabels[r] || r; }).join(', ') + ' in ' + (p.allOrganizations ? 'all schools' : orgCount + ' ' + (orgCount === 1 ? 'school' : 'schools'));
-      document.getElementById('rvRecipients').textContent = lastEstimate ? lastEstimate.total + ' people who can sign in' : '-';
+      document.getElementById('rvRecipients').textContent = lastEstimate ? lastEstimate.total + ' people' : '-';
       var freqText = document.getElementById('frqFrequency').selectedOptions[0].textContent;
       document.getElementById('rvFrequency').textContent = p.frequency === 'custom' ? 'Every ' + p.customDays + ' days' : freqText;
       document.getElementById('rvDates').textContent = (p.startsAt ? 'From ' + p.startsAt : 'Starts now') + (p.endsAt ? ', until ' + p.endsAt : ', no end date');
@@ -357,7 +352,7 @@
           body: JSON.stringify(payload(action)),
         });
         var data = await res.json().catch(function () { return {}; });
-        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save. Please try again.');
+        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save.');
         if (window.parent !== window && typeof managiraDrawerNotifySaved === 'function') return managiraDrawerNotifySaved();
         window.location.href = data.redirect + '?saved=' + encodeURIComponent(data.message || 'Saved.');
       } catch (error) {

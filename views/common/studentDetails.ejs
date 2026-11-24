@@ -958,7 +958,7 @@
               <th>Subject</th>
               <% uniqueAssessments.forEach(assessment => { %>
               <th>
-                <%= assessment.title %> (<%= assessment.weight %>%)<br />
+                <%= assessment.title %> <small style="opacity:.65">Weight <%= assessment.weight %></small><br />
                 <small><%= [assessment.category, assessment.max_score !== null && assessment.max_score !== undefined ? 'out of ' + Number(assessment.max_score) : ''].filter(Boolean).join(' · ') %></small>
               </th>
               <% }) %>
@@ -1094,7 +1094,7 @@
             function openDrawer(url) {
               if (!window.ManagiraDrawer) { window.location.href = url; return; }
               if (!drawer) {
-                drawer = window.ManagiraDrawer.create({ id: 'studentFile', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>', title: 'Student file', subtitle: <%- JSON.stringify((typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) || '') %>, width: 600, belowHeader: true });
+                drawer = window.ManagiraDrawer.create({ id: 'studentFile', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>', title: 'Student file', subtitle: <%- JSON.stringify((typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) || '') %>, width: 560, belowHeader: true });
                 window.addEventListener('message', function (event) {
                   if (event.origin !== window.location.origin || !event.data || event.data.drawerId !== 'studentFile') return;
                   if (event.data.managiraDrawerClose) window.location.reload();
@@ -1556,7 +1556,7 @@
     const link = document.getElementById('studentEditLink');
     if (!link || !window.ManagiraDrawer || link.dataset.drawerBound) return;
     link.dataset.drawerBound = '1';
-    const drawer = ManagiraDrawer.create({ id: 'editStudent', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>', title: 'Edit student', subtitle: <%- JSON.stringify((typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) || '') %>, width: 820, belowHeader: true });
+    const drawer = ManagiraDrawer.create({ id: 'editStudent', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>', title: 'Edit student', subtitle: <%- JSON.stringify((typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) || '') %>, width: 1000, belowHeader: true });
     link.addEventListener('click', function (event) {
       event.preventDefault();
       drawer.open(link.getAttribute('href') + '&embed=workspace');
@@ -1574,7 +1574,7 @@
     const links = document.querySelectorAll('[data-guardian-view]');
     if (!links.length || !window.ManagiraDrawer || document.body.dataset.guardianDrawerBound) return;
     document.body.dataset.guardianDrawerBound = '1';
-    const drawer = ManagiraDrawer.create({ id: 'guardianDetails', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>', title: 'Parent / guardian', subtitle: '', width: 820, belowHeader: true });
+    const drawer = ManagiraDrawer.create({ id: 'guardianDetails', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>', title: 'Parent / guardian', subtitle: '', width: 720, belowHeader: true });
     links.forEach(function (link) {
       link.addEventListener('click', function (event) {
         event.preventDefault();

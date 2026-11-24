@@ -277,7 +277,7 @@ async function guardian(req, res, db) {
     kind: "guardian",
     name: nameOf(person),
     image: imageOf(res, person.image_url),
-    tags: ["Parent / guardian"],
+    tags: [],
     facts: [
       person.phone ? ["Phone", person.phone, `tel:${person.phone}`] : null,
       person.email ? ["Email", person.email, `mailto:${person.email}`] : null,
@@ -290,7 +290,7 @@ async function guardian(req, res, db) {
     actions: [
       // Into Management › Parents & guardians, at this parent (and their edit form). Only with Manage
       // Guardians: a teacher sees the card's contact details and nothing to change.
-      manages ? { label: "Open in Parents & guardians", href: guardiansPanel(`${source}:${person.guardian_id}`, false), top: true } : null,
+      manages ? { label: "Open", href: guardiansPanel(`${source}:${person.guardian_id}`, false), top: true } : null,
       manages ? { label: "Edit", href: guardiansPanel(`${source}:${person.guardian_id}`, true), top: true, primary: true } : null,
     ].filter(Boolean),
   });

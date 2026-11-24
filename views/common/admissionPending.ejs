@@ -155,6 +155,7 @@
   .pd-drawer-overlay {
     position: fixed;
     inset: 0;
+    top: var(--pd-top, 0px);
     background: rgba(10, 20, 30, 0.55);
     backdrop-filter: blur(3px);
     display: none;
@@ -181,7 +182,7 @@
   #studentDetailsContainer {
     position: relative;
     width: 100%;
-    max-width: 720px;
+    max-width: min(1040px, 100vw);
     height: 100%;
     background: var(--bg-card);
     padding: 0;
@@ -199,7 +200,7 @@
   .rv-spinner { width: 18px; height: 18px; border: 2px solid #cbd5e1; border-top-color: var(--primary); border-radius: 50%; animation: rvSpin .8s linear infinite; }
   @keyframes rvSpin { to { transform: rotate(360deg); } }
 
-  .rv-head { display: flex; align-items: center; gap: 14px; padding: calc(18px + env(safe-area-inset-top, 0px)) 22px 18px; border-bottom: 1px solid #e8edf3; background: #fff; flex-shrink: 0; }
+  .rv-head { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid #e8edf3; background: #fff; flex-shrink: 0; }
   .rv-avatar { width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0; overflow: hidden; display: grid; place-items: center;
     background: color-mix(in srgb, var(--primary) 12%, #fff); color: var(--primary); font-weight: 700; font-size: 1.1rem; }
   .rv-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -210,15 +211,16 @@
   .rv-close { width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; display: grid; place-items: center; }
   
 
-  .rv-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px 28px; background: #f8fafc; display: flex; flex-direction: column; gap: 14px; }
-  .rv-section { background: #fff; border: 1px solid #e8edf3; border-radius: 14px; padding: 16px 18px 18px; }
+  .rv-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 22px 22px; background: #f8fafc; display: flex; flex-direction: column; gap: 12px; }
+  .rv-section { background: #fff; border: 1px solid #e8edf3; border-radius: 14px; padding: 14px 16px 16px; }
   .rv-section h2 { margin: 0 0 12px; font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #64748b; }
   .rv-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .rv-section-head h2 { margin: 0; }
   .rv-count { padding: 1px 8px; border-radius: 999px; background: #eef2f7; color: #475569; font-size: .75rem; font-weight: 700; }
   .rv-muted { margin: 0; color: #64748b; font-size: .9rem; }
 
-  .rv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+  .rv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; align-items: start; }
+  @media (max-width: 760px) { .rv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .rv-grid + .rv-grid { margin-top: 12px; }
   .rv-span { grid-column: 1 / -1; }
   .rv-field { display: flex; flex-direction: column; gap: 6px; margin: 0; min-width: 0; }
@@ -347,7 +349,7 @@
 <%- include('../partials/flash') %>
 
 <div class="pending-page">
-  <div id="studentDetailsOverlay" class="pd-drawer-overlay" role="dialog" aria-modal="true" aria-labelledby="studentDetailsTitle">
+  <div id="studentDetailsOverlay" class="pd-drawer-overlay" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="studentDetailsTitle">
     <div id="studentDetailsContainer"></div>
   </div>
 
@@ -452,7 +454,7 @@
   .pa-rejected { color: #b91c1c; font-weight: 600; font-size: .85rem; }
   .pa-decision small { color: #64748b; font-size: .75rem; }
   .pa-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
-  .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.35rem; text-align: left; }
+  .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.375rem !important; font-weight: 700; letter-spacing: -.01em; text-align: left; }
   .pa-head p { margin: 4px 0 0; color: #64748b; font-size: .9rem; }
   .pa-count { padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); font-size: .8rem; }
   .pa-tools { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -572,9 +574,7 @@ function initStudentDetailsDrawer() {
 
   const overlay = document.getElementById('studentDetailsOverlay');
   if (overlay) {
-    overlay.addEventListener('click', function (event) {
-      if (event.target === overlay) closeStudentForm();
-    });
+    // Closes with the X, never by clicking outside.
   }
 
   document.addEventListener('keydown', function (event) {
@@ -613,8 +613,7 @@ function guardianCardHtml(g, i) {
       <header class="rv-guardian-head">
         <span class="rv-guardian-avatar" aria-hidden="true">${paEsc(paInitials(g.first_name, g.last_name))}</span>
         <div class="rv-guardian-name">
-          <strong>${paEsc(name || 'New parent or guardian')}</strong>
-          <span>Parent / guardian ${i + 1}</span>
+          <strong>${paEsc(name || 'Parent ' + (i + 1))}</strong>
         </div>
         <div class="rv-guardian-actions">
           ${phone ? `<a class="rv-icon-btn" href="tel:${paEsc(phone.replace(/[^\d+]/g, ''))}" title="Call ${paEsc(phone)}" aria-label="Call ${paEsc(name || 'guardian')}"><i class="fa-solid fa-phone" aria-hidden="true"></i></a>` : ''}
@@ -625,7 +624,7 @@ function guardianCardHtml(g, i) {
       <div class="rv-grid">
         <label class="rv-field"><span>First name</span><input type="text" name="guardianFirstName${i}" value="${paEsc(g.first_name)}" autocomplete="off"></label>
         <label class="rv-field"><span>Last name</span><input type="text" name="guardianLastName${i}" value="${paEsc(g.last_name)}" autocomplete="off"></label>
-        <div class="rv-field rv-span"><span>Phone</span>
+        <div class="rv-field"><span>Phone</span>
           <div class="phone-combo" data-default-iso2="US">
             <select class="phone-dial-select" aria-label="Country code"></select>
             <input type="tel" class="phone-local-input" name="guardianPhone${i}" value="${paEsc(phone)}" aria-label="Phone number">
@@ -658,6 +657,10 @@ async function loadStudentDetails(id) {
   const overlay = document.getElementById('studentDetailsOverlay');
   const container = document.getElementById('studentDetailsContainer');
   container.innerHTML = '<div class="rv-loading"><span class="rv-spinner" aria-hidden="true"></span>Loading application…</div>';
+  // Starts under the app header (a page inside a frame has none: embedPopupLift.js lifts the frame).
+  const _hdr = document.getElementById('top-header');
+  const _hdrRect = _hdr ? _hdr.getBoundingClientRect() : null;
+  overlay.style.setProperty('--pd-top', _hdrRect && _hdrRect.height ? Math.max(0, Math.round(_hdrRect.bottom)) + 'px' : '0px');
   overlay.classList.add('is-open');
   document.body.style.overflow = 'hidden';
   document.body.classList.add('pa-drawer-open');
@@ -704,8 +707,8 @@ async function loadStudentDetails(id) {
                   <option value="Female" ${student.gender === 'Female' ? 'selected' : ''}>Female</option>
                 </select>
               </label>
-              <label class="rv-field rv-span"><span>Hometown</span><input type="text" name="hometown" value="${paEsc(student.hometown)}"></label>
-              <div class="rv-field rv-span"><span>Photo</span>
+              <label class="rv-field"><span>Hometown</span><input type="text" name="hometown" value="${paEsc(student.hometown)}"></label>
+              <div class="rv-field"><span>Photo</span>
                 ${hasPhoto
                   ? `<div class="rv-photo"><img src="${paEsc(student.image_url)}" alt="Student photo"><button type="button" class="rv-link is-danger" onclick="deleteStudentImage(${Number(student.pending_id)})">Remove photo</button></div>`
                   : `<input type="file" name="studentImage" accept="image/*">`}
@@ -721,13 +724,13 @@ async function loadStudentDetails(id) {
                   ${classes.map(c => `<option value="${c.class_id}" ${c.class_id === student.class_id ? 'selected' : ''}>${paEsc(c.class_name)}</option>`).join('')}
                 </select>
               </label>
-              <label class="rv-field"><span>Graduation year group</span>
+              <label class="rv-field"><span>Year group</span>
                 <select name="graduation_year_group_id">
                   <option value="" ${!student.graduation_year_group_id ? 'selected' : ''}>None</option>
                   ${gradGroups.map(g => `<option value="${g.id}" ${g.id === student.graduation_year_group_id ? 'selected' : ''}>${paEsc(g.name)}</option>`).join('')}
                 </select>
               </label>
-              <div class="rv-field rv-span"><span>Starts</span>
+              <div class="rv-field"><span>Starts</span>
                 <div class="rv-segment" role="radiogroup" aria-label="When the student starts">
                   <label><input type="radio" name="enrollmentType" value="current" ${!isFuture ? 'checked' : ''}><span>This term</span></label>
                   <label><input type="radio" name="enrollmentType" value="future" ${isFuture ? 'checked' : ''}><span>A later term</span></label>
@@ -754,7 +757,7 @@ async function loadStudentDetails(id) {
             <div class="rv-section-head"><h2>Subjects</h2>${allSubjects.length ? '<button type="button" class="rv-link" data-all-subjects>Select all</button>' : ''}</div>
             ${allSubjects.length
               ? `<div class="rv-chips">${allSubjects.map(s => `<label class="rv-chip"><input type="checkbox" name="subjects" value="${s.subject_id}" ${studentSubjects.includes(s.subject_id) ? 'checked' : ''}><span>${paEsc(s.subject_name)}</span></label>`).join('')}</div>`
-              : '<p class="rv-muted">This class has no subjects yet.</p>'}
+              : '<p class="rv-muted">No subjects</p>'}
           </section>
 
           ${(data.customAnswers || []).length ? `
@@ -770,14 +773,14 @@ async function loadStudentDetails(id) {
             <div id="guardiansContainer" class="rv-guardians">
               ${guardians.length ? guardians.map((g, i) => guardianCardHtml(g, i)).join('') : ''}
             </div>
-            <button type="button" class="rv-add" onclick="addGuardian()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add parent or guardian</button>
+            <button type="button" class="rv-add" onclick="addGuardian()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add parent</button>
           </section>
         </form>
 
         <footer class="rv-foot">
           <button type="button" class="rv-btn is-reject" onclick="rejectStudent(${Number(student.pending_id)})">Reject</button>
           <span class="rv-status" id="rvStatus" role="status"></span>
-          <button type="button" class="rv-btn" onclick="saveChanges(${Number(student.pending_id)})">Save changes</button>
+          <button type="button" class="rv-btn" onclick="saveChanges(${Number(student.pending_id)})">Save</button>
           <button type="submit" class="rv-btn is-primary" form="pendingReviewForm" onclick="return confirmApprove(event, ${Number(student.pending_id)})">Approve</button>
         </footer>
       </main>
@@ -837,7 +840,7 @@ function confirmApprove(e, id) {
     setReviewStatus('Save your changes before approving.', 'error');
     return false;
   }
-  const confirmed = confirm("Approve this application? The student is added to the school and the parents are notified.");
+  const confirmed = confirm("Approve this application? The student is added and the parents are notified.");
   if (confirmed) {
     const form = document.getElementById('pendingReviewForm');
     renumberGuardians(form);

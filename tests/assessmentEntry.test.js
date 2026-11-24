@@ -47,3 +47,4 @@ test("score assessments are not choices", () => {
   assert.strictEqual(entry.isChoice({ entry_mode: "choice", choice_options: [] }), false);
   assert.strictEqual(entry.choiceSummary({ choice_options: [{ label: "Yes" }, { label: "No" }] }), "Yes / No");
 });
+

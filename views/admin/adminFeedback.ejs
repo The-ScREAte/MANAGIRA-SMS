@@ -450,7 +450,7 @@
       position: fixed;
       top: 0;
       right: 0;
-      width: min(480px, 100%);
+      width: min(1040px, 100%);
       height: 100vh;
       background: #fff;
       border-left: 1px solid var(--border);
@@ -762,21 +762,21 @@
   <aside class="feedback-drawer" id="feedbackDrawer" aria-hidden="true">
     <div class="feedback-drawer__head">
       <div>
-        <h3 id="feedbackDrawerTitle">Feedback Detail</h3>
-        <p id="feedbackDrawerMeta">Select a feedback row to inspect its full details.</p>
+        <h3 id="feedbackDrawerTitle">Feedback</h3>
+        <p id="feedbackDrawerMeta"></p>
       </div>
       <button type="button" class="feedback-drawer__close" id="feedbackDrawerClose" aria-label="Close detail panel">&times;</button>
     </div>
     <div class="feedback-drawer__body" id="feedbackDrawerBody"></div>
     <div class="feedback-drawer__foot">
       <form class="feedback-status-form" id="feedbackStatusForm">
-        <label for="feedbackStatusSelect">Update Status</label>
+        <label for="feedbackStatusSelect">Status</label>
         <select id="feedbackStatusSelect" name="status">
           <% feedbackStatusOptions.forEach(function(option) { %>
             <option value="<%= option.value %>"><%= option.label %></option>
           <% }) %>
         </select>
-        <button type="submit" id="feedbackStatusSubmit">Save Status</button>
+        <button type="submit" id="feedbackStatusSubmit">Save</button>
       </form>
     </div>
   </aside>
@@ -1005,7 +1005,7 @@
             </div>
           </div>
           <div class="feedback-message-card">
-            <h4>Full Message</h4>
+            <h4>Message</h4>
             <p>${escapeHtml(item.message || '--')}</p>
           </div>
         `;
@@ -1070,7 +1070,7 @@
           showNotice(error.message || 'Failed to update feedback status.', 'error');
         } finally {
           statusSubmit.disabled = false;
-          statusSubmit.textContent = 'Save Status';
+          statusSubmit.textContent = 'Save';
         }
       }
 
@@ -1098,7 +1098,7 @@
         }
       });
       drawerClose.addEventListener('click', closeDrawer);
-      drawerBackdrop.addEventListener('click', closeDrawer);
+      /* the backdrop does not close the panel */
       statusForm.addEventListener('submit', handleStatusSubmit);
       noticeClose.addEventListener('click', hideNotice);
 

@@ -11,210 +11,193 @@
 <style>
   #asRoot, #asDialog {
     --as-primary: <%= primary %>;
-    --as-bg: #f4f6f8;
-    --as-line: #e4e9ee;
-    --as-text: #13202b;
-    --as-muted: #667788;
+    --as-surface: var(--ap-surface, #fff);
+    --as-soft: var(--ap-surface-2, #f6f8fa);
+    --as-line: var(--ap-line, #d4d4d8);
+    --as-edge: #8ea3b6;
+    --as-text: var(--ap-text, #13202b);
+    --as-muted: var(--ap-muted, #667788);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     color: var(--as-text);
   }
-  #asRoot { min-height: 100%; padding: 22px 24px 48px; background: transparent; box-sizing: border-box; }
+  #asRoot { min-height: 100%; padding: 24px 24px 56px; background: transparent; box-sizing: border-box; }
   #asRoot *, #asDialog * { box-sizing: border-box; }
   #asRoot :where(button), #asDialog :where(button) { width: auto; margin: 0; font-family: inherit; line-height: 1.2; }
-  #asRoot :where(input, select, textarea), #asDialog :where(input, select, textarea) { width: 100%; height: auto; margin: 0; padding: 9px 11px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: var(--as-text); font: inherit; font-size: 13.5px; }
+  #asRoot :where(input, select, textarea), #asDialog :where(input, select, textarea) { width: 100%; height: 38px; margin: 0; padding: 0 12px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); color: var(--as-text); font: inherit; font-size: 13.5px; font-weight: 500; }
+  #asRoot textarea, #asDialog textarea { height: auto; min-height: 84px; padding: 9px 12px; resize: vertical; }
+  #asRoot :where(input, select, textarea)::placeholder, #asDialog :where(input, select, textarea)::placeholder { color: #a6b2be; font-weight: 400; }
   #asRoot :where(input, select, textarea):focus, #asDialog :where(input, select, textarea):focus { outline: none; border-color: var(--as-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--as-primary) 15%, transparent); }
   #asRoot input[type="checkbox"], #asDialog input[type="checkbox"] { width: 16px; height: 16px; padding: 0; accent-color: var(--as-primary); box-shadow: none; }
+  #asRoot svg, #asDialog svg { flex: none; }
+  [hidden] { display: none !important; }
 
-  .as-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .as-head h1 { margin: 0; font-size: 22px; font-weight: 800; text-align: left; color: var(--as-text); }
-  .as-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--as-muted); }
-  .as-tabs { display: flex; gap: 4px; margin: 18px 0 18px; border-bottom: 1px solid var(--as-line); }
-  #asRoot .as-tab { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: var(--as-muted); font-size: 13.5px; font-weight: 700; cursor: pointer; }
-  
+  /* Header and tabs */
+  .as-head { display: flex; align-items: center; gap: 12px; }
+  .as-head__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9px; color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 11%, var(--as-surface)); }
+  .as-head__icon svg { width: 18px; height: 18px; }
+  .as-head h1 { margin: 0; font-size: 22px; font-weight: 700; font-family: inherit; letter-spacing: -.01em; text-align: left; }
+  .as-tabs { display: flex; gap: 4px; margin: 20px 0 24px; border-bottom: 1.5px solid var(--as-line); }
+  #asRoot .as-tab { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1.5px; border-radius: 0; background: none; color: var(--as-muted); font-size: 13.5px; font-weight: 700; cursor: pointer; }
   #asRoot .as-tab.is-on { color: var(--as-primary); border-bottom-color: var(--as-primary); }
-  #asRoot .as-tab:focus { outline: none; }
-  .as-tab svg { width: 16px; height: 16px; }
-  /* On a phone the tabs share the width, icon above label: every tab in sight, none hidden off the edge. */
+  #asRoot .as-tab:focus-visible { outline: 2px solid var(--as-primary); outline-offset: -2px; }
+  .as-tab svg, .as-btn svg, .as-icon-btn svg, .as-menu button svg { width: 16px; height: 16px; stroke-width: 2; }
+  .as-panel[hidden] { display: none; }
   @media (max-width: 560px) {
     #asRoot .as-tabs { gap: 0; }
-    #asRoot .as-tab { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 4px; height: auto; min-height: 56px; padding: 8px 4px; font-size: 12.5px; line-height: 1.2; text-align: center; white-space: normal; }
+    #asRoot .as-tab { flex: 1 1 0; flex-direction: column; justify-content: center; gap: 4px; height: auto; min-height: 56px; padding: 8px 4px; font-size: 12px; line-height: 1.2; text-align: center; white-space: normal; }
   }
-  /* Calm and simple: "Always asked" opens on demand; empty parts are one slim line. */
-  #asRoot .as-always { margin: 0 0 14px; border: 1px solid var(--as-line); border-radius: 14px; background: #fff; }
-  #asRoot .as-always summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 12px 16px; cursor: pointer; list-style: none; }
+
+  /* Cards, buttons */
+  .as-card { background: var(--as-surface); border: 1.5px solid var(--as-line); border-radius: 9px; }
+  .as-card + .as-card { margin-top: 16px; }
+  .as-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; }
+  .as-card__head h2 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
+  .as-card__body { padding: 0 20px 20px; }
+  .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); color: var(--as-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .as-btn:hover { background: var(--as-soft); }
+  .as-btn--primary { background: var(--as-primary); border-color: var(--as-primary); color: #fff; }
+  .as-btn--primary:hover { background: var(--as-primary); filter: brightness(.93); }
+  .as-btn:disabled { opacity: .45; cursor: default; }
+  .as-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--as-muted); cursor: pointer; }
+  .as-icon-btn:hover, .as-icon-btn[aria-expanded="true"] { background: var(--as-soft); color: var(--as-text); }
+  .as-icon-btn:focus-visible, .as-btn:focus-visible, .as-menu button:focus-visible { outline: 2px solid var(--as-primary); outline-offset: 1px; }
+  .as-flash { margin: 0 0 16px; padding: 10px 14px; border-radius: 9px; font-size: 13.5px; font-weight: 600; }
+  .as-flash--success { background: #ecfdf3; color: #166534; }
+  .as-flash--error { background: #fdecec; color: #b42318; }
+
+  /* Online admission */
+  .as-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 9px; font-size: 13.5px; background: var(--as-soft); }
+  .as-status.is-open { background: #ecfdf3; color: #166534; }
+  .as-status strong { margin-right: 6px; }
+  .as-status a { color: inherit; font-weight: 700; }
+  .as-switch { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--as-line); border-radius: 9px; cursor: pointer; margin: 0; }
+  .as-switch strong { display: block; font-size: 13.5px; }
+  .as-switch span { font-size: 12.5px; color: var(--as-muted); }
+  .as-toggle { position: relative; flex: none; width: 26px; height: 15px; }
+  #asRoot .as-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .as-toggle i { position: absolute; inset: 0; border-radius: 999px; background: #cfd8e1; transition: background-color .15s; pointer-events: none; }
+  .as-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .as-toggle input:checked + i { background: var(--as-primary); }
+  .as-toggle input:checked + i::after { transform: translateX(11px); }
+  .as-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+  .as-field { display: grid; gap: 6px; margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--as-muted); }
+  .as-field input, .as-field select, .as-field textarea { text-transform: none; letter-spacing: 0; }
+  .as-btn--small { height: 28px; padding: 0 10px; font-size: 12px; }
+  .as-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+  /* Student fields */
+  #asRoot .as-always { margin: 0 0 16px; border: 1.5px solid var(--as-line); border-radius: 9px; background: var(--as-surface); }
+  #asRoot .as-always summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; cursor: pointer; list-style: none; }
   #asRoot .as-always summary::-webkit-details-marker { display: none; }
-  #asRoot .as-always__icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #f4f6f8; color: var(--as-muted); }
-  #asRoot .as-always__icon svg { width: 14px; height: 14px; }
-  #asRoot .as-always summary strong { font-size: 14px; }
+  #asRoot .as-always__icon { display: grid; place-items: center; width: 16px; height: 16px; color: var(--as-muted); }
+  #asRoot .as-always__icon svg { width: 16px; height: 16px; }
+  #asRoot .as-always summary strong { font-size: 13.5px; }
   #asRoot .as-always__count { font-size: 12.5px; color: var(--as-muted); }
   #asRoot .as-always__more { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--as-primary); }
   #asRoot .as-always[open] .as-always__more { font-size: 0; }
   #asRoot .as-always[open] .as-always__more::before { content: "Hide"; font-size: 12.5px; }
-  #asRoot .as-always .as-std { padding: 0 16px 14px; }
-  #asRoot .as-group.is-empty { padding: 6px 10px; background: transparent; border-style: dashed; }
-  #asRoot .as-group.is-empty .as-group__head { margin-bottom: 0; }
-  #asRoot .as-group.is-empty .as-group__list { min-height: 0; }
-  #asRoot .as-group.is-empty .as-group__empty { display: none; }
-  .as-dragging #asRoot .as-group.is-empty .as-group__list { min-height: 36px; }
-  .as-dragging #asRoot .as-group.is-empty .as-group__empty { display: grid; }
-  #asRoot .as-group__head span { font-weight: 600; }
-  #asRoot .as-badge { background: #f1f4f7; color: #475569; font-weight: 600; }
-  #asRoot .as-link { display: inline; width: auto; margin: 0; padding: 0; border: 0; background: none; color: var(--as-primary); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-  /* The parents and guardians editor sits inside this page: no second page header. */
-  #asRoot [data-as-panel="family"] #ctRoot { padding: 0; }
-  .as-panel[hidden] { display: none; }
-
-  .as-card { background: #fff; border: 1px solid var(--as-line); border-radius: 14px; }
-  .as-card + .as-card { margin-top: 14px; }
-  .as-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 18px 0; }
-  .as-card__head h2 { margin: 0; font-size: 15px; font-weight: 800; text-align: left; }
-  .as-card__head p { margin: 2px 0 0; font-size: 12.5px; color: var(--as-muted); }
-  .as-card__body { padding: 14px 18px 18px; }
-
-  .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; color: var(--as-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
-  
-  .as-btn svg { width: 15px; height: 15px; }
-  .as-btn--primary { background: var(--as-primary); border-color: transparent; color: #fff; }
-  
-  .as-btn:disabled { opacity: .45; cursor: default; }
-  .as-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--as-muted); cursor: pointer; }
-  
-  
-  .as-icon-btn svg { width: 16px; height: 16px; }
-
-  /* Online admission */
-  .as-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; }
-  .as-status.is-open { background: #ecfdf3; color: #166534; }
-  .as-status.is-closed { background: #f4f6f8; color: #4a5b6c; }
-  .as-status strong { margin-right: 6px; }
-  .as-status a { color: inherit; font-weight: 700; }
-  .as-switch { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--as-line); border-radius: 12px; cursor: pointer; }
-  .as-switch strong { display: block; font-size: 14px; }
-  .as-switch span { font-size: 12.5px; color: var(--as-muted); }
-  .as-toggle { position: relative; flex: none; width: 32px; height: 18px; }
-  #asRoot .as-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  .as-toggle i { position: absolute; inset: 0; border-radius: 999px; background: #cfd8e1; transition: background-color .15s; pointer-events: none; }
-  .as-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
-  .as-toggle input:checked + i { background: var(--as-primary); }
-  .as-toggle input:checked + i::after { transform: translateX(14px); }
-  .as-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-  .as-field { display: grid; gap: 5px; margin: 0; font-size: 12px; font-weight: 700; color: #556676; }
-  .as-hint { margin: 12px 0 0; font-size: 12.5px; color: var(--as-muted); line-height: 1.5; }
-  .as-hint a { color: var(--as-primary); font-weight: 700; }
-  .as-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--as-line); }
-
-  /* Forms */
-  .as-std { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .as-std__col h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
-  .as-std__col h3 svg { width: 13px; height: 13px; }
+  .as-std { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 4px 16px 16px; }
+  .as-std__col h3 { margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
   .as-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .as-chips span { padding: 5px 10px; border-radius: 8px; background: #f4f6f8; font-size: 12.5px; font-weight: 600; color: #334252; }
-  .as-filter { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; }
-  #asRoot .as-filter button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
-  
+  .as-chips span { padding: 4px 10px; border-radius: 7px; background: var(--as-soft); font-size: 12.5px; font-weight: 600; }
+  #asRoot .as-filesrow { margin: 0 0 16px; }
+  .as-filter { display: inline-flex; gap: 2px; padding: 3px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); }
+  #asRoot .as-filter button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
   #asRoot .as-filter button.is-on { background: var(--as-primary); color: #fff; }
-  .as-list { display: grid; gap: 14px; }
-  .as-group { border: 1px solid var(--as-line); border-radius: 12px; padding: 10px; background: #fbfcfd; }
-  .as-group__head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; }
-  .as-group__head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #334155; }
-  .as-group__note { margin: -4px 2px 8px; font-size: 12.5px; color: #64748b; }
-  .as-group__head span { font-size: 12px; color: var(--as-muted); }
-  .as-group__add { margin-left: auto; border: 0; background: none; color: #01535b; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
-  
-  .as-group__list { display: grid; gap: 6px; min-height: 40px; }
-  .as-group__empty { display: grid; place-items: center; min-height: 40px; border: 1px dashed var(--as-line); border-radius: 10px; font-size: 12px; color: var(--as-muted); }
-  .as-group__empty[hidden] { display: none; }
-  .as-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 4px; border: 1px solid var(--as-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-  .as-row:hover { box-shadow: 0 1px 3px rgba(16, 32, 48, .05);}
-  .as-row.is-obsolete { background: #fafbfc; }
-  .as-row.is-obsolete .as-row__main strong { color: #8796a5; }
-  .as-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
-  
+  .as-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .as-list { display: grid; gap: 20px; }
+  .as-group__head { display: flex; align-items: center; gap: 8px; min-height: 32px; margin: 0 0 8px; }
+  .as-group__head h3 { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
+  .as-group__head > span { font-size: 12px; color: var(--as-muted); }
+  .as-group__head .as-icon-btn { margin-left: auto; width: 28px; height: 28px; }
+  #asRoot .as-group__head[data-fold] { cursor: pointer; }
+  #asRoot .as-group__chev { width: 7px; height: 7px; flex: none; margin: 0 2px 0 2px; border-right: 2px solid var(--as-muted); border-bottom: 2px solid var(--as-muted); transform: rotate(45deg); transition: transform .15s; }
+  #asRoot .as-group.is-folded .as-group__chev { transform: rotate(-45deg); }
+  #asRoot .as-group.is-folded .as-group__list { display: none; }
+  #asRoot .as-group.is-folded .as-group__head { margin-bottom: 0; }
+  .as-dragging #asRoot .as-group.is-folded .as-group__list { display: grid; }
+  .as-group__list { border: 1.5px solid var(--as-line); border-radius: 9px; background: var(--as-surface); min-height: 0; }
+  .as-group.is-empty .as-group__list { display: none; }
+  .as-dragging .as-group.is-empty .as-group__list { display: grid; border-style: dashed; min-height: 40px; }
+  .as-group.is-empty .as-group__empty { display: none; }
+  .as-dragging .as-group.is-empty .as-group__empty { display: grid; }
+  .as-group__empty { display: grid; place-items: center; min-height: 40px; font-size: 12px; color: var(--as-muted); }
+  .as-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 130px 76px 56px 32px; align-items: center; gap: 8px; min-height: 46px; padding: 0 8px 0 4px; border-top: 1.5px solid var(--as-line); background: var(--as-surface); }
+  .as-row:first-child { border-top: 0; border-radius: 9px 9px 0 0; }
+  .as-row:last-child { border-radius: 0 0 9px 9px; }
+  .as-row:only-child { border-radius: 9px; }
+  .as-row:hover { background: var(--as-soft); }
+  .as-row.is-obsolete .as-row__name { opacity: .55; }
+  .as-grip { display: grid; place-items: center; width: 24px; height: 30px; color: var(--as-muted); opacity: .55; cursor: grab; touch-action: none; }
   .as-grip svg { width: 14px; height: 14px; }
-  .as-type { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
-  .as-type svg { width: 16px; height: 16px; }
-  .as-row__main { flex: 1; min-width: 0; display: grid; gap: 2px; }
-  .as-row__main strong { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .as-row__main strong em { margin-left: 4px; font-style: normal; color: #d0453c; }
-  .as-row__main span { font-size: 12px; color: var(--as-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .as-badges { display: flex; gap: 4px; flex: none; }
-  .as-badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--as-primary) 10%, #fff); color: var(--as-primary); }
-  .as-badge--obsolete { background: #fdf3dc; color: #8a5a00; }
-  .as-row__actions { display: flex; gap: 2px; flex: none; }
-  .as-empty { display: grid; justify-items: center; gap: 6px; padding: 34px 16px; border: 1.5px dashed var(--as-line); border-radius: 12px; text-align: center; color: var(--as-muted); font-size: 13px; }
+  .as-row__name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13.5px; font-weight: 700; }
+  .as-row__name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+  .as-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #d0453c; }
+  .as-row__type { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; color: var(--as-muted); white-space: nowrap; }
+  .as-row__type svg { width: 16px; height: 16px; stroke-width: 2; }
+  .as-row__type span { overflow: hidden; text-overflow: ellipsis; }
+  .as-row__where { font-size: 12px; color: var(--as-muted); white-space: nowrap; }
+  .as-chip { justify-self: start; padding: 2px 8px; border-radius: 999px; background: var(--as-soft); border: 1px solid var(--as-line); font-size: 11px; font-weight: 700; color: var(--as-muted); }
+  .as-chip--warn { background: #fdf3dc; border-color: transparent; color: #8a5a00; }
+  .as-menuwrap { position: relative; }
+  .as-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; display: none; min-width: 176px; padding: 4px; border: 1.5px solid var(--as-line); border-radius: 9px; background: var(--as-surface); box-shadow: 0 12px 28px -10px rgba(15, 23, 42, .3); }
+  .as-menu.is-open { display: grid; }
+  .as-menu button { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--as-text); font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+  .as-menu button svg { color: var(--as-muted); }
+  .as-menu button:hover { background: var(--as-soft); }
+  .as-menu .is-danger, .as-menu .is-danger svg { color: #b42318; }
+  .as-empty { display: grid; justify-items: center; gap: 10px; padding: 32px 16px; border: 1.5px dashed var(--as-line); border-radius: 9px; text-align: center; color: var(--as-muted); font-size: 13px; }
   .as-empty strong { color: var(--as-text); font-size: 14px; }
-  .as-note { display: flex; gap: 8px; align-items: flex-start; margin: 12px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--as-muted); }
-  .as-note svg { flex: none; width: 15px; height: 15px; margin-top: 2px; }
   .as-dragging, .as-dragging * { cursor: grabbing !important; user-select: none; }
   .as-placeholder { opacity: .35; }
-  .as-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); opacity: .97; }
-  .as-flash { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600; }
-  .as-flash--success { background: #ecfdf3; color: #166534; }
-  .as-flash--error { background: #fdecec; color: #b42318; }
-  .as-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20001; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 10px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
+  .as-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; border: 1.5px solid var(--as-line); border-radius: 9px; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); opacity: .97; }
+  .as-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20003; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 9px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
   .as-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+  #asRoot [data-as-panel="family"] #ctRoot { padding: 0; }
 
-  /* Field dialog */
-  #asDialog { position: fixed; inset: 0; z-index: 20002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+  /* Field panel: slides in from the right, under the app header; closes only with X or Esc. */
+  #asDialog { position: fixed; inset: 0; z-index: 20002; display: none; justify-content: flex-end; background: rgba(15, 23, 42, .35); }
   #asDialog.is-open { display: flex; }
-  #asDialog [hidden] { display: none !important; }
-  .as-dlg { width: 100%; max-width: 500px; max-height: calc(100vh - 32px); overflow: auto; border-radius: 16px; background: #fff; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45); }
-  .as-dlg__head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 6px; }
-  .as-dlg__head h2 { margin: 0; font-size: 16px; font-weight: 800; text-align: left; }
-  .as-dlg__body { display: grid; gap: 14px; padding: 10px 20px 4px; }
-  .as-dlg label.as-field small, .as-dlg .as-field small { margin-left: 4px; font-weight: 500; color: #8796a5; }
-  .as-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  #asDialog .as-types button { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #334252; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
-  #asDialog .as-types button svg { width: 15px; height: 15px; color: #6b7c8d; flex: none; }
-  #asDialog .as-types button.is-on { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 7%, #fff); color: var(--as-text); box-shadow: 0 0 0 1px var(--as-primary) inset; }
+  .as-dlg { display: flex; flex-direction: column; width: min(1040px, 100vw); height: 100%; background: var(--as-surface); border-left: 1.5px solid var(--as-line); box-shadow: -20px 0 50px -24px rgba(15, 23, 42, .4); animation: as-slide .22s ease-out; }
+  @keyframes as-slide { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .as-dlg { animation: none; } }
+  .as-dlg > form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .as-dlg__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 14px 20px; border-bottom: 1.5px solid var(--as-line); }
+  .as-dlg__head h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; text-align: left; }
+  .as-dlg__body { display: grid; align-content: start; gap: 16px; flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
+  .as-dlg__foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: none; padding: 12px 20px; border-top: 1.5px solid var(--as-line); background: var(--as-surface); }
+  .as-dlg__foot > div { display: flex; gap: 8px; }
+  .as-error { flex: 1; min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
+  .as-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  #asDialog .as-types button { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); color: var(--as-text); font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; text-align: left; }
+  #asDialog .as-types button svg { width: 16px; height: 16px; color: var(--as-muted); }
+  #asDialog .as-types button.is-on { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 8%, var(--as-surface)); box-shadow: 0 0 0 1px var(--as-primary) inset; }
   #asDialog .as-types button.is-on svg { color: var(--as-primary); }
   #asDialog .as-types button:disabled { cursor: default; opacity: .45; }
   #asDialog .as-types button.is-on:disabled { opacity: 1; }
-  .as-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .as-check { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid #dfe5eb; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--as-text); }
-  .as-check small { display: block; margin-top: 1px; font-weight: 500; color: var(--as-muted); }
-  .as-check:has(input:checked) { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 5%, #fff); }
-  .as-dlg__hint { margin: -6px 0 0; font-size: 12px; color: #8796a5; }
-  .as-dlg__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 18px; }
-  .as-dlg__foot > div { display: flex; gap: 8px; }
-  .as-error { min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
+  .as-checks, .as-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .as-check { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border: 1.5px solid var(--as-edge); border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--as-text); }
+  .as-check:has(input:checked) { border-color: var(--as-primary); background: color-mix(in srgb, var(--as-primary) 6%, var(--as-surface)); }
+  .as-seg { display: grid; grid-template-columns: 1fr 1fr; height: 38px; padding: 3px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); }
+  #asDialog .as-seg button { border: 0; border-radius: 7px; background: none; color: var(--as-muted); font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  #asDialog .as-seg button.is-on { background: var(--as-primary); color: #fff; }
 
   @media (max-width: 900px) { .as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) {
-    #asRoot { padding: 14px 12px 32px; }
-    .as-grid, .as-std, .as-checks { grid-template-columns: minmax(0, 1fr); }
+    #asRoot { padding: 16px 16px 40px; }
+    .as-grid, .as-std { grid-template-columns: minmax(0, 1fr); }
     .as-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .as-type, .as-badges { display: none; }
+    .as-row { grid-template-columns: 24px minmax(0, 1fr) 56px 32px; }
+    .as-row__type, .as-row__where { display: none; }
+    .as-card__head { padding: 14px 16px; }
+    .as-card__body { padding: 0 16px 16px; }
   }
-
-  /* Quieter fields list: one line per field, actions on hover, sections that fold. */
-  #asRoot .as-filesrow { margin: 0 0 14px; }
-  #asRoot .as-row { gap: 8px; padding: 6px 8px 6px 2px; }
-  #asRoot .as-type { width: 28px; height: 28px; border-radius: 8px; }
-  #asRoot .as-type svg { width: 14px; height: 14px; }
-  #asRoot .as-row__main { gap: 0; }
-  #asRoot .as-row__actions { opacity: 0; transition: opacity .12s; }
-  #asRoot .as-row:hover .as-row__actions, #asRoot .as-row:focus-within .as-row__actions { opacity: 1; }
-  @media (hover: none) { #asRoot .as-row__actions { opacity: 1; } }
-  #asRoot .as-group { padding: 8px; }
-  #asRoot .as-group__head { margin-bottom: 6px; min-height: 30px; }
-  #asRoot .as-group__head[data-fold] { cursor: pointer; border-radius: 8px; }
-  #asRoot .as-group__head[data-fold]:hover h3 { color: var(--as-primary); }
-  #asRoot .as-group__chev { width: 8px; height: 8px; flex: none; margin: 0 4px 0 6px; border-right: 2px solid #64748b; border-bottom: 2px solid #64748b; transform: rotate(45deg); transition: transform .15s; }
-  #asRoot .as-group.is-folded .as-group__chev { transform: rotate(-45deg); }
-  #asRoot .as-group.is-folded .as-group__list, #asRoot .as-group.is-folded .as-group__note { display: none; }
-  #asRoot .as-group.is-folded .as-group__head { margin-bottom: 0; }
-  .as-dragging #asRoot .as-group.is-folded .as-group__list { display: grid; }
-  #asRoot .as-card__head p { max-width: 62ch; }
-  @media (max-width: 560px) { #asRoot .as-tab { font-size: 12px; } #asRoot .as-group__add { white-space: nowrap; } }
 </style>
 
 <div id="asRoot">
   <div class="as-head">
-    <div>
-      <h1>Admission Settings</h1>
-      <p>How families apply, and what you record about students and their families.</p>
-    </div>
+    <span class="as-head__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></span>
+    <h1>Admission Settings</h1>
   </div>
 
   <nav class="as-tabs" role="tablist">
@@ -247,7 +230,6 @@
       <div class="as-card__head">
         <div>
           <h2>Online applications</h2>
-          <p>Families apply from the Apply button on your website. You review them in Admissions.</p>
         </div>
       </div>
       <div class="as-card__body">
@@ -260,7 +242,7 @@
           <input type="hidden" name="embed" value="<%= _embedded ? 'workspace' : '' %>" />
           <label class="as-switch">
             <span class="as-toggle"><input type="checkbox" name="enabled" <%= org.public_registration_enabled ? 'checked' : '' %> /><i></i></span>
-            <span><strong>Accept applications online</strong><span>Turn off to close the form and keep the dates.</span></span>
+            <span><strong>Accept applications online</strong></span>
           </label>
           <div class="as-grid">
             <label class="as-field">Opens on<input type="date" name="startDate" value="<%= _ymd(org.registration_start_date) %>" /></label>
@@ -274,7 +256,6 @@
             </label>
             <label class="as-field">Application fee<input type="number" min="0" step="0.01" name="price" value="<%= Number(org.public_registration_price) > 0 ? org.public_registration_price : '' %>" placeholder="0 (free)" /></label>
           </div>
-          <p class="as-hint">Leave the fee empty to make applying free. A paid fee needs your payout account in <a href="/account/settings?section=billing" target="_top">Settings › Billing</a>.</p>
           <div class="as-actions"><button type="submit" class="as-btn as-btn--primary">Save online admission</button></div>
         </form>
       </div>
@@ -288,7 +269,7 @@
       <summary>
         <span class="as-always__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
         <strong>Always asked</strong>
-        <span class="as-always__count"><%= standardFields.student.length %> fields on every student. They can't be changed.</span>
+        <span class="as-always__count"><%= standardFields.student.length %> fields</span>
         <span class="as-always__more" aria-hidden="true">Show</span>
       </summary>
       <div class="as-std">
@@ -338,9 +319,8 @@
       <div class="as-card__head">
         <div>
           <h2>Your fields</h2>
-          <p>Extra details such as medical notes or the previous school.<% if (canFamily) { %> Details about a parent go under <button type="button" class="as-link" data-as-tab="family">Parents &amp; guardians</button>.<% } %></p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="as-tools">
           <% if (hasWebsite) { %>
           <div class="as-filter" role="group" aria-label="Show fields for">
             <button type="button" class="is-on" data-as-filter="all">All</button>
@@ -356,10 +336,6 @@
       </div>
       <div class="as-card__body">
         <div class="as-list" id="asList"></div>
-        <p class="as-note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
-          <span>Answers from an application move to the student when you approve it. A field with answers can't be deleted: make it obsolete to hide it, and saved answers stay.</span>
-        </p>
       </div>
     </div>
   </section>
@@ -373,7 +349,7 @@
   <div class="as-toast" id="asToast" role="status"></div>
 </div>
 
-<div id="asDialog" role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
+<div id="asDialog" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
 
 <script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite, indicators: (typeof indicatorLabels !== 'undefined' ? indicatorLabels : []) }).replace(/</g, '\\u003c') %></script>
 <script>
@@ -401,6 +377,8 @@
     restore: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
     trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
     close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>',
+    plus: svg('<path d="M12 5v14M5 12h14"/>'),
   };
   const TYPE_ICON = {
     text: svg('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>'),
@@ -428,21 +406,23 @@
   const shown = (f) => filter === 'all' || (filter === 'student' ? f.onStudentForm : f.onApplication);
   function rowHtml(f) {
     const obsolete = f.status !== 'active';
-    const meta = [TYPES[f.type] || 'Short text', f.type === 'choice' ? f.options.join(', ') : '', f.used ? 'In use' : ''].filter(Boolean).join(' · ');
-    const where = !hasWebsite ? '' : (f.onStudentForm && f.onApplication ? 'On both forms' : f.onApplication ? 'Application only' : 'Add Student only');
-    const meta2 = [meta, where].filter(Boolean).join(' · ');
-    const badges = [];
+    const where = !hasWebsite ? '' : (f.onStudentForm && f.onApplication ? 'Both' : f.onApplication ? 'Application' : 'Student');
+    const w = f.width === 'full' || (f.width !== 'half' && f.type === 'long_text') ? 'Full' : 'Half';
     return `<div class="as-row ${obsolete ? 'is-obsolete' : ''}" data-field="${f.id}">
       <span class="as-grip" data-grip title="Drag to move" aria-hidden="true">${ICON.grip}</span>
-      <span class="as-type" aria-hidden="true">${TYPE_ICON[f.type] || TYPE_ICON.text}</span>
-      <div class="as-row__main"><strong>${esc(f.label)}${f.required ? '<em title="Required">*</em>' : ''}</strong><span>${esc(meta2)}</span></div>
-      <div class="as-badges">${obsolete ? '<span class="as-badge as-badge--obsolete">Obsolete</span>' : badges.map((b) => `<span class="as-badge">${b}</span>`).join('')}</div>
-      <div class="as-row__actions">
-        <button type="button" class="as-icon-btn" data-edit title="Edit" aria-label="Edit ${esc(f.label)}">${ICON.edit}</button>
-        ${obsolete
-          ? `<button type="button" class="as-icon-btn" data-status="active" title="Restore" aria-label="Restore ${esc(f.label)}">${ICON.restore}</button>`
-          : `<button type="button" class="as-icon-btn" data-status="obsolete" title="Make obsolete" aria-label="Make ${esc(f.label)} obsolete">${ICON.archive}</button>`}
-        ${f.used ? '' : `<button type="button" class="as-icon-btn as-icon-btn--danger" data-delete title="Delete" aria-label="Delete ${esc(f.label)}">${ICON.trash}</button>`}
+      <div class="as-row__name"><b>${esc(f.label)}</b>${f.required ? '<i class="as-dot" title="Required"></i>' : ''}${obsolete ? '<span class="as-chip as-chip--warn">Obsolete</span>' : ''}</div>
+      <div class="as-row__type">${TYPE_ICON[f.type] || TYPE_ICON.text}<span>${esc(TYPES[f.type] || 'Short text')}</span></div>
+      <span class="as-row__where">${where}</span>
+      <span class="as-chip">${w}</span>
+      <div class="as-menuwrap">
+        <button type="button" class="as-icon-btn" data-menu aria-haspopup="true" aria-expanded="false" aria-label="Actions for ${esc(f.label)}">${ICON.more}</button>
+        <div class="as-menu" role="menu">
+          <button type="button" role="menuitem" data-edit>${ICON.edit}Edit</button>
+          ${obsolete
+            ? `<button type="button" role="menuitem" data-status="active">${ICON.restore}Restore</button>`
+            : `<button type="button" role="menuitem" data-status="obsolete">${ICON.archive}Obsolete</button>`}
+          ${f.used ? '' : `<button type="button" role="menuitem" class="is-danger" data-delete>${ICON.trash}Delete</button>`}
+        </div>
       </div>
     </div>`;
   }
@@ -456,15 +436,14 @@
       if (fields.length > 12) { let first = true; Object.keys(SECTIONS).forEach((k) => { if (fields.some((f) => secOf(f) === k)) { if (!first) folded.add(k); first = false; } }); }
     }
     if (!fields.length) {
-      list.innerHTML = '<div class="as-empty"><strong>No extra fields yet</strong><span>Add a field to collect more details about students.</span>'
-        + (missingIndicators().length ? '<button type="button" class="as-btn" data-add-indicators style="margin-top:12px">Add the standard indicators</button><span>IEP, Section 504, English learner, gifted, meals and more. Staff only.</span>' : '') + '</div>';
+      list.innerHTML = '<div class="as-empty"><strong>No fields yet</strong>'
+        + (missingIndicators().length ? '<button type="button" class="as-btn" data-add-indicators style="margin-top:12px">Standard indicators</button>' : '') + '</div>';
       return;
     }
     list.innerHTML = Object.entries(SECTIONS).map(([key, name]) => {
       const rows = visible.filter((f) => secOf(f) === key);
       return `<div class="as-group${rows.length ? '' : ' is-empty'}${rows.length && folded.has(key) ? ' is-folded' : ''}" data-section="${key}">
-        <div class="as-group__head"${rows.length ? ' data-fold role="button" tabindex="0" aria-expanded="' + (folded.has(key) ? 'false' : 'true') + '"' : ''}>${rows.length ? '<i class="as-group__chev" aria-hidden="true"></i>' : ''}<h3>${esc(name)}</h3><span>${rows.length ? rows.length + (rows.length === 1 ? ' field' : ' fields') : 'No fields yet'}</span>${key === 'programs' && missingIndicators().length ? `<button type="button" class="as-group__add" data-add-indicators title="${esc(missingIndicators().join(', '))}">+ Standard indicators</button>` : ''}<button type="button" class="as-group__add" data-add-in="${key}" aria-label="Add field to ${esc(name)}">+ Add</button></div>
-        ${key === 'programs' ? '<p class="as-group__note">IEP, 504, English learner and other indicators. Staff only: never on the application or the parent and student portals.</p>' : ''}
+        <div class="as-group__head"${rows.length ? ' data-fold role="button" tabindex="0" aria-expanded="' + (folded.has(key) ? 'false' : 'true') + '"' : ''}>${rows.length ? '<i class="as-group__chev" aria-hidden="true"></i>' : ''}<h3>${esc(name)}</h3><span>${rows.length || ''}</span>${key === 'programs' && missingIndicators().length ? `<button type="button" class="as-btn as-btn--small" data-add-indicators title="${esc(missingIndicators().join(', '))}">Indicators</button>` : ''}<button type="button" class="as-icon-btn" data-add-in="${key}" title="Add field" aria-label="Add field to ${esc(name)}">${ICON.plus}</button></div>
         <div class="as-group__list" data-group-list="${key}">${rows.map(rowHtml).join('') || '<div class="as-group__empty">Drop here</div>'}</div>
       </div>`;
     }).join('');
@@ -507,9 +486,12 @@
   // ---------- field dialog ----------
   let submitFn = null;
   function closeDialog() { dialog.classList.remove('is-open'); submitFn = null; }
+  function placeDialog() { const h = document.getElementById('top-header'); dialog.style.top = (h ? h.offsetHeight : 0) + 'px'; }
   function fieldDialog(f, presetSection) {
     const locked = f && f.used > 0;
     let type = f ? f.type : 'text';
+    let width = f && f.width ? f.width : (f && f.type === 'long_text' ? 'full' : 'half');
+    let widthPicked = !!(f && f.width);
     const onStudent = f ? f.onStudentForm : filter !== 'application';
     const onApp = f ? f.onApplication : (hasWebsite && filter !== 'student');
     dlg.innerHTML = `<form novalidate>
@@ -519,22 +501,29 @@
         <div class="as-field">Type
           <div class="as-types">${Object.entries(TYPES).map(([k, v]) => `<button type="button" data-type="${k}" class="${k === type ? 'is-on' : ''}" ${locked ? 'disabled' : ''}>${TYPE_ICON[k]}${esc(v)}</button>`).join('')}</div>
         </div>
-        ${locked ? '<p class="as-dlg__hint">This field has answers, so its type stays the same.</p>' : ''}
-        <label class="as-field" data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices <small>one per line</small></span><textarea name="options" rows="4" placeholder="Bus&#10;Walk&#10;Parent drop-off">${esc(f ? f.options.join('\n') : '')}</textarea></label>
+        <label class="as-field" data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices</span><textarea name="options" rows="4" placeholder="One per line">${esc(f ? f.options.join('\n') : '')}</textarea></label>
         <label class="as-field">Show under
           <select name="section">${Object.entries(SECTIONS).map(([k, v]) => `<option value="${k}" ${k === (f ? secOf(f) : (presetSection || 'more')) ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
         </label>
         <div class="as-field">Ask on
           <div class="as-checks">
-            <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add Student form<small>When staff add a student</small></span></label>
-            ${hasWebsite ? `<label class="as-check"><input type="checkbox" name="onApplication" ${onApp ? 'checked' : ''}><span>Online application<small>When families apply</small></span></label>` : ''}
+            <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add Student</span></label>
+            ${hasWebsite ? `<label class="as-check"><input type="checkbox" name="onApplication" ${onApp ? 'checked' : ''}><span>Online application</span></label>` : ''}
           </div>
         </div>
-        <label class="as-check"><input type="checkbox" name="required" ${f && f.required ? 'checked' : ''}><span>Required<small>The form can't be sent without it</small></span></label>
-        <label class="as-field"><span>Help text <small>optional, shown under the field</small></span><input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" autocomplete="off"></label>
+        <div class="as-two">
+          <div class="as-field">Width
+            <div class="as-seg" role="group" aria-label="Width"><button type="button" data-width="half" class="${width === 'half' ? 'is-on' : ''}">Half</button><button type="button" data-width="full" class="${width === 'full' ? 'is-on' : ''}">Full</button></div>
+          </div>
+          <div class="as-field">Required
+            <label class="as-check"><input type="checkbox" name="required" ${f && f.required ? 'checked' : ''}><span>Yes</span></label>
+          </div>
+        </div>
+        <label class="as-field">Help<input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" placeholder="Help text (shows as ?)" autocomplete="off"></label>
       </div>
       <div class="as-dlg__foot"><p class="as-error" data-error role="alert"></p><div><button type="button" class="as-btn" data-close>Cancel</button><button type="submit" class="as-btn as-btn--primary">${f ? 'Save' : 'Add field'}</button></div></div>
     </form>`;
+    placeDialog();
     dialog.classList.add('is-open');
     dlg.querySelector('[name="label"]').focus();
     dlg.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
@@ -542,18 +531,22 @@
       dlg.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('is-on', x === b));
       dlg.querySelector('[data-options]').hidden = type !== 'choice';
     }));
+    dlg.querySelectorAll('[data-width]').forEach((b) => b.addEventListener('click', () => {
+      width = b.dataset.width; widthPicked = true;
+      dlg.querySelectorAll('[data-width]').forEach((x) => x.classList.toggle('is-on', x === b));
+    }));
     submitFn = async (form) => {
       const app = form.querySelector('[name="onApplication"]');
       await call(f ? `/common/admissionSettings/fields/${f.id}` : '/common/admissionSettings/fields', {
-        label: form.label.value, type, options: form.options.value, helpText: form.helpText.value,
+        label: form.label.value, type, options: form.options.value, helpText: form.helpText.value, width: widthPicked ? width : '',
         required: form.required.checked, onStudentForm: form.onStudentForm.checked, section: form.section.value,
         onApplication: app ? app.checked : (f ? f.onApplication : false),
       });
       toast(f ? 'Field saved' : 'Field added');
     };
   }
-  dialog.addEventListener('click', (e) => { if (e.target === dialog || e.target.closest('[data-close]')) closeDialog(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog.classList.contains('is-open')) closeDialog(); });
+  dialog.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeDialog(); });
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (dialog.classList.contains('is-open')) closeDialog(); else if (typeof closeMenus === 'function') closeMenus(); });
   dialog.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!submitFn) return;
@@ -571,7 +564,18 @@
   });
 
   root.querySelector('[data-as-add]').addEventListener('click', () => fieldDialog(null));
+  const closeMenus = () => list.querySelectorAll('.as-menu.is-open').forEach((m) => { m.classList.remove('is-open'); const t = m.parentNode.querySelector('[data-menu]'); if (t) t.setAttribute('aria-expanded', 'false'); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.as-menuwrap')) closeMenus(); });
   list.addEventListener('click', async (e) => {
+    const mb = e.target.closest('[data-menu]');
+    if (mb) {
+      const menu = mb.parentNode.querySelector('.as-menu');
+      const was = menu.classList.contains('is-open');
+      closeMenus();
+      if (!was) { menu.classList.add('is-open'); mb.setAttribute('aria-expanded', 'true'); const first = menu.querySelector('button'); if (first) first.focus(); }
+      return;
+    }
+    closeMenus();
     const addIn = e.target.closest('[data-add-in]');
     if (addIn) return fieldDialog(null, addIn.dataset.addIn);
     if (e.target.closest('[data-add-indicators]')) {

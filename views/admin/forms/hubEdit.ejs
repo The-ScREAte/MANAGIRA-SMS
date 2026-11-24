@@ -1,8 +1,8 @@
-<div data-ahd-title="Edit <%= hub.hub_name %>" data-ahd-sub="Hub details and owner. Billing, contract dates and limits are on the Billing page.">
+<div data-ahd-title="Edit <%= hub.hub_name %>">
   <form action="/admin/hubs/<%= hub.hub_id %>/edit" method="POST" class="ahd-form">
     <section class="ahd-section">
       <h3 class="ahd-section__title">Hub</h3>
-      <div class="ahb-grid ahb-grid--1">
+      <div class="ahb-grid">
         <label class="ahb-field"><span class="ahb-label">Hub name</span><input type="text" name="hubName" class="ahb-input" value="<%= hub.hub_name %>" maxlength="150" required /></label>
         <label class="ahb-field">
           <span class="ahb-label">Web address</span>
@@ -11,15 +11,13 @@
         <label class="ahb-field">
           <span class="ahb-label">Owner email</span>
           <input type="email" class="ahb-input" value="<%= hub.hub_email %>" disabled />
-          <span class="ahb-hint">The sign-in email can’t be changed here.</span>
         </label>
-        <label class="ahb-field"><span class="ahb-label">Footer text <em>optional</em></span><input type="text" name="hubFooterText" class="ahb-input" value="<%= hub.hub_footer_text || '' %>" maxlength="300" /></label>
-        <label class="ahb-check"><input type="checkbox" name="hubBrandingEnabled" <%= hub.hub_branding_enabled ? 'checked' : '' %> /> <span>Show hub branding in member schools</span></label>
+        <label class="ahb-field"><span class="ahb-label">Footer text</span><input type="text" name="hubFooterText" class="ahb-input" value="<%= hub.hub_footer_text || '' %>" maxlength="300" placeholder="Optional" /></label>
+        <label class="ahb-check"><input type="checkbox" name="hubBrandingEnabled" <%= hub.hub_branding_enabled ? 'checked' : '' %> /> <span>Show hub branding</span></label>
       </div>
     </section>
     <section class="ahd-section">
       <h3 class="ahd-section__title">Plans</h3>
-      <p class="ahd-section__sub">The plan decides what each school can use. Changes apply straight away.</p>
       <%- include('../partials/hubPlanFields', { plans, hubRow: hub }) %>
     </section>
     <section class="ahd-section">

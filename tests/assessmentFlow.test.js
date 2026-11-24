@@ -82,3 +82,4 @@ test("approving posts only the waiting scores of that assessment", async () => {
   assert.deepStrictEqual(calls[0].params, [63, [9], 240, null]);
   assert.deepStrictEqual(await assessmentApproval.approve(db, { organizationId: 63, assessmentIds: [] }), []);
 });
+

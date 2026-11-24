@@ -2281,6 +2281,7 @@
   <%- include('../partials/flash') %>
   <main>
     <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+    <script src="<%= assetUrl('/js/reportPanelLift.js') %>" defer></script>
     <style>
       /* Match the other Reports pages: flat cards with a thin border. */
       main .card { box-shadow: none; border-color: #e2e8f0; }
@@ -2393,11 +2394,37 @@
     /* Transcript design sketches: views/partials/transcriptDesignThumbs.ejs */
     @media (max-width: 860px) { .rs-groups { grid-template-columns: 1fr; } }
     @media (max-width: 480px) { .rs-cols { grid-template-columns: 1fr; } .rs-sub { margin-left: 8px; } #advancedDsPanel .paygira-adv-box { margin-left: 6px; } }
+
+    /* ── Pop-ups from the right: same panel look as the rest of the app ───────────────── */
+    .gr-modal-overlay, .rs-grade-config-modal, .rs-panel-overlay { align-items: stretch !important; justify-content: flex-end !important; padding: 0 !important; background: rgba(15, 23, 42, .35) !important; z-index: 12990 !important; }
+    .rs-panel-overlay { position: fixed; inset: 0; display: flex; }
+    .gr-modal-card, .rs-grade-config-card, .rs-override-modal, .rs-panel { box-sizing: border-box; width: min(var(--rs-pw, 1040px), 100%) !important; max-width: 100% !important; height: 100% !important; max-height: none !important; padding: 16px !important; border: 0 !important; border-left: 1.5px solid #8ea3b6 !important; border-radius: 0 !important; background: var(--ap-surface, #fff) !important; color: var(--ap-text, #0f172a); box-shadow: -18px 0 40px rgba(0, 0, 0, .18) !important; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    .rs-grade-config-card { --rs-pw: 1040px; }
+    .rs-panel-head, .gr-modal-head, .rs-grade-config-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 !important; padding-bottom: 12px; border-bottom: 1px solid #b7c4d0; }
+    .rs-panel-title, .gr-modal-title, .rs-grade-config-title { margin: 0; font-size: 15px !important; font-weight: 700; color: var(--ap-text, #0f172a) !important; letter-spacing: 0; }
+    .gr-modal-close, .rs-grade-config-close, .rs-panel-x { width: 32px !important; height: 32px !important; border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; background: transparent !important; color: var(--ap-muted, #475569) !important; font-size: 15px; cursor: pointer; padding: 0; }
+    .rs-panel-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    .rs-panel-foot, .rs-grade-config-footer { display: flex; align-items: center; gap: 8px; margin: auto 0 0 !important; padding-top: 12px; border-top: 1px solid #b7c4d0; }
+    .rs-panel-label { display: block; margin: 0 0 5px; color: var(--ap-muted, #475569); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .rs-panel-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+    .rs-panel-checks label { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 0; padding: 0 10px; border: 1.5px solid #8ea3b6; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .rs-panel-checks input { margin: 0; accent-color: var(--primary); }
+    .gr-modal-card input[type="text"], .rs-grade-config-card input[type="number"], .rs-grade-config-card select { min-height: 36px; border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; background: var(--ap-surface, #fff); color: inherit; }
+    .rs-grade-config-card #showGradeNumericTotalWrap, .rs-grade-config-card #gradeNumericTotalConfigWrap, .rs-grade-config-card #gradeNumericAssignClassesWrap, .rs-override-list { border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; background: transparent !important; }
+    .rs-grade-toggle-option { border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; background: transparent !important; color: inherit !important; padding: 0 12px !important; min-height: 32px; font-size: 13px !important; }
+    html[data-appearance="dark"] .gr-modal-card, html[data-appearance="dark"] .rs-grade-config-card, html[data-appearance="dark"] .rs-override-modal, html[data-appearance="dark"] .rs-panel,
+    html[data-appearance="dark"] .gr-modal-close, html[data-appearance="dark"] .rs-grade-config-close, html[data-appearance="dark"] .rs-panel-x, html[data-appearance="dark"] .rs-panel-checks label,
+    html[data-appearance="dark"] .gr-modal-card input[type="text"], html[data-appearance="dark"] .rs-grade-config-card select, html[data-appearance="dark"] .rs-grade-config-card input[type="number"],
+    html[data-appearance="dark"] .rs-grade-config-card #showGradeNumericTotalWrap, html[data-appearance="dark"] .rs-grade-config-card #gradeNumericTotalConfigWrap, html[data-appearance="dark"] .rs-grade-config-card #gradeNumericAssignClassesWrap, html[data-appearance="dark"] .rs-grade-toggle-option { border-color: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff) !important; }
+    html[data-appearance="dark"] .rs-panel-head, html[data-appearance="dark"] .gr-modal-head, html[data-appearance="dark"] .rs-grade-config-head, html[data-appearance="dark"] .rs-panel-foot, html[data-appearance="dark"] .rs-grade-config-footer { border-color: var(--ap-line, #4d5763); }
+    /* No descriptions: the page and its cards say what they are by their names */
+    .gr-modal-note, .rs-grade-config-note, .rs-card-sub, .rs-psec__sub, .rs-group__sub, .rs-adv-toggle__sub, .rs-opt__text small, .rs-td-desc, .status-overview-note, #gradeNumericTotalConfigHint { display: none !important; }
+    @media (max-width: 560px) { .rs-grade-config-card { --rs-pw: 100%; } }
     </style>
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub">Promotion rules, grades, what prints on report cards, layouts and signatures. <% var _canPromote = typeof workspaceAccess === 'function' && workspaceAccess().management.promotion; %>To move students up, use <% if (_canPromote) { %><a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a><% } else { %>Promotion (someone with Approve Promotions runs it)<% } %>.</p>
+        <p class="gp-sub"><% var _canPromote = typeof workspaceAccess === 'function' && workspaceAccess().management.promotion; %><% if (_canPromote) { %><a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a><% } %></p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
@@ -2666,18 +2693,16 @@
                     </div>
                   </div>
 
-                  <div id="gradeNumericConfigModal" class="rs-grade-config-modal" style="display:none;">
+                  <div id="gradeNumericConfigModal" class="rs-grade-config-modal" data-popup-lift data-rp-watch style="display:none;">
                     <div class="rs-grade-config-card">
                       <div class="rs-grade-config-head">
-                        <h4 class="rs-grade-config-title">Number Format Configuration</h4>
+                        <h4 class="rs-grade-config-title">Numbers</h4>
                         <button type="button" id="closeGradeNumericConfigIcon" class="rs-grade-config-close" aria-label="Close">x</button>
                       </div>
 
-                      <p class="rs-grade-config-note">Configure how numeric grade totals should be shown and calculated for this class.</p>
-
                       <div id="showGradeNumericTotalWrap" style="display:none;">
-                        <div class="rs-grade-toggle-head">Show number total on report</div>
-                        <div class="rs-grade-toggle-choices" role="radiogroup" aria-label="Show number total on report">
+                        <div class="rs-grade-toggle-head">Show total</div>
+                        <div class="rs-grade-toggle-choices" role="radiogroup" aria-label="Show total">
                           <label class="rs-grade-toggle-option" for="showGradeNumericTotalOnReport">
                             <input type="radio" id="showGradeNumericTotalOnReport" name="showGradeNumericTotalVisibility" value="yes">
                             Yes
@@ -2690,16 +2715,16 @@
                       </div>
 
                       <div id="gradeNumericTotalConfigWrap" style="display:none;flex:1 1 100%;margin:8px 0 0 0;padding:10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;">
-                        <div style="font-size:0.75rem;color:var(--muted);font-weight:600;margin-bottom:8px;">Number Total Setup</div>
+                        <div style="font-size:0.75rem;color:var(--muted);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Total</div>
                         <div id="gradeNumericStrategyControls" style="display:grid;grid-template-columns:1fr;gap:8px;">
                           <label class="rs-grade-strategy-option">
                             <input type="radio" name="gradeNumericTotalStrategyOption" class="grade-numeric-strategy-radio" value="base_plus_best" style="accent-color:var(--primary);margin-top:2px;">
-                            <span>Calculate using Core + Additional Subjects.</span>
+                            <span>Core + additional subjects</span>
                           </label>
                           <div id="gradeBasePlusDetailsWrap" class="rs-grade-strategy-details">
                             <div class="rs-grade-base-stack">
                               <label id="gradeBaseSubjectCountWrap" class="rs-grade-core-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
-                                Core Subjects Count
+                                Core subjects
                                 <input type="number" id="gradeBaseSubjectCountInput" min="0" step="1" placeholder="5" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
                               </label>
                               <div id="gradeCoreSubjectConfigWrap" class="rs-grade-core-glass-pane" style="display:none;margin-top:0;">
@@ -2708,12 +2733,12 @@
                               </div>
 
                               <label id="gradeOtherSubjectCountWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
-                                Additional Subjects Count
+                                Additional subjects
                                 <input type="number" id="gradeOtherSubjectCountInput" min="0" step="1" placeholder="2" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
                               </label>
 
                               <label id="gradeBaseRandomSelectionTypeWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;max-width:240px;">
-                                Additional Subject Selection
+                                Pick additional
                                 <select id="gradeBaseRandomSelectionTypeSelect" class="rs-grade-random-select" style="padding:5px 6px;border-radius:6px;font-size:0.86rem;line-height:1.15;">
                                   <option value="any">Random</option>
                                   <option value="best">Top</option>
@@ -2723,7 +2748,7 @@
                           </div>
                           <label class="rs-grade-strategy-option">
                             <input type="radio" name="gradeNumericTotalStrategyOption" class="grade-numeric-strategy-radio" value="all_subjects" style="accent-color:var(--primary);margin-top:2px;">
-                            <span>Calculate using All Subjects.</span>
+                            <span>All subjects</span>
                           </label>
                           <input type="hidden" id="gradeNumericTotalStrategySelect" value="all_subjects" />
                         </div>
@@ -2738,7 +2763,7 @@
                           <div id="gradeNumericAssignClassesPanel" class="rs-grade-collapsible-panel">
                             <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
                               <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
-                              Select all classes
+                              All classes
                             </label>
                             <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:8px;"></div>
                           </div>
@@ -2936,23 +2961,20 @@
           </div>
         </div>
 
-        <div id="customRemarkTypeModal" class="gr-modal-overlay" aria-hidden="true">
+        <div id="customRemarkTypeModal" class="gr-modal-overlay" data-popup-lift aria-hidden="true">
           <div class="gr-modal-card" role="dialog" aria-modal="true" aria-labelledby="customRemarkTypeModalTitle">
             <div class="gr-modal-head">
-              <h3 id="customRemarkTypeModalTitle" class="gr-modal-title">Create Custom Remark Type</h3>
+              <h3 id="customRemarkTypeModalTitle" class="gr-modal-title">Custom remark type</h3>
               <button type="button" class="gr-modal-close" id="closeCustomRemarkTypeModalBtn" aria-label="Close">x</button>
             </div>
-            <p class="gr-modal-note">Create a custom type for this organization. It saves with AJAX and appears immediately in remark selectors.</p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <input type="text" id="customRemarkTypeInput" maxlength="60" placeholder="e.g. Creativity Remarks" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.83rem;" />
-              <button type="button" class="btn" id="createCustomRemarkTypeBtn">Save Custom Type</button>
-              <button type="button" class="btn btn-secondary" id="cancelCustomRemarkTypeBtn">Cancel</button>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;">
+              <input type="text" id="customRemarkTypeInput" maxlength="60" placeholder="Name" style="min-width:0;padding:6px 10px;font-size:0.86rem;" />
             </div>
             <div id="customRemarkTypeMsg" style="min-height:16px;margin-top:6px;font-size:0.76rem;color:var(--muted);"></div>
             <div id="customRemarkTypeList" class="gr-type-list">
-              <div class="gr-type-list-title">Saved Custom Types</div>
+              <div class="gr-type-list-title">Saved</div>
               <% if (!(customRemarkTypes || []).length) { %>
-                <div class="gr-type-empty">No custom types yet.</div>
+                <div class="gr-type-empty">None</div>
               <% } else { %>
                 <% (customRemarkTypes || []).forEach(function(customType){ %>
                   <div class="gr-type-row<%= customType.obsolete ? ' is-obsolete' : '' %>" data-type-key="<%= customType.type_key %>">
@@ -2963,6 +2985,10 @@
                 <% }); %>
               <% } %>
             </div>
+            <div class="pf-footer">
+              <button type="button" class="btn btn-secondary" id="cancelCustomRemarkTypeBtn">Cancel</button>
+              <button type="button" class="btn" id="createCustomRemarkTypeBtn">Save</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2971,7 +2997,6 @@
 
       <div class="card">
         <h2>Signature Management</h2>
-        <p class="rs-card-sub">One signature per class, for every term and school year. Changes apply to reports made from now on; reports already saved don't change.</p>
         <div class="rs-sig-cols">
         <section class="rs-sig-col" aria-label="Report card signatures">
         <h3 class="rs-sig-col__title">Report cards</h3>
@@ -3159,7 +3184,6 @@
       <%- include('../partials/transcriptDesignThumbs') %>
       <div class="card" id="transcriptDesignCard">
         <h2>Transcript Design</h2>
-        <p class="rs-card-sub">How transcripts look when they're printed or emailed. Preview each design with a sample student, then save the one your school uses.</p>
         <div class="rs-td-grid" role="radiogroup" aria-label="Transcript design">
           <% transcriptDesigns.forEach((d) => { %>
             <label class="rs-td-option">
@@ -3411,9 +3435,7 @@
     });
 
     customRemarkModal?.addEventListener('click', (event) => {
-      if (event.target === customRemarkModal) {
-        setCustomRemarkTypeModalOpen(false);
-      }
+      /* panels close only with X or Escape */
     });
 
     document.addEventListener('keydown', (event) => {
@@ -5489,9 +5511,7 @@
     });
 
     gradeNumericConfigModal?.addEventListener('click', (event) => {
-      if (event.target === gradeNumericConfigModal) {
-        closeGradeNumericConfigModal();
-      }
+      /* panels close only with X or Escape */
     });
 
     document.addEventListener('keydown', (event) => {
@@ -6017,25 +6037,27 @@
         }
 
         const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:10012;padding:16px;';
+        modal.className = 'rs-panel-overlay is-open';
+        modal.setAttribute('data-popup-lift', '');
         const entryLabel = entryType === 'grade' ? 'grade mapping' : 'score remark';
         const classItems = classes
           .map((cls) => `<div>${escapeHtmlText(cls.class_name || `Class ${cls.class_id}`)}</div>`)
           .join('');
 
         modal.innerHTML = `
-          <div class="rs-override-modal">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
-              <div style="font-size:0.95rem;font-weight:700;color:#b45309;">Override Warning</div>
-              <button type="button" data-action="close" class="btn btn-secondary">Cancel</button>
+          <div class="rs-override-modal" role="dialog" aria-modal="true">
+            <div class="rs-panel-head">
+              <h3 class="rs-panel-title">Override</h3>
+              <button type="button" data-action="close" class="rs-panel-x" aria-label="Close">&times;</button>
             </div>
-            <div style="font-size:0.82rem;color:var(--muted);line-height:1.45;">
-              You are overriding an existing or overlapping ${entryLabel} for these classes.
+            <div class="rs-panel-body">
+              <div style="font-size:0.82rem;color:var(--ap-muted,#475569);">Replaces the existing ${entryLabel} for:</div>
+              <div class="rs-override-list">${classItems}</div>
             </div>
-            <div class="rs-override-list">${classItems}</div>
-            <div class="rs-bulk-footer" style="margin-top:0;">
-              ${allowBypass ? '<button type="button" data-action="bypass" class="btn btn-secondary">Bypass Existing</button>' : ''}
+            <div class="rs-panel-foot">
               <button type="button" data-action="continue" class="btn">Override</button>
+              ${allowBypass ? '<button type="button" data-action="bypass" class="btn btn-secondary">Bypass existing</button>' : ''}
+              <button type="button" data-action="close" class="btn btn-secondary">Cancel</button>
             </div>
           </div>
         `;
@@ -6051,7 +6073,7 @@
           }
         });
 
-        modal.querySelector('[data-action="close"]')?.addEventListener('click', () => close(null));
+        modal.querySelectorAll('[data-action="close"]').forEach((el) => el.addEventListener('click', () => close(null)));
         modal.querySelector('[data-action="bypass"]')?.addEventListener('click', () => close('bypass'));
         modal.querySelector('[data-action="continue"]')?.addEventListener('click', () => close('continue'));
 
@@ -6181,7 +6203,7 @@
       const termId = '<%= termId %>';
       const editingRowId = editingGradeRowIdInput.value ? Number(editingGradeRowIdInput.value) : null;
       if(!selectedClasses.length){
-        alert('Please select at least one class.');
+        alert('Pick a class.');
         return;
       }
 
@@ -6772,33 +6794,38 @@
         const availableClasses = enrolledClassesForSig.filter(cls => !assignedClassIds.includes(cls.class_id));
         
         if(availableClasses.length === 0){
-          alert('All classes already have signatures assigned.');
+          alert('All classes are assigned.');
           return;
         }
         
         const classOptions = sortClassesByArrangement(availableClasses)
-          .map(cls => `<label style="display:block;padding:6px;"><input type="checkbox" value="${cls.class_id}" style="margin-right:8px;">${escapeHtmlText(cls.class_name)}</label>`)
+          .map(cls => `<label><input type="checkbox" value="${cls.class_id}">${escapeHtmlText(cls.class_name)}</label>`)
           .join('');
         
         const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        modal.className = 'rs-panel-overlay is-open';
+        modal.setAttribute('data-popup-lift', '');
         modal.innerHTML = `
-          <div style="background:#fff;border-radius:12px;padding:20px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3);">
-            <h3 style="margin:0 0 16px;color:var(--primary);">Add Classes to Signature</h3>
-            <div id="classCheckboxList" style="max-height:300px;overflow-y:auto;margin-bottom:16px;">${classOptions}</div>
-            <div style="display:flex;gap:10px;justify-content:flex-end;">
-              <button class="btn btn-danger" id="modalCancel">Cancel</button>
-              <button class="btn" id="modalSave">Add Selected Classes</button>
+          <div class="rs-panel" role="dialog" aria-modal="true">
+            <div class="rs-panel-head">
+              <h3 class="rs-panel-title">Add classes</h3>
+              <button type="button" class="rs-panel-x" id="modalX" aria-label="Close">&times;</button>
+            </div>
+            <div class="rs-panel-body"><div id="classCheckboxList" class="rs-panel-checks">${classOptions}</div></div>
+            <div class="rs-panel-foot">
+              <button class="btn" id="modalSave">Add</button>
+              <button class="btn btn-secondary" id="modalCancel">Cancel</button>
             </div>
           </div>
         `;
         document.body.appendChild(modal);
         
         modal.querySelector('#modalCancel').addEventListener('click', () => modal.remove());
+        modal.querySelector('#modalX').addEventListener('click', () => modal.remove());
         modal.querySelector('#modalSave').addEventListener('click', async () => {
           const selectedClasses = Array.from(modal.querySelectorAll('#classCheckboxList input:checked')).map(cb => cb.value);
           if(!selectedClasses.length){
-            alert('Please select at least one class.');
+            alert('Pick a class.');
             return;
           }
           
@@ -6928,29 +6955,34 @@
         const availableClasses = enrolledClassesForTranscript.filter(cls => !assignedTranscriptClassIds.includes(cls.class_id));
         
         if(availableClasses.length === 0){
-          alert('All classes already have transcript signatures assigned.');
+          alert('All classes are assigned.');
           return;
         }
         
         const classOptions = sortClassesByArrangement(availableClasses)
-          .map(cls => `<label style=\"display:block;padding:6px;\"><input type=\"checkbox\" value=\"${cls.class_id}\" style=\"margin-right:8px;\">${escapeHtmlText(cls.class_name)}</label>`)
+          .map(cls => `<label><input type="checkbox" value="${cls.class_id}">${escapeHtmlText(cls.class_name)}</label>`)
           .join('');
         
         const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;';
+        modal.className = 'rs-panel-overlay is-open';
+        modal.setAttribute('data-popup-lift', '');
         modal.innerHTML = `
-          <div style=\"background:#fff;border-radius:12px;padding:20px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3);\">
-            <h3 style=\"margin:0 0 16px;color:var(--primary);\">Add Classes to Transcript Signature</h3>
-            <div id=\"transcriptClassCheckboxList\" style=\"max-height:300px;overflow-y:auto;margin-bottom:16px;\">${classOptions}</div>
-            <div style=\"display:flex;gap:10px;justify-content:flex-end;\">
-              <button class=\"btn btn-danger\" id=\"transcriptModalCancel\">Cancel</button>
-              <button class=\"btn\" id=\"transcriptModalSave\">Add Selected Classes</button>
+          <div class="rs-panel" role="dialog" aria-modal="true">
+            <div class="rs-panel-head">
+              <h3 class="rs-panel-title">Add classes</h3>
+              <button type="button" class="rs-panel-x" id="transcriptModalX" aria-label="Close">&times;</button>
+            </div>
+            <div class="rs-panel-body"><div id="transcriptClassCheckboxList" class="rs-panel-checks">${classOptions}</div></div>
+            <div class="rs-panel-foot">
+              <button class="btn" id="transcriptModalSave">Add</button>
+              <button class="btn btn-secondary" id="transcriptModalCancel">Cancel</button>
             </div>
           </div>
         `;
         document.body.appendChild(modal);
         
         modal.querySelector('#transcriptModalCancel').addEventListener('click', () => modal.remove());
+        modal.querySelector('#transcriptModalX').addEventListener('click', () => modal.remove());
         modal.querySelector('#transcriptModalSave').addEventListener('click', async () => {
           const selectedClasses = Array.from(modal.querySelectorAll('#transcriptClassCheckboxList input:checked')).map(cb => cb.value);
           if(!selectedClasses.length){
@@ -7340,7 +7372,7 @@
       const uniformScalingHtml = `
           <label class="ds-adv-flat-lbl rs-opt">
             <input type="checkbox" id="ds-uniform-scaling-enabled" ${uniformScaling.enabled ? 'checked' : ''}>
-            <span class="rs-opt__text"><b>Scale every subject to the same maximum</b><small>Each chosen class's subjects print out of the same score, based on their assessment weights.</small></span>
+            <span class="rs-opt__text"><b>Scale every subject to the same maximum</b><small>Each chosen class's subjects print out of the same score, based on each assessment's Weight (set when you add it; relative, so weight 2 counts twice weight 1).</small></span>
           </label>
           <div class="rs-sub">
             <label class="rs-field">

@@ -1,0 +1,47 @@
+/* Report pop-ups: panels from the right, under the header, to the bottom. Same look as the other panels
+   (1.5px visible lines, 9px corners, small uppercase labels). Used by the report card, reports hub and settings pages. */
+.rp-overlay, .rp-drawer { --rp-edge: #8ea3b6; --rp-line: #b7c4d0; --rp-bg: var(--ap-surface, #fff); --rp-text: var(--ap-text, #0f172a); --rp-muted: var(--ap-muted, #475569); --rp-accent: var(--primary, #01535b); }
+html[data-appearance="dark"] .rp-overlay, html[data-appearance="dark"] .rp-drawer { --rp-edge: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff); --rp-line: var(--ap-line, #4d5763); }
+.rp-overlay { position: fixed; inset: 0; z-index: 12990; display: none; justify-content: flex-end; align-items: stretch; padding: 0; background: rgba(15, 23, 42, .35); }
+.rp-overlay.is-open { display: flex; }
+.rp-overlay *, .rp-drawer * { box-sizing: border-box; }
+.rp-panel { display: flex; flex-direction: column; width: min(var(--rp-w, 1040px), 100%); max-width: 100%; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; border-left: 1.5px solid var(--rp-edge); border-radius: 0; background: var(--rp-bg); color: var(--rp-text); box-shadow: -18px 0 40px rgba(0, 0, 0, .18); font-family: inherit; overflow: hidden; }
+.rp-panel--wide { --rp-w: 1040px; }
+.rp-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 12992; transform: translateX(100%); transition: transform .2s ease; visibility: hidden; }
+.rp-drawer.is-open { transform: none; visibility: visible; }
+.rp-backdrop { position: fixed; inset: 0; z-index: 12991; background: rgba(15, 23, 42, .35); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.rp-backdrop.is-open { opacity: 1; pointer-events: auto; }
+.rp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--rp-line); background: var(--rp-bg); }
+.rp-title { margin: 0; color: var(--rp-text); font-size: 15px; font-weight: 700; line-height: 1.2; }
+.rp-sub { margin: 2px 0 0; color: var(--rp-muted); font-size: 12.5px; }
+.rp-x { display: grid; place-items: center; flex: none; width: 32px; height: 32px; margin: 0; padding: 0; border: 1.5px solid var(--rp-edge); border-radius: 9px; background: transparent; color: var(--rp-muted); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; box-shadow: none; }
+.rp-x:hover { color: var(--rp-text); }
+.rp-body { flex: 1; min-height: 0; padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.rp-foot { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--rp-line); background: var(--rp-bg); }
+.rp-foot .rp-spacer { flex: 1; }
+.rp-label { display: block; margin: 0 0 5px; color: var(--rp-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.rp-input, .rp-textarea, .rp-select { display: block; width: 100%; min-height: 36px; margin: 0; padding: 6px 10px; border: 1.5px solid var(--rp-edge); border-radius: 9px; background: var(--rp-bg); color: var(--rp-text); font: inherit; font-size: 13.5px; box-shadow: none; outline: none; }
+.rp-textarea { min-height: 80px; resize: vertical; line-height: 1.45; }
+.rp-input:focus, .rp-textarea:focus, .rp-select:focus { border-color: var(--rp-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rp-accent) 18%, transparent); }
+.rp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; height: 36px; margin: 0; padding: 0 16px; border: 1.5px solid var(--rp-edge); border-radius: 9px; background: var(--rp-bg); color: var(--rp-text); font: inherit; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; cursor: pointer; box-shadow: none; transform: none; }
+.rp-btn--primary { border-color: var(--rp-accent); background: var(--rp-accent); color: #fff; }
+.rp-btn--danger { color: #b91c1c; }
+.rp-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.rp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.rp-row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rp-check { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; margin: 0; padding: 0 10px; border: 1.5px solid var(--rp-edge); border-radius: 9px; color: var(--rp-text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.rp-check label { display: flex; align-items: center; gap: 7px; margin: 0; cursor: pointer; }
+.rp-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--rp-accent); }
+.rp-link { color: var(--rp-accent); font-size: 12px; font-weight: 700; text-decoration: none; }
+.rp-status { min-height: 1em; color: var(--rp-muted); font-size: 12.5px; }
+.rp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 560px) { .rp-row2 { grid-template-columns: minmax(0, 1fr); } }
+.rp-input, .rp-textarea, .rp-select { width: 100% !important; max-width: none !important; }
+/* Billing editor of the report card page (manual billing): same panel */
+.paygira-edit-modal-overlay { justify-content: flex-end !important; align-items: stretch !important; padding: 0 !important; background: rgba(15, 23, 42, .35) !important; z-index: 12990 !important; }
+.paygira-edit-modal { width: min(1040px, 100%) !important; max-width: 100% !important; height: 100% !important; max-height: none !important; padding: 16px !important; border: 0 !important; border-left: 1.5px solid #8ea3b6 !important; border-radius: 0 !important; background: var(--ap-surface, #fff) !important; color: var(--ap-text, #0f172a); box-shadow: -18px 0 40px rgba(0, 0, 0, .18) !important; }
+.paygira-edit-modal .paygira-edit-grid input, .paygira-edit-modal .paygira-edit-grid select { min-height: 36px; border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; padding: 6px 10px !important; background: var(--ap-surface, #fff); color: inherit; }
+.paygira-edit-modal .paygira-selector-box { border: 1.5px solid #8ea3b6 !important; border-radius: 9px !important; background: transparent !important; }
+.paygira-edit-modal .paygira-selector-title { color: var(--ap-muted, #475569) !important; font-size: 11.5px !important; letter-spacing: .05em; text-transform: uppercase; }
+html[data-appearance="dark"] .paygira-edit-modal .paygira-edit-grid input, html[data-appearance="dark"] .paygira-edit-modal .paygira-edit-grid select, html[data-appearance="dark"] .paygira-edit-modal { border-color: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff) !important; }
+html[data-appearance="dark"] .paygira-edit-modal .paygira-selector-box { border-color: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff) !important; }

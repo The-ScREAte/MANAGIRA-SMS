@@ -29,9 +29,9 @@ module.exports = [
         title: "Import many students",
         steps: [
           ["In <strong>Add New Student</strong>, choose the import option.", "add-student-import.webp", "Import students: download the template, fill it in, upload it."],
-          "Select <strong>Download CSV Template</strong> or <strong>Download Excel Template (.xls)</strong>.",
-          "Fill in one row per student. Remove the example rows before importing.",
-          "Drag the file onto the upload box (or click to choose it) and select <strong>Import</strong>. Check the summary for any rows that need fixing.",
+          "Select the <strong>CSV</strong> or <strong>Excel</strong> template. It has a column for each of your own student fields.",
+          "Fill in one row per student. Remove the example row before importing.",
+          "Drag the file onto the upload box (or click to choose it) and select <strong>Import</strong>. Check the summary: matched columns, ignored columns and cells to check.",
         ],
         example: "A new charter school imports 420 students from its old system's spreadsheet export: one row each with first and last name, gender, date of birth, grade and a parent's email and phone.",
       },

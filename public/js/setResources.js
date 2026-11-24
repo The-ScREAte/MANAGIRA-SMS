@@ -24,16 +24,16 @@
     box = document.createElement('section');
     box.className = 'pr-box pr-box--v2';
     box.setAttribute('aria-label', 'Resources and recommendations');
-    box.innerHTML = '<div class="pr-head"><strong>Resources &amp; recommendations</strong><span>Optional. Notes, files and links that help with this test or assignment.</span></div>'
-      + '<label class="pr-field"><span>Recommendations</span><textarea id="pr-notes" rows="3" maxlength="4000" placeholder="What to revise, how to prepare, or tips for helping at home"></textarea></label>'
-      + '<div class="pr-field"><span>Files and links</span><ul class="pr-list" id="pr-list"></ul>'
-      + '<div class="pr-actions"><label class="pr-btn">' + FILE + 'Upload files<input type="file" id="pr-files" multiple hidden /></label>'
-      + '<button type="button" class="pr-btn" id="pr-link-open">' + LINK + 'Add a link</button></div>'
+    box.innerHTML = '<div class="pr-head"><strong>Resources</strong></div>'
+      + '<label class="pr-field"><textarea id="pr-notes" rows="3" maxlength="4000" placeholder="Notes" aria-label="Notes"></textarea></label>'
+      + '<div class="pr-field"><ul class="pr-list" id="pr-list"></ul>'
+      + '<div class="pr-actions"><label class="pr-btn">' + FILE + 'Upload<input type="file" id="pr-files" multiple hidden /></label>'
+      + '<button type="button" class="pr-btn" id="pr-link-open">' + LINK + 'Link</button></div>'
       + '<div class="pr-linkrow" id="pr-linkrow" hidden><input type="url" id="pr-link-url" placeholder="https://" aria-label="Link address" /><input type="text" id="pr-link-label" maxlength="200" placeholder="Name (optional)" aria-label="Link name" /><button type="button" class="pr-btn pr-btn--primary" id="pr-link-add">Add</button></div>'
-      + '<p class="pr-hint" id="pr-hint" hidden>Files and links are added when you save the questions.</p></div>'
-      + '<div class="pr-who"><span>Who sees them</span>'
-      + '<label class="pr-switch"><input type="checkbox" id="pr-students" /><span>Students, with the test<small>Shown beside the questions (always for open-book tests).</small></span></label>'
-      + '<label class="pr-switch"><input type="checkbox" id="pr-show" /><span>Parents, on the parent portal<small>With the test’s title, so they can help at home.</small></span></label></div>'
+      + '<p class="pr-hint" id="pr-hint" hidden>Added when you save.</p></div>'
+      + '<div class="pr-who"><span>Visible to</span>'
+      + '<label class="pr-switch"><input type="checkbox" id="pr-students" /><span>Students</span></label>'
+      + '<label class="pr-switch"><input type="checkbox" id="pr-show" /><span>Parents</span></label></div>'
       + '<p class="pr-error" id="pr-error" role="alert" hidden></p>';
     var holder = anchor.closest('.form-group, .field, .question-field, .question-modal-field, label') || anchor;
     holder.parentNode.insertBefore(box, holder.nextSibling);
@@ -150,3 +150,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', begin);
   else begin();
 })();
+

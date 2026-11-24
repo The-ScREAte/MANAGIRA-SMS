@@ -6,12 +6,10 @@
   <header class="mg-head">
     <div>
       <h1>Data migration <span class="mg-pill mg-pill--off">Sandbox off</span></h1>
-      <p>Your sandbox is ready. Turn it on to upload your exports and carry on with your move.</p>
     </div>
   </header>
   <section class="mg-card mg-off">
-    <h2>Turn the sandbox on</h2>
-    <p class="mg-hint">While it's on, nothing new can be saved in Managira, so nothing is entered twice. Everyone can still sign in and look. You can turn it off at any time from the menu; what you uploaded is kept.</p>
+    <h2>Turn the sandbox on <span class="mg-help" tabindex="0" role="note" data-tip="While it is on, nothing new can be saved, so nothing is entered twice. Everyone can still sign in and look. Turn it off any time from the menu; uploads are kept.">?</span></h2>
     <form method="POST" action="/common/migration/sandbox" target="_top" data-no-spa>
       <input type="hidden" name="on" value="1">
       <button type="submit" class="mg-btn mg-btn--primary">Turn sandbox on</button>

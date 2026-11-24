@@ -1,4 +1,4 @@
-<div data-ahd-title="New hub" data-ahd-sub="The owner gets an email to set a password. Billing follows the terms below." data-ahd-wide>
+<div data-ahd-title="New hub" data-ahd-wide>
   <form action="/admin/hubs/create" method="POST" class="ahd-form" data-ah-follow>
     <section class="ahd-section">
       <h3 class="ahd-section__title">Hub</h3>
@@ -9,19 +9,18 @@
         </label>
         <label class="ahb-field">
           <span class="ahb-label">Web address</span>
-          <span class="ahb-suffix"><input type="text" name="hubNickname" class="ahb-input" placeholder="fairfaxcps" pattern="[a-z0-9]+" minlength="3" maxlength="20" required autocapitalize="off" spellcheck="false" /><span>.managira.com</span></span>
-          <span class="ahb-hint">3–20 lowercase letters and numbers.</span>
+          <span class="ahb-suffix"><input type="text" name="hubNickname" class="ahb-input" placeholder="3-20 lowercase letters or numbers" pattern="[a-z0-9]+" minlength="3" maxlength="20" required autocapitalize="off" spellcheck="false" /><span>.managira.com</span></span>
+          
         </label>
         <label class="ahb-field">
-          <span class="ahb-label">Footer text <em>optional</em></span>
-          <input type="text" name="hubFooterText" class="ahb-input" placeholder="Shown in member schools’ footers" maxlength="300" />
+          <span class="ahb-label">Footer text</span>
+          <input type="text" name="hubFooterText" class="ahb-input" placeholder="Optional, shown in schools’ footers" maxlength="300" />
         </label>
       </div>
     </section>
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Plans</h3>
-      <p class="ahd-section__sub">The plan decides what each school can use (Basic, Pro, Premium…).</p>
       <%- include('../partials/hubPlanFields', { plans, hubRow: null }) %>
     </section>
 
@@ -30,33 +29,31 @@
       <div class="ahb-grid">
         <label class="ahb-field"><span class="ahb-label">First name</span><input type="text" name="firstName" class="ahb-input" maxlength="100" required /></label>
         <label class="ahb-field"><span class="ahb-label">Last name</span><input type="text" name="lastName" class="ahb-input" maxlength="100" required /></label>
-        <label class="ahb-field"><span class="ahb-label">Email (signs in with this)</span><input type="email" name="hubEmail" class="ahb-input" placeholder="superintendent@fcps.edu" maxlength="255" required /></label>
+        <label class="ahb-field"><span class="ahb-label">Email</span><input type="email" name="hubEmail" class="ahb-input" placeholder="superintendent@fcps.edu" maxlength="255" required /></label>
         <div class="ahb-field">
-          <span class="ahb-label">Phone <em>optional</em></span>
+          <span class="ahb-label">Phone</span>
           <div class="phone-combo" data-default-iso2="US">
             <select class="phone-dial-select" aria-label="Country code"></select>
             <input type="text" name="hubPhone" class="phone-local-input" aria-label="Phone" />
           </div>
         </div>
-        <label class="ahb-field ahb-field--full"><span class="ahb-label">Address <em>optional</em></span><input type="text" name="hubAddress" class="ahb-input" placeholder="8115 Gatehouse Rd, Falls Church, VA 22042" maxlength="300" /></label>
+        <label class="ahb-field ahb-field--full"><span class="ahb-label">Address</span><input type="text" name="hubAddress" class="ahb-input" placeholder="Optional" maxlength="300" /></label>
       </div>
     </section>
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Billing</h3>
-      <p class="ahd-section__sub">Charged with Stripe. The hub saves a card first, even with a free trial.</p>
       <%- include('../partials/hubBillingFields', { b, billingRow: null, hubRow: { max_organizations: 5 }, usageRow: null }) %>
       <label class="ahb-check ahb-check--box">
         <input type="checkbox" name="sendPaymentLink" checked />
-        <span><strong>Email the payment link now</strong><span class="ahb-hint">The owner, the billing email and billing contacts get Stripe’s secure link to save the card. You can also send it later.</span></span>
+        <span><strong>Email the payment link now</strong></span>
       </label>
     </section>
 
     <section class="ahd-section">
-      <h3 class="ahd-section__title">People who get access <em>optional</em></h3>
-      <p class="ahd-section__sub">They get an email to set a password and sign in. No sign-up needed.</p>
+      <h3 class="ahd-section__title">People</h3>
       <div class="ahp-rows" data-ahp-rows></div>
-      <button type="button" class="ah-btn ah-btn--sm" data-ahp-add><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a person</button>
+      <button type="button" class="ah-btn ah-btn--sm" data-ahp-add><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add person</button>
       <template data-ahp-template>
         <div class="ahp-row">
           <input type="text" class="ahb-input" data-name="firstName" placeholder="First name" aria-label="First name" maxlength="100" />
@@ -64,17 +61,16 @@
           <input type="email" class="ahb-input" data-name="email" placeholder="Email" aria-label="Email" maxlength="255" />
           <select class="ahb-input" data-name="role" aria-label="Access">
             <option value="billing">Billing contact</option>
-            <option value="hub_admin">Hub admin (everything)</option>
+            <option value="hub_admin">Hub admin</option>
           </select>
           <button type="button" class="ah-btn ah-btn--sm ah-btn--icon" data-ahp-remove aria-label="Remove this person"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
       </template>
-      <p class="ahb-hint" style="margin-top:10px">Billing contacts see Billing, reports and schools, and get billing emails. Hub admins see everything.</p>
     </section>
 
     <div class="ahd__foot">
       <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
-      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Create hub</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Create</button>
     </div>
   </form>
 </div>

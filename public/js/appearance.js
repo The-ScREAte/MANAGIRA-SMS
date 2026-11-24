@@ -130,7 +130,7 @@
       const o = toLch(c);
       if (DARK) {
         // Light see-through lines already read on dark planes (and are this remap's own output below).
-        if (o.L >= 0.7 && o.C <= 0.1) { if (c.a < 0.6) return null; const t = tint(o, 0.7); return fromLch(0.33 + (o.L - 0.7) * 0.25, t.C, t.h, c.a); }
+        if (o.L >= 0.7 && o.C <= 0.1) { if (c.a < 0.6) return null; const t = tint(o, 0.7); return fromLch(0.47 + (o.L - 0.7) * 0.25, t.C, t.h, c.a); }
         // Dark gray lines (often see-through, like rgba(15,23,42,.08)) vanish on dark
         // planes: they become light lines of about the same strength.
         if (o.C <= 0.06 && c.a < 0.6 && o.L < 0.5) return { r: 226, g: 232, b: 240, a: Math.min(0.24, Math.max(0.1, c.a * 1.3)) };

@@ -525,9 +525,9 @@
         <%# Every class's switches and the school attendance calendar (feature class_settings, Every Class). %>
         <% if (menuAccess.classSettings && locals.featureOn && featureOn('class_settings')) { %>
         <li>
-          <a class="nav-link" href="/common/class-settings" data-no-spa data-section="class-settings" data-embed-url="/common/class-settings" data-embed-label="Class settings">
+          <a class="nav-link" href="/common/class-settings" data-no-spa data-section="class-settings" data-embed-url="/common/class-settings" data-embed-label="Class &amp; notif. settings">
             <span class="nav-link-icon"><%- navIcon('settings') %></span>
-            <span>Class settings</span>
+            <span>Class &amp; notif. settings</span>
           </a>
         </li>
         <% } %>
@@ -678,14 +678,6 @@
           </a>
         </li>
         <% } %>
-        <% if (menuAccess.briefing && locals.featureOn && featureOn('weekly_briefing')) { %>
-        <li>
-          <a class="nav-link" href="/common/briefing" data-no-spa data-section="weekly-briefing" data-embed-url="/common/briefing" data-embed-label="Weekly briefing">
-            <span class="nav-link-icon"><%- navIcon('mailroom') %></span>
-            <span>Weekly briefing</span>
-          </a>
-        </li>
-        <% } %>
         <% if (canSeeEmailIssues) { %>
         <li>
           <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
@@ -724,7 +716,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></svg>
-            <p>Loading Class settings…</p>
+            <p>Loading Class &amp; notif. settings…</p>
           </div>
         </div>
       </section>
@@ -896,16 +888,6 @@
       </section>
       <% } %>
 
-      <% if (menuAccess.briefing && locals.featureOn && featureOn('weekly_briefing')) { %>
-      <section class="management-section" id="weekly-briefing">
-        <div class="embed-panel-body">
-          <div class="embed-placeholder">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            <p>Loading Weekly briefing…</p>
-          </div>
-        </div>
-      </section>
-      <% } %>
 
       <% if (canSeeEmailIssues) { %>
       <section class="management-section" id="email-issues">

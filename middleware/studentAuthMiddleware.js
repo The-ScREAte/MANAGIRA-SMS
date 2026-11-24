@@ -1,5 +1,12 @@
 const db = require("../config/db");
 const { ensureStudentPortalSchema } = require("../utils/studentPortal");
+const { createShortCache } = require("../utils/shortCache");
+
+// The school's state and the student's own row, kept for a few seconds per school instead of
+// two lookups on every page and autosave. Anything the school saves clears them straight away
+// (utils/shortCache.js).
+const schoolGate = createShortCache({ ttlMs: 15000, max: 20000 });
+const studentRows = createShortCache({ ttlMs: 15000, max: 50000 });
 
 async function isStudentAuthenticated(req, res, next) {
   const safeFlash = (type, message) => {
@@ -40,32 +47,37 @@ async function isStudentAuthenticated(req, res, next) {
 
     await ensureStudentPortalSchema(db);
 
-    const orgResult = await db.query(
-      "SELECT deleted, on_hold, student_portal_activated FROM organizations WHERE organization_id = $1 LIMIT 1",
-      [organizationId]
-    );
+    const orgRow = await schoolGate.get(organizationId, "student-gate", async () => {
+      const orgResult = await db.query(
+        "SELECT deleted, on_hold, student_portal_activated FROM organizations WHERE organization_id = $1 LIMIT 1",
+        [organizationId]
+      );
+      return orgResult.rows[0] || null;
+    });
 
-    if (!orgResult.rows.length || orgResult.rows[0].deleted || orgResult.rows[0].on_hold) {
+    if (!orgRow || orgRow.deleted || orgRow.on_hold) {
       return destroyAndRedirect("/account/student-login?reason=school_inactive");
     }
 
-    if (!Boolean(orgResult.rows[0].student_portal_activated)) {
+    if (!Boolean(orgRow.student_portal_activated)) {
       return destroyAndRedirect("/account/student-login?reason=portal_inactive");
     }
 
-    const studentResult = await db.query(
-      `SELECT s.student_id, s.organization_id, s.first_name, s.last_name
-         FROM students s
-         WHERE s.student_id = $1 AND s.organization_id = $2
-         LIMIT 1`,
-      [req.session.studentId, organizationId]
-    );
+    const studentRow = await studentRows.get(organizationId, `student:${req.session.studentId}`, async () => {
+      const studentResult = await db.query(
+        `SELECT s.student_id, s.organization_id, s.first_name, s.last_name
+           FROM students s
+           WHERE s.student_id = $1 AND s.organization_id = $2
+           LIMIT 1`,
+        [req.session.studentId, organizationId]
+      );
+      return studentResult.rows[0] || null;
+    });
 
-    if (!studentResult.rows.length) {
+    if (!studentRow) {
       return destroyAndRedirect("/account/student-login?reason=student_not_found");
     }
 
-    const studentRow = studentResult.rows[0];
     req.session.firstName = studentRow.first_name || req.session.firstName;
     req.session.lastName = studentRow.last_name || req.session.lastName;
     if (req.session.user && typeof req.session.user === "object") {

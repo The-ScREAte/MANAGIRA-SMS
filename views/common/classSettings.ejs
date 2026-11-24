@@ -22,7 +22,7 @@
 <div class="cset-page" data-class-settings data-save-url="<%= saveUrl %>" data-from="management" data-rows-url="/common/class-settings/rows">
   <div class="cset-page__head">
     <div>
-      <h1 class="cset-page__title">Class settings</h1>
+      <h1 class="cset-page__title">Class &amp; notif. settings</h1>
     </div>
     <p class="cset-status" data-cs-status role="status" aria-live="polite"></p>
   </div>
@@ -81,6 +81,63 @@
       </div>
     <% } %>
   </div>
+
+
+  <% if (locals.schoolBriefing) { const _b = schoolBriefing; %>
+  <%# The school's weekly briefing (was its own page): same rows as everything above. Save posts to /common/briefing. %>
+  <form class="cset-card" id="cset-brief-form" action="/common/briefing" method="post">
+    <div class="cset-card__head">
+      <h2 class="cset-card__title">Weekly briefing</h2>
+      <span class="cset-msg" data-brief-msg role="status" aria-live="polite"></span>
+    </div>
+    <div class="cset-row cset-brief-when">
+      <span class="cset-row__label">Sent every</span>
+      <span class="cset-brief-selects">
+        <select name="day" aria-label="Day"><% _b.days.forEach((label, i) => { %><option value="<%= i %>" <%= _b.schedule.day === i ? 'selected' : '' %>><%= label %></option><% }) %></select>
+        <select name="hour" aria-label="Time"><% for (let h = 6; h <= 21; h += 1) { %><option value="<%= h %>" <%= _b.schedule.hour === h ? 'selected' : '' %>><%= _b.hourLabel(h) %></option><% } %></select>
+        <select name="timeZone" aria-label="Time zone">
+          <% if (!_b.timeZones.some(([z]) => z === _b.schedule.timeZone)) { %><option value="<%= _b.schedule.timeZone %>" selected><%= _b.schedule.timeZone %></option><% } %>
+          <% _b.timeZones.forEach(([z, label]) => { %><option value="<%= z %>" <%= _b.schedule.timeZone === z ? 'selected' : '' %>><%= label %></option><% }) %>
+        </select>
+      </span>
+    </div>
+    <ul class="cset-list">
+      <li class="cset-row cset-colhead"><span class="cset-row__label"></span><span class="cset-cells"><span class="cset-cell">Parents</span><span class="cset-cell">Students</span></span><span class="cset-lockslot"></span></li>
+      <li class="cset-row">
+        <span class="cset-row__label">Send the weekly briefing</span>
+        <span class="cset-cells">
+          <% ['parents', 'students'].forEach((a) => { %><label class="cset-cell"><span class="cset-switch"><input type="checkbox" role="switch" name="<%= a %>_on" aria-label="Send to <%= a %>" <%= _b.settings[a].on ? 'checked' : '' %> /><span class="cset-switch__track" aria-hidden="true"></span></span></label><% }) %>
+        </span><span class="cset-lockslot"></span>
+      </li>
+      <% _b.sections.forEach((section) => { %>
+      <li class="cset-row" title="<%= section.hint %>">
+        <span class="cset-row__label"><%= section.label %></span>
+        <span class="cset-cells">
+          <% ['parents', 'students'].forEach((a) => { %>
+            <% if (section.audiences.includes(a)) { %><label class="cset-cell"><span class="cset-switch"><input type="checkbox" role="switch" name="<%= a %>_<%= section.key %>" aria-label="<%= section.label %> for <%= a %>" <%= _b.settings[a].sections[section.key] ? 'checked' : '' %> /><span class="cset-switch__track" aria-hidden="true"></span></span></label>
+            <% } else { %><span class="cset-cell cset-cell--end cset-cell--na" aria-label="Not sent to <%= a %>">—</span><% } %>
+          <% }) %>
+        </span><span class="cset-lockslot"></span>
+      </li>
+      <% }) %>
+    </ul>
+    <% if (_b.ownClasses.length) { %><p class="cset-card__sub" style="padding:10px 20px 0;">Own choices: <%= _b.ownClasses.join(', ') %> (change in each class's Class settings).</p><% } %>
+    <div class="cset-card__foot"><button type="submit" class="cset-save" data-brief-save>Save</button></div>
+  </form>
+  <script>
+  (function () {
+    var f = document.getElementById('cset-brief-form'); if (!f) return;
+    var msg = f.querySelector('[data-brief-msg]'), btn = f.querySelector('[data-brief-save]');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault(); btn.disabled = true; msg.className = 'cset-msg'; msg.textContent = 'Saving…';
+      fetch(f.action, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(new FormData(f)).toString() })
+        .then(function (r) { if (!r.ok) throw new Error(); msg.className = 'cset-msg is-saved'; msg.textContent = 'Saved'; })
+        .catch(function () { msg.className = 'cset-msg is-error'; msg.textContent = 'Not saved'; })
+        .then(function () { btn.disabled = false; });
+    });
+  })();
+  </script>
+  <% } %>
 
   <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true }) %>
 </div>

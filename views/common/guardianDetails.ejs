@@ -1000,17 +1000,17 @@
         <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
         <h2 class="gd-name"><%= guardianDisplayName %></h2>
         <div class="gd-info-grid">
-          <div class="gd-info-item"><strong>Email:</strong> <%= guardian.email || 'Not provided' %></div>
-          <div class="gd-info-item"><strong>Phone:</strong> <%= guardian.phone || 'Not provided' %></div>
-          <div class="gd-info-item"><strong>Date of Birth:</strong> <%= guardian.date_of_birth ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(guardian.date_of_birth) : new Date(guardian.date_of_birth).toLocaleDateString()) : 'Not provided' %></div>
-          <div class="gd-info-item"><strong>Address:</strong> <%= guardian.address || 'Not provided' %></div>
-          <div class="gd-info-item"><strong>Hometown:</strong> <%= guardian.hometown || 'Not provided' %></div>
+          <div class="gd-info-item"><strong>Email:</strong> <%= guardian.email || '—' %></div>
+          <div class="gd-info-item"><strong>Phone:</strong> <%= guardian.phone || '—' %></div>
+          <div class="gd-info-item"><strong>Date of Birth:</strong> <%= guardian.date_of_birth ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(guardian.date_of_birth) : new Date(guardian.date_of_birth).toLocaleDateString()) : '—' %></div>
+          <div class="gd-info-item"><strong>Address:</strong> <%= guardian.address || '—' %></div>
+          <div class="gd-info-item"><strong>Hometown:</strong> <%= guardian.hometown || '—' %></div>
         </div>
         <div class="gd-actions">
           <% if (canEdit) { %>
           <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">Edit</button>
           <% if (hasGuardianPortalFeature) { %>
-          <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">Send password setup</button>
+          <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">Send setup</button>
           <% } %>
           <% } %>
         </div>

@@ -101,8 +101,14 @@
   .announcement-form,
   .campaign-form-grid {
     display: grid;
-    gap: 14px;
+    gap: 10px;
   }
+  .campaign-form-grid .field-label, .la-fields .field-label { margin-bottom: 5px; font-size: 0.84rem; }
+  .campaign-form-grid .automation-input, .campaign-form-grid .automation-select, .la-fields .automation-input, .la-fields .automation-select { padding: 10px 13px; border-radius: 12px; }
+  .campaign-form-grid .automation-textarea { min-height: 84px; padding: 10px 13px; border-radius: 12px; }
+  .campaign-form-grid :is(input, select, textarea):not([type=checkbox]), .la-fields :is(input, select, textarea):not([type=checkbox]):not([type=radio]) { margin: 0; }
+  .la-row > *, .form-row > *, .form-row-3 > * { min-width: 0; }
+  .modal-header .close-modal-btn { width: 36px; height: 36px; font-size: 1.15rem; }
 
   .field-label {
     display: block;
@@ -539,7 +545,7 @@
   .modal-panel {
     position: relative;
     width: 100%;
-    max-width: 860px;
+    max-width: min(1040px, 100vw);
     height: 100%;
     max-height: 100%;
     overflow-y: auto;
@@ -548,7 +554,7 @@
     border: none;
     border-left: 1px solid rgba(16, 37, 66, 0.12);
     box-shadow: -8px 0 40px rgba(15, 23, 42, 0.24);
-    padding: 24px;
+    padding: 18px 22px;
     animation: adminModalSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
   @keyframes adminModalSlideInRight {
@@ -563,7 +569,7 @@
     display: flex;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
   }
 
   .modal-title {
@@ -594,8 +600,8 @@
     justify-content: space-between;
     align-items: center;
     gap: 16px;
-    padding: 16px 18px;
-    border-radius: 18px;
+    padding: 10px 16px;
+    border-radius: 14px;
     background: rgba(15, 118, 110, 0.06);
     border: 1px solid rgba(15, 118, 110, 0.14);
   }
@@ -653,6 +659,11 @@
     transform: translateX(14px);
   }
 
+  /* Panel layout: header, scrolling form, pinned footer (public/css/panelFooter.css) */
+  .modal-panel { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+  .modal-panel > .modal-header { flex: none; margin: 0; padding: 16px 22px 12px; border-bottom: 1.5px solid var(--pf-line, #aab8c6); }
+  .modal-panel > form { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 22px 20px; }
+  .modal-panel > .modal-actions.pf-footer { margin: 0; }
   .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -829,7 +840,7 @@
   .la-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-left: 2px dashed rgba(255, 255, 255, 0.85); z-index: 1; display: none; pointer-events: none; }
   .la-guide.is-visible { display: block; }
   .la-hint { color: var(--automation-muted); font-size: 0.84rem; text-align: center; margin: 0; }
-  .la-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+  .la-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
   .la-fields > * { min-width: 0; }
   .la-drop small, .la-drop strong { overflow-wrap: anywhere; }
   .la-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px; border-radius: 16px; border: 2px dashed rgba(15, 118, 110, 0.35); background: rgba(15, 118, 110, 0.04); text-align: center; cursor: pointer; color: var(--automation-ink); }
@@ -861,7 +872,7 @@
   .la-chip input:checked + span { background: #0f766e; border-color: #0f766e; color: #fff; }
   .la-chip input:focus-visible + span { outline: 2px solid #14b8a6; outline-offset: 2px; }
   .la-error { color: var(--automation-danger, #dc2626); font-weight: 600; font-size: 0.88rem; min-height: 1.2em; margin: 0; }
-  .la-fields .modal-actions { position: sticky; bottom: 0; margin: 0 -4px; padding: 12px 4px 4px; background: linear-gradient(180deg, rgba(247, 251, 255, 0) 0%, #f7fbff 30%); }
+  .la-fields .modal-actions-unused { position: sticky; bottom: 0; margin: 0 -4px; padding: 12px 4px 4px; background: linear-gradient(180deg, rgba(247, 251, 255, 0) 0%, #f7fbff 30%); }
   @media (max-width: 820px) {
     .la-editor { grid-template-columns: minmax(0, 1fr); }
     .la-preview { position: static; }
@@ -913,11 +924,8 @@
     .modal-title { font-size: 1.2rem; }
     .modal-subtitle { font-size: 0.86rem; }
     .modal-shell .close-modal-btn { width: 38px; height: 38px; flex: none; }
-    .modal-panel { padding: 16px 16px 0; }
-    /* Cancel and Save always in reach, side by side at the bottom. */
-    .modal-panel .modal-actions,
-    .la-fields .modal-actions { position: sticky; bottom: 0; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px -16px 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #f7fbff; border-top: 1px solid rgba(16, 37, 66, 0.1); }
-    .modal-panel .modal-actions .admin-btn { width: 100%; justify-content: center; text-align: center; }
+    .modal-panel > .modal-header { padding: 14px 16px 10px; }
+    .modal-panel > form { padding: 14px 16px 18px; }
   }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/loginAds.css') %>" />
@@ -1120,13 +1128,12 @@
 
 </div>
 
-<section id="campaign-modal" class="modal-shell" hidden>
-  <div class="modal-backdrop" data-close-modal></div>
+<section id="campaign-modal" class="modal-shell" data-below-header data-popup-lift hidden>
+  <div class="modal-backdrop"></div>
   <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="campaign-modal-title">
     <div class="modal-header">
       <div>
         <h2 id="campaign-modal-title" class="modal-title">Add automated email</h2>
-        <p class="modal-subtitle">Create a scheduled email without leaving this page. You can target users from the platform, add manual email addresses, and enable or disable the schedule any time.</p>
       </div>
       <button type="button" class="close-modal-btn" data-close-modal aria-label="Close scheduled email form">&times;</button>
     </div>
@@ -1136,8 +1143,7 @@
 
       <div class="toggle-row">
         <div>
-          <strong>Automation status</strong>
-          <span>Keep the campaign ready but inactive until you want it to start sending.</span>
+          <strong>Active</strong>
         </div>
         <label class="toggle-switch" for="campaign-active">
           <input id="campaign-active" type="checkbox" checked />
@@ -1147,14 +1153,13 @@
       </div>
 
       <div>
-        <label class="field-label" for="campaign-subject">Email subject</label>
-        <input id="campaign-subject" class="automation-input" type="text" placeholder="Monthly account health update" required />
+        <label class="field-label" for="campaign-subject">Subject</label>
+        <input id="campaign-subject" class="automation-input" type="text" placeholder="Subject" required />
       </div>
 
       <div>
-        <label class="field-label" for="campaign-content">Main content</label>
-        <textarea id="campaign-content" class="automation-textarea" placeholder="Write the email body here. Pasted links such as https://example.com are sent as clickable links." required></textarea>
-        <p class="field-help">Line breaks are preserved and pasted URLs become clickable links in the email.</p>
+        <label class="field-label" for="campaign-content">Message</label>
+        <textarea id="campaign-content" class="automation-textarea" placeholder="Message" required></textarea>
       </div>
 
       <div class="form-row">
@@ -1199,40 +1204,40 @@
       </div>
 
       <div id="campaign-monthday-field" hidden>
-        <label class="field-label" for="campaign-day-of-month">Day of month</label>
+        <label class="field-label" for="campaign-day-of-month">Day</label>
         <input id="campaign-day-of-month" class="automation-input" type="number" min="1" max="31" placeholder="15" />
       </div>
 
+      <div class="form-row">
       <div>
-        <label class="field-label" for="campaign-user-search">Choose existing users</label>
+        <label class="field-label" for="campaign-user-search">Users</label>
         <div class="search-shell">
-          <input id="campaign-user-search" class="automation-input" type="search" placeholder="Search by name, email, or role" autocomplete="off" />
+          <input id="campaign-user-search" class="automation-input" type="search" placeholder="Search name, email or role" autocomplete="off" />
           <div id="campaign-search-results" class="search-results" role="listbox"></div>
         </div>
         <div id="selected-users" class="selected-users" style="margin-top: 12px;"></div>
       </div>
 
       <div>
-        <label class="field-label" for="campaign-manual-emails">Manual email addresses</label>
-        <textarea id="campaign-manual-emails" class="automation-textarea" placeholder="person@example.com&#10;another@example.com"></textarea>
-        <p class="field-help">Separate addresses with a comma, semicolon, or a new line.</p>
+        <label class="field-label" for="campaign-manual-emails">Other emails</label>
+        <textarea id="campaign-manual-emails" class="automation-textarea" placeholder="Optional: one per line or comma separated"></textarea>
+      </div>
       </div>
 
-      <div class="modal-actions">
-        <button type="button" class="admin-btn automation-secondary" data-close-modal>Cancel</button>
-        <button type="submit" id="save-campaign-btn" class="admin-btn automation-primary">Save automated email</button>
-      </div>
     </form>
+    <div class="modal-actions pf-footer">
+      <button type="button" class="admin-btn automation-secondary" data-close-modal>Cancel</button>
+      <button type="submit" form="campaign-form" id="save-campaign-btn" class="admin-btn automation-primary">Save</button>
+    </div>
   </div>
 </section>
 
-<section id="la-modal" class="modal-shell" hidden>
-  <div class="modal-backdrop" data-la-close></div>
+<section id="la-modal" class="modal-shell" data-below-header data-popup-lift hidden>
+  <div class="modal-backdrop"></div>
   <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="la-modal-title" style="max-width: 1040px;">
     <div class="modal-header">
       <div>
         <h2 id="la-modal-title" class="modal-title">New ad</h2>
-        <p class="modal-subtitle">Upload an image, PDF or video, add a link and drag the button where it should sit. Then choose where and how often it shows.</p>
       </div>
       <button type="button" class="close-modal-btn" data-la-close aria-label="Close ad editor">&times;</button>
     </div>
@@ -1240,23 +1245,22 @@
     <form id="la-form" class="la-editor" novalidate>
       <div class="la-preview">
         <div class="la-preview-frame" id="la-preview-frame">
-          <p class="la-preview-empty">Your ad preview appears here.<br />Choose a file to start.</p>
+          <p class="la-preview-empty">Preview</p>
         </div>
-        <p class="la-hint" id="la-hint" hidden>Drag the button to move it. Arrow keys nudge it (hold Shift for bigger steps).</p>
+        <p class="la-hint" id="la-hint" hidden>Drag the button to move it.</p>
       </div>
 
       <div class="la-fields">
         <label class="la-drop" id="la-drop">
           <input type="file" id="la-file" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,video/mp4,video/webm" />
           <strong id="la-drop-title">Choose or drop a file</strong>
-          <small>JPG, PNG, GIF, WebP, PDF (first page), MP4 or WebM &middot; up to 50 MB</small>
+          <small>Image, PDF or video &middot; 50 MB max</small>
           <small id="la-file-name"></small>
         </label>
 
         <div>
           <label class="field-label" for="la-title">Name</label>
-          <input class="automation-input" id="la-title" maxlength="200" placeholder="e.g. Back to school 2026" />
-          <div class="field-help">Used as the image description for screen readers.</div>
+          <input class="automation-input" id="la-title" maxlength="200" placeholder="Name, e.g. Back to school 2026" />
         </div>
 
         <div>
@@ -1266,13 +1270,12 @@
 
         <div class="toggle-row">
           <div>
-            <strong>Show the link as a button</strong>
-            <span>Off: the whole ad is clickable instead.</span>
+            <strong>Link as button</strong>
           </div>
           <label class="toggle-switch" for="la-as-button">
             <input id="la-as-button" type="checkbox" checked />
             <span class="toggle-slider"></span>
-            <span class="visually-hidden">Show the link as a button</span>
+            <span class="visually-hidden">Link as button</span>
           </label>
         </div>
 
@@ -1307,11 +1310,11 @@
           <legend class="field-label">Where it shows</legend>
           <label class="la-place-option">
             <input type="checkbox" id="la-on-login" checked />
-            <span><strong>Sign-in pages</strong><small>Beside the form on the login, parent, student, hub and reset-password pages.</small></span>
+            <span><strong>Sign-in pages</strong></span>
           </label>
           <label class="la-place-option">
             <input type="checkbox" id="la-in-app" />
-            <span><strong>Inside the app</strong><small>A small card after people sign in. It waits until pop-ups and feedback requests are closed.</small></span>
+            <span><strong>Inside the app</strong></span>
           </label>
 
           <div class="la-app-fields" id="la-app-fields" hidden>
@@ -1325,40 +1328,39 @@
             </div>
             <div class="la-row">
               <div>
-                <label class="field-label" for="la-frequency">How often</label>
+                <label class="field-label" for="la-frequency">Frequency</label>
                 <select class="automation-select" id="la-frequency">
                   <option value="once_per_session">Once per sign-in</option>
                   <option value="once">Once</option>
-                  <option value="daily">Once a day</option>
-                  <option value="n_times">A set number of times</option>
-                  <option value="until_dismissed">Until they close it</option>
-                  <option value="every_login">On every page</option>
+                  <option value="daily">Daily</option>
+                  <option value="n_times">Set number of times</option>
+                  <option value="until_dismissed">Until closed</option>
+                  <option value="every_login">Every page</option>
                 </select>
               </div>
               <div id="la-max-views-field" hidden>
-                <label class="field-label" for="la-max-views">Number of times</label>
+                <label class="field-label" for="la-max-views">Times</label>
                 <input class="automation-input" type="number" id="la-max-views" min="1" max="1000" value="3" />
               </div>
             </div>
             <div>
-              <span class="field-label">Who sees it</span>
+              <span class="field-label">Who</span>
               <div class="la-chips">
                 <% [['manager','Managers'],['supervisor','Supervisors'],['teacher','Teachers'],['driver','Drivers'],['parent','Parents'],['student','Students'],['super_admin','Managira team']].forEach(([value, label]) => { %>
                   <label class="la-chip"><input type="checkbox" class="la-role" value="<%= value %>" /><span><%= label %></span></label>
                 <% }) %>
               </div>
-              <div class="field-help">Leave all unticked to show it to everyone who signs in.</div>
             </div>
           </div>
         </fieldset>
 
         <div class="la-row">
           <div>
-            <label class="field-label" for="la-starts">Starts (optional)</label>
+            <label class="field-label" for="la-starts">Starts</label>
             <input class="automation-input" type="datetime-local" id="la-starts" />
           </div>
           <div>
-            <label class="field-label" for="la-ends">Ends (optional)</label>
+            <label class="field-label" for="la-ends">Ends</label>
             <input class="automation-input" type="datetime-local" id="la-ends" />
           </div>
         </div>
@@ -1366,7 +1368,6 @@
         <div class="toggle-row">
           <div>
             <strong>Live</strong>
-            <span>Turn off to keep the ad saved but hidden everywhere.</span>
           </div>
           <label class="toggle-switch" for="la-active">
             <input id="la-active" type="checkbox" checked />
@@ -1377,25 +1378,26 @@
 
         <p class="la-error" id="la-error" role="alert"></p>
 
-        <div class="modal-actions">
-          <button type="button" class="admin-btn automation-secondary" data-la-close>Cancel</button>
-          <button type="submit" class="admin-btn automation-primary" id="la-save">Save ad</button>
-        </div>
       </div>
     </form>
+    <div class="modal-actions pf-footer">
+      <button type="button" class="admin-btn automation-secondary" data-la-close>Cancel</button>
+      <button type="submit" form="la-form" class="admin-btn automation-primary" id="la-save">Save</button>
+    </div>
   </div>
 </section>
 
 <%- include('../partials/adminDrawer') %>
+<script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
 <script>
   (() => {
     const adminAnnouncementDrawer = ManagiraDrawer.create({
       id: 'adminAnnouncement',
       icon: '📢',
       title: 'Announcement',
-      subtitle: 'Pop-up or banner for the people you choose',
+      belowHeader: true,
       listPagePath: '/admin/announcements',
-      width: 640,
+      width: 720,
     });
     document.getElementById('open-admin-announcement-drawer').addEventListener('click', function () {
       adminAnnouncementDrawer.open('/admin/announcements/compose?embed=workspace');
@@ -1404,9 +1406,9 @@
       id: 'feedbackRequest',
       icon: '⭐',
       title: 'Request Feedback',
-      subtitle: 'Ask people to rate their experience',
+      belowHeader: true,
       listPagePath: '/admin/announcements',
-      width: 640,
+      width: 720,
     });
     document.querySelectorAll('.open-request-feedback-drawer').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -1726,7 +1728,7 @@
 
     function renderSelectedUsers() {
       if (selectedUsers.size === 0) {
-        selectedUsersContainer.innerHTML = '<span class="field-help">No platform users selected yet.</span>';
+        selectedUsersContainer.innerHTML = '<span class="field-help">None selected.</span>';
         return;
       }
 
@@ -2091,7 +2093,7 @@
       stage = btn = guide = null;
       hint.hidden = true;
       if (!media) {
-        frame.innerHTML = '<p class="la-preview-empty">Your ad preview appears here.<br />Choose a file to start.</p>';
+        frame.innerHTML = '<p class="la-preview-empty">Preview</p>';
         return;
       }
       stage = document.createElement('div');
@@ -2227,7 +2229,7 @@
       errorEl.textContent = '';
       document.getElementById('la-file-name').textContent = '';
       document.getElementById('la-modal-title').textContent = ad ? 'Edit ad' : 'New ad';
-      document.getElementById('la-drop-title').textContent = ad ? 'Replace file (optional)' : 'Choose or drop a file';
+      document.getElementById('la-drop-title').textContent = ad ? 'Replace file' : 'Choose or drop a file';
       f.title.value = ad ? (ad.title || '') : '';
       f.link.value = ad ? (ad.link_url || '') : '';
       f.asButton.checked = ad ? ad.show_as_button !== false : true;

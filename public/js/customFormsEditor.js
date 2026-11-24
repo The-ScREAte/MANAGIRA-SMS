@@ -270,7 +270,7 @@
   function chooser() {
     var m = modal({
       title: 'New section', size: 'wide', foot: false, focus: false,
-      body: '<button type="button" class="cf-libcard cf-libcard--blank" data-lib="blank"><span class="cf-libcard__icon">' + icon('plus', 18) + '</span><span><strong>Blank section</strong><small>Add your own fields</small></span></button>'
+      body: '<button type="button" class="cf-libcard cf-libcard--blank" data-lib="blank"><span class="cf-libcard__icon">' + icon('plus', 18) + '</span><span><strong>Blank</strong></span></button>'
         + LIBRARY.map(function (g, gi) {
           return '<p class="cf-libgroup">' + g.group + '</p><div class="cf-libgrid">' + g.items.map(function (t, ti) {
             return '<button type="button" class="cf-libcard" data-lib="' + gi + ':' + ti + '"><span class="cf-libcard__icon">' + icon(t.icon, 18) + '</span><span><strong>' + esc(t.name) + '</strong><small>' + esc(placeOf(t.filledBy).label + ' · ' + collectLabel(t)) + '</small></span></button>';
@@ -305,7 +305,7 @@
     if (opts.foot !== false) wrap.querySelector('.cfm__foot').innerHTML = opts.foot || '';
     function close() { wrap.remove(); document.removeEventListener('keydown', onKey); if (opts.onClose) opts.onClose(); }
     function onKey(e) { if (e.key === 'Escape' && !document.querySelector('.cf-drawer')) close(); }
-    wrap.addEventListener('mousedown', function (e) { if (e.target === wrap) close(); });
+    wrap.addEventListener('mousedown', function (e) { if (e.target === wrap && opts.size === 'narrow') close(); }); // panels close only with X or Escape
     wrap.addEventListener('click', function (e) { var c = e.target.closest('[data-close]'); if (c && c.closest('.cfm') === wrap) close(); });
     document.addEventListener('keydown', onKey);
     document.body.appendChild(wrap);
@@ -340,7 +340,7 @@
     var rows = state.sections.slice();
     if (state.openId === 'new') rows.unshift(state.current);
     if (!rows.length) {
-      listEl.innerHTML = '<div class="cf-empty-list cf-ed__empty"><strong>No sections yet</strong>Start from a ready school form, or build your own.<br><button type="button" class="cf-btn cf-btn--primary" data-act="new" style="margin-top:14px">Create New Section</button></div>';
+      listEl.innerHTML = '<div class="cf-empty-list cf-ed__empty"><strong>No sections</strong><button type="button" class="cf-btn cf-btn--primary" data-act="new" style="margin-top:12px">New section</button></div>';
       return;
     }
     // Lists the school brought from its old system sit in a group of their own, below its own sections.
@@ -350,7 +350,7 @@
     var own = rows.filter(function (s) { return !isOld(s); });
     var old = rows.filter(isOld);
     listEl.innerHTML = draw(own) + (old.length ? '<details class="cf-group"' + (old.some(isOpen) || !own.length || state.oldOpen ? ' open' : '') + ' data-old-group>'
-      + '<summary><strong>From your old system</strong><em>' + esc(plural(old.length, 'list')) + ' your school brought with it, each row on its student. Your staff keep adding to them.</em></summary>'
+      + '<summary><strong>Old system</strong><em>' + esc(plural(old.length, 'list')) + '</em></summary>'
       + '<div class="cf-group__list">' + draw(old) + '</div></details>' : '');
     var group = listEl.querySelector('[data-old-group]');
     if (group) group.addEventListener('toggle', function () { state.oldOpen = group.open; });
@@ -399,41 +399,40 @@
     var hears = s.filledBy !== 'staff' || s.multiple;
     var moreOpen = state.moreOpen || s.dueDate || s.required || s.protected || s.notes || s.reportCard || s.tile || s.attendance || (REMARKS && s.beside)
       || s.via.email || s.via.sms || s.via.whatsapp || s.tell.builders || !s.tell.teacher || (!portal && (s.showParents || s.showStudents));
-    var more = (portal ? row('Deadline', '<div class="cf-inline"><input type="date" class="cf-input cf-input--auto" data-bind="dueDate" value="' + esc(s.dueDate || '') + '" aria-label="Due date" />'
-        + check('required', s.required, 'Required', s.filledBy === 'parent' ? 'Families are reminded 2 days before' : '') + '</div>') : '')
+    var more = (portal ? row('Due', '<div class="cf-inline"><input type="date" class="cf-input cf-input--auto" data-bind="dueDate" value="' + esc(s.dueDate || '') + '" aria-label="Due date" />'
+        + check('required', s.required, 'Required') + '</div>') : '')
       // Families hear on their bell; the school chooses what else (text and WhatsApp only when it has them).
-      + (s.filledBy === 'parent' ? row('Tell families by', '<div class="cf-inline"><label class="cf-check"><input type="checkbox" checked disabled /><span>Notification</span></label>'
-        + check('via.email', s.via.email, 'Email') + (CHANNELS.sms ? check('via.sms', s.via.sms, 'Text message') : '') + (CHANNELS.whatsapp ? check('via.whatsapp', s.via.whatsapp, 'WhatsApp') : '')
-        + '</div><p class="cf-hint">When it goes live and when you send a reminder.' + (CHANNELS.sms || CHANNELS.whatsapp ? ' Texts and WhatsApp go through your school’s own account.' : '') + '</p>') : '')
-      + (hears ? row('When it’s sent, tell', '<div class="cf-inline">' + (s.filledBy !== 'staff' ? check('tell.teacher', s.tell.teacher, 'The class’s main teacher') : '')
-        + check('tell.builders', s.tell.builders, 'People who build forms') + '</div>') : '')
-      + row('Who sees the answers', '<div class="cf-inline"><label class="cf-check"><input type="checkbox" checked disabled /><span>' + (s.protected ? 'People who build forms' : 'The class’s teachers') + '</span></label>'
+      + (s.filledBy === 'parent' ? row('Notify', '<div class="cf-inline"><label class="cf-check"><input type="checkbox" checked disabled /><span>Notification</span></label>'
+        + check('via.email', s.via.email, 'Email') + (CHANNELS.sms ? check('via.sms', s.via.sms, 'Text') : '') + (CHANNELS.whatsapp ? check('via.whatsapp', s.via.whatsapp, 'WhatsApp') : '')
+        + '</div>') : '')
+      + (hears ? row('Tell', '<div class="cf-inline">' + (s.filledBy !== 'staff' ? check('tell.teacher', s.tell.teacher, 'Main teacher') : '')
+        + check('tell.builders', s.tell.builders, 'Form builders') + '</div>') : '')
+      + row('Seen by', '<div class="cf-inline"><label class="cf-check"><input type="checkbox" checked disabled /><span>' + (s.protected ? 'Form builders' : 'Teachers') + '</span></label>'
         + (!portal ? check('showParents', s.showParents, 'Parents') + check('showStudents', s.showStudents, 'Students') : '') + '</div>'
-        + '<div style="margin-top:8px">' + check('protected', s.protected, 'Keep it from teachers', 'Only people who build forms can open it') + '</div>')
-      + (s.filledBy === 'staff' && daily ? row('Attendance', check('attendance', s.attendance, 'Add it to the attendance page', 'A column beside each student for today. Shows Yes / No, dropdown and rating fields.')) : '')
-      + (!s.multiple && !s.protected && !counted ? row('Report card', check('reportCard', s.reportCard, 'Show on report cards', 'Prints each student’s answers for the term'
-        + (REMARKS && s.filledBy === 'staff' ? '. A typed field can print as a remark instead: open it and choose Prints as.' : ''))) : '')
-      + (REMARKS && s.filledBy === 'staff' ? row('Beside each student', check('beside', s.beside, 'Show beside each student', 'Its icon sits beside every student in the class’s Students list, in colour once this period’s entry is in. A tap opens that student’s form.')) : '')
-      + row('Its own tile', check('tile', s.tile, 'Give it a tile of its own', OWN_TILE[s.filledBy]))
-      + row('Notes', '<textarea class="cf-input" rows="2" data-bind="notes" maxlength="2000" placeholder="Only people who build forms see this">' + esc(s.notes || '') + '</textarea>');
+        + check('protected', s.protected, 'Hide from teachers'))
+      + (s.filledBy === 'staff' && daily ? row('Attendance', check('attendance', s.attendance, 'On attendance page')) : '')
+      + (!s.multiple && !s.protected && !counted ? row('Report card', check('reportCard', s.reportCard, 'On report card')) : '')
+      + (REMARKS && s.filledBy === 'staff' ? row('Students list', check('beside', s.beside, 'Beside each student')) : '')
+      + row('Tile', check('tile', s.tile, 'Own tile'))
+      + row('Notes', '<textarea class="cf-input" rows="2" data-bind="notes" maxlength="2000" placeholder="Optional">' + esc(s.notes || '') + '</textarea>');
     var every = everyOf(s);
     return '<article class="cf-sec is-open">'
-      + '<div class="cf-sec__bar"><button type="button" class="cf-iconbtn" data-act="icon" title="Change the icon" aria-label="Change the icon">' + icon(s.icon, 20) + '</button>'
-      + '<input class="cf-nameinput" data-bind="name" maxlength="120" placeholder="Name this section" value="' + esc(s.name) + '" aria-label="Section name" />'
+      + '<div class="cf-sec__bar"><button type="button" class="cf-iconbtn" data-act="icon" title="Icon" aria-label="Icon">' + icon(s.icon, 20) + '</button>'
+      + '<input class="cf-nameinput" data-bind="name" maxlength="120" placeholder="Name" value="' + esc(s.name) + '" aria-label="Section name" />'
       + '<label class="cf-switch" title="Live sections show to the people they’re for"><input type="checkbox" data-live' + (live ? ' checked' : '') + ' /><span class="cf-switch__track"></span><span>' + (live ? 'Live' : 'Hidden') + '</span></label>'
       + '<button type="button" class="cf-btn cf-btn--sm" data-act="close">Cancel</button>'
       + '<button type="button" class="cf-btn cf-btn--primary cf-btn--sm" data-act="save">Save</button></div>'
-      + (live && !wasLive && s.filledBy === 'parent' ? '<div class="cf-sec__note">' + icon('bell', 15) + '<span>Families are notified when you save.' + (s.via.email || s.via.sms || s.via.whatsapp ? ' Also by ' + [s.via.email ? 'email' : '', s.via.sms ? 'text' : '', s.via.whatsapp ? 'WhatsApp' : ''].filter(Boolean).join(', ') + '.' : '') + '</span></div>' : '')
+      + (live && !wasLive && s.filledBy === 'parent' ? '<div class="cf-sec__note">' + icon('bell', 15) + '<span>Families are notified on save.' + (s.via.email || s.via.sms || s.via.whatsapp ? ' Also ' + [s.via.email ? 'email' : '', s.via.sms ? 'text' : '', s.via.whatsapp ? 'WhatsApp' : ''].filter(Boolean).join(', ') + '.' : '') + '</span></div>' : '')
       + '<div class="cf-props">'
-      + row('Lives in', '<div class="cf-places">' + PLACES.map(function (p) {
-        return '<button type="button" class="cf-place" data-place="' + p.key + '" aria-pressed="' + (s.filledBy === p.key) + '"><span class="cf-place__icon">' + icon(p.icon, 17) + '</span><span><strong>' + p.label + '</strong><small>' + p.short + '</small></span></button>';
+      + row('Place', '<div class="cf-places">' + PLACES.map(function (p) {
+        return '<button type="button" class="cf-place" data-place="' + p.key + '" aria-pressed="' + (s.filledBy === p.key) + '"><span class="cf-place__icon">' + icon(p.icon, 17) + '</span><span><strong>' + p.label + '</strong></span></button>';
       }).join('') + '</div>')
-      + row('Classes', seg('data-classes', classMode, [['all', 'All classes'], ['some', 'Choose classes']]) + (classMode === 'some' ? classPicker(s) : ''))
+      + row('Classes', seg('data-classes', classMode, [['all', 'All'], ['some', 'Choose']]) + (classMode === 'some' ? classPicker(s) : ''))
       + row('Collect', seg('data-collect', collect, COLLECT.map(function (x) { return [x.key, x.label]; }))
         + (collect === 'many' ? '<div style="margin-top:8px">' + seg('data-every', every, EVERY.map(function (x) { return [x.key, x.label]; })) + '</div>' : '')
-        + '<p class="cf-hint">' + (collect === 'many' ? (EVERY.filter(function (x) { return x.key === every; })[0] || {}).text || '' : COLLECT[0].text) + '</p>'
-        + (s.multiple ? '' : '<div style="margin-top:8px">' + check('once', s.once, 'Lock after it’s sent', 'It can’t be changed, and leaves their list') + '</div>')
-        + (isQuick(s) && s.filledBy === 'staff' ? '<p class="cf-hint cf-hint--good">' + icon('bolt', 14) + ' Quick to fill in: teachers answer for the whole class on one screen.</p>' : ''))
+        
+        + (s.multiple ? '' : '<div style="margin-top:8px">' + check('once', s.once, 'Lock once sent') + '</div>')
+        + (isQuick(s) && s.filledBy === 'staff' ? '<p class="cf-hint cf-hint--good">' + icon('bolt', 14) + ' Quick</p>' : ''))
       + '</div>'
       + '<div class="cf-block"><div class="cf-block__head"><h3>Fields <span class="cf-count">' + s.fields.length + '</span></h3>'
       + '<span class="cf-spacer"></span>' + (s.fields.length ? '<button type="button" class="cf-btn cf-btn--sm" data-act="preview">' + icon('eye', 15) + 'Preview</button>' : '')
@@ -444,10 +443,10 @@
           + '<span class="cf-grip" aria-hidden="true">⠿</span><span class="cf-ftype">' + icon(f.type, 15) + '</span>'
           + '<span class="cf-fieldrow__main"><strong>' + esc(f.label) + ' <span>(' + esc(t.label) + ')</span></strong></span>'
           + '<span class="cf-fieldrow__flags">' + fieldFlags(f) + '</span></li>';
-      }).join('') + '</ul>' : '<div class="cf-empty-list cf-empty-list--fields">No fields yet. <button type="button" class="cf-link" data-act="add-field">Add the first field</button></div>')
+      }).join('') + '</ul>' : '<div class="cf-empty-list cf-empty-list--fields">No fields</div>')
       + '</div>'
-      + '<details class="cf-more"' + (moreOpen ? ' open' : '') + '><summary>More options</summary><div class="cf-props">' + more + '</div></details>'
-      + '<div class="cf-sec__foot">' + (s.id ? '<button type="button" class="cf-link cf-link--danger" data-act="delete">' + icon('trash', 15) + 'Remove</button>' : '') + '<span class="cf-spacer"></span>'
+      + '<details class="cf-more"' + (moreOpen ? ' open' : '') + '><summary>More</summary><div class="cf-props">' + more + '</div></details>'
+      + '<div class="cf-sec__foot">' + (s.id ? '<button type="button" class="cf-link cf-link--danger" data-act="delete">' + icon('trash', 15) + 'Delete</button>' : '') + '<span class="cf-spacer"></span>'
       + (s.id ? '<button type="button" class="cf-btn cf-btn--sm" data-responses="' + s.id + '">' + icon('list', 15) + 'Answers</button>'
         + '<button type="button" class="cf-btn cf-btn--sm" data-report="' + s.id + '">' + icon('report', 15) + 'Report</button>' : '')
       + '<button type="button" class="cf-btn cf-btn--sm" data-act="close">Cancel</button>'
@@ -456,11 +455,11 @@
   }
   function classPicker(s) {
     var classes = boot.classes || [];
-    if (!classes.length) return '<p class="cf-hint">This school has no classes yet.</p>';
-    return '<div style="margin-top:10px">' + (classes.length > 12 ? '<input type="search" class="cf-input" data-class-filter placeholder="Find a class" style="margin-bottom:8px;max-width:300px" />' : '')
+    if (!classes.length) return '';
+    return '<div style="margin-top:10px">' + (classes.length > 12 ? '<input type="search" class="cf-input" data-class-filter placeholder="Find" style="margin-bottom:8px;max-width:300px" />' : '')
       + '<div class="cf-classbox"><div class="cf-chips">' + classes.map(function (c) {
         return '<button type="button" class="cf-chip" data-class="' + c.id + '" aria-pressed="' + (s.classIds.indexOf(c.id) !== -1) + '">' + esc(c.name) + '</button>';
-      }).join('') + '</div></div><p class="cf-hint" data-class-hint>' + (s.classIds.length ? plural(s.classIds.length, 'class', 'classes') + ' chosen.' : 'Pick at least one class, or choose All classes.') + '</p></div>';
+      }).join('') + '</div></div><p class="cf-hint" data-class-hint>' + (s.classIds.length ? plural(s.classIds.length, 'class', 'classes') : 'Pick a class') + '</p></div>';
   }
   function fieldFlags(f) {
     var out = [];
@@ -535,12 +534,12 @@
   };
   function addField() {
     var m = modal({
-      title: 'Add a field', size: 'wide', foot: false,
+      title: 'Add field', foot: false,
       // A seat belongs to a classroom section answered once per student per period, one per section.
       body: '<div class="cf-typegrid">' + TYPES.filter(function (t) {
         return t.key !== 'seat' || (state.current.filledBy === 'staff' && !state.current.multiple && !state.current.fields.some(function (f) { return f.type === 'seat'; }));
       }).map(function (t) {
-        return '<button type="button" class="cf-typebtn" data-type="' + t.key + '"><span class="cf-ftype">' + icon(t.key, 16) + '</span><span>' + esc(t.label) + '<small style="display:block;color:var(--cf-muted);font-weight:400;font-size:12px">' + esc(TYPE_HINTS[t.key] || '') + '</small></span></button>';
+        return '<button type="button" class="cf-typebtn" data-type="' + t.key + '"><span class="cf-ftype">' + icon(t.key, 16) + '</span><span>' + esc(t.label) + '</span></button>';
       }).join('') + '</div>'
     });
     m.body.addEventListener('click', function (e) {
@@ -626,8 +625,8 @@
     var m = modal({
       title: isNew ? 'New field' : 'Edit field',
       body: '<div class="cf-stack" data-form></div>',
-      foot: (isNew ? '' : '<button type="button" class="cf-link cf-link--danger" data-remove>' + icon('trash', 15) + 'Remove</button>')
-        + '<span class="cf-spacer"></span><button type="button" class="cf-btn" data-close>Cancel</button><button type="button" class="cf-btn cf-btn--primary" data-done>' + (isNew ? 'Add field' : 'Done') + '</button>'
+      foot: (isNew ? '' : '<button type="button" class="cf-link cf-link--danger" data-remove>' + icon('trash', 15) + 'Delete</button>')
+        + '<span class="cf-spacer"></span><button type="button" class="cf-btn" data-close>Cancel</button><button type="button" class="cf-btn cf-btn--primary" data-done>' + (isNew ? 'Add' : 'Done') + '</button>'
     });
     var form = m.body.querySelector('[data-form]');
     function draw() {
@@ -635,36 +634,35 @@
       var cond = f.cond;
       var control = cond ? others.filter(function (o) { return o.id === cond.field; })[0] : null;
       form.innerHTML = ''
-        + '<div><label class="cf-label" for="cfm-type">Type</label><select id="cfm-type" class="cf-input" data-f="type">' + TYPES.map(function (x) {
+        + '<div class="cf-row"><div><label class="cf-label" for="cfm-type">Type</label><select id="cfm-type" class="cf-input" data-f="type">' + TYPES.map(function (x) {
           return '<option value="' + x.key + '"' + (x.key === f.type ? ' selected' : '') + '>' + esc(x.label) + '</option>';
         }).join('') + '</select></div>'
-        + '<div><label class="cf-label" for="cfm-label">' + (f.type === 'instructions' ? 'Heading' : 'Question') + '</label><input id="cfm-label" class="cf-input" data-f="label" maxlength="200" value="' + esc(f.label) + '" placeholder="' + (f.type === 'instructions' ? 'e.g. Before you start' : 'e.g. Does your child have any allergies?') + '" /></div>'
-        + '<div><label class="cf-label" for="cfm-help">' + (f.type === 'instructions' ? 'Text to show' : 'Help text (optional)') + '</label><textarea id="cfm-help" class="cf-input" data-f="help" rows="' + (f.type === 'instructions' ? 5 : 2) + '" maxlength="' + (f.type === 'instructions' ? 4000 : 1000) + '">' + esc(f.help || '') + '</textarea></div>'
+        + '<div><label class="cf-label" for="cfm-label">' + (f.type === 'instructions' ? 'Heading' : 'Label') + '</label><input id="cfm-label" class="cf-input" data-f="label" maxlength="200" value="' + esc(f.label) + '" placeholder="' + (f.type === 'instructions' ? 'Heading' : 'Question') + '" /></div></div>'
+        + '<div><label class="cf-label" for="cfm-help">' + (f.type === 'instructions' ? 'Text' : 'Help') + '</label><textarea id="cfm-help" class="cf-input" data-f="help" rows="' + (f.type === 'instructions' ? 5 : 2) + '" maxlength="' + (f.type === 'instructions' ? 4000 : 1000) + '"' + (f.type === 'instructions' ? '' : ' placeholder="Optional"') + '>' + esc(f.help || '') + '</textarea></div>'
         + (REMARKS && isTyped(f) ? suggestionsHtml(f) : '')
         + (REMARKS && isTyped(f) && state.current.reportCard && state.current.filledBy === 'staff' ? printsAsHtml(f) : '')
         + (t.options ? optionsHtml(f) : '')
-        + (f.type === 'yesno' ? '<div><span class="cf-label">Show as</span><div class="cf-seg"><button type="button" data-display="text" aria-pressed="' + (f.display !== 'icons') + '">Yes / No</button><button type="button" data-display="icons" aria-pressed="' + (f.display === 'icons') + '">' + icon('check', 15) + ' ' + icon('close', 15) + ' Icons</button></div></div>' : '')
-        + (f.type === 'seat' ? '<div><span class="cf-label">Show seats with</span><div class="cf-seg"><button type="button" data-display="photos" aria-pressed="' + (f.display !== 'names') + '">Photos and names</button><button type="button" data-display="names" aria-pressed="' + (f.display === 'names') + '">Names only</button></div></div>' : '')
+        + (f.type === 'yesno' ? '<div><span class="cf-label">Show as</span><div class="cf-seg"><button type="button" data-display="text" aria-pressed="' + (f.display !== 'icons') + '">Words</button><button type="button" data-display="icons" aria-pressed="' + (f.display === 'icons') + '">' + icon('check', 15) + ' ' + icon('close', 15) + ' Icons</button></div></div>' : '')
+        + (f.type === 'seat' ? '<div><span class="cf-label">Show</span><div class="cf-seg"><button type="button" data-display="photos" aria-pressed="' + (f.display !== 'names') + '">Photos</button><button type="button" data-display="names" aria-pressed="' + (f.display === 'names') + '">Names</button></div></div>' : '')
         + (f.type !== 'instructions' ? '<label class="cf-check"><input type="checkbox" data-f-check="required"' + (f.required ? ' checked' : '') + ' /><span>Required</span></label>' : '')
-        + '<details class="cf-advanced"' + (f.cond || f.retired ? ' open' : '') + '><summary>More options</summary><div class="cf-advanced__body cf-stack">'
-        + '<div><span class="cf-label">Show this field</span>'
+        + '<details class="cf-advanced"' + (f.cond || f.retired ? ' open' : '') + '><summary>More</summary><div class="cf-advanced__body cf-stack">'
+        + '<div><span class="cf-label">Visibility</span>'
         + (others.length
           ? '<div class="cf-cond"><select class="cf-input" data-cond="action"><option value="show"' + (!cond || cond.action === 'show' ? ' selected' : '') + '>Show</option><option value="hide"' + (cond && cond.action === 'hide' ? ' selected' : '') + '>Hide</option></select>'
-            + '<select class="cf-input" data-cond="field"><option value="">Always</option>' + others.map(function (o) { return '<option value="' + o.id + '"' + (cond && cond.field === o.id ? ' selected' : '') + '>When “' + esc(o.label) + '”</option>'; }).join('') + '</select><span></span></div>'
+            + '<select class="cf-input" data-cond="field"><option value="">Always</option>' + others.map(function (o) { return '<option value="' + o.id + '"' + (cond && cond.field === o.id ? ' selected' : '') + '>When ' + esc(o.label) + '</option>'; }).join('') + '</select><span></span></div>'
             + (control ? '<div class="cf-cond" style="margin-top:8px"><span></span><select class="cf-input" data-cond="op">' + opsFor(control).map(function (o) { return '<option value="' + o[0] + '"' + (cond.op === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'
               + valueControl(control, cond.op, cond.value, 'data-cond="value"') + '</div>' : '')
-          : '<p class="cf-hint" style="margin:0">Add another field first to show this one only when it’s needed.</p>')
+          : '<select class="cf-input" disabled><option>Always</option></select>')
         + '</div>'
-        + '<div><span class="cf-label">Width</span><div class="cf-seg"><button type="button" data-width="full" aria-pressed="' + (f.width !== 'half') + '">Full row</button><button type="button" data-width="half" aria-pressed="' + (f.width === 'half') + '">Half (two side by side)</button></div></div>'
-        + (f.type !== 'instructions' ? '<label class="cf-check"><input type="checkbox" data-f-check="retired"' + (f.retired ? ' checked' : '') + ' /><span>Stop using this field<small>It’s hidden from now on. Answers already given are kept.</small></span></label>' : '')
+        + '<div><span class="cf-label">Width</span><div class="cf-seg"><button type="button" data-width="full" aria-pressed="' + (f.width !== 'half') + '">Full</button><button type="button" data-width="half" aria-pressed="' + (f.width === 'half') + '">Half</button></div></div>'
+        + (f.type !== 'instructions' ? '<label class="cf-check"><input type="checkbox" data-f-check="retired"' + (f.retired ? ' checked' : '') + ' /><span>Stop using</span></label>' : '')
         + '</div></details>';
     }
     // Phrases to tap (one per line), and the report-card remark a typed answer prints as.
     function suggestionsHtml(field) {
       var lines = field._sugg !== undefined ? field._sugg : (field.suggestions || []).join('\n');
-      return '<div><label class="cf-label" for="cfm-sugg">Suggestions <small style="font-weight:400;color:var(--cf-muted)">(optional)</small></label>'
-        + '<textarea id="cfm-sugg" class="cf-input" rows="4" maxlength="12000" data-f-sugg placeholder="One per line, e.g. Works hard and helps others.">' + esc(lines) + '</textarea>'
-        + '<p class="cf-hint">Each line is a phrase to tap. It fills the answer, or is added to what’s there.</p></div>';
+      return '<div><label class="cf-label" for="cfm-sugg">Suggestions</label>'
+        + '<textarea id="cfm-sugg" class="cf-input" rows="4" maxlength="12000" data-f-sugg placeholder="One per line · optional">' + esc(lines) + '</textarea></div>';
     }
     function printsAsHtml(field) {
       var taken = {};
@@ -672,28 +670,28 @@
       var slots = ((REMARKS && REMARKS.slots) || []).slice();
       if (field.printsAs && !slots.some(function (x) { return x.key === field.printsAs; })) slots.push({ key: field.printsAs, label: slotLabel(field.printsAs) + ' (no longer used)' });
       return '<div><label class="cf-label" for="cfm-prints">Prints as</label><select id="cfm-prints" class="cf-input" data-f="printsAs">'
-        + '<option value="">Its own line, under the section’s name</option>'
+        + '<option value="">Own line</option>'
         + slots.map(function (x) {
           var by = taken[x.key];
           return '<option value="' + esc(x.key) + '"' + (field.printsAs === x.key ? ' selected' : '') + (by ? ' disabled' : '') + '>' + esc(x.label + (by ? ' (used by “' + by + '”)' : '')) + '</option>';
         }).join('')
-        + '</select><p class="cf-hint">A remark prints in its usual place on the report card, where it prints today.</p></div>';
+        + '</select></div>';
     }
     function optionsHtml(field) {
       return '<div><div style="display:flex;align-items:center;justify-content:space-between"><span class="cf-label">Choices</span>'
-        + '<button type="button" class="cf-link" data-sort title="Sort A to Z">A→Z</button></div>'
+        + '<button type="button" class="cf-link" data-sort title="Sort">A→Z</button></div>'
         + '<ul class="cf-options">' + (field.options || []).map(function (o, i) {
           var withIcon = field.type === 'choice' && field.display === 'icons';
           return '<li class="cf-option" draggable="true" data-opt="' + i + '"><span class="cf-grip" aria-hidden="true">⠿</span>'
-            + (withIcon ? '<button type="button" class="cf-opticon' + (field._ic[i] ? '' : ' is-empty') + '" data-opt-icon="' + i + '" aria-label="Icon for ' + esc(o || 'this choice') + '" aria-expanded="' + (picking === i) + '" title="Choose its icon">' + (field._ic[i] ? icon(field._ic[i], 20) : icon('plus', 15)) + '</button>' : '')
-            + '<input class="cf-input" data-opt-input="' + i + '" maxlength="120" value="' + esc(o) + '" aria-label="Item ' + (i + 1) + '" /><button type="button" class="cf-x" data-opt-remove="' + i + '" aria-label="Remove item">' + icon('close', 15) + '</button></li>'
+            + (withIcon ? '<button type="button" class="cf-opticon' + (field._ic[i] ? '' : ' is-empty') + '" data-opt-icon="' + i + '" aria-label="Icon for ' + esc(o || 'this choice') + '" aria-expanded="' + (picking === i) + '" title="Icon">' + (field._ic[i] ? icon(field._ic[i], 20) : icon('plus', 15)) + '</button>' : '')
+            + '<input class="cf-input" data-opt-input="' + i + '" maxlength="120" value="' + esc(o) + '" aria-label="Item ' + (i + 1) + '" placeholder="Choice" /><button type="button" class="cf-x" data-opt-remove="' + i + '" aria-label="Remove item">' + icon('close', 15) + '</button></li>'
             + (withIcon && picking === i ? '<li class="cf-anspicker">' + ANSWER_ICONS.map(function (name) {
               return '<button type="button" data-pick-icon="' + name + '" aria-pressed="' + (field._ic[i] === name) + '" title="' + name + '">' + icon(name, 20) + '</button>';
-            }).join('') + '<button type="button" class="cf-anspicker__none" data-pick-icon="">Words only</button></li>' : '');
+            }).join('') + '<button type="button" class="cf-anspicker__none" data-pick-icon="">None</button></li>' : '');
         }).join('') + '</ul>'
-        + '<button type="button" class="cf-link" data-opt-add style="margin-top:8px">' + icon('plus', 15) + 'Add choice</button>'
-        + (field.type === 'choice' ? '<div style="margin-top:12px"><span class="cf-label">Show as</span><div class="cf-seg"><button type="button" data-display="dropdown" aria-pressed="' + (field.display !== 'buttons' && field.display !== 'icons') + '">Dropdown</button><button type="button" data-display="buttons" aria-pressed="' + (field.display === 'buttons') + '">Buttons</button><button type="button" data-display="icons" aria-pressed="' + (field.display === 'icons') + '">Icons</button></div>'
-          + '<p class="cf-hint">' + (field.display === 'icons' ? 'Each choice shows its icon. We picked some from the words; tap one to change it.' : field.display === 'buttons' ? 'Each choice is a button with its words.' : 'A list to pick from.') + ' Buttons and icons are answered with one tap in the class list and on the attendance page.</p></div>' : '')
+        + '<button type="button" class="cf-link" data-opt-add style="margin-top:8px">' + icon('plus', 15) + 'Add</button>'
+        + (field.type === 'choice' ? '<div style="margin-top:12px"><span class="cf-label">Show as</span><div class="cf-seg"><button type="button" data-display="dropdown" aria-pressed="' + (field.display !== 'buttons' && field.display !== 'icons') + '">List</button><button type="button" data-display="buttons" aria-pressed="' + (field.display === 'buttons') + '">Buttons</button><button type="button" data-display="icons" aria-pressed="' + (field.display === 'icons') + '">Icons</button></div>'
+          + '</div>' : '')
         + '</div>';
     }
     draw();
@@ -804,7 +802,7 @@
     });
     m.foot.querySelector('[data-done]').addEventListener('click', function () {
       f.label = String(f.label || '').trim();
-      if (!f.label && f.type !== 'instructions') { toast('Type the question first.', true); form.querySelector('[data-f="label"]').focus(); return; }
+      if (!f.label && f.type !== 'instructions') { toast('Add a label.', true); form.querySelector('[data-f="label"]').focus(); return; }
       if (typeOf[f.type].options) {
         // Each choice keeps its icon (only when shown as icons).
         var icons = {};
@@ -838,7 +836,7 @@
       }
       delete f._sugg;
       delete f._ic; delete f._man;
-      if (needsValue(f.cond)) { toast('Finish “Visibility”: give the answer it depends on, or choose Always.', true); return; }
+      if (needsValue(f.cond)) { toast('Visibility needs an answer.', true); return; }
       f.key = keyFrom(f.key || f.label);
       delete f._action;
       if (isNew) state.current.fields.push(f);
@@ -863,7 +861,7 @@
 
   function iconPicker() {
     var m = modal({
-      title: 'Choose an icon', size: 'wide', foot: false,
+      title: 'Icon', size: 'wide', foot: false,
       body: '<div class="cf-iconpicker">' + (boot.icons || []).map(function (name) {
         return '<button type="button" data-icon="' + name + '" aria-pressed="' + (state.current.icon === name) + '" aria-label="' + name + '" title="' + name.charAt(0).toUpperCase() + name.slice(1) + '">' + icon(name, 26) + '</button>';
       }).join('') + '</div>'
@@ -1037,7 +1035,7 @@
       if (at === -1) s.classIds.push(cid); else s.classIds.splice(at, 1);
       t.setAttribute('aria-pressed', String(at === -1));
       var hint = listEl.querySelector('[data-class-hint]');
-      if (hint) hint.textContent = s.classIds.length ? plural(s.classIds.length, 'class', 'classes') + ' chosen.' : 'Pick at least one class, or choose All classes.';
+      if (hint) hint.textContent = s.classIds.length ? plural(s.classIds.length, 'class', 'classes') : 'Pick a class';
       return changed();
     }
     if ((t = e.target.closest('.cf-fieldrow')) && !e.target.closest('.cf-grip')) return editField(Number(t.getAttribute('data-index')));

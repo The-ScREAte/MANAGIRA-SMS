@@ -1177,7 +1177,7 @@
   // ---- Events -----------------------------------------------------------------
 
   root.addEventListener("click", (event) => {
-    if (event.target.classList?.contains("rb-modal")) return closeModal();
+    /* the backdrop does not close a panel: only X, Cancel or Escape */
     const target = event.target.closest("a[data-family], a[data-load-saved], a[data-add-column], a[data-add-criterion], button");
     if (!target) return;
     if (target.tagName === "A") event.preventDefault();

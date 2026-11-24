@@ -13,23 +13,22 @@
   <header class="mg-head">
     <div>
       <h1>Data migration<% if (_open) { %> <span class="mg-pill mg-pill--<%= _open.status === 'new' ? 'review' : 'sandbox' %>"><%= _open.status === 'new' ? 'Request sent' : 'In touch' %></span><% } %></h1>
-      <p>Bring your records from your current system into Managira, with our migration team beside you.</p>
     </div>
   </header>
 
   <ol class="mg-path" aria-label="How a move works">
-    <li class="<%= _open ? 'is-done' : 'is-on' %>"><span>1</span><div><strong>Send a request</strong><small>Tell us what you use now and when you'd like to move.</small></div></li>
-    <li class="<%= _open && _open.status === 'contacted' ? 'is-done' : _open ? 'is-on' : '' %>"><span>2</span><div><strong>We plan it with you</strong><small>Our team gets in touch within two business days.</small></div></li>
-    <li class="<%= _open && _open.status === 'contacted' ? 'is-on' : '' %>"><span>3</span><div><strong>Your migration opens</strong><small><%= locals.codes ? "You confirm it's you with an authenticator app, then upload and check your data." : "You upload your exports and check everything in a private copy of your school." %></small></div></li>
-    <li><span>4</span><div><strong>You go live</strong><small>Nothing reaches your live account until you sign off.</small></div></li>
+    <li class="<%= _open ? 'is-done' : 'is-on' %>"><span>1</span><div><strong>Send a request</strong></div></li>
+    <li class="<%= _open && _open.status === 'contacted' ? 'is-done' : _open ? 'is-on' : '' %>"><span>2</span><div><strong>We plan it with you</strong></div></li>
+    <li class="<%= _open && _open.status === 'contacted' ? 'is-on' : '' %>"><span>3</span><div><strong>Your migration opens</strong></div></li>
+    <li><span>4</span><div><strong>You go live</strong></div></li>
   </ol>
 
   <% if (_open) { %>
   <section class="mg-card mg-request__sent">
     <h2><%= _open.status === 'new' ? 'We have your request' : "We're planning your move with you" %></h2>
     <p class="mg-hint"><%= _open.status === 'new'
-      ? 'Sent on ' + _day(_open.created_at) + '. Our migration team will contact ' + _open.contact_email + ' within two business days.'
-      : 'Our migration team is in touch with ' + _open.contact_email + '. When you are both ready, we open your migration and email your managers.' %></p>
+      ? 'Sent ' + _day(_open.created_at) + ' · we will email ' + _open.contact_email + ' within two business days.'
+      : 'In touch with ' + _open.contact_email + '. We open your migration when you are both ready.' %></p>
     <dl class="mg-facts">
       <div><dt>Current system</dt><dd><%= _open.current_system %></dd></div>
       <div><dt>When</dt><dd><%= _open.timing ? _open.timing + (_open.preferred_date ? ' (' + _day(_open.preferred_date) + ')' : '') : 'Not given' %></dd></div>
@@ -44,16 +43,14 @@
         <button class="mg-btn mg-btn--quiet">Withdraw request</button>
       </form>
     </div>
-    <p class="mg-hint mg-request__help">Something to add? Write to <a href="mailto:support@managira.com">support@managira.com</a>. Everyone on your Managers list is emailed at each step.</p>
   </section>
   <% } else { %>
   <% if (_declined) { %>
     <p class="mg-notice">Our migration team couldn't start your last request (<%= _day(_declined.decided_at || _declined.updated_at) %>).<%= _declined.decision_note ? ' Their note: ' + _declined.decision_note : '' %> You can send a new one below.</p>
   <% } %>
   <section class="mg-card">
-    <h2>Request your move</h2>
-    <p class="mg-hint">Only your school's managers see this page. Nothing changes in your account until we open your migration together.</p>
-    <form class="mg-form" method="POST" action="/common/migration/request" data-no-spa>
+    <h2>Request your move <span class="mg-help" tabindex="0" role="note" data-tip="Only managers see this. Nothing changes in your account until we open your migration together.">?</span></h2>
+        <form class="mg-form" method="POST" action="/common/migration/request" data-no-spa>
       <fieldset>
         <legend>Your current system</legend>
         <div class="mg-grid">
@@ -93,7 +90,6 @@
         <button class="mg-btn mg-btn--primary" type="submit">Send request</button>
         <a class="mg-btn" href="<%= guideUrl %>" target="_blank" rel="noopener">How a move works</a>
       </div>
-      <p class="mg-hint mg-request__help">We email this contact and your school's managers when we receive it, and at every step after. Questions? <a href="mailto:support@managira.com">support@managira.com</a>.</p>
     </form>
   </section>
   <% } %>

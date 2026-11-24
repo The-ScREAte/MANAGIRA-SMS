@@ -887,37 +887,47 @@
       <div class="transcript-border-bottom"></div>
     </div>
 
-    <!-- Email Step 1: Enter Email -->
-    <div id="emailStepModal" style="display:none;position:fixed;inset:0;z-index:2000;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
-      <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Email Transcript</h3>
-        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">Enter the email address where you'd like to send this official transcript.</p>
-        <div class="form-group" style="margin-bottom:16px;">
-          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Recipient Email Address</label>
-          <input type="email" id="emailTarget" placeholder="guardian@example.com" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" value="<%= student.guardian_email || '' %>" />
-          <p style="font-size:11px;color:#64748b;margin-top:6px;margin-bottom:0;">Default: <%= student.guardian_email || 'No guardian email on file' %></p>
+    <link rel="stylesheet" href="<%= assetUrl('/css/reportPanels.css') %>" />
+    <script src="<%= assetUrl('/js/embedPopupLift.js') %>" defer></script>
+    <script src="<%= assetUrl('/js/reportPanelLift.js') %>" defer></script>
+    <!-- Email: recipient -->
+    <div id="emailStepModal" class="rp-overlay" data-popup-lift data-rp-watch style="display:none;">
+      <div class="rp-panel" role="dialog" aria-modal="true" aria-labelledby="emailStepTitle">
+        <div class="rp-head">
+          <h3 class="rp-title" id="emailStepTitle">Email transcript</h3>
+          <button type="button" class="rp-x" onclick="closeEmailStepModal()" aria-label="Close">&times;</button>
         </div>
-        <div id="emailStepStatus" style="font-size:12px;color:#e11d48;margin-bottom:12px;min-height:18px;"></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="closeEmailStepModal()">Cancel</button>
-          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="proceedToPasswordStep()">Continue</button>
+        <div class="rp-body">
+          <div>
+            <label class="rp-label" for="emailTarget">Email</label>
+            <input type="email" id="emailTarget" class="rp-input" placeholder="guardian@example.com" value="<%= student.guardian_email || '' %>" />
+          </div>
+          <div id="emailStepStatus" style="font-size:12.5px;color:#e11d48;min-height:18px;"></div>
+        </div>
+        <div class="rp-foot">
+          <button type="button" class="rp-btn rp-btn--primary" onclick="proceedToPasswordStep()">Continue</button>
+          <button type="button" class="rp-btn" onclick="closeEmailStepModal()">Cancel</button>
         </div>
       </div>
     </div>
 
-    <!-- Email Step 2: Confirm Password -->
-    <div id="passwordConfirmModal" style="display:none;position:fixed;inset:0;z-index:2001;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);">
-      <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-        <h3 style="margin-top:0;margin-bottom:10px;color:var(--primary);font-size:18px;">Confirm Your Password</h3>
-        <p style="font-size:13px;color:#64748b;line-height:1.5;margin-bottom:16px;">For security, please confirm your password to send the transcript.</p>
-        <div class="form-group" style="margin-bottom:16px;">
-          <label style="display:block;font-weight:600;margin-bottom:8px;color:#0f172a;font-size:13px;">Your Password</label>
-          <input type="password" id="emailPassword" placeholder="Enter your password" style="width:100%;padding:11px 14px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;" />
+    <!-- Email: password -->
+    <div id="passwordConfirmModal" class="rp-overlay" data-popup-lift data-rp-watch style="display:none;">
+      <div class="rp-panel" role="dialog" aria-modal="true" aria-labelledby="passwordStepTitle">
+        <div class="rp-head">
+          <h3 class="rp-title" id="passwordStepTitle">Confirm password</h3>
+          <button type="button" class="rp-x" onclick="backToEmailStep()" aria-label="Back">&times;</button>
         </div>
-        <div id="passwordStatus" style="font-size:12px;color:#64748b;margin-bottom:12px;min-height:18px;"></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;">
-          <button type="button" class="ctrl-btn ctrl-btn-back" style="padding:8px 14px;font-size:12px;" onclick="backToEmailStep()">Back</button>
-          <button type="button" class="ctrl-btn ctrl-btn-print" style="padding:8px 14px;font-size:12px;" onclick="sendTranscriptEmail()">Send Email</button>
+        <div class="rp-body">
+          <div>
+            <label class="rp-label" for="emailPassword">Password</label>
+            <input type="password" id="emailPassword" class="rp-input" placeholder="Your password" autocomplete="current-password" />
+          </div>
+          <div id="passwordStatus" class="rp-status" style="min-height:18px;"></div>
+        </div>
+        <div class="rp-foot">
+          <button type="button" class="rp-btn rp-btn--primary" onclick="sendTranscriptEmail()">Send</button>
+          <button type="button" class="rp-btn" onclick="backToEmailStep()">Back</button>
         </div>
       </div>
     </div>

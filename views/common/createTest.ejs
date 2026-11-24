@@ -797,6 +797,12 @@
       .submit-btn { font-size: 0.9rem; padding: 10px 16px; }
       .action-button { font-size: 0.82rem; padding: 7px 13px; }
     }
+
+  .ct-dialog { position: fixed; inset: 0; z-index: 30000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .35); }
+  .ct-dialog__card { width: min(380px, 100%); padding: 20px; border-radius: 14px; background: #fff; color: #0f172a; box-shadow: 0 24px 60px rgba(15, 23, 42, .28); }
+  .ct-dialog__text { margin: 0 0 16px; font-size: .95rem; line-height: 1.5; }
+  .ct-dialog__ok { display: block; margin-left: auto; min-width: 84px; min-height: 40px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--primary, #01535b); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  html[data-appearance="dark"] .ct-dialog__card { background: #1e293b; color: #f1f5f9; }
   </style>
 </head>
 <body>
@@ -820,7 +826,7 @@
             <div class="test-form" id="test-form-1">
               <div class="test-name-with-menu">
                 <div class="form-group">
-                  <label>Test Name:</label>
+                  <label>Name</label>
                   <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required />
                 </div>
                 <div class="test-menu-container">
@@ -836,19 +842,19 @@
               </div>
               <div class="form-grid">
                 <div class="form-group">
-                  <label>Test Weight (%):</label>
-                  <input type="number" name="testWeight[]" step="0.1" required />
+                  <label title="How much it counts toward the subject total on a report card that scales subjects (Report Settings). Weights are relative: weight 2 counts twice as much as weight 1.">Weight</label>
+                  <input type="number" name="testWeight[]" step="0.1" placeholder="1" required />
                 </div>
                 <div class="form-group">
-                  <label>Score Out Of:</label>
-                  <input type="number" name="maxScore[]" required />
+                  <label>Out of</label>
+                  <input type="number" name="maxScore[]" placeholder="100" required />
                 </div>
                 <div class="form-group">
-                  <label>Scale Base (scaled score out of):</label>
+                  <label>Scaled out of</label>
                   <input type="number" name="scaleBase[]" value="100" min="1" required />
                 </div>
                 <div class="form-group">
-                  <label>Category:</label>
+                  <label>Category</label>
                   <select name="category[]" required>
                     <option value="Class Assessment">Class Assessment</option>
                     <option value="Exams Assessment">Exams Assessment</option>
@@ -856,33 +862,49 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Edit Window Start:</label>
+                  <label>Entry from</label>
                   <input type="datetime-local" name="editWindowStart-1">
                 </div>
                 <div class="form-group">
-                  <label>Edit Window End:</label>
+                  <label>Due date</label>
                   <input type="datetime-local" name="editWindowEnd-1">
+                </div>
+                <div class="form-group">
+                  <label>Late until</label>
+                  <input type="datetime-local" name="lateUntil-1">
+                </div>
+                <div class="form-group">
+                  <label>Time limit (min)</label>
+                  <input type="number" name="timeLimit-1" min="1" max="600" step="1" placeholder="None">
+                </div>
+                <div class="form-group">
+                  <label>Attempts</label>
+                  <input type="number" name="maxAttempts-1" min="1" max="20" step="1" placeholder="1">
+                </div>
+                <div class="form-group">
+                  <label>Book</label>
+                  <select name="openBook-1"><option value="">Closed book</option><option value="open">Open book</option></select>
                 </div>
                 <div class="form-group checkbox-group">
                   <input type="checkbox" name="isLocked-1" id="isLocked-1">
-                  <label for="isLocked-1">Lock this assessment</label>
+                  <label for="isLocked-1">Lock scores</label>
                 </div>
                 <div class="form-group checkbox-group">
                   <input type="checkbox" name="isActive-1" id="isActive-1" checked>
-                  <label for="isActive-1">Activate now</label>
+                  <label for="isActive-1">Open now</label>
                 </div>
                 <div class="form-group checkbox-group">
                   <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
-                  <label for="notifyTeachers-1">Email affected class teachers</label>
+                  <label for="notifyTeachers-1">Email teachers</label>
                 </div>
                 <% if (canUseQuestionSetIntegration) { %>
                 <div class="form-group checkbox-group">
                   <input type="checkbox" name="showQuestionSetOnDashboard-1" id="showQuestionSetOnDashboard-1">
-                  <label for="showQuestionSetOnDashboard-1">Show Set Questions in Class Dashboard</label>
+                  <label for="showQuestionSetOnDashboard-1">Show on dashboard</label>
                 </div>
                 <% } %>
               </div>
-              <h4 class="section-divider">Assign Test to Classes and Subjects</h4>
+              <h4 class="section-divider">Classes</h4>
               <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
                 Show/Hide Classes
                 <span class="arrow" id="arrow-class-list-1">&#9654;</span>
@@ -890,7 +912,7 @@
               <div class="collapsible-content" id="class-list-1" style="display:none;">
                 <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
                   <input type="checkbox" id="selectAllClassesAndSubjects-1" onchange="toggleSelectAllClassesAndSubjects(1)" />
-                  <label for="selectAllClassesAndSubjects-1" style="font-weight:700;">Select All</label>
+                  <label for="selectAllClassesAndSubjects-1" style="font-weight:700;">Select all</label>
                 </div>
                 <div class="class-container">
                   <% classes.forEach((cls) => { %>
@@ -922,7 +944,7 @@
             <path d="M12 5v14"></path>
             <path d="M5 12h14"></path>
           </svg>
-          <span class="action-btn-label">Add Form</span>
+          <span class="action-btn-label">Add another</span>
         </button>
         <button type="submit" class="save-form-btn" form="addTestForm" id="submitTestsBtn">
           <span class="submit-btn-spinner" aria-hidden="true"></span>
@@ -931,7 +953,7 @@
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
             <polyline points="7 3 7 8 15 8"></polyline>
           </svg>
-          <span class="action-btn-label submit-btn-label">Create Test</span>
+          <span class="action-btn-label submit-btn-label">Create</span>
         </button>
       </div>
     </main>
@@ -950,7 +972,7 @@
       newTestForm.innerHTML = `
         <div class="test-name-with-menu">
           <div class="form-group">
-            <label>Test Name:</label>
+            <label>Name</label>
             <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required>
           </div>
           <div class="test-menu-container">
@@ -966,19 +988,19 @@
         </div>
         <div class="form-grid">
         <div class="form-group">
-          <label>Test Weight (%):</label>
-          <input type="number" name="testWeight[]" step="0.1" required>
+          <label title="How much it counts toward the subject total on a report card that scales subjects (Report Settings). Weights are relative: weight 2 counts twice as much as weight 1.">Weight</label>
+          <input type="number" name="testWeight[]" step="0.1" placeholder="1" required>
         </div>
         <div class="form-group">
-          <label>Score Out Of:</label>
-          <input type="number" name="maxScore[]" required>
+          <label>Out of</label>
+          <input type="number" name="maxScore[]" placeholder="100" required>
         </div>
         <div class="form-group">
-          <label>Scale Base (scaled score out of):</label>
+          <label>Scaled out of</label>
           <input type="number" name="scaleBase[]" value="100" min="1" required>
         </div>
         <div class="form-group">
-          <label>Category:</label>
+          <label>Category</label>
           <select name="category[]" required>
             <option value="Class Assessment">Class Assessment</option>
             <option value="Exams Assessment">Exams Assessment</option>
@@ -986,33 +1008,49 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Edit Window Start:</label>
+          <label>Entry from</label>
           <input type="datetime-local" name="editWindowStart-${testFormCount}">
         </div>
         <div class="form-group">
-          <label>Edit Window End:</label>
+          <label>Due date</label>
           <input type="datetime-local" name="editWindowEnd-${testFormCount}">
+        </div>
+        <div class="form-group">
+          <label>Late until</label>
+          <input type="datetime-local" name="lateUntil-${testFormCount}">
+        </div>
+        <div class="form-group">
+          <label>Time limit (min)</label>
+          <input type="number" name="timeLimit-${testFormCount}" min="1" max="600" step="1" placeholder="None">
+        </div>
+        <div class="form-group">
+          <label>Attempts</label>
+          <input type="number" name="maxAttempts-${testFormCount}" min="1" max="20" step="1" placeholder="1">
+        </div>
+        <div class="form-group">
+          <label>Book</label>
+          <select name="openBook-${testFormCount}"><option value="">Closed book</option><option value="open">Open book</option></select>
         </div>
         <div class="form-group checkbox-group">
           <input type="checkbox" name="isLocked-${testFormCount}" id="isLocked-${testFormCount}">
-          <label for="isLocked-${testFormCount}">Lock this assessment</label>
+          <label for="isLocked-${testFormCount}">Lock scores</label>
         </div>
         <div class="form-group checkbox-group">
           <input type="checkbox" name="isActive-${testFormCount}" id="isActive-${testFormCount}" checked>
-          <label for="isActive-${testFormCount}">Activate now</label>
+          <label for="isActive-${testFormCount}">Open now</label>
         </div>
         <div class="form-group checkbox-group">
           <input type="checkbox" name="notifyTeachers-${testFormCount}" id="notifyTeachers-${testFormCount}">
-          <label for="notifyTeachers-${testFormCount}">Email affected class teachers</label>
+          <label for="notifyTeachers-${testFormCount}">Email teachers</label>
         </div>
         ${canUseQuestionSetIntegration ? `
         <div class="form-group checkbox-group">
           <input type="checkbox" name="showQuestionSetOnDashboard-${testFormCount}" id="showQuestionSetOnDashboard-${testFormCount}">
-          <label for="showQuestionSetOnDashboard-${testFormCount}">Show Set Questions in Class Dashboard</label>
+          <label for="showQuestionSetOnDashboard-${testFormCount}">Show on dashboard</label>
         </div>
         ` : ''}
         </div>
-        <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
+        <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Classes</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
           Show/Hide Classes
           <span class="arrow" id="arrow-class-list-${testFormCount}">&#9654;</span>
@@ -1020,7 +1058,7 @@
         <div class="collapsible-content" id="class-list-${testFormCount}" style="display:none;">
           <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
             <input type="checkbox" id="selectAllClassesAndSubjects-${testFormCount}" onchange="toggleSelectAllClassesAndSubjects(${testFormCount})">
-            <label style="font-weight:700;">Select All</label>
+            <label style="font-weight:700;">Select all</label>
           </div>
           <div class="class-container">
             <% classes.forEach((cls) => { %>
@@ -1090,6 +1128,24 @@
       });
       subjectCheckboxes.forEach(cb => cb.checked = selectAll.checked);
     }
+    // A small in-page message instead of the browser's alert(): closes with OK, Enter or Escape.
+    function ctAlert(message) {
+      var old = document.getElementById('ct-dialog');
+      if (old) old.remove();
+      var box = document.createElement('div');
+      box.id = 'ct-dialog';
+      box.className = 'ct-dialog';
+      box.innerHTML = '<div class="ct-dialog__card" role="alertdialog" aria-modal="true" aria-label="Check this"><p class="ct-dialog__text"></p><button type="button" class="ct-dialog__ok">OK</button></div>';
+      box.querySelector('.ct-dialog__text').textContent = message;
+      document.body.appendChild(box);
+      var ok = box.querySelector('.ct-dialog__ok');
+      function close() { box.remove(); document.removeEventListener('keydown', onKey, true); }
+      function onKey(event) { if (event.key === 'Escape' || event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); close(); } }
+      ok.addEventListener('click', close);
+      document.addEventListener('keydown', onKey, true);
+      ok.focus();
+    }
+
 
     async function handleFormSubmit(event) {
       event.preventDefault();
@@ -1101,7 +1157,7 @@
         submitBtn.classList.toggle("is-loading", isSubmitting);
         submitBtn.disabled = isSubmitting;
         if (submitLabel) {
-          submitLabel.textContent = isSubmitting ? "Creating Test..." : "Create Test";
+          submitLabel.textContent = isSubmitting ? "Creating…" : "Create";
         }
       }
 
@@ -1117,7 +1173,7 @@
 
       // Check if there's at least one test with data
       if (testNames.length === 0 || !testNames.some(name => name.trim() !== '')) {
-        alert('Please add at least one test before submitting.');
+        ctAlert('Add a test name.');
         return;
       }
 
@@ -1125,30 +1181,30 @@
       const testCards = Array.from(document.querySelectorAll('#test-forms .test-form'));
       for (let i = 0; i < testNames.length; i++) {
         if (!testNames[i] || !testNames[i].trim()) {
-          alert(`Test ${i + 1}: Please enter a test name.`);
+          ctAlert(`Test ${i + 1}: add a name.`);
           return;
         }
         // Results recorded as a score, or as the school's own choices.
         const entry = testCards[i] && testCards[i].__aem;
         const entryError = entry ? entry.validate() : '';
         if (entryError) {
-          alert(`Test ${i + 1}: ${entryError}`);
+          ctAlert(`Test ${i + 1}: ${entryError}`);
           return;
         }
         const countsInTotal = entry ? entry.countsInTotal() : true;
         if (countsInTotal && (!testWeights[i] || testWeights[i] <= 0)) {
-          alert(`Test ${i + 1}: Please enter a valid test weight.`);
+          ctAlert(`Test ${i + 1}: enter a weight.`);
           return;
         }
         if (countsInTotal && (!maxScores[i] || maxScores[i] <= 0)) {
-          alert(`Test ${i + 1}: Please enter a valid maximum score.`);
+          ctAlert(`Test ${i + 1}: enter the score it is out of.`);
           return;
         }
         
         const classes = formData.getAll(`classes-${i + 1}[]`);
         const subjects = formData.getAll(`subjects-${i + 1}[]`);
         if (classes.length === 0 || subjects.length === 0) {
-          alert(`Test ${i + 1} must have at least one class and subject.`);
+          ctAlert(`Test ${i + 1}: pick a class and subject.`);
           return;
         }
         tests.push({
@@ -1161,6 +1217,10 @@
           isActive: formData.get(`isActive-${i + 1}`) ? "true" : "false",
           editWindowStart: formData.get(`editWindowStart-${i + 1}`) || null,
           editWindowEnd: formData.get(`editWindowEnd-${i + 1}`) || null,
+          lateUntil: formData.get(`lateUntil-${i + 1}`) || null,
+          timeLimitMinutes: formData.get(`timeLimit-${i + 1}`) || null,
+          maxAttempts: formData.get(`maxAttempts-${i + 1}`) || null,
+          openBook: formData.get(`openBook-${i + 1}`) === 'open',
           showQuestionSetOnDashboard: formData.get(`showQuestionSetOnDashboard-${i + 1}`) ? "true" : "false",
           notifyTeachers: formData.get(`notifyTeachers-${i + 1}`) ? "true" : "false",
           ...(testCards[i] && testCards[i].__aem ? testCards[i].__aem.read() : { entryMode: 'score' }),
@@ -1187,11 +1247,11 @@
           alert(result.message);
           location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`;
         } else {
-          alert(`Error: ${result.error}`);
+          ctAlert(result.error || 'The assessment couldn’t be added. Try again.');
         }
       } catch (err) {
         console.error(err);
-        alert("An unexpected error occurred.");
+        ctAlert("Something went wrong. Try again.");
       } finally {
         setSubmitting(false);
       }
@@ -1251,41 +1311,60 @@
   .ct-hide { display: none !important; }
   .collapsible-content.ct-open { display: block !important; max-height: 320px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #fff; }
   .ct-adv-hidden { display: none !important; }
+  /* One quiet, left-aligned form: small labels, the hint under its field, two columns. */
+  .test-form { align-items: stretch; text-align: left; padding: 22px 22px 18px; border-radius: 14px; box-shadow: none; border: 1px solid #e2e8f0; }
+  .test-form:hover, .test-form:focus-within { box-shadow: none; border-color: #e2e8f0; }
+  .test-form .form-group { margin: 0; }
+  .test-form .form-group label { order: 1; margin: 0 0 6px; font-size: .78rem; font-weight: 700; letter-spacing: .02em; }
+  .test-form .form-group input:not([type="checkbox"]):not([type="radio"]), .test-form .form-group select { order: 2; height: 42px; padding: 0 12px; font-size: .92rem; border-radius: 10px; }
+  .test-form .form-group .ct-hint { order: 3; margin: 5px 0 0; }
+  .test-form .form-group.checkbox-group label { order: 0; font-size: .88rem; font-weight: 500; }
+  .test-form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .test-form .test-name-with-menu { margin-bottom: 14px; }
+  .test-form .test-name-with-menu input { height: 44px; font-size: 1rem; }
+  .test-form .section-divider { margin: 20px 0 8px; padding: 0; border: 0; font-size: .78rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: left; }
+  .test-form .ct-more { margin: 16px 0 0; }
+  /* Compact: weight, out of and category in one row; due date and late side by side; the rest under More options in three columns. */
+  .test-form { padding: 16px 16px 12px; }
+  .test-form .form-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; }
+  .test-form .aem { margin: 0 0 10px; padding: 0; }
+  .test-form .aem__select, .test-form .form-group input:not([type="checkbox"]), .test-form .form-group select { height: 40px; }
+  .test-form > .form-grid > .form-group { grid-column: span 2; }
+  .test-form > .form-grid > .form-group:nth-child(n+4) { grid-column: span 3; }
+  .test-form .ct-more { margin: 12px 0 0; }
+  .test-form input:not([type="checkbox"]):not([type="radio"]), .test-form select { margin-bottom: 0 !important; }
+  .test-form .ct-more > .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .test-form .ct-more > .form-grid > .form-group { grid-column: auto; }
+  .test-form .ct-more .form-group.checkbox-group { align-self: end; min-height: 42px; display: flex; align-items: center; gap: 8px; }
+  .test-form .subject-container[style*="block"] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+  .test-form .section-divider { margin: 14px 0 6px; }
+  .test-form .test-name-with-menu { margin-bottom: 10px; }
+  @media (max-width: 520px) {
+    .test-form { padding: 14px 12px 10px; }
+    .test-form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .test-form > .form-grid > .form-group, .test-form > .form-grid > .form-group:nth-child(n+4) { grid-column: span 1; }
+    .test-form > .form-grid > .form-group:nth-child(n+3) { grid-column: 1 / -1; }
+    .test-form .ct-more > .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .test-form .subject-container[style*="block"] { grid-template-columns: 1fr; }
+  }
 </style>
 <script>
   // Tidies each test form as it appears (the first one and every "Add Form"), without changing a field name.
   (function () {
-    var WORDS = [
-      ['Scale Base (scaled score out of):', 'Show the score out of:', 'Reports show the score out of this number. Usually 100.'],
-      ['Edit Window Start:', 'Scores can be entered from:', 'Leave empty for no start date.'],
-      ['Edit Window End:', 'Scores can be entered until:', 'Leave empty for no end date.'],
-      ['Lock this assessment', 'Lock scores (no more changes)', ''],
-      ['Activate now', 'Open for scores now', ''],
-      ['Email affected class teachers', 'Email the teachers of these classes', ''],
-      ['Test Weight (%):', 'Weight in the subject total (%):', 'How much this test counts toward the subject. The tests of a subject usually add up to 100.'],
-      ['Score Out Of:', 'Marked out of:', 'The highest score a student can get.']
-    ];
     function groupOf(card, selector) { var el = card.querySelector(selector); return el ? el.closest('.form-group') : null; }
     function tidy(card) {
       if (!card || card.dataset.ctTidy) return;
       card.dataset.ctTidy = '1';
-      // plain words
-      Array.prototype.forEach.call(card.querySelectorAll('label'), function (l) {
-        WORDS.forEach(function (w) {
-          if (l.textContent.trim() === w[0]) {
-            l.textContent = w[1];
-            if (w[2]) { var h = document.createElement('small'); h.className = 'ct-hint'; h.textContent = w[2]; l.parentNode.insertBefore(h, l.nextSibling); }
-          }
-        });
-      });
+      // "Accept late until" needs the update that adds it: until then the field isn't offered.
+      if (!<%= typeof lateUntilAvailable !== 'undefined' && lateUntilAvailable ? 'true' : 'false' %>) { var lateGroup = groupOf(card, 'input[name^="lateUntil"]'); if (lateGroup) lateGroup.remove(); }
       var grid = card.querySelector('.form-grid');
       if (!grid) return;
       // the less used fields go under "More options"
-      var adv = ['input[name="scaleBase[]"]', 'input[name^="editWindowStart"]', 'input[name^="editWindowEnd"]', 'input[name^="isLocked"]', 'input[name^="isActive"]', 'input[name^="notifyTeachers"]', 'input[name^="showQuestionSetOnDashboard"]']
+      var adv = ['input[name^="timeLimit"]', 'input[name^="maxAttempts"]', 'select[name^="openBook"]', 'input[name="scaleBase[]"]', 'input[name^="editWindowStart"]', 'input[name^="isLocked"]', 'input[name^="isActive"]', 'input[name^="notifyTeachers"]', 'input[name^="showQuestionSetOnDashboard"]']
         .map(function (sel) { return groupOf(card, sel); }).filter(Boolean);
       if (adv.length) {
         var det = document.createElement('details'); det.className = 'ct-more';
-        det.innerHTML = '<summary>More options <small>score scale, dates, lock, email</small></summary>';
+        det.innerHTML = '<summary>More options</summary>';
         var inner = document.createElement('div'); inner.className = 'form-grid';
         adv.forEach(function (g) { inner.appendChild(g); });
         det.appendChild(inner);
@@ -1298,14 +1377,14 @@
         list.classList.add('ct-open'); list.style.display = 'block';
         var tools = document.createElement('div'); tools.className = 'ct-pick-tools';
         var search = document.createElement('input'); search.type = 'search'; search.placeholder = 'Search classes'; search.setAttribute('aria-label', 'Search classes');
-        var count = document.createElement('span'); count.className = 'ct-pick-count'; count.textContent = 'Nothing chosen yet';
-        tools.appendChild(search); tools.appendChild(count);
+        var count = document.createElement('span'); count.className = 'ct-pick-count'; count.textContent = 'None chosen';
+        tools.appendChild(search);
         btn.parentNode.insertBefore(tools, btn);
         var rows = function () { return Array.prototype.slice.call(list.querySelectorAll('.class-container > .class-checkbox')); };
         function refresh() {
           var classes = list.querySelectorAll('.class-container > .class-checkbox input[type=checkbox]:checked').length;
           var subjects = list.querySelectorAll('.subject-container input[type=checkbox]:checked').length;
-          count.textContent = classes ? classes + (classes === 1 ? ' class' : ' classes') + ', ' + subjects + (subjects === 1 ? ' subject' : ' subjects') + ' chosen' : 'Nothing chosen yet';
+          count.textContent = classes ? classes + (classes === 1 ? ' class' : ' classes') + ', ' + subjects + (subjects === 1 ? ' subject' : ' subjects') + ' chosen' : 'None chosen';
         }
         list.addEventListener('change', refresh);
         search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });

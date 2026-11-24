@@ -930,16 +930,20 @@ async function applyPromotionOverrides({ organizationId, termId, overrides }) {
   return result.rowCount || 0;
 }
 
-// The last two terms (by start date, never one that hasn't started), each with who is enrolled,
-// the saved promotion decisions, the term that follows it, and whether a promotion already ran
-// into that term: the page suggests the best source and target from this.
+// One suggestion, for the term that is running now: once about 90% of it has passed (or it has ended),
+// and only into a LATER term that has not started yet. Terms already past, or not started, get nothing.
+// Each suggestion carries who is enrolled, the saved promotion decisions, and whether a promotion
+// already ran into the next term.
+const SUGGEST_AFTER = 0.9;
+
 async function termPromotionSuggestions(organizationId, terms, years, schedules) {
   const today = new Date().toISOString().slice(0, 10);
   const day = (value) => (value ? new Date(value).toISOString().slice(0, 10) : "");
-  const byStart = [...terms].sort((a, b) => day(a.start_date).localeCompare(day(b.start_date)));
-  const started = byStart.filter((t) => day(t.start_date) && day(t.start_date) <= today);
-  const lastTwo = started.slice(-2).reverse();
-  if (!lastTwo.length) return { suggestions: [], counts: {} };
+  const ms = (value) => new Date(`${day(value)}T00:00:00Z`).getTime();
+  const byStart = [...terms].filter((t) => day(t.start_date)).sort((a, b) => day(a.start_date).localeCompare(day(b.start_date)));
+  const started = byStart.filter((t) => day(t.start_date) <= today);
+  const term = started[started.length - 1];
+  if (!term) return { suggestions: [], counts: {} };
 
   const ids = byStart.map((t) => Number(t.term_id));
   const { rows } = await db.query(
@@ -952,6 +956,15 @@ async function termPromotionSuggestions(organizationId, terms, years, schedules)
       GROUP BY e.term_id`,
     [organizationId, ids]
   );
+  const counts = Object.fromEntries(rows.map((r) => [Number(r.term_id), Number(r.students)]));
+  const index = byStart.findIndex((t) => Number(t.term_id) === Number(term.term_id));
+  const next = byStart[index + 1] || null;
+  const length = day(term.end_date) ? ms(term.end_date) - ms(term.start_date) : 0;
+  const passed = length > 0 ? (ms(today) - ms(term.start_date)) / length : 1;
+  const ended = Boolean(day(term.end_date)) && day(term.end_date) < today;
+  if (!ended && passed < SUGGEST_AFTER) return { suggestions: [], counts };
+  if (next && day(next.start_date) <= today) return { suggestions: [], counts };
+
   const decisions = await db.query(
     `SELECT sr.term_id, COUNT(DISTINCT sr.student_id)::int AS decided
        FROM student_reports sr
@@ -965,42 +978,35 @@ async function termPromotionSuggestions(organizationId, terms, years, schedules)
   const yearLabel = new Map(years.map((y) => [Number(y.school_year_id), y.label]));
   const label = (t) => `${yearLabel.get(Number(t.school_year_id)) || ""} · ${t.term_name}`.replace(/^ · /, "");
 
-  const counts = Object.fromEntries(rows.map((r) => [Number(r.term_id), Number(r.students)]));
-  const suggestions = lastTwo.map((term) => {
-    const index = byStart.findIndex((t) => Number(t.term_id) === Number(term.term_id));
-    const next = byStart[index + 1] || null;
-    const students = Number((stat.get(Number(term.term_id)) || {}).students || 0);
-    const decisionCount = decided.get(Number(term.term_id)) || 0;
-    const nextStudents = next ? Number((stat.get(Number(next.term_id)) || {}).students || 0) : 0;
-    const ran = next && schedules.some((s) =>
-      Number(s.current_term_id) === Number(term.term_id) && Number(s.target_term_id) === Number(next.term_id)
-      && String(s.status || "").toLowerCase() === "completed");
-    const ended = day(term.end_date) && day(term.end_date) < today;
-    let kind = "ready";
-    let message;
-    if (!students) {
-      kind = "empty";
-      message = "No students are enrolled in this term, so there is nobody to promote from it.";
-    } else if (!next) {
-      kind = "no-target";
-      message = "There is no later term yet. Create the next term in School years & terms first.";
-    } else if (ran && nextStudents >= students) {
-      kind = "applied";
-      message = `Already promoted into ${label(next)} (${nextStudents} students there).`;
-    } else if (nextStudents > 0) {
-      kind = "partial";
-      message = `${label(next)} already has ${nextStudents} of these ${students} students. Promoting adds the rest.`;
-    } else {
-      message = `${students} student${students === 1 ? "" : "s"} can move into ${label(next)}${decisionCount ? ` (${decisionCount} promotion decision${decisionCount === 1 ? "" : "s"} saved)` : ". Save promotion decisions on the report cards first, or choose each student's class in the preview"}.`;
-    }
-    return {
+  const students = Number((stat.get(Number(term.term_id)) || {}).students || 0);
+  if (!students) return { suggestions: [], counts };
+  const decisionCount = decided.get(Number(term.term_id)) || 0;
+  const nextStudents = next ? Number((stat.get(Number(next.term_id)) || {}).students || 0) : 0;
+  const ran = next && schedules.some((s) =>
+    Number(s.current_term_id) === Number(term.term_id) && Number(s.target_term_id) === Number(next.term_id)
+    && String(s.status || "").toLowerCase() === "completed");
+  if (next && ran && nextStudents >= students) return { suggestions: [], counts };
+
+  let kind = "ready";
+  let message;
+  if (!next) {
+    kind = "no-target";
+    message = "No next term yet.";
+  } else if (nextStudents > 0) {
+    kind = "partial";
+    message = `${nextStudents} of ${students} already there.`;
+  } else {
+    message = `${students} student${students === 1 ? "" : "s"}${decisionCount ? ` · ${decisionCount} decision${decisionCount === 1 ? "" : "s"} saved` : ""}`;
+  }
+  return {
+    suggestions: [{
       fromTermId: Number(term.term_id), fromYearId: Number(term.school_year_id), fromLabel: label(term),
       targetTermId: next ? Number(next.term_id) : null, targetYearId: next ? Number(next.school_year_id) : null, targetLabel: next ? label(next) : "",
       targetStart: next ? day(next.start_date) : "",
-      students, decisions: decisionCount, targetStudents: nextStudents, ended: Boolean(ended), kind, message,
-    };
-  });
-  return { suggestions, counts };
+      students, decisions: decisionCount, targetStudents: nextStudents, ended, kind, message,
+    }],
+    counts,
+  };
 }
 
 module.exports = {

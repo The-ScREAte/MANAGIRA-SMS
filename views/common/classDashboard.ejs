@@ -25,6 +25,12 @@
   }, {});
 %>
 <style>
+      /* To review stands apart from the subjects: its own colour. */
+      .nav-sublink[data-nav-key="to-review"] { color: #d97706; font-weight: 700; }
+      .nav-sublink[data-nav-key="to-review"] .nav-count-pill { margin-left: 6px; background: color-mix(in srgb, #d97706 16%, transparent); color: #d97706; }
+      .subject-review { flex: none; margin-left: auto; margin-right: 10px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, #d97706 14%, transparent); color: #b45309; font-size: .76rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+      .subject-review b { font-weight: 800; }
+
 :root {
   --border: #e5e7eb;
   --muted: #6b7280;
@@ -37,6 +43,7 @@
 }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/classWorkspace.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" />
 
 <body>
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
@@ -167,17 +174,28 @@
                   <span class="nav-link-label">Assessment Questions</span>
                 </button>
               </li>
+              <% } else if (locals.assessmentQuestionsLocked && Array.isArray(typeof userPermissions !== 'undefined' ? userPermissions : null) && userPermissions.includes('manage_assessments')) { %>
+              <%# Not given Set Assessment Questions: shown greyed, opens nothing, says who to ask. %>
+              <li>
+                <button class="nav-link is-locked" type="button" data-nav-key="assessment-questions-locked" aria-disabled="true" title="Ask your admin for access" onclick="window.AssessmentFlow && window.AssessmentFlow.toast('Ask your admin for access to Assessment Questions.')">
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('questions') %></span>
+                  <span class="nav-link-label">Assessment Questions</span>
+                </button>
+              </li>
               <% } %>
               <li class="nav-section-collapsible">
                 <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" onclick="toggleSubjectsNavSection(event)">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('grading') %></span>
-                  <span class="nav-link-label">Grading</span>
+                  <span class="nav-link-label">Gradebook</span>
                   <span class="nav-count-pill"><%= subjects.length %></span>
                   <span class="nav-section-icon" aria-hidden="true">›</span>
                 </button>
               </li>
               <li class="nav-section-children" id="subjects-section-list" hidden>
                 <ul class="nav-sublist">
+                  <% if (canAccessAssessmentQuestions) { %>
+                    <li><button class="nav-sublink" type="button" data-nav-key="to-review" onclick="openToReviewDrawer()">Review<% if ((locals.toReviewTotal || 0) > 0) { %> <span class="nav-count-pill"><%= locals.toReviewTotal %></span><% } %></button></li>
+                  <% } %>
                   <% if (subjects.length > 0) { %>
                     <% subjects.forEach(function(subject) { %>
                       <li><button class="nav-sublink" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)"><%= subject.subject_name %></button></li>
@@ -206,7 +224,7 @@
               <li>
                 <button class="nav-link" type="button" data-nav-key="settings" onclick="openWorkspaceTabByKey('settings')">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('settings') %></span>
-                  <span class="nav-link-label">Class settings</span>
+                  <span class="nav-link-label">Class &amp; notif. settings</span>
                 </button>
               </li>
             <% } %>
@@ -529,11 +547,15 @@
                     <div class="subjects-card-grid" id="classDashboardSubjectsList">
                       <% if (subjects.length > 0) { %>
                         <% sortedOverviewSubjects.forEach(function(subject) { %>
-                          <button class="subject-card" type="button" data-subject-name="<%= String(subject.subject_name || '').toLowerCase() %>" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                          <button class="subject-card" type="button" data-subject-id="<%= subject.subject_id %>" data-subject-name="<%= String(subject.subject_name || '').toLowerCase() %>" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
                             <span class="subject-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
                             <span class="subject-text">
                               <strong><%= subject.subject_name %></strong>
                             </span>
+                            <% const _toReview = Number((locals.toReviewBySubject || {})[subject.subject_id] || 0); %>
+                            <% if (_toReview > 0) { %>
+                              <span class="subject-review" role="link" tabindex="0" title="Written answers waiting for review" onclick="event.stopPropagation(); openToReviewDrawer();" onkeydown="if (event.key === 'Enter') { event.stopPropagation(); openToReviewDrawer(); }">Review <b><%= _toReview %></b></span>
+                            <% } %>
                             <span class="subject-arrow" aria-hidden="true">›</span>
                           </button>
                         <% }); %>
@@ -1470,7 +1492,7 @@
         if (!document.getElementById('panel-settings')) return getWorkspaceOverviewTab();
         return {
           id: 'settings',
-          title: 'Class settings',
+          title: 'Class & notif. settings',
           panelId: 'panel-settings',
           routePath: workspaceContext.basePath + '/settings',
           sidebarKey: 'settings',
@@ -1531,6 +1553,51 @@
           iframeSrc: workspaceContext.assessmentQuestionsUrl,
           panelDescription: 'Assessment questions scoped to this class workspace.',
         };
+      }
+
+      // To review: a panel from the right with the tests that have written answers to mark. Each has a
+      // Review button that opens the marking screen. Only the X closes it (not a click outside).
+      function openToReviewDrawer() {
+        if (!workspaceContext.canOpenAssessmentQuestions || !window.AssessmentFlow) return;
+        window.AssessmentFlow.drawer({
+          title: 'Review',
+          subtitle: <%- JSON.stringify(className || '') %>,
+          src: workspaceContext.assessmentQuestionsUrl + '&toMark=1',
+          wide: true,
+          keepOnEscape: true,
+          scrimClose: false,
+          onClose: refreshToReviewCounts,
+        });
+      }
+
+      window.openToReviewDrawer = openToReviewDrawer;
+
+      // The numbers beside To review and on the subjects, from the server, after marking.
+      function refreshToReviewCounts() {
+        fetch('/common/assessment/mark/counts?classId=' + encodeURIComponent(workspaceContext.classId) + '&termId=' + encodeURIComponent(workspaceContext.termId), {
+          credentials: 'same-origin', headers: { Accept: 'application/json' },
+        }).then(function (response) { return response.json(); }).then(function (data) {
+          if (!data || !data.success) return;
+          var pill = document.querySelector('[data-nav-key="to-review"] .nav-count-pill');
+          var item = document.querySelector('[data-nav-key="to-review"]');
+          if (item) {
+            if (!data.total && pill) pill.remove();
+            else if (data.total && pill) pill.textContent = String(data.total);
+            else if (data.total && !pill) { var span = document.createElement('span'); span.className = 'nav-count-pill'; span.textContent = String(data.total); item.appendChild(document.createTextNode(' ')); item.appendChild(span); }
+          }
+          Array.prototype.forEach.call(document.querySelectorAll('.subject-card[data-subject-id]'), function (card) {
+            var count = Number((data.bySubject || {})[card.getAttribute('data-subject-id')] || 0);
+            var chip = card.querySelector('.subject-review');
+            if (!count) { if (chip) chip.remove(); return; }
+            if (chip) { chip.querySelector('b').textContent = String(count); return; }
+            var made = document.createElement('span');
+            made.className = 'subject-review'; made.setAttribute('role', 'link'); made.tabIndex = 0;
+            made.title = 'Written answers waiting for review';
+            made.innerHTML = 'Review <b>' + count + '</b>';
+            made.addEventListener('click', function (event) { event.stopPropagation(); openToReviewDrawer(); });
+            card.insertBefore(made, card.querySelector('.subject-arrow'));
+          });
+        }).catch(function () {});
       }
 
       function getWorkspaceAttendanceTab() {
@@ -1651,6 +1718,7 @@
         if (tabKey === 'forms' && document.getElementById('panel-forms')) return openWorkspaceTab(getWorkspaceFormsTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
         if (tabKey === 'assessment-questions') return openWorkspaceTab(getWorkspaceAssessmentQuestionsTab(), options || {});
+        if (tabKey === 'to-review') { openToReviewDrawer(); return openWorkspaceTab(getWorkspaceOverviewTab(), options || {}); }
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
@@ -2417,6 +2485,7 @@
         if (safeRoute.panel === 'settings') return openWorkspaceTabByKey('settings', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
+        if (safeRoute.panel === 'to-review') return openWorkspaceTabByKey('to-review', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
         if (safeRoute.panel === 'paygira') return openWorkspaceTabByKey('paygira', safeOptions);
         if (safeRoute.panel === 'briefing') return openWorkspaceTabByKey('briefing', safeOptions);
@@ -3148,4 +3217,5 @@
     var currentStaffUserId = Number('<%= Number((req.session && (req.session.userId || (req.session.user && req.session.user.user_id))) || 0) %>');
 </script>
 <script src="<%= assetUrl('/js/classDashboard.part1.js') %>"></script>
+<script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script>
 </body>

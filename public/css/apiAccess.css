@@ -52,7 +52,7 @@
 .aa-menu .aa-danger { color: #b91c1c; }
 
 /* Drawer: the shared slide-in, holding a form instead of a page. */
-.aa-drawer .mgr-drawer { background: var(--ap-surface, #fff); }
+.aa-drawer .mgr-drawer { margin: 0; background: var(--ap-surface, #fff); }
 .aa-drawer .mgr-drawer-header h2 { font-size: 1.05rem; }
 .aa-drawer-body { flex: 1; overflow-y: auto; padding: 18px 20px; display: grid; align-content: start; gap: 16px; }
 .aa-drawer-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--gp-line, #e2e8f0); }
@@ -169,3 +169,14 @@
 .aa-status--on_hold { background: color-mix(in srgb, #d97706 14%, transparent); color: #92400e; }
 .aa-confirm__box .aa-field { margin: 4px 0 10px; }
 .aa-status--paused { background: color-mix(in srgb, #d97706 14%, transparent); color: #92400e; }
+
+/* Compact drawer forms: fields side by side, ticks in columns. */
+.aa-fieldset, .aa-perms, .aa-scope { max-width: none; }
+.aa-row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.aa-row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.aa-drawer-body { gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.aa-perms { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 14px; }
+.aa-fieldset:has(> .aa-scope) { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.aa-fieldset:has(> .aa-scope) > .aa-hint { grid-column: 1 / -1; }
+.aa-fieldset legend .aa-linkbtn { margin-left: 10px; font-size: 0.8rem; }
+@media (max-width: 560px) { .aa-row2, .aa-row3 { grid-template-columns: minmax(0, 1fr); } }

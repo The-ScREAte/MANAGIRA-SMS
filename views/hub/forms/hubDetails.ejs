@@ -3,8 +3,8 @@
   const _logoValue = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
   const _logo = _logoValue && typeof publicImageUrl === 'function' ? publicImageUrl(_logoValue, { public: true }) : _logoValue;
 %>
-<div data-drawer-title="Hub details" data-drawer-sub="Phone, address and logo. Your schools see these.">
-  <form class="hub-form hub-drawer-form" action="/hub/settings/hub" method="POST" data-ajax>
+<div data-drawer-title="Hub details">
+  <form class="hub-form hub-drawer-form" id="hubDetailsForm" action="/hub/settings/hub" method="POST" data-ajax>
     <div class="hub-field">
       <label class="hub-label" for="hdPhone">Main phone</label>
       <div class="phone-combo" data-default-iso2="US">
@@ -14,10 +14,7 @@
     </div>
     <div class="hub-field">
       <label class="hub-label" for="hdAddress">Address</label>
-      <input type="text" id="hdAddress" name="hubAddress" value="<%= _hub.hub_address || '' %>" placeholder="Town, region" />
-    </div>
-    <div class="hub-drawer__foot hub-drawer__foot--inline">
-      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save details</button>
+      <input type="text" id="hdAddress" name="hubAddress" value="<%= _hub.hub_address || '' %>" placeholder="Address" />
     </div>
   </form>
 
@@ -28,14 +25,15 @@
         <% if (_logo) { %><img src="<%= _logo %>" alt="Hub logo" /><% } else { %>No logo yet<% } %>
       </div>
       <div class="hub-file">
-        <label class="hub-label" for="hdLogo">Choose an image</label>
+        <label class="hub-label" for="hdLogo">Image</label>
         <input type="file" id="hdLogo" name="logo" accept="image/*" required data-logo-input />
-        <span class="hub-help">PNG, JPG or SVG. Shown on your hub and on your schools’ Settings page.</span>
       </div>
     </div>
     <div class="hub-drawer__foot hub-drawer__foot--inline">
-      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload logo</button>
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload</button>
     </div>
   </form>
-  <p class="hub-help" style="margin-top:16px">To change the hub name, owner email or plan, contact Managira support.</p>
+  <div class="hub-drawer__foot">
+    <button type="submit" form="hubDetailsForm" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save</button>
+  </div>
 </div>

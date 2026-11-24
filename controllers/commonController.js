@@ -4,6 +4,7 @@ const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
 const websiteExtrasUtil = require("../utils/websiteExtras");
 const { saveGuardianBaseInfo } = require("../utils/contacts");
 const studentFormFields = require("../utils/studentFormFields");
+const studentImportFields = require("../utils/studentImportFields");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("../utils/passwordHashing");
@@ -46,6 +47,7 @@ const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDef
 const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
 const assessmentEntry = require("../utils/assessmentEntry");
 const permissionBasics = require("../utils/permissionBasics");
+const assessmentSimple = require("../utils/assessmentSimple");
 const assessmentApproval = require("../utils/assessmentApproval");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 
@@ -1707,43 +1709,45 @@ function splitGuardianName(name = '') {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
-function buildHeaderIndexMap(headers = []) {
-  const normalizedHeaders = headers.map((h) => normalizeHeader(h));
-  const aliasToIndex = (aliases = []) => {
+// exclude: column numbers already taken by one of the school's own fields.
+// exactOnly: only whole-name matches (used to find the header row).
+// A header may also match by containing an alias (or being part of one), but
+// only when it is 3+ letters and no other detail already matched it exactly:
+// an empty header, a one-letter cell or "First Name" must not become the
+// guardian's first name.
+function buildHeaderIndexMap(headers = [], exclude = null, exactOnly = false) {
+  const normalizedHeaders = Array.from(headers, (h, i) => (exclude && exclude.has(i) ? '\u0000' : normalizeHeader(studentImportFields.cellText(h))));
+  const exactIndex = (aliases = []) => {
     for (const alias of aliases) {
       const aliasNorm = normalizeHeader(alias);
       const index = normalizedHeaders.findIndex((h) => h === aliasNorm);
       if (index !== -1) return index;
-      const partialIndex = normalizedHeaders.findIndex((h) => h.includes(aliasNorm) || aliasNorm.includes(h));
-      if (partialIndex !== -1) return partialIndex;
     }
     return -1;
   };
-
-  return {
-    firstName: aliasToIndex(FIELD_ALIASES.firstName),
-    lastName: aliasToIndex(FIELD_ALIASES.lastName),
-    dateOfBirth: aliasToIndex(FIELD_ALIASES.dateOfBirth),
-    gender: aliasToIndex(FIELD_ALIASES.gender),
-    hometown: aliasToIndex(FIELD_ALIASES.hometown),
-    studentAddress: aliasToIndex(FIELD_ALIASES.studentAddress),
-    studentEmail: aliasToIndex(FIELD_ALIASES.studentEmail),
-    class: aliasToIndex(FIELD_ALIASES.class),
-    graduationYear: aliasToIndex(FIELD_ALIASES.graduationYear),
-    subjects: aliasToIndex(FIELD_ALIASES.subjects),
-    guardianFirstName: aliasToIndex(FIELD_ALIASES.guardianFirstName),
-    guardianLastName: aliasToIndex(FIELD_ALIASES.guardianLastName),
-    guardianPhone: aliasToIndex(FIELD_ALIASES.guardianPhone),
-    guardianEmail: aliasToIndex(FIELD_ALIASES.guardianEmail),
-    guardianAddress: aliasToIndex(FIELD_ALIASES.guardianAddress),
-    guardianHometown: aliasToIndex(FIELD_ALIASES.guardianHometown),
-    guardianName: aliasToIndex(FIELD_ALIASES.guardianName)
-  };
+  const keys = Object.keys(FIELD_ALIASES);
+  const result = {};
+  const exactlyTaken = new Set();
+  keys.forEach((key) => {
+    result[key] = exactIndex(FIELD_ALIASES[key]);
+    if (result[key] >= 0) exactlyTaken.add(result[key]);
+  });
+  if (!exactOnly) {
+    keys.forEach((key) => {
+      if (result[key] >= 0) return;
+      for (const alias of FIELD_ALIASES[key]) {
+        const aliasNorm = normalizeHeader(alias);
+        const partialIndex = normalizedHeaders.findIndex((h, i) => h.length >= 3 && h !== '\u0000' && !exactlyTaken.has(i) && (h.includes(aliasNorm) || aliasNorm.includes(h)));
+        if (partialIndex !== -1) { result[key] = partialIndex; break; }
+      }
+    });
+  }
+  return result;
 }
 
 function valueAt(row = [], index = -1) {
   if (index < 0 || index >= row.length) return '';
-  return String(row[index] ?? '').trim();
+  return studentImportFields.cellText(row[index]);
 }
 
 function normalizeGenderValue(raw) {
@@ -1791,7 +1795,7 @@ function isUnknownDobToken(value) {
   return ['n/k', 'nk', 'unknown', 'notknown', 'dontknow', "don'tknow", 'na', 'n/a'].includes(normalized);
 }
 
-function mapRowToStudent(rowValues = [], indexMap) {
+function mapRowToStudent(rowValues = [], indexMap, customColumns = null) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
   const mappedHometown = valueAt(rowValues, indexMap.hometown);
@@ -1823,6 +1827,12 @@ function mapRowToStudent(rowValues = [], indexMap) {
     }
   };
 
+  if (customColumns) {
+    const { custom, issues } = studentImportFields.extractCustom(rowValues, customColumns);
+    student.custom = custom;
+    student.customIssues = issues;
+  }
+
   const firstName = (student.firstName || '').toLowerCase();
   const invalidName =
     !student.firstName ||
@@ -1837,9 +1847,66 @@ function mapRowToStudent(rowValues = [], indexMap) {
   return invalidName ? null : student;
 }
 
-function parseRowsToStudents(headers = [], rows = []) {
-  const indexMap = buildHeaderIndexMap(headers);
-  return rows.map((row) => mapRowToStudent(row, indexMap)).filter(Boolean);
+// Columns that are not student details but are part of the old download
+// template: quietly ignored, not worth listing as "ignored".
+const QUIET_COLUMNS = new Set(['studentid', 'enrollmenttype', 'schoolyear', 'term', 'studentphoto', 'guardianphoto', 'guardianphotooptional']);
+const STANDARD_EXACT_HEADERS = new Set([
+  ...Object.values(FIELD_ALIASES).flat(),
+  ...studentFormFields.STANDARD_FIELDS.student,
+].map((a) => normalizeHeader(a)).filter(Boolean));
+
+function isRepeatedHeaderRow(row, headerKeys) {
+  const cells = headerKeys.map((k, i) => ({ k, v: studentImportFields.normKey(row[i]) })).filter((c) => c.k);
+  return cells.length >= 2 && cells.every((c) => c.k === c.v);
+}
+
+// fields: the school's own student fields (null = ignore them).
+// report (optional) collects what the file's columns turned into:
+// { matched: Map, unmatched: Set, skipped, rows }.
+function parseRowsToStudents(headers = [], rows = [], fields = null, report = null) {
+  const hasFields = Array.isArray(fields) && fields.length > 0;
+  let customColumns = null;
+  let exclude = null;
+  let unmatched = [];
+  if (hasFields) {
+    const reserved = new Set();
+    headers.forEach((h, i) => {
+      const n = normalizeHeader(studentImportFields.cellText(h));
+      if (n && STANDARD_EXACT_HEADERS.has(n)) reserved.add(i);
+    });
+    const mapped = studentImportFields.mapCustomColumns(headers, fields, reserved);
+    customColumns = studentImportFields.prepareColumns(mapped.columns, rows);
+    exclude = new Set(customColumns.map((c) => c.index));
+    unmatched = mapped.unmatched;
+  }
+  const indexMap = buildHeaderIndexMap(headers, exclude);
+  if (report) {
+    const claimed = new Set(Object.values(indexMap).filter((i) => i >= 0));
+    const seen = report.unmatched || (report.unmatched = new Set());
+    if (!hasFields) {
+      headers.forEach((h, i) => {
+        const t = studentImportFields.cellText(h);
+        if (t && !claimed.has(i) && !QUIET_COLUMNS.has(normalizeHeader(t))) seen.add(t.slice(0, 60));
+      });
+    }
+    unmatched.forEach((u) => {
+      if (claimed.has(u.index) || QUIET_COLUMNS.has(normalizeHeader(u.header))) return;
+      seen.add(u.reason ? `${u.header} (${u.reason})` : u.header);
+    });
+    if (customColumns) {
+      const matched = report.matched || (report.matched = new Map());
+      customColumns.forEach((c) => { if (!matched.has(c.field.id)) matched.set(c.field.id, { id: c.field.id, label: c.field.label, header: c.header }); });
+    }
+  }
+  const headerKeys = headers.map((h) => studentImportFields.normKey(h));
+  const students = [];
+  rows.forEach((row) => {
+    if (!Array.isArray(row) || isRepeatedHeaderRow(row, headerKeys)) return;
+    const student = mapRowToStudent(row, indexMap, customColumns);
+    if (student) students.push(student);
+    else if (report && row.some((c) => studentImportFields.cellText(c))) report.skipped = (report.skipped || 0) + 1;
+  });
+  return students;
 }
 
 function detectHeaderAndDataRows(matrixRows = []) {
@@ -1852,9 +1919,10 @@ function detectHeaderAndDataRows(matrixRows = []) {
 
   const scanLimit = Math.min(matrixRows.length, 50);
   for (let i = 0; i < scanLimit; i++) {
-    const candidate = (matrixRows[i] || []).map((value) => String(value || '').trim());
+    const candidate = Array.from(matrixRows[i] || [], (value) => studentImportFields.cellText(value));
     const indexMap = buildHeaderIndexMap(candidate);
-    const score = [
+    const exactMap = buildHeaderIndexMap(candidate, null, true);
+    const hits = [
       indexMap.firstName,
       indexMap.lastName,
       indexMap.dateOfBirth,
@@ -1862,6 +1930,8 @@ function detectHeaderAndDataRows(matrixRows = []) {
       indexMap.guardianFirstName,
       indexMap.guardianName,
     ].filter((idx) => idx >= 0).length;
+    // Whole-name matches beat partial ones, so a data row can't pass for the header.
+    const score = hits < 2 ? hits : hits + Object.values(exactMap).filter((idx) => idx >= 0).length * 10;
 
     if (score > bestScore) {
       bestScore = score;
@@ -1873,11 +1943,11 @@ function detectHeaderAndDataRows(matrixRows = []) {
     return { headers: [], rows: [] };
   }
 
-  const headers = (matrixRows[bestHeaderIndex] || []).map((value) => String(value || '').trim());
+  const headers = Array.from(matrixRows[bestHeaderIndex] || [], (value) => studentImportFields.cellText(value));
   const rows = matrixRows
     .slice(bestHeaderIndex + 1)
     .map((row) => (Array.isArray(row) ? row : []))
-    .filter((row) => row.some((cell) => String(cell || '').trim()));
+    .filter((row) => row.some((cell) => studentImportFields.cellText(cell)));
 
   return { headers, rows };
 }
@@ -1974,7 +2044,7 @@ function formatDate(dateString) {
 }
 
 // Parse free text (from Word/PDF/OCR) into student records using alias-aware headers when present
-function parseTextToStudents(text) {
+function parseTextToStudents(text, fields = null, report = null) {
   const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (!lines.length) return [];
 
@@ -1994,11 +2064,33 @@ function parseTextToStudents(text) {
 
   if (headerIndex >= 0) {
     const rows = lines.slice(headerIndex + 1).map((line) => parseCSVLine(line));
-    return parseRowsToStudents(parsedHeaders, rows);
+    return parseRowsToStudents(parsedHeaders, rows, fields, report);
   }
 
   const fallbackStudents = [];
+  const hasFields = Array.isArray(fields) && fields.length > 0;
+  const fieldIndex = hasFields ? studentImportFields.buildFieldIndex(fields) : null;
   for (const line of lines) {
+    // "Blood group: O+" belongs to the student listed just above it.
+    if (hasFields) {
+      let labeled = null;
+      try { labeled = studentImportFields.matchLabeledLine(line, fields, fieldIndex); } catch (_) { labeled = null; }
+      if (labeled) {
+        const last = fallbackStudents[fallbackStudents.length - 1];
+        if (last) {
+          const r = studentImportFields.coerceValue(labeled.field, labeled.text);
+          if (r.value !== '') last.custom[labeled.field.id] = r.value;
+          if (r.issue) last.customIssues.push({ fieldId: labeled.field.id, label: labeled.field.label, reason: r.issue, raw: String(labeled.text).slice(0, 30) });
+          if (report) {
+            const matched = report.matched || (report.matched = new Map());
+            if (!matched.has(labeled.field.id)) matched.set(labeled.field.id, { id: labeled.field.id, label: labeled.field.label, header: labeled.field.label });
+          }
+        } else if (report) {
+          report.skipped = (report.skipped || 0) + 1;
+        }
+        continue;
+      }
+    }
     const parts = line.split(/[\t,|]/).map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 2) {
       const hasStudentEmail = Boolean(parts[6] && String(parts[6]).includes('@'));
@@ -2025,6 +2117,7 @@ function parseTextToStudents(text) {
           hometown: hasStudentEmail ? (parts[14] || '') : (parts[13] || '')
         }
       };
+      if (hasFields) { student.custom = {}; student.customIssues = []; }
       if (student.firstName && student.lastName) fallbackStudents.push(student);
     }
   }
@@ -2647,6 +2740,7 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
   }
 
   const sourceSet = sourceSetResult.rows[0];
+  const rubricCopyReady = await require("../utils/rubric").whenChecked();
   const sourceQuestionsResult = await client.query(
     `SELECT
        question_type,
@@ -2654,7 +2748,7 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
        options_json,
        answer_key,
        marks,
-       position_index
+       position_index${rubricCopyReady ? ",\n       rubric_json" : ""}
      FROM assessment_questions
      WHERE question_set_id = $1
      ORDER BY position_index ASC, question_id ASC`,
@@ -2672,6 +2766,7 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
     answerKey: row.answer_key || null,
     marks: Number(row.marks || 0),
     positionIndex: Number(row.position_index || 0),
+    rubric: row.rubric_json || null,
   }));
 
   if (shuffleMode === "reverse") {
@@ -2734,9 +2829,9 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
          options_json,
          answer_key,
          marks,
-         position_index
+         position_index${rubricCopyReady ? ",\n         rubric_json" : ""}
        )
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8${rubricCopyReady ? ", $9::jsonb" : ""})`,
       [
         clonedQuestionSetId,
         organizationId,
@@ -2746,6 +2841,7 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
         question.answerKey,
         Number(question.marks || 0),
         index + 1,
+        ...(rubricCopyReady ? [question.rubric ? JSON.stringify(question.rubric) : null] : []),
       ]
     );
   }
@@ -5003,10 +5099,6 @@ const commonController = {
     }
 
     if (addStudentVerboseLogs) {
-      console.log('[AddStudent] Detected indexes for processing', {
-        indexes,
-        sampleKeys: Object.keys(body).slice(0, 40)
-      });
     }
 
     // A school that requires files on Add student (Admission Settings › Student files): each student
@@ -5185,21 +5277,11 @@ const commonController = {
         if (isEmptyStudentForm) {
           emptyFormsSkippedCount += 1;
           if (addStudentVerboseLogs) {
-            console.log('[AddStudent] Skipping empty student form', { index });
           }
           continue;
         }
 
         if (addStudentVerboseLogs) {
-          console.log('[AddStudent] Parsed student payload', {
-            index,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            dateOfBirth: student.dateOfBirth,
-            gender: student.gender,
-            classId: student.classId,
-            graduationYearGroupId: student.graduationYearGroupId
-          });
         }
 
         currentPhaseForLog = 'duplicateCheck';
@@ -5365,7 +5447,16 @@ const commonController = {
         savedStudentIdByIndex.set(String(index), Number(studentId));
 
         if (customFields.length) {
-          const answers = studentFormFields.readAnswers(customFields, getStudentField);
+          let answers;
+          try {
+            answers = studentFormFields.readAnswers(customFields, getStudentField);
+          } catch (fieldError) {
+            // Say whose form it is: with many students the message alone isn't enough.
+            if (fieldError instanceof studentFormFields.FieldError) {
+              fieldError.message = `${String(student.firstName || '').trim()} ${String(student.lastName || '').trim()}: ${fieldError.message}`.trim();
+            }
+            throw fieldError;
+          }
           await studentFormFields.saveStudentAnswers(client, organizationId, studentId, answers, createdBy);
         }
 
@@ -5737,12 +5828,6 @@ const commonController = {
       currentPhaseForLog = 'commit';
       await client.query("COMMIT");
       if (addStudentVerboseLogs) {
-        console.log('[AddStudent] Save completed', {
-          studentsSaved: studentsSavedCount,
-          guardiansCreated: guardiansCreatedCount,
-          guardiansReused: guardiansReusedCount,
-          guardianLinksCreated: guardianLinksCreatedCount
-        });
       }
       const processedFormsCount = indexes.length;
       const saveSummaryMessage = `Saved ${studentsSavedCount} student(s) from ${processedFormsCount} submitted form(s).`;
@@ -5849,8 +5934,18 @@ const commonController = {
       }
 
       const file = req.file;
+      if (!file.size && !(file.buffer && file.buffer.length)) {
+        return res.json({ success: false, error: 'The file is empty.' });
+      }
       const fileExtension = file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase();
       let students = [];
+
+      // The school's own student fields (Admission Settings): the file's columns
+      // that match one of them fill it. Never blocks the import.
+      const importOrgId = req.session?.organizationId || req.user?.organization_id;
+      let customFields = [];
+      try { customFields = importOrgId ? await studentFormFields.formFields(db, importOrgId, 'student') : []; } catch (_) { customFields = []; }
+      const importReport = { matched: new Map(), unmatched: new Set(), skipped: 0 };
 
       // Import required libraries
       const ExcelJS = require('exceljs');
@@ -5875,7 +5970,7 @@ const commonController = {
             for (const worksheetRows of worksheets) {
               const { headers, rows } = detectHeaderAndDataRows(worksheetRows);
               if (!headers.length || !rows.length) continue;
-              parsedStudents.push(...parseRowsToStudents(headers, rows));
+              parsedStudents.push(...parseRowsToStudents(headers, rows, customFields, importReport));
             }
 
             students = parsedStudents;
@@ -5899,29 +5994,28 @@ const commonController = {
 
               const { headers, rows } = detectHeaderAndDataRows(rowsAsArrays);
               if (!headers.length || !rows.length) return;
-              parsedStudents.push(...parseRowsToStudents(headers, rows));
+              parsedStudents.push(...parseRowsToStudents(headers, rows, customFields, importReport));
             });
 
             students = parsedStudents;
           }
 
         } else if (fileExtension === '.csv') {
-          // Parse CSV file
-          let fileContent;
-          if (file.buffer) fileContent = file.buffer.toString('utf-8');
-          else if (file.path) fileContent = await fs.promises.readFile(file.path, 'utf-8');
+          // Parse CSV file (quoted commas and line breaks, ; or tab, BOM, Excel's ANSI)
+          let csvBuffer;
+          if (file.buffer) csvBuffer = file.buffer;
+          else if (file.path) csvBuffer = await fs.promises.readFile(file.path);
           else throw new Error('File data not accessible');
 
-          const lines = fileContent.split(/\r?\n/).filter((line) => line.trim());
-          if (lines.length < 2) throw new Error('CSV file is empty or invalid');
+          const matrixRows = studentImportFields.parseCsv(csvBuffer);
+          if (matrixRows.length < 2) throw new Error('CSV file is empty or invalid');
 
-          const matrixRows = lines.map((line) => parseCSVLine(line));
           const { headers, rows } = detectHeaderAndDataRows(matrixRows);
           if (!headers.length || !rows.length) {
             throw new Error('Could not detect valid student headers in CSV file');
           }
 
-          students = parseRowsToStudents(headers, rows);
+          students = parseRowsToStudents(headers, rows, customFields, importReport);
 
         } else if (fileExtension === '.doc' || fileExtension === '.docx') {
           // Parse Word document
@@ -5931,21 +6025,21 @@ const commonController = {
           else throw new Error('File data not accessible');
 
           const text = result.value;
-          students = parseTextToStudents(text);
+          students = parseTextToStudents(text, customFields, importReport);
 
         } else if (fileExtension === '.pdf') {
           // Parse PDF text with pdf-parse
           const buffer = file.buffer || (file.path ? await fs.promises.readFile(file.path) : null);
           if (!buffer) throw new Error('File data not accessible');
           const parsed = await pdfParse(buffer);
-          students = parseTextToStudents(parsed.text || '');
+          students = parseTextToStudents(parsed.text || '', customFields, importReport);
 
         } else if (['.jpg', '.jpeg', '.png'].includes(fileExtension)) {
           // OCR for images using Tesseract.js
           const imageInput = file.buffer || file.path;
           if (!imageInput) throw new Error('File data not accessible');
           const ocrResult = await Tesseract.recognize(imageInput, 'eng');
-          students = parseTextToStudents(ocrResult?.data?.text || '');
+          students = parseTextToStudents(ocrResult?.data?.text || '', customFields, importReport);
         } else {
           return res.json({
             success: false,
@@ -5965,7 +6059,7 @@ const commonController = {
         if (students.length === 0) {
           return res.json({
             success: false,
-            error: 'No valid student data found in the file. Please check the format.'
+            error: 'No students found. Check the file has First Name and Last Name columns.'
           });
         }
 
@@ -6082,6 +6176,18 @@ const commonController = {
           }
         }
 
+        // What the school's own fields got from the file.
+        const issueList = [];
+        students.forEach((st, i) => {
+          (st.customIssues || []).forEach((iss) => issueList.push({ n: i + 1, name: `${st.firstName || ''} ${st.lastName || ''}`.trim().slice(0, 40), label: iss.label, reason: iss.reason, raw: iss.raw }));
+        });
+        warnings.customIssues = issueList.slice(0, 300);
+        warnings.customIssuesTotal = issueList.length;
+        warnings.unmatchedColumns = Array.from(importReport.unmatched).slice(0, 60);
+        warnings.skippedRows = importReport.skipped || 0;
+        warnings.customMatched = Array.from(importReport.matched.values());
+        warnings.customFieldCount = customFields.length;
+
         return res.json({
           success: true,
           students: students,
@@ -6099,9 +6205,15 @@ const commonController = {
             // Ignore cleanup errors
           }
         }
+        // Say it in a sentence a person can act on; the raw reason stays in the log.
+        const reason = String(parseError && parseError.message || '');
+        let friendly = 'This file could not be read. Save it again as .xlsx or .csv and retry.';
+        if (/CSV file is empty/i.test(reason)) friendly = 'No students found. Add a header row and at least one student.';
+        else if (/Could not detect valid student headers/i.test(reason)) friendly = 'No student columns found. First Name and Last Name are needed.';
+        else if (/not accessible/i.test(reason)) friendly = 'The upload could not be read. Try again.';
         return res.json({
           success: false,
-          error: `Failed to parse file: ${parseError.message}`
+          error: friendly
         });
       }
 
@@ -6111,6 +6223,63 @@ const commonController = {
         success: false,
         error: 'Server error processing file'
       });
+    }
+  },
+
+  // The import template: every standard column plus one per active custom
+  // student field, with a sample row. ?format=csv (default) or xlsx.
+  studentImportTemplate: async (req, res, db) => {
+    try {
+      const organizationId = req.session?.organizationId || req.user?.organization_id;
+      let fields = [];
+      let sampleClass = '';
+      if (organizationId) {
+        fields = await studentFormFields.formFields(db, organizationId, 'student').catch(() => []);
+        const cls = await db.query(
+          'SELECT class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY class_name LIMIT 1',
+          [organizationId]
+        ).catch(() => ({ rows: [] }));
+        sampleClass = cls.rows[0]?.class_name || '';
+      }
+      const model = studentImportFields.templateModel(fields, { sampleClass });
+      if (String(req.query.format || '').toLowerCase() === 'xlsx') {
+        const ExcelJS = require('exceljs');
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Students');
+        ws.addRow(model.headers.map((h) => studentImportFields.csvSafe(h)));
+        ws.addRow(model.sample.map((v, i) => {
+          const f = model.fields[i - model.customStart];
+          if (f && f.type === 'date') return new Date(`${v}T00:00:00Z`);
+          return studentImportFields.csvSafe(v);
+        }));
+        ws.getRow(1).font = { bold: true };
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+        model.headers.forEach((h, i) => { ws.getColumn(i + 1).width = Math.min(34, Math.max(14, String(h).length + 4)); });
+        model.fields.forEach((f, k) => {
+          const col = model.customStart + k + 1;
+          const colLetter = ws.getColumn(col).letter;
+          if (f.type === 'date') ws.getColumn(col).numFmt = 'yyyy-mm-dd';
+          let list = null;
+          if (f.type === 'yes_no') list = ['Yes', 'No'];
+          else if (f.type === 'choice') list = f.options;
+          const formula = list && list.length && list.join(',').length < 250 ? `"${list.map((o) => String(o).replace(/"/g, '""')).join(',')}"` : null;
+          if (formula) {
+            for (let r = 2; r <= 500; r++) {
+              ws.getCell(`${colLetter}${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [formula], showErrorMessage: false };
+            }
+          }
+        });
+        const buffer = await wb.xlsx.writeBuffer();
+        res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.set('Content-Disposition', 'attachment; filename="student import template.xlsx"');
+        return res.send(Buffer.from(buffer));
+      }
+      res.set('Content-Type', 'text/csv; charset=utf-8');
+      res.set('Content-Disposition', 'attachment; filename="student import template.csv"');
+      return res.send(studentImportFields.toCsv([model.headers, model.sample]));
+    } catch (error) {
+      console.error('Import template error:', error);
+      return res.status(500).send('Could not build the template.');
     }
   },
 
@@ -7288,11 +7457,8 @@ const commonController = {
     const reference = req.query.reference;
     const paystackPendingStudentId = req.query.pendingStudentId;
 
-    console.log('[Payment Callback] Reference:', reference);
-    console.log('[Payment Callback] Pending Student ID:', paystackPendingStudentId);
 
     if (!reference || !paystackPendingStudentId) {
-      console.log('[Payment Callback] Missing reference or pending student ID');
       
       // Try to get organizationId from query or session
       const orgId = req.query.organizationId || req.session.organizationId || '';
@@ -7304,7 +7470,6 @@ const commonController = {
     try {
       const paystackConfig = await getActivePaystackConfig(db);
       // ✅ Verify payment with Paystack
-      console.log('[Payment Callback] Verifying payment with Paystack...');
       const result = await axios.get(
         `https://api.paystack.co/transaction/verify/${reference}`,
         {
@@ -7312,12 +7477,10 @@ const commonController = {
         }
       );
 
-      console.log('[Payment Callback] Paystack verification response:', result.data);
 
       const paymentStatus = result.data.data.status;
 
       if (paymentStatus === "success") {
-        console.log('[Payment Callback] ✅ Payment successful, updating database...');
 
         // Tenant boundary: bind the verified Paystack reference to the
         // supplied pendingStudentId via the payment record's organization.
@@ -7335,7 +7498,6 @@ const commonController = {
         );
 
         if (ownershipCheck.rows.length === 0) {
-          console.log('[Payment Callback] ❌ Reference does not belong to the supplied pending student.');
           req.flash('error', 'Payment verification failed.');
           const fallbackOrg = req.query.organizationId || req.session.organizationId || '';
           return res.redirect(`/common/publicDashboard?organizationId=${fallbackOrg}`);
@@ -7385,7 +7547,6 @@ const commonController = {
         const orgDetails = orgResult.rows[0];
         const organizationId = orgDetails?.organization_id;
 
-        console.log('[Payment Callback] Organization ID:', organizationId);
 
         // ✅ Send email if primary guardian email exists
         if (primaryGuardian && primaryGuardian.email && newlyPaid.rows.length) {
@@ -7405,7 +7566,6 @@ const commonController = {
         req.session.pendingStudentId = null;
         req.session.publicRegistrationExistingGuardianId = null;
 
-        console.log('[Payment Callback] ✅ Redirecting to public dashboard with organizationId:', organizationId);
 
         // ✅ Build proper redirect URL for production (to subdomain) or fallback
         const redirectUrl =
@@ -7415,7 +7575,6 @@ const commonController = {
 
         return res.redirect(redirectUrl);
       } else {
-        console.log('[Payment Callback] ❌ Payment failed, deleting pending record...');
 
         // Tenant boundary: only delete the pending student if the verified
         // Paystack reference actually belongs to that pending student's org.
@@ -7431,7 +7590,6 @@ const commonController = {
         );
 
         if (failureOwnership.rows.length === 0) {
-          console.log('[Payment Callback] ❌ Failure callback rejected: reference does not own the supplied pending student.');
           req.flash('error', 'Payment verification failed.');
           const fallbackOrg = req.query.organizationId || req.session.organizationId || '';
           return res.redirect(`/common/publicDashboard?organizationId=${fallbackOrg}`);
@@ -7452,7 +7610,6 @@ const commonController = {
             ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
             : `/common/publicDashboard?organizationId=${failedOrgId || ""}`;
         
-        console.log('[Payment Callback] Redirecting after failure to:', fallbackRedirect);
         return res.redirect(fallbackRedirect);
       }
     } catch (err) {
@@ -7478,7 +7635,6 @@ const commonController = {
           ? `https://${req.schoolDetails.nickname}.managira.com/common/publicDashboard`
           : `/common/publicDashboard?organizationId=${errorOrgId}`;
       
-      console.log('[Payment Callback] Redirecting after error to:', fallbackRedirect);
       return res.redirect(fallbackRedirect);
     }
   },
@@ -7664,13 +7820,9 @@ const commonController = {
       await ensureStudentEmailSchema(db);
       await client.query("BEGIN");
 
-      console.log('[Approve Pending Student] Starting approval for ID:', id);
-      console.log('[Approve Pending Student] Request body:', req.body);
-      console.log('[Approve Pending Student] Request file:', req.file);
 
       // ✅ Save changes if any data was submitted
       if (req.body && Object.keys(req.body).length > 1) { // More than just the student ID
-        console.log('[Approve Pending Student] Saving changes before approval...');
         
         // Parse and coerce values
         const classId = req.body.class_id ? parseInt(req.body.class_id) : null;
@@ -7702,10 +7854,8 @@ const commonController = {
         // ✅ Upload and save image if provided
         let imageUrl = null;
         if (req.file) {
-          console.log('[Approve Pending Student] Uploading image...');
           const s3Key = `images/studentimages/${organizationId}/${require("../utils/storedFiles").safeName(req.file.originalname, "student")}`;
           imageUrl = await uploadToS3(req.file, s3Key);
-          console.log('[Approve Pending Student] Image uploaded:', imageUrl);
         }
 
         // ✅ Update pending student
@@ -7745,7 +7895,6 @@ const commonController = {
         `;
 
         await client.query(updateQuery, queryParams);
-        console.log('[Approve Pending Student] ✅ Changes saved');
 
         // ✅ Update subjects if provided
         if (req.body.subjects) {
@@ -7792,7 +7941,6 @@ const commonController = {
         }
       }
 
-      console.log('[Approve Pending Student] Fetching updated pending record...');
 
       // ✅ Now re-fetch the updated pending record
       const pending = await client.query(
@@ -9526,7 +9674,8 @@ const commonController = {
 
       const excludedDisplayDateCount = displayDates.filter((dateKey) => !dateMetaMap[dateKey].countable).length;
       // Days that count toward the overall figures: the whole term, not only the days drawn.
-      const countableDates = allDisplayDates.filter((dateKey) => dateKey === termEndKey || getDateMeta(dateKey).countable);
+      // (sheetDates, not allDisplayDates: a teacher's sheet shows 6 days, but their overall figures cover the term like a manager's.)
+      const countableDates = sheetDates.filter((dateKey) => dateKey === termEndKey || getDateMeta(dateKey).countable);
       const excludedTotalDateCount = dates.filter((dateKey) => !getDateMeta(dateKey).countable).length;
 
       const weekendLabelMap = WEEKDAY_OPTIONS.reduce((acc, item) => {
@@ -9741,6 +9890,24 @@ const commonController = {
     }
   },
 
+  // "Done taking attendance for today?" answered Yes: the class's families hear about the day's absences 30 minutes from now.
+  confirmAttendanceDone: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.body && req.body.classId, 10);
+    const date = String((req.body && req.body.date) || "").slice(0, 10);
+    if (!organizationId) return res.status(401).json({ success: false, message: "Unauthorized." });
+    if (!Number.isInteger(classId) || classId < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ success: false, message: "Class and date are required." });
+    try {
+      const own = await db.query("SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $2", [classId, organizationId]);
+      if (!own.rows.length) return res.status(403).json({ success: false, message: "Class does not belong to your organization." });
+      const found = await require("../utils/attendanceSends").confirm(db, organizationId, { classId, date });
+      return res.json({ success: true, found });
+    } catch (error) {
+      console.error("[confirmAttendanceDone]", error.message);
+      return res.status(500).json({ success: false, message: "Could not save that. Please try again." });
+    }
+  },
+
   saveSingleAttendance: async (req, res, db) => {
     const { attendance, classId, termId, date } = req.body;
     const notesGiven = req.body && req.body.notes && typeof req.body.notes === "object";
@@ -9881,18 +10048,18 @@ const commonController = {
         );
       }
 
-      // Trigger parent absence-threshold checks in background; dedupe protects against duplicate sends.
+      // Families are not told on Save: the day is held (utils/attendanceSends.js) until the teacher says they are done
+      // (30 minutes later) or, if nobody does, 2 hours after the last save. Before its migration has run they are told now.
+      let attendanceSend = null;
       if (touchedStudentIds.length > 0) {
-        setImmediate(() => {
-          triggerAbsenceAlertsForStudents(db, organizationId, touchedStudentIds).catch((notifyError) => {
-            console.error("[Attendance] Absence-threshold notification trigger failed:", notifyError.message);
-          });
-          require("../utils/alertRules").onAbsent(db, organizationId, touchedStudentIds, date);
-          require("../utils/attendanceNotices").run(db, organizationId, { studentIds: touchedStudentIds, date });
-        });
+        const attendanceSends = require("../utils/attendanceSends");
+        const held = await attendanceSends.onSaved(db, organizationId, { classId, date, studentIds: touchedStudentIds });
+        // The teacher is asked "Done taking attendance?" only when someone is absent or late and the school would tell families.
+        const anyoneMissing = statuses.includes("Absent") || lateFlags.includes("t");
+        attendanceSend = { held: held.held, confirmed: held.confirmed, ask: held.held && !held.confirmed && anyoneMissing && await attendanceSends.mayTellFamilies(db, organizationId) };
       }
 
-      res.json({ success: true });
+      res.json({ success: true, attendanceSend });
     } catch (error) {
       console.error("[saveSingleAttendance] Failed to save attendance:", error);
       res
@@ -12511,6 +12678,7 @@ const commonController = {
            qs.created_at,
            qs.updated_at,
            ${assessmentApproval.columnsReady() ? "qs.parent_share," : "NULL::text AS parent_share,"}
+           ${assessmentSimple.ready() ? "qs.shuffle_questions," : "FALSE AS shuffle_questions,"}
            a.title AS assessment_title,
            CONCAT(COALESCE(ru.first_name, ''), CASE WHEN ru.last_name IS NOT NULL AND ru.last_name <> '' THEN ' ' || ru.last_name ELSE '' END) AS reviewed_by_name
          FROM assessment_question_sets qs
@@ -12524,6 +12692,7 @@ const commonController = {
       const setIds = setsResult.rows.map((row) => Number(row.question_set_id)).filter(Boolean);
       // Wait for the help column check, so a set never loads without its help and saves it away.
       const helpReady = await require("../utils/questionHelp").whenChecked();
+      await require("../utils/rubric").whenChecked();
       const questionsResult = setIds.length
         ? await db.query(
             `SELECT
@@ -12537,7 +12706,8 @@ const commonController = {
                marks,
                position_index,
                ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"},
-               ${helpReady ? "help_json" : "NULL::jsonb AS help_json"}
+               ${helpReady ? "help_json" : "NULL::jsonb AS help_json"},
+               ${require("../utils/rubric").ready() ? "rubric_json" : "NULL::jsonb AS rubric_json"}
              FROM assessment_questions
              WHERE question_set_id = ANY($1::int[])
              ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
@@ -12561,12 +12731,14 @@ const commonController = {
           positionIndex: Number(row.position_index || 0),
           media: questionMedia.forDisplay(row.media_json, res.locals.publicImageUrl, { withAnswers: true }),
           help: row.help_json || null,
+          rubric: row.rubric_json || null,
         });
       });
 
       const sets = setsResult.rows.map((row) => ({
         questionSetId: row.question_set_id,
         parentShare: row.parent_share || "",
+        shuffleQuestions: Boolean(row.shuffle_questions),
         assessmentId: row.assessment_id,
         assessmentTitle: row.assessment_title || "Assessment",
         groupId: row.group_id,
@@ -12658,6 +12830,15 @@ const commonController = {
     const questionHelp = require("../utils/questionHelp");
     const helpColumn = await questionHelp.whenChecked();
     questions.forEach((question) => { question.help = helpColumn ? questionHelp.check(question.help, organizationId) : null; });
+    // A rubric (essays only): its total is the question's marks.
+    const rubricUtil = require("../utils/rubric");
+    const rubricColumn = await rubricUtil.whenChecked();
+    questions.forEach((question) => {
+      question.rubric = rubricColumn && question.questionType === "essay" ? rubricUtil.clean(question.rubric) : null;
+      if (question.rubric) question.marks = rubricUtil.total(question.rubric);
+    });
+    const shuffleGiven = Object.prototype.hasOwnProperty.call(req.body || {}, "shuffleQuestions");
+    const shuffleQuestions = req.body?.shuffleQuestions === true || req.body?.shuffleQuestions === "true";
     const parentShareGiven = Object.prototype.hasOwnProperty.call(req.body || {}, "parentShare");
     const parentShare = ["grade", "full"].includes(String(req.body.parentShare || "")) ? String(req.body.parentShare) : null;
 
@@ -12951,6 +13132,27 @@ const commonController = {
         if (helpColumn && question.help) {
           await client.query("UPDATE assessment_questions SET help_json = $1::jsonb WHERE question_id = $2", [JSON.stringify(question.help), result.rows[0].question_id]);
         }
+        if (rubricColumn && question.rubric) {
+          await client.query("UPDATE assessment_questions SET rubric_json = $1::jsonb WHERE question_id = $2", [JSON.stringify(question.rubric), result.rows[0].question_id]);
+        }
+      }
+
+      // Unless the school reviews tests first (utils/assessmentReview.js), a saved test is available at once.
+      if (!(await require("../utils/assessmentReview").required(client, organizationId))) {
+        await client.query(
+          `UPDATE assessment_question_sets
+              SET review_status = 'approved', reviewed_at = COALESCE(reviewed_at, NOW())
+            WHERE question_set_id = $1 AND organization_id = $2 AND LOWER(COALESCE(review_status, 'pending')) = 'pending'`,
+          [resolvedQuestionSetId, organizationId]
+        );
+      }
+
+      // "Shuffle questions": each student gets their own order (needs the new column).
+      if (shuffleGiven && (await assessmentSimple.whenChecked())) {
+        await client.query(
+          "UPDATE assessment_question_sets SET shuffle_questions = $1 WHERE question_set_id = $2 AND organization_id = $3",
+          [shuffleQuestions, resolvedQuestionSetId, organizationId]
+        );
       }
 
       // What parents and the student see of the finished test once its grade is posted.
@@ -12976,13 +13178,14 @@ const commonController = {
       } catch (_) {
       }
 
+      const sentForReview = await require("../utils/assessmentReview").required(db, organizationId).catch(() => true);
       return res.json({
         success: true,
-        message: Number.isInteger(questionSetId) && questionSetId > 0
-          ? "Question set updated and submitted for review."
-          : "Question set submitted for review.",
+        message: sentForReview
+          ? (Number.isInteger(questionSetId) && questionSetId > 0 ? "Questions saved and sent for review." : "Questions saved and sent for review.")
+          : "Questions saved.",
         questionSetId: resolvedQuestionSetId,
-        reviewStatus: "pending",
+        reviewStatus: sentForReview ? "pending" : "approved",
       });
     } catch (error) {
       try {
@@ -13288,6 +13491,20 @@ NUMBERING:
     }
   },
 
+  // A manager turns "Review tests before students see them" on or off.
+  saveAssessmentReviewSetting: async (req, res, db) => {
+    const role = String(req.session.userRole || req.session.user?.account_type || req.session.accountType || "").trim().toLowerCase();
+    if (role !== "manager") return res.status(403).json({ success: false, error: "Only a manager can change this." });
+    try {
+      const value = await require("../utils/assessmentReview").setRequired(db, Number(req.session.organizationId), req.body?.required === true, req.session.userId || req.session.user?.user_id || null);
+      return res.json({ success: true, required: value });
+    } catch (error) {
+      if (error.status) return res.status(error.status).json({ success: false, error: error.message });
+      console.error("[Review setting]", error.message);
+      return res.status(500).json({ success: false, error: "That couldn't be saved. Try again." });
+    }
+  },
+
   reviewAssessmentQuestionSet: async (req, res, db) => {
     const organizationId = Number(req.session.organizationId);
     const reviewerUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
@@ -13304,8 +13521,23 @@ NUMBERING:
 
     const nextStatus = action === "approve" ? "approved" : "rejected";
 
+    // Reviewing is a manager's or supervisor's job, and never on their own test. The screen hides the
+    // buttons from others; this is the check that holds when someone calls the address directly.
+    const reviewRole = String(req.session.userRole || req.session.user?.account_type || req.session.accountType || "").trim().toLowerCase();
+    if (reviewRole !== "manager" && reviewRole !== "supervisor") {
+      return res.status(403).json({ success: false, error: "Only a manager or supervisor can review a test." });
+    }
+
     try {
       await ensureAssessmentQuestionSetReviewSchema(db);
+
+      const authorRow = (await db.query(
+        "SELECT created_by FROM assessment_question_sets WHERE question_set_id = $1 AND organization_id = $2",
+        [questionSetId, organizationId]
+      )).rows[0];
+      if (authorRow && reviewerUserId && Number(authorRow.created_by) === reviewerUserId) {
+        return res.status(403).json({ success: false, error: "Someone else needs to review your test." });
+      }
 
       const updateResult = await db.query(
         `UPDATE assessment_question_sets
@@ -14148,6 +14380,7 @@ NUMBERING:
            qs.set_description,
            qs.total_points,
            qs.review_status,
+           ${assessmentApproval.columnsReady() ? "qs.parent_share," : "NULL::text AS parent_share,"}
            qs.review_note,
            qs.reviewed_at,
            qs.submitted_at,
@@ -14178,6 +14411,7 @@ NUMBERING:
            qs.set_description,
            qs.total_points,
            qs.review_status,
+           ${assessmentApproval.columnsReady() ? "qs.parent_share," : "NULL::text AS parent_share,"}
            qs.review_note,
            qs.reviewed_at,
            qs.submitted_at,
@@ -14269,13 +14503,15 @@ NUMBERING:
         });
       });
 
-      const questionSets = dedupedQuestionSetRows.map((row) => {
+      const toMarkCounts = await require("./markByQuestionController").countsFor(db, organizationId, questionSetIds).catch(() => new Map());
+      const allQuestionSets = dedupedQuestionSetRows.map((row) => {
         const postStatus = postStatusByAssessmentId.get(Number(row.assessment_id)) || { completedCount: 0, postedCount: 0 };
         return {
         question_set_id: row.question_set_id,
         class_id: Number(row.class_id),
         subject_id: Number(row.subject_id),
         assessment_id: Number(row.assessment_id),
+        to_mark: toMarkCounts.get(Number(row.question_set_id)) || 0,
         completed_count: postStatus.completedCount,
         posted_count: postStatus.postedCount,
         pending_post_count: Math.max(postStatus.completedCount - postStatus.postedCount, 0),
@@ -14301,6 +14537,9 @@ NUMBERING:
         questions: questionsBySetId.get(Number(row.question_set_id)) || [],
         };
       });
+      // "To mark" on the gradebook opens this list with only the tests that have written answers waiting.
+      const toMarkOnly = String(req.query.toMark || "") === "1";
+      const questionSets = toMarkOnly ? allQuestionSets.filter((item) => item.to_mark > 0) : allQuestionSets;
 
       // Opened from the assessments flow (a gradebook column, + Assessment, the Assessments
       // page): straight to that assessment's questions, and the page that opened it is told
@@ -14330,8 +14569,12 @@ NUMBERING:
         },
         PERMISSIONS.MANAGE_ASSESSMENTS
       ).catch(() => false);
+      const reviewRequired = await require("../utils/assessmentReview").required(db, organizationId).catch(() => false);
       return res.render("common/allClassAssessmentExams", {
         title: "All Class Assessment Questions",
+        reviewRequired,
+        rubricAvailable: await require("../utils/rubric").whenChecked().catch(() => false),
+        shuffleAvailable: assessmentSimple.ready(),
         flowOpen,
         canCreateAssessments,
         questionExtras,
@@ -14348,6 +14591,7 @@ NUMBERING:
         assessmentsForOrg: [],
         assessmentsForTerm: enrichedAssessmentsForTerm,
         questionSets,
+        toMarkOnly,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
         canManageGoogleIntegration,
@@ -14523,6 +14767,10 @@ NUMBERING:
           completedCount,
           unlockedCount: students.length - completedCount,
           pendingPostCount,
+          // What families will see once these grades are posted: "grade", "full" or "".
+          parentShare: assessmentApproval.columnsReady()
+            ? String((await db.query("SELECT parent_share FROM assessment_question_sets WHERE question_set_id = $1 AND organization_id = $2", [questionSetId, organizationId])).rows[0]?.parent_share || "")
+            : "",
         },
         students,
       });
@@ -14836,6 +15084,7 @@ NUMBERING:
         `SELECT q.question_id, q.question_type, q.question_text, q.options_json, q.answer_key,
                 q.marks, q.position_index,
                 ${assessmentApproval.columnsReady() ? "q.media_json," : "NULL::jsonb AS media_json,"}
+                ${require("../utils/rubric").ready() ? "q.rubric_json, r.rubric_marks," : "NULL::jsonb AS rubric_json, NULL::jsonb AS rubric_marks,"}
                 r.response_text, r.response_json, r.is_correct, r.awarded_marks
          FROM assessment_questions q
          LEFT JOIN student_assessment_responses r
@@ -14887,6 +15136,8 @@ NUMBERING:
           awardedMarks:
             q.awarded_marks !== null && q.awarded_marks !== undefined ? Number(q.awarded_marks) : null,
           media: require("../utils/questionMedia").forDisplay(q.media_json, res.locals.publicImageUrl, { withAnswers: true }),
+          rubric: q.rubric_json || null,
+          rubricMarks: Array.isArray(q.rubric_marks) ? q.rubric_marks : null,
         })),
       });
     } catch (error) {
@@ -14899,6 +15150,8 @@ NUMBERING:
     const organizationId = Number(req.session.organizationId || 0);
     const attemptId = Number(req.body?.attemptId || 0);
     const marksInput = req.body?.marks && typeof req.body.marks === "object" ? req.body.marks : {};
+    // Marks per rubric criterion, by question: { "12": [4, 2, 1] }. A question with a rubric is marked from these.
+    const rubricInput = req.body?.rubricMarks && typeof req.body.rubricMarks === "object" ? req.body.rubricMarks : {};
 
     if (!organizationId || !Number.isInteger(attemptId) || attemptId <= 0) {
       return res.status(400).json({ success: false, error: "attemptId is required." });
@@ -14932,8 +15185,10 @@ NUMBERING:
         });
       }
 
+      const rubricUtil = require("../utils/rubric");
+      const rubricReady = await rubricUtil.whenChecked();
       const questionsResult = await db.query(
-        `SELECT q.question_id, q.marks
+        `SELECT q.question_id, q.marks${rubricReady ? ", q.rubric_json" : ""}
          FROM assessment_questions q
          JOIN student_assessment_attempts saa ON saa.question_set_id = q.question_set_id
          WHERE saa.attempt_id = $1`,
@@ -14941,6 +15196,9 @@ NUMBERING:
       );
       const marksByQuestion = new Map(
         questionsResult.rows.map((q) => [Number(q.question_id), Number(q.marks)])
+      );
+      const rubricByQuestion = new Map(
+        questionsResult.rows.filter((q) => rubricReady && q.rubric_json).map((q) => [Number(q.question_id), q.rubric_json])
       );
 
       const client = await db.connect();
@@ -14955,12 +15213,21 @@ NUMBERING:
           let awarded = Number(rawValue);
           if (!Number.isFinite(awarded)) awarded = 0;
           awarded = Math.max(0, Math.min(awarded, maxMarks));
+          // A rubric question is marked criterion by criterion; the total is the mark.
+          const scored = rubricByQuestion.has(questionId) && Array.isArray(rubricInput[questionId])
+            ? rubricUtil.score(rubricByQuestion.get(questionId), rubricInput[questionId])
+            : null;
+          if (scored) {
+            awarded = Math.max(0, Math.min(scored.total, maxMarks));
+            await client.query("UPDATE student_assessment_responses SET rubric_marks = $1::jsonb WHERE attempt_id = $2 AND question_id = $3", [JSON.stringify(scored.marks), attemptId, questionId]);
+          }
 
+          // A written answer given a mark here counts as marked on the To mark list too.
           await client.query(
             `UPDATE student_assessment_responses
-             SET awarded_marks = $1, updated_at = NOW()
+             SET awarded_marks = $1::numeric, is_correct = COALESCE(is_correct, $1::numeric >= $4::numeric), updated_at = NOW()
              WHERE attempt_id = $2 AND question_id = $3`,
-            [awarded, attemptId, questionId]
+            [awarded, attemptId, questionId, maxMarks]
           );
         }
 
@@ -15484,6 +15751,10 @@ NUMBERING:
 
       const sourceSet = sourceSetResult.rows[0];
 
+      const rubricCopyReady = await require("../utils/rubric").whenChecked();
+      // A reused test keeps its pictures, hints and option layout too, not just the words.
+      const mediaCopyReady = assessmentApproval.columnsReady();
+      const helpCopyReady = await require("../utils/questionHelp").whenChecked();
       const sourceQuestionsResult = await client.query(
         `SELECT
            question_type,
@@ -15491,7 +15762,8 @@ NUMBERING:
            options_json,
            answer_key,
            marks,
-           position_index
+           options_layout,
+           position_index${rubricCopyReady ? ",\n           rubric_json" : ""}${mediaCopyReady ? ",\n           media_json" : ""}${helpCopyReady ? ",\n           help_json" : ""}
          FROM assessment_questions
          WHERE question_set_id = $1
          ORDER BY position_index ASC, question_id ASC`,
@@ -15666,6 +15938,10 @@ NUMBERING:
         answer_key: row.answer_key || null,
         marks: Number(row.marks || 0),
         position_index: Number(row.position_index || 0),
+        rubric: row.rubric_json || null,
+        options_layout: String(row.options_layout || "stacked").toLowerCase() === "side_by_side" ? "side_by_side" : "stacked",
+        media: row.media_json || null,
+        help: row.help_json || null,
       }));
 
       if (shuffleMode === "reverse") {
@@ -15712,9 +15988,9 @@ NUMBERING:
              options_json,
              answer_key,
              marks,
-             position_index
+             position_index${rubricCopyReady ? ",\n             rubric_json" : ""}
            )
-           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8${rubricCopyReady ? ", $9::jsonb" : ""})`,
           [
             targetQuestionSetId,
             organizationId,
@@ -15724,7 +16000,29 @@ NUMBERING:
             question.answer_key,
             Number(question.marks || 0),
             index + 1,
+            ...(rubricCopyReady ? [question.rubric ? JSON.stringify(question.rubric) : null] : []),
           ]
+        );
+        await client.query(
+          `UPDATE assessment_questions SET options_layout = $1${mediaCopyReady ? ", media_json = $3::jsonb" : ""}${helpCopyReady ? `, help_json = $${mediaCopyReady ? 4 : 3}::jsonb` : ""}
+            WHERE question_set_id = $2 AND position_index = $${2 + (mediaCopyReady ? 1 : 0) + (helpCopyReady ? 1 : 0) + 1}`,
+          [
+            question.options_layout,
+            targetQuestionSetId,
+            ...(mediaCopyReady ? [question.media ? JSON.stringify(question.media) : null] : []),
+            ...(helpCopyReady ? [question.help ? JSON.stringify(question.help) : null] : []),
+            index + 1,
+          ]
+        );
+      }
+
+      // Unless the school reviews tests first, a reused test is available at once, as a saved one is.
+      if (!(await require("../utils/assessmentReview").required(client, organizationId))) {
+        await client.query(
+          `UPDATE assessment_question_sets
+              SET review_status = 'approved', reviewed_at = COALESCE(reviewed_at, NOW())
+            WHERE question_set_id = $1 AND organization_id = $2 AND LOWER(COALESCE(review_status, 'pending')) = 'pending'`,
+          [targetQuestionSetId, organizationId]
         );
       }
 
@@ -15790,6 +16088,7 @@ NUMBERING:
                        COALESCE(is_active, TRUE) AS is_active,
             COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
                        edit_window_start,
+                       ${assessmentSimple.ready() ? "late_until," : ""}
                        edit_window_end
                 FROM assessments
                 WHERE group_id = $1 AND organization_id = $2 AND term_id = $3
@@ -15849,6 +16148,7 @@ NUMBERING:
       const subjects = subjectsResult.rows;
 
       res.render("common/modifyAssessment", {
+        lateUntilAvailable: assessmentSimple.ready(),
         title: "Modify Assessment",
         assessment,
         classes,
@@ -16413,6 +16713,12 @@ NUMBERING:
             }
           }
 
+          // "Accept late until" (an optional cut-off after the due date); kept as it was when the form doesn't send it.
+          if (Object.prototype.hasOwnProperty.call(req.body, "lateUntil") && (await assessmentSimple.whenChecked())) {
+            const lateAt = parseDateTimeValue(req.body.lateUntil);
+            await db.query("UPDATE assessments SET late_until = $1 WHERE group_id = $2 AND organization_id = $3", [lateAt && (!parsedWindowEnd || lateAt > parsedWindowEnd) ? lateAt : null, groupId, organizationId]);
+          }
+
           let termName = "Unknown Term";
           if (normalizedClassIds.length > 0 || shouldNotifyTeachers) {
             try {
@@ -16694,14 +17000,21 @@ NUMBERING:
         termId,
         organizationId,
       ]);
-      const classes = enrolledClassesResult.rows;
+      let classes = enrolledClassesResult.rows;
 
       // Fetch subjects associated with the organization
       const subjectsResult = await db.query(
         `SELECT * FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY subject_name`,
         [organizationId]
       );
-      const subjects = subjectsResult.rows;
+      let subjects = subjectsResult.rows;
+
+      // A teacher adds assessments only to the classes and subjects they teach (the same rule as their gradebook).
+      const teacherOnly = await require("../utils/classScope").teacherScope(db, req);
+      if (teacherOnly) {
+        classes = classes.filter((row) => teacherOnly.classes.has(Number(row.class_id)));
+        subjects = subjects.filter((row) => teacherOnly.subjects.has(Number(row.subject_id)) || teacherOnly.mainClasses.has(Number(row.class_id)));
+      }
 
       // This school's past assessments, newest settings per name, so a name can
       // be reused instead of typed again (weight, score out of, scale, category).
@@ -16723,6 +17036,7 @@ NUMBERING:
 
       // Render the createTest view with enrolled classes only
       res.render("common/createTest", {
+        lateUntilAvailable: await assessmentSimple.whenChecked().catch(() => false),
         flow,
         prefillClassId,
         prefillSubjectId,
@@ -16808,6 +17122,19 @@ NUMBERING:
         const subjectsOk = Boolean(subjectRows) && pairs.every(([cls, subj]) => subjectClass.has(subj) && (!subjectClass.get(subj) || subjectClass.get(subj) === cls));
         if (!termOk || !classesOk || !subjectsOk) {
           return res.status(400).json({ error: "Choose the term, classes and subjects from your own school." });
+        }
+        // A teacher may add assessments only to a class and subject they teach.
+        const classScope = require("../utils/classScope");
+        const teacherOnly = await classScope.teacherScope(client, req);
+        if (teacherOnly) {
+          for (const [cls, subj] of pairs) {
+            if (!(await classScope.withinScope(client, organizationId, teacherOnly, { classId: cls, subjectId: subj }))) {
+              return res.status(403).json({ error: "You can only add assessments to the classes and subjects you teach." });
+            }
+          }
+          if (classIds.some((id) => !teacherOnly.classes.has(id))) {
+            return res.status(403).json({ error: "You can only add assessments to the classes and subjects you teach." });
+          }
         }
       }
 
@@ -16898,6 +17225,26 @@ NUMBERING:
               test.entryMode,
               test.choiceOptions ? JSON.stringify(test.choiceOptions) : null,
             ]);
+            // The test's question settings, when the teacher chose them (empty keeps today's defaults).
+            if (insertedAssessment.rows.length) {
+              const minutes = Number.parseInt(test.timeLimitMinutes, 10);
+              const attempts = Number.parseInt(test.maxAttempts, 10);
+              const settingSql = [];
+              const settingValues = [insertedAssessment.rows.map((row) => Number(row.assessment_id))];
+              if (Number.isInteger(minutes) && minutes >= 1 && minutes <= 600) { settingValues.push(minutes); settingSql.push("time_limit_minutes = $" + settingValues.length); }
+              if (Number.isInteger(attempts) && attempts >= 1 && attempts <= 20) { settingValues.push(attempts); settingSql.push("max_attempts = $" + settingValues.length); }
+              if (test.openBook === true) settingSql.push("open_book = TRUE");
+              if (settingSql.length) {
+                await ensureAssessmentControlSchema(client);
+                await client.query("UPDATE assessments SET " + settingSql.join(", ") + " WHERE assessment_id = ANY($1::int[])", settingValues);
+              }
+            }
+            if (test.lateUntil && insertedAssessment.rows.length && (await assessmentSimple.whenChecked())) {
+              const lateAt = parseDateTimeValue(test.lateUntil);
+              if (lateAt && (!parsedWindowEnd || lateAt > parsedWindowEnd)) {
+                await client.query("UPDATE assessments SET late_until = $1 WHERE assessment_id = ANY($2::int[])", [lateAt, insertedAssessment.rows.map((row) => Number(row.assessment_id))]);
+              }
+            }
             insertedAssessment.rows.forEach((row) => createdAssessments.push({
               assessmentId: Number(row.assessment_id),
               classId: Number(row.class_id),
@@ -17179,6 +17526,8 @@ NUMBERING:
       const canAccessAssessmentQuestions =
         canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
       const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
+      // Online tests are on for the school but this person wasn't given Set Assessment Questions: the menu shows the item greyed.
+      const assessmentQuestionsLocked = canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && !canSetAssessmentQuestions;
 
       // "Assess other school year" is for the main manager and anyone given the permission.
       const canAssessOtherYears = await userHasPermission(
@@ -17616,6 +17965,8 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
       } else if (routePanel === 'assessment-questions') {
         initialWorkspaceRoute = { panel: 'assessment-questions', itemId: '' };
+      } else if (routePanel === 'to-review') {
+        initialWorkspaceRoute = { panel: 'to-review', itemId: '' };
       } else if (routePanel === 'subjects') {
         initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
       } else if (routePanel === 'class-exams' && canManageAllClassAssessmentExams) {
@@ -17655,7 +18006,13 @@ NUMBERING:
       const classToolsOrder = await classToolsOrderP;
 
       // Render the classDashboard view with the updated context
+      // Written answers waiting for a mark, per subject (shown on the overview and beside "To review").
+      const toReviewBySubject = canAccessAssessmentQuestions
+        ? await require("./markByQuestionController").countsBySubject(db, req, classId, currentTerm && currentTerm.term_id).catch(() => new Map())
+        : new Map();
       res.render("common/classDashboard", {
+        toReviewBySubject: Object.fromEntries(toReviewBySubject),
+        toReviewTotal: [...toReviewBySubject.values()].reduce((sum, n) => sum + n, 0),
         classFormTiles,
         classSettingsPanel,
         classToolsOrder: Array.isArray(classToolsOrder) ? classToolsOrder : [],
@@ -17692,6 +18049,7 @@ NUMBERING:
         classroomCustomRemarkTypes: customRemarkTypes,
         studentTeacherRemarksMap,
         canAccessAssessmentQuestions,
+        assessmentQuestionsLocked,
         transportationIntegration,
         classTransportationSnapshot,
         classPickup,
@@ -25185,10 +25543,6 @@ NUMBERING:
     const body = req.body;
     const file = req.file;
 
-    console.log('[Save Pending Student Changes] ID:', id);
-    console.log('[Save Pending Student Changes] Organization ID:', organizationId);
-    console.log('[Save Pending Student Changes] Body keys:', Object.keys(body));
-    console.log('[Save Pending Student Changes] File:', file ? file.originalname : 'No file');
 
     // Only this school's own application: pending ids are numbered across all schools, and the
     // guardian and subject rows below are keyed by the pending id alone.
@@ -25243,10 +25597,8 @@ NUMBERING:
       // ✅ Upload and save image if provided
       let imageUrl = null;
       if (file) {
-        console.log('[Save Pending Student Changes] Uploading image to S3...');
         const s3Key = `images/studentimages/${organizationId}/${require("../utils/storedFiles").safeName(file.originalname, "student")}`;
         imageUrl = await uploadToS3(file, s3Key);
-        console.log('[Save Pending Student Changes] Image uploaded:', imageUrl);
       }
 
       // ✅ Update pending student
@@ -25288,7 +25640,6 @@ NUMBERING:
       `;
 
       await client.query(updateQuery, queryParams);
-      console.log('[Save Pending Student Changes] ✅ Pending student updated');
 
       // ✅ Replace subjects
       await client.query(
@@ -25334,7 +25685,6 @@ NUMBERING:
       }
 
       await client.query("COMMIT");
-      console.log('[Save Pending Student Changes] ✅✅✅ Changes saved successfully');
       return res.json({ success: true });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -25830,6 +26180,7 @@ async function saveStudentDocsFromForm(db, req, { studentId, prefix, edits = fal
 module.exports = {
   isAuthenticated,
   commonController,
+  studentImportPipeline: { parseRowsToStudents, parseTextToStudents, detectHeaderAndDataRows },
   recomputeSubjectTotalsForStudent,
   sendInviteEmail,
   sendPasswordSetSuccessEmail,
@@ -25840,3 +26191,4 @@ module.exports = {
   getStudentBirthdayWish,
   getStaffBirthdayWish,
 };
+

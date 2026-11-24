@@ -8,16 +8,16 @@
   const _cycleMonths = cycle ? Number(cycle.months) || 1 : 1;
   const _cycleOff = cycle ? Number(cycle.discount_percentage) || 0 : 0;
 %>
-<div data-ahd-title="Pricing" data-ahd-sub="<%= org.organization_name %> · <%= org.plan_name || 'No plan' %>">
+<div data-ahd-title="Pricing" data-ahd-sub="<%= org.organization_name %>">
   <form action="/admin/organizations/<%= org.organization_id %>/pricing" method="POST" class="ahd-form" data-ap-school-pricing
         data-standard="<%= standard.monthly %>" data-months="<%= _cycleMonths %>" data-cycle-discount="<%= _cycleOff %>"
         data-max-discount="<%= maxDiscount %>">
     <section class="ahd-section">
       <h3 class="ahd-section__title">Plan price</h3>
-      <p class="ahd-section__sub">Standard: <strong><%= _m(standard.monthly) %> a month</strong> (<%= standard.region ? `${standard.region} prices, ` : '' %><%= Number(standard.students || 0).toLocaleString('en-US') %> students). Leave the price empty to keep the standard one.</p>
+      <p class="ahd-section__sub">Standard <strong><%= _m(standard.monthly) %></strong> a month · <%= Number(standard.students || 0).toLocaleString('en-US') %> students</p>
       <div class="ahb-grid">
         <label class="ahb-field">
-          <span class="ahb-label">This school's price a month <em>optional</em></span>
+          <span class="ahb-label">Price a month</span>
           <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="monthlyPrice" class="ahb-input" value="<%= _o.monthlyPrice != null ? Number(_o.monthlyPrice).toFixed(2) : '' %>" placeholder="<%= Number(standard.monthly).toFixed(2) %>" /></span>
         </label>
         <label class="ahb-field">
@@ -40,13 +40,12 @@
                data-list-count="<%= _list.freeStudents %>" data-list-percent="<%= _list.freePercent != null ? _list.freePercent : '' %>" data-list-months="<%= _list.freeMonths || '' %>">
         <h3 class="ahd-section__title">Free students</h3>
         <p class="ahd-section__sub">
-          The price list gives <strong><%= _listSays %></strong>.
-          <% if (standard.free && standard.free.ended) { %>This school's free months have ended: every student is charged.<% } else if (_until) { %>This school's are free until <strong><%= _until %></strong>.<% } %>
-          Set this school's own to make an exception.
+          List: <strong><%= _listSays %></strong>.
+          <% if (standard.free && standard.free.ended) { %>Free months ended.<% } else if (_until) { %>Free until <strong><%= _until %></strong>.<% } %>
         </p>
         <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="Free students for this school">
-          <label><input type="radio" name="freeStudents[mode]" value="standard" <%= _own ? '' : 'checked' %> /> <span>As the price list</span></label>
-          <label><input type="radio" name="freeStudents[mode]" value="own" <%= _own ? 'checked' : '' %> /> <span>This school's own</span></label>
+          <label><input type="radio" name="freeStudents[mode]" value="standard" <%= _own ? '' : 'checked' %> /> <span>Price list</span></label>
+          <label><input type="radio" name="freeStudents[mode]" value="own" <%= _own ? 'checked' : '' %> /> <span>Own</span></label>
         </div>
         <div class="ap-free ap-free--school" data-ap-free-own<%= _own ? '' : ' hidden' %>>
           <input type="number" min="0" step="any" name="freeStudents[value]" class="ahb-input" value="<%= _own ? (_own.percent != null ? Number(_own.percent) : Number(_own.count)) : '' %>" placeholder="0" aria-label="This school's free students" />
@@ -57,17 +56,16 @@
           <select name="freeStudents[months]" class="ahb-input ap-free-for" aria-label="This school's free students for how long">
             <option value="" <%= _ownMonths ? '' : 'selected' %>>Always</option>
             <% freeMonthsChoices.concat(_ownMonths && !freeMonthsChoices.includes(_ownMonths) ? [_ownMonths] : []).sort((a, b) => a - b).forEach((n) => { %>
-              <option value="<%= n %>" <%= _ownMonths === n ? 'selected' : '' %>>For its first <%= n === 1 ? 'month' : `${n} months` %></option>
+              <option value="<%= n %>" <%= _ownMonths === n ? 'selected' : '' %>>First <%= n === 1 ? 'month' : `${n} months` %></option>
             <% }) %>
           </select>
         </div>
-        <% if (!freeOwnReady) { %><p class="ahd-section__sub" style="margin-top:8px;color:#b45309">A school's own free students need the 2026-11-20 database update before they can be saved.</p><% } %>
+        <% if (!freeOwnReady) { %><p class="ahd-section__sub" style="margin-top:8px;color:#b45309">Needs the 2026-11-20 database update.</p><% } %>
       </section>
     <% } %>
 
     <section class="ahd-section">
       <h3 class="ahd-section__title">Add-ons</h3>
-      <p class="ahd-section__sub">For the add-ons this school switches on.</p>
       <div>
         <% integrations.forEach((i) => {
              const line = _lines[i.key];
@@ -102,14 +100,14 @@
 
     <section class="ahd-section">
       <label class="ahb-field">
-        <span class="ahb-label">Note <em>optional, only Managira sees it</em></span>
-        <input type="text" name="notes" class="ahb-input" value="<%= _o.notes || '' %>" maxlength="1000" placeholder="e.g. Agreed price until June 2027" />
+        <span class="ahb-label">Note</span>
+        <input type="text" name="notes" class="ahb-input" value="<%= _o.notes || '' %>" maxlength="1000" placeholder="Optional, private to Managira" />
       </label>
     </section>
 
     <div class="ahd__foot">
       <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
-      <button type="submit" class="ah-btn ah-btn--primary">Save prices</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save</button>
     </div>
   </form>
 </div>

@@ -631,6 +631,7 @@
   .as-modal-overlay {
     position: fixed;
     inset: 0;
+    top: var(--as-top, 0px);
     background: rgba(15,23,42,0.5);
     backdrop-filter: blur(3px);
     z-index: 12000;
@@ -652,7 +653,7 @@
     background: #fff;
     border-radius: 0;
     width: 100%;
-    max-width: 440px;
+    max-width: min(1040px, 100vw);
     height: 100%;
     margin: 0;
     box-shadow: -8px 0 40px rgba(0,0,0,0.18);
@@ -664,8 +665,12 @@
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .as-modal.as-modal-bulk {
-    max-width: 520px;
+    max-width: min(1040px, 100vw);
   }
+  .as-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+  .as-modal-grid > .as-modal-field, .as-modal-grid > .as-bfield { min-width: 0; }
+  .as-modal-grid .as-wide { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .as-modal-grid { grid-template-columns: 1fr; } }
   .as-modal-overlay.open .as-modal {
     transform: translateX(0);
   }
@@ -686,12 +691,18 @@
     flex-shrink: 0;
   }
   .as-modal-header h2 {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
     margin: 0;
     font-size: 16px;
     font-weight: 700;
     color: #0f172a;
   }
   .as-modal-close {
+    flex: 0 0 auto;
+    width: auto;
     background: none;
     border: none;
     font-size: 20px;
@@ -713,10 +724,10 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     background: #f8fafc;
     border-radius: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     border: 1px solid var(--border);
   }
   .as-modal-student-info .as-avatar,
@@ -978,7 +989,7 @@
   .as-bulk-id-list {
     display: grid;
     gap: 7px;
-    max-height: 220px;
+    max-height: min(46vh, 440px);
     overflow-y: auto;
     padding: 7px;
     border: 1px solid var(--border);
@@ -991,6 +1002,9 @@
     gap: 8px;
     align-items: center;
   }
+  #asBulkEmailList .as-bulk-id-row { grid-template-columns: minmax(0, 1fr) minmax(200px, 300px); }
+  #asBulkEmailList .as-bulk-id-current { display: none; }
+  @media (max-width: 560px) { #asBulkEmailList .as-bulk-id-row { grid-template-columns: minmax(0, 1fr) minmax(130px, 170px); } }
   .as-bulk-id-name {
     font-size: 12px;
     color: #0f172a;
@@ -1497,10 +1511,10 @@
 </div>
 
 <!-- ── Edit Student Modal (single student) ───────────────── -->
-<div class="as-modal-overlay" id="asModalOverlay" role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
+<div class="as-modal-overlay" id="asModalOverlay" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
   <div class="as-modal">
     <div class="as-modal-header">
-      <h2 id="asModalTitle">Edit Student</h2>
+      <h2 id="asModalTitle">Edit student</h2>
       <button class="as-modal-close" id="asModalClose" aria-label="Close">&times;</button>
     </div>
 
@@ -1508,32 +1522,32 @@
     <div id="asModalStep1">
       <div class="as-modal-body">
         <div class="as-modal-student-info" id="asModalStudentInfo"></div>
+        <div class="as-modal-grid">
         <div class="as-modal-field">
-          <label class="as-modal-label" for="asModalClassSelect">Assign to Class</label>
+          <label class="as-modal-label" for="asModalClassSelect">Class</label>
           <select class="as-modal-select" id="asModalClassSelect">
-            <option value="">— Select class —</option>
+            <option value="">Select class</option>
             <% classes.forEach(cls => { %>
             <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
             <% }); %>
           </select>
         </div>
         <div class="as-modal-field">
-          <label class="as-modal-label" for="asModalYearSelect">Assign School Year</label>
+          <label class="as-modal-label" for="asModalYearSelect">School year</label>
           <select class="as-modal-select" id="asModalYearSelect">
-            <option value="">— Select school year —</option>
+            <option value="">Select school year</option>
             <% schoolYears.forEach(sy => { %>
             <option value="<%= sy.id %>"><%= sy.year_label %><% if (sy.current) { %> (Current)<% } %></option>
             <% }); %>
           </select>
         </div>
-        <div class="as-modal-field">
-          <label class="as-modal-label" for="asModalEmailInput">Student Email</label>
+        <div class="as-modal-field<%= (studentIdSettings && studentIdSettings.use_custom_student_id) ? '' : ' as-wide' %>">
+          <label class="as-modal-label" for="asModalEmailInput">Email</label>
           <input type="email"
             class="as-modal-input"
             id="asModalEmailInput"
             placeholder="student@example.com"
             autocomplete="off">
-          <div class="as-modal-hint">Used for student portal setup and login communication.</div>
         </div>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
         <div class="as-modal-field">
@@ -1550,17 +1564,17 @@
               placeholder="<%= String(nextAvailableStudentIdNumber || 1).padStart(3, '0') %>"
               autocomplete="off">
           </div>
-          <div class="as-modal-hint">Numbers only. Clear this field to remove a manual override and fall back to the system ID.</div>
-          <div class="as-modal-inline-error" id="asModalStudentIdMsg">INUSED</div>
+          <div class="as-modal-inline-error" id="asModalStudentIdMsg">ID in use</div>
         </div>
         <% } %>
+        </div>
         <div class="as-modal-msg" id="asModalMsg"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asModalCancel">Cancel</button>
         <button class="as-modal-save" id="asModalNext">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-          Review Changes
+          Review
         </button>
       </div>
     </div>
@@ -1568,26 +1582,17 @@
     <!-- Step 2: Confirm -->
     <div id="asModalStep2" style="display:none">
       <div class="as-modal-body">
-        <div class="as-confirm-banner" id="asConfirmBanner">
-          <div class="as-confirm-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:22px;height:22px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
-          </div>
-          <div class="as-confirm-text">
-            <div class="as-confirm-title">Review Student Changes</div>
-            <div class="as-confirm-detail" id="asConfirmDetail"></div>
-          </div>
-        </div>
         <div class="as-change-arrow" id="asChangeArrow"></div>
         <div class="as-modal-msg" id="asModalMsg2"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asModalBack">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:13px;height:13px"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-          Go Back
+          Back
         </button>
         <button class="as-modal-save" id="asModalSave">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          Confirm &amp; Save
+          Save
         </button>
       </div>
     </div>
@@ -1595,10 +1600,10 @@
 </div>
 
 <!-- ── Bulk Edit Modal ────────────────────────────────────── -->
-<div class="as-modal-overlay" id="asBulkOverlay" role="dialog" aria-modal="true" aria-labelledby="asBulkModalTitle">
+<div class="as-modal-overlay" id="asBulkOverlay" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="asBulkModalTitle">
   <div class="as-modal as-modal-bulk">
     <div class="as-modal-header">
-      <h2 id="asBulkModalTitle">Bulk Edit Students</h2>
+      <h2 id="asBulkModalTitle">Bulk edit</h2>
       <button class="as-modal-close" id="asBulkClose" aria-label="Close">&times;</button>
     </div>
 
@@ -1609,14 +1614,14 @@
           <div class="as-bulk-pill-num" id="asBulkPillNum">0</div>
           <div class="as-bulk-pill-text" id="asBulkPillText">students selected</div>
         </div>
-        <p class="as-bulk-intro">Choose what to update. Unchecked fields stay the same.</p>
+        <div class="as-modal-grid">
         <div class="as-bfield">
           <div class="as-bfield-row">
             <input type="checkbox" id="asBulkChkClass" class="as-bulk-field-chk">
-            <label for="asBulkChkClass">Change Class</label>
+            <label for="asBulkChkClass">Class</label>
           </div>
           <select class="as-bfield-select" id="asBulkClassSelect" disabled>
-            <option value="">— Select new class —</option>
+            <option value="">Select class</option>
             <% classes.forEach(cls => { %>
             <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
             <% }); %>
@@ -1625,46 +1630,41 @@
         <div class="as-bfield">
           <div class="as-bfield-row">
             <input type="checkbox" id="asBulkChkYear" class="as-bulk-field-chk">
-            <label for="asBulkChkYear">Assign School Year</label>
+            <label for="asBulkChkYear">School year</label>
           </div>
           <select class="as-bfield-select" id="asBulkYearSelect" disabled>
-            <option value="">— Select school year —</option>
+            <option value="">Select school year</option>
             <% schoolYears.forEach(sy => { %>
             <option value="<%= sy.id %>"><%= sy.year_label %><% if (sy.current) { %> (Current)<% } %></option>
             <% }); %>
           </select>
         </div>
-        <div class="as-bfield">
+        <div class="as-bfield as-wide">
           <div class="as-bfield-row">
             <input type="checkbox" id="asBulkChkEmail" class="as-bulk-field-chk">
-            <label for="asBulkChkEmail">Edit Student Emails</label>
+            <label for="asBulkChkEmail">Emails</label>
           </div>
-          <input type="text" class="as-bfield-select" id="asBulkEmailSearch" placeholder="Search selected students by name..." style="display:none;" autocomplete="off">
-          <div class="as-modal-hint" style="margin-top:2px;">
-            Enter a valid email for each selected student you want to update.
-          </div>
+          <input type="text" class="as-bfield-select" id="asBulkEmailSearch" placeholder="Search students" style="display:none;" autocomplete="off">
           <div class="as-bulk-id-list" id="asBulkEmailList" style="display:none;"></div>
         </div>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
-        <div class="as-bfield">
+        <div class="as-bfield as-wide">
           <div class="as-bfield-row">
             <input type="checkbox" id="asBulkChkStudentId" class="as-bulk-field-chk">
-            <label for="asBulkChkStudentId">Edit Student IDs</label>
+            <label for="asBulkChkStudentId">Student IDs</label>
           </div>
-          <input type="text" class="as-bfield-select" id="asBulkStudentIdSearch" placeholder="Search selected students by name..." style="display:none;" autocomplete="off">
-          <div class="as-modal-hint" style="margin-top:2px;">
-            Numbers only. Leave blank to remove manual ID.
-          </div>
+          <input type="text" class="as-bfield-select" id="asBulkStudentIdSearch" placeholder="Search students" style="display:none;" autocomplete="off">
           <div class="as-bulk-id-list" id="asBulkStudentIdList" style="display:none;"></div>
         </div>
         <% } %>
+        </div>
         <div class="as-modal-msg" id="asBulkMsg"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asBulkCancel">Cancel</button>
         <button class="as-modal-save" id="asBulkReview">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-          Review Changes
+          Review
         </button>
       </div>
     </div>
@@ -1672,26 +1672,17 @@
     <!-- Step 2: Confirm -->
     <div id="asBulkStep2" style="display:none">
       <div class="as-modal-body">
-        <div class="as-confirm-banner">
-          <div class="as-confirm-icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:22px;height:22px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
-          </div>
-          <div class="as-confirm-text">
-            <div class="as-confirm-title">Confirm Bulk Changes</div>
-            <div class="as-confirm-detail" id="asBulkConfirmDetail"></div>
-          </div>
-        </div>
-        <div id="asBulkChangeSummary" style="margin-top:14px;"></div>
+        <div id="asBulkChangeSummary"></div>
         <div class="as-modal-msg" id="asBulkMsg2"></div>
       </div>
       <div class="as-modal-footer">
         <button class="as-modal-cancel" id="asBulkBack">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:13px;height:13px"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-          Go Back
+          Back
         </button>
         <button class="as-modal-save" id="asBulkSave">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-          Confirm &amp; Apply to <span id="asBulkSaveCount">0</span> Students
+          Apply (<span id="asBulkSaveCount">0</span>)
         </button>
       </div>
     </div>
@@ -2231,6 +2222,17 @@
   var changeArrow   = document.getElementById('asChangeArrow');
   var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='', _oldSchoolYearId='', _oldSchoolYearLabel='', _oldEmail='', _oldDisplayId='', _oldEditableId='', _studentIdToken=0, _studentIdTimer=null, _carryExistingSubjects=null, _carryExistingSubjectsClassId='';
 
+  // A drawer starts under the app header (a page inside a frame has none: the frame is lifted by embedPopupLift.js).
+  function asLift(el, open) {
+    if (open) {
+      var header = document.getElementById('top-header');
+      var rect = header ? header.getBoundingClientRect() : null;
+      el.style.setProperty('--as-top', rect && rect.height ? Math.max(0, Math.round(rect.bottom)) + 'px' : '0px');
+    }
+    el.classList.toggle('open', open);
+    el.classList.toggle('is-open', open);
+  }
+
   function clearStudentIdInlineState() {
     if (!modalStudentIdInput || !modalStudentIdMsg) return;
     modalStudentIdInput.classList.remove('is-error');
@@ -2342,11 +2344,11 @@
     modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
     step1.style.display=''; step2.style.display='none';
-    overlay.classList.add('open');
+    asLift(overlay, true);
     setTimeout(function(){ modalSelect.focus(); }, 80);
   }
   function closeModal() {
-    overlay.classList.remove('open'); _sid=_row=_card=null;
+    asLift(overlay, false); _sid=_row=_card=null;
   }
   function showStep2() {
     var newClassId = modalSelect.value || '';
@@ -2404,7 +2406,7 @@
       );
     }
 
-    confirmDetail.textContent = 'Review the changes below before saving them to this student.';
+    if (confirmDetail) confirmDetail.textContent = '';
     changeArrow.innerHTML = summary.join('');
     modalMsg2.textContent=''; modalMsg2.className='as-modal-msg';
     modalSave.disabled=false;
@@ -2412,7 +2414,6 @@
   }
   modalClose.addEventListener('click', closeModal);
   modalCancel.addEventListener('click', closeModal);
-  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeModal(); });
   modalNext.addEventListener('click', showStep2);
   modalBack.addEventListener('click', function(){ step2.style.display='none'; step1.style.display=''; });
 
@@ -2907,9 +2908,9 @@
     bulkMsg.textContent=''; bulkMsg.className='as-modal-msg';
     bulkSave.disabled=false;
     bulkStep1.style.display=''; bulkStep2.style.display='none';
-    bulkOverlay.classList.add('open');
+    asLift(bulkOverlay, true);
   }
-  function closeBulkModal() { bulkOverlay.classList.remove('open'); }
+  function closeBulkModal() { asLift(bulkOverlay, false); }
 
   function showBulkStep2() {
     var hasClass = chkClass.checked && selClass.value;
@@ -2997,7 +2998,7 @@
       bulkKeepExistingSubjectsClassId = selClass.value;
     }
     var n = selectedIds.size;
-    bulkConfirmDetail.textContent = 'You are about to apply the following changes to '+n+' student'+(n===1?'':' s')+'. This will update the class roster immediately.';
+    if (bulkConfirmDetail) bulkConfirmDetail.textContent = '';
     var summary = '';
     if (hasClass) {
       summary += '<div class="as-change-row"><span class="as-change-label">New class:</span>'+pill(selClass.options[selClass.selectedIndex].text,'to')+'</div>';
@@ -3022,7 +3023,6 @@
 
   bulkClose.addEventListener('click', closeBulkModal);
   bulkCancel.addEventListener('click', closeBulkModal);
-  bulkOverlay.addEventListener('click', function(e){ if(e.target===bulkOverlay) closeBulkModal(); });
   bulkReview.addEventListener('click', showBulkStep2);
   bulkBack.addEventListener('click', function(){ bulkStep2.style.display='none'; bulkStep1.style.display=''; });
 

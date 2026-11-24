@@ -3978,3 +3978,8 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
   .overview-split > .section-card:not(.students-overview-section) { order: -1; }
   #panel-overview .workspace-overview-grid { padding-top: 8px; }
 }
+
+
+/* A Class Tools item the person hasn't been given: greyed, opens nothing (title says who to ask). */
+.nav-link.is-locked { opacity: .5; cursor: not-allowed; }
+.nav-link.is-locked:hover { background: transparent; }

@@ -26,10 +26,9 @@
   <form action="/admin/organizations/<%= org.organization_id %>/licenses" method="POST" class="ahd-form">
     <section class="ahd-section">
       <h3 class="ahd-section__title">User licenses</h3>
-      <p class="ahd-section__sub">Staff accounts it can have. It has <strong><%= license.used %></strong> now. Empty is no limit.</p>
       <div class="ahb-grid">
-        <label class="ahb-field"><span class="ahb-label">Licenses</span><input type="number" name="maxUsers" min="1" step="1" class="ahb-input" value="<%= org.max_users || '' %>" placeholder="No limit" /></label>
-        <div class="ahb-field" style="justify-content:flex-end"><button type="submit" class="ah-btn">Save licenses</button></div>
+        <label class="ahb-field"><span class="ahb-label">Licenses (<%= license.used %> used)</span><input type="number" name="maxUsers" min="1" step="1" class="ahb-input" value="<%= org.max_users || '' %>" placeholder="No limit" /></label>
+        <div class="ahb-field" style="justify-content:flex-end"><button type="submit" class="ah-btn">Save</button></div>
       </div>
     </section>
   </form>

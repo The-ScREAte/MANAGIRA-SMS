@@ -32,7 +32,7 @@ const PAGES = [
   // Management
   { label: "School years & terms", group: "School", url: management("school-year", "/common/manageRecords", "School years & terms"), words: "terms semester academic year register", show: (a) => a.management.schoolYears },
   { label: "Classes & subjects", group: "School", url: management("graduation", "/common/manageClassSubjectAndGradYr", "Classes, Subjects & Grad Years"), words: "grades add class add subject grad year", show: (a) => a.management.classes },
-  { label: "Class settings", group: "School", url: management("class-settings", "/common/class-settings", "Class settings"), words: "share with parents lunch attendance calendar", show: (a, on) => a.management.classSettings && on("class_settings") },
+  { label: "Class & notif. settings", group: "School", url: management("class-settings", "/common/class-settings", "Class & notif. settings"), words: "share with parents lunch attendance calendar weekly briefing email", show: (a, on) => a.management.classSettings && on("class_settings") },
   { label: "Enrollment", group: "School", url: management("enrollment", "/enrollment/manageEnrollment", "Enrollment"), words: "term roster put students in classes", show: (a) => a.management.enrollment },
   { label: "Promotion", group: "School", url: management("promotion", "/promotion/apply", "Promotion"), words: "next grade repeat promote students", show: (a) => a.management.promotion },
   { label: "Assessments", group: "Teaching", url: management("assessment-scores", "/common/manageAssessment", "Assessments"), words: "scores tests exams grades gradebook", show: (a) => a.management.assessments },
@@ -42,7 +42,7 @@ const PAGES = [
   { label: "Events, announcements & activities", group: "School", url: management("announcements-events", "/common/manageEventsAnnouncements", "Events, announcements & activities"), words: "publish news notice event", show: (a) => a.management.events },
   { label: "School website", group: "School", url: management("public-website", "/account/managePublicContent", "School Website"), words: "site design public pages gallery", show: (a) => a.management.website },
   { label: "Transportation", group: "School", url: management("transportation", "/transportation/manage", "Transportation"), words: "bus drivers routes stops riders", show: (a) => a.management.transportation },
-  { label: "Weekly briefing", group: "School", url: management("weekly-briefing", "/common/briefing", "Weekly briefing"), words: "email families digest", show: (a, on) => a.management.briefing && on("weekly_briefing") },
+  { label: "Weekly briefing", group: "School", url: management("class-settings", "/common/class-settings", "Class & notif. settings"), words: "email families digest", show: (a, on) => a.management.briefing && on("weekly_briefing") },
   { label: "Email issues", group: "School", url: management("email-issues", "/common/failedEmails", "Email Issues"), words: "failed bounced emails", show: (a) => a.management.emailIssues },
 
   // Reports

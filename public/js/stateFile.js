@@ -59,7 +59,7 @@
     close();
     var host = document.querySelector('.report-builder-page') || document.body;
     var s = state = { tab: 'type', values: {}, check: null, dirty: false };
-    s.modal = el('div', { className: 'rb-modal sf-modal', on: { click: function (e) { if (e.target === s.modal) close(); } } }, [
+    s.modal = el('div', { className: 'rb-modal sf-modal', on: {} }, [
       s.dialog = el('div', { className: 'rb-dialog sf-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'sf-title' }, [
         el('div', { className: 'sf-head' }, [
           el('div', {}, [el('h3', { id: 'sf-title', text: title }), s.subtitle = el('p', { className: 'rb-muted', text: subtitle })]),

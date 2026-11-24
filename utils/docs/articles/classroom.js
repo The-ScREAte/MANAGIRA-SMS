@@ -30,7 +30,7 @@ module.exports = [
       },
       {
         title: "Grading",
-        text: "Open <strong>Grading</strong> and choose a subject to enter scores in its score sheet. Totals, grades and positions are worked out for you. See <a href=\"/legal/user-documentation/grading-or-marking-assessment\">Enter and review scores</a>.",
+        text: "Open <strong>Gradebook</strong> and choose a subject to enter scores in its score sheet. Totals, grades and positions are worked out for you. See <a href=\"/legal/user-documentation/grading-or-marking-assessment\">Enter and review scores</a>.",
         image: "grading-sheet.webp",
         caption: "A subject's score sheet: one column per assessment, with totals, grade and position.",
       },

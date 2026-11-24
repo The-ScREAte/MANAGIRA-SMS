@@ -54,6 +54,13 @@
           <p><small><%= _theirs %></small><%= q.given.join(', ') || 'No answer' %></p>
           <% if (q.correct.length) { %><p class="tr-text__key"><small>Right answer</small><%= q.correct.join(', ') %></p><% } %>
         </div>
+        <% if (q.rubric) { %>
+          <ul class="tr-rubric">
+            <% q.rubric.criteria.forEach(function (criterion, ci) { %>
+              <li><span><%= criterion.name %></span><b><%= q.rubricMarks && q.rubricMarks[ci] !== undefined ? q.rubricMarks[ci] : '–' %> / <%= criterion.marks %></b></li>
+            <% }) %>
+          </ul>
+        <% } %>
       <% } %>
     </li>
   <% }) %>

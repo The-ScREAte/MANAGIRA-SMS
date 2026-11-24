@@ -49,15 +49,15 @@
     }
     .modify-employee-card {
         max-width: 1180px;
-        margin: 28px auto;
+        margin: 12px auto;
         background: #fff;
         border-radius: 14px;
         box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
         border: 1px solid #e2e8f0;
-        padding: 30px;
+        padding: 20px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
     }
     .modify-employee-card form {
         width: 100%;
@@ -415,24 +415,24 @@
   <form id="modifyEmployeeForm" class="employee-edit-form" action="/common/modifyEmployee/<%= user.user_id %><%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '' %>" method="post">
     <div class="employee-fields-grid employee-fields-grid--pair">
       <div>
-        <label for="firstName">First Name:</label>
+        <label for="firstName">First name</label>
         <input type="text" name="firstName" value="<%= user.first_name %>">
       </div>
       <div>
-        <label for="lastName">Last Name:</label>
+        <label for="lastName">Last name</label>
         <input type="text" name="lastName" value="<%= user.last_name %>">
       </div>
       <div>
-        <label for="email">Email:</label>
+        <label for="email">Email</label>
         <input type="email" name="email" value="<%= user.email %>">
       </div>
       <div>
-        <label for="dateOfBirth">Date of Birth:</label>
+        <label for="dateOfBirth">Date of birth</label>
         <input type="date" name="dateOfBirth" value="<%= user.date_of_birth ? new Date(user.date_of_birth).toISOString().slice(0, 10) : '' %>">
       </div>
     </div>
     <div class="employee-section employee-section-classes">
-      <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
+      <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers get classes, not subjects.</p>
       <%- include('../partials/employeeClassesSummary', { classCheckboxName: 'classIds[]' }) %>
       <div class="class-selector-panel">
         <div class="class-checkboxes classes-grid-wrap" id="collapse-all-classes" style="display: none;">
@@ -475,7 +475,7 @@
     </div>
     <div class="employee-fields-grid">
       <div>
-        <label for="accountType">Role:</label>
+        <label for="accountType">Role</label>
         <% const _builtIn = (locals.schoolRoles && locals.schoolRoles.on && locals.schoolRoles.roles.some((r) => r.id === Number(locals.schoolRoleId))) ? '' : user.account_type; %>
         <select name="accountType">
             <option value="">-- Select Role --</option>
@@ -499,8 +499,7 @@
       <label class="emp-mfa__option">
         <input type="checkbox" name="mfaRequired" value="1"<%= mfaOption.required ? ' checked' : '' %> />
         <span>
-          <strong>Require an authenticator app at sign-in</strong>
-          <small>When they sign in with a password, they also enter a code from an app on their phone. If they haven't set one up, they're asked to before anything else. Your school's rule in Settings › Tenant configuration can require it for more people.</small>
+          <strong>Require authenticator app</strong>
         </span>
       </label>
     </div>
@@ -513,7 +512,7 @@
     </style>
     <% } %>
     <div id="permission-assignment-group" class="employee-section">
-      <label>Permissions:</label>
+      <label>Permissions</label>
       <%- include('../partials/permissionPicker') %>
       <div>
         <%# Kept as they are: permissions held for features the plan doesn't show now. %>
@@ -528,9 +527,9 @@
 
 <div class="employee-actions-bar">
   <div class="employee-actions-row">
-    <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn" data-ack-submit disabled title="Confirm the access first">
+    <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn" data-ack-submit disabled title="Confirm first">
       <span class="employee-save-spinner" aria-hidden="true"></span>
-      <span class="employee-save-btn-text">Save Changes</span>
+      <span class="employee-save-btn-text">Save</span>
     </button>
     <% if (workspaceAccess().employees.canRemove) { %>
     <form class="employee-action-form" action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">

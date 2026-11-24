@@ -89,9 +89,11 @@ router.get("/", isAuthenticated, allowed, async (req, res) => {
 router.post("/", isAuthenticated, allowed, async (req, res) => {
   try {
     await briefing.saveSchoolSettings(db, req.organizationId, req.body || {}, actorOf(req));
+    if (/application\/json/.test(String(req.get("Accept") || ""))) return res.json({ success: true });
     req.flash("success", "Saved. The next briefing uses these choices.");
   } catch (error) {
     console.error("[Weekly briefing] save:", error.message);
+    if (/application\/json/.test(String(req.get("Accept") || ""))) return res.status(500).json({ success: false });
     req.flash("error", "Your changes weren't saved. Please try again.");
   }
   return res.redirect(`/common/briefing${req.query.embed ? "?embed=workspace" : ""}`);

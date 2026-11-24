@@ -436,20 +436,22 @@
             inset: 0;
             background: rgba(9, 19, 35, 0.56);
             display: none;
-            align-items: flex-start;
-            justify-content: center;
-            z-index: 9999;
-            padding: 18px 12px;
+            align-items: stretch;
+            justify-content: flex-end;
+            z-index: 12990;
+            padding: 0;
         }
 
         .delivery-modal-card {
-            width: min(1020px, 100%);
-            max-height: min(78vh, 820px);
+            width: min(1040px, 100%);
+            height: 100%;
+            max-height: none;
             overflow: hidden;
-            border-radius: 14px;
-            border: 1px solid var(--line);
+            border-radius: 0;
+            border: 0;
+            border-left: 1.5px solid #8ea3b6;
             background: #fff;
-            box-shadow: 0 28px 50px rgba(4, 17, 33, 0.28);
+            box-shadow: -18px 0 40px rgba(4, 17, 33, 0.18);
             display: grid;
             grid-template-rows: auto 1fr;
         }
@@ -474,9 +476,12 @@
             background: #f8fbff;
             color: #24455f;
             border-radius: 8px;
-            padding: 6px 10px;
+            padding: 0 14px;
+            height: 36px;
             font-weight: 700;
             cursor: pointer;
+            border: 1.5px solid #8ea3b6;
+            border-radius: 9px;
         }
 
         .delivery-modal-body {
@@ -672,18 +677,20 @@
             </div>
         </section>
 
-        <div class="delivery-modal-overlay" id="batchDetailsModal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="delivery-modal-overlay" id="batchDetailsModal" data-popup-lift data-rp-watch role="dialog" aria-modal="true" aria-hidden="true">
             <div class="delivery-modal-card">
                 <div class="delivery-modal-head">
-                    <div class="delivery-modal-title" id="batchDetailsTitle">Batch Details</div>
+                    <div class="delivery-modal-title" id="batchDetailsTitle">Batch</div>
                     <button class="delivery-modal-close" id="batchDetailsCloseBtn" type="button">Close</button>
                 </div>
                 <div class="delivery-modal-body" id="batchDetailsBody">
-                    <div class="loading">Loading batch details...</div>
+                    <div class="loading">Loading...</div>
                 </div>
             </div>
         </div>
     </div>
+    <script src="/js/embedPopupLift.js" defer></script>
+    <script src="/js/reportPanelLift.js" defer></script>
 
     <script>
         const organizationId = '<%= organizationId %>';
@@ -853,8 +860,8 @@
             const modal = document.getElementById('batchDetailsModal');
             const titleEl = document.getElementById('batchDetailsTitle');
             const bodyEl = document.getElementById('batchDetailsBody');
-            titleEl.textContent = `${activityLabel({ activity_type: token.activity_type })} batch details`;
-            bodyEl.innerHTML = '<div class="loading">Loading batch details...</div>';
+            titleEl.textContent = `${activityLabel({ activity_type: token.activity_type })} batch`;
+            bodyEl.innerHTML = '<div class="loading">Loading...</div>';
             modal.style.display = 'flex';
             modal.setAttribute('aria-hidden', 'false');
 
@@ -1229,11 +1236,7 @@
             body.hidden = expanded;
         });
         document.getElementById('batchDetailsCloseBtn').addEventListener('click', closeBatchDetailsModal);
-        document.getElementById('batchDetailsModal').addEventListener('click', (event) => {
-            if (event.target && event.target.id === 'batchDetailsModal') {
-                closeBatchDetailsModal();
-            }
-        });
+        /* the backdrop does not close the panel: only X or Escape */
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 closeBatchDetailsModal();

@@ -299,7 +299,7 @@ async function page(req, res, db) {
   ]);
   res.render("migration/school", {
     title: "Data migration", isEmbedded: true, hideGlobalHeader: true, hideGlobalFooter: true, hideGlobalChatbot: true, messages: req.flash(),
-    job, step, steps: STEPS, progress, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, ownRolesOn: require("../utils/schoolRoles").on(job.organization_id), gpaCheck,
+    job, step, steps: STEPS, progress, files, anyFiles, columns, custom, sandbox, open, blockers: check.list, needed: check.needed, events, staff, roleReport, roleChoices: m.ROLES, roleLevels: m.LEVELS, ownRoles, gpaCheck,
     // The other apps the school ran (library, food service, health office…), from its lists' names.
     listFeatures: require("../utils/migration/features").FEATURES,
     indicatorLabels: require("../utils/studentFormFields").INDICATORS.map((i) => i.label),

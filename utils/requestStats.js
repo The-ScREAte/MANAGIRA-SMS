@@ -4,15 +4,21 @@
 const { AsyncLocalStorage } = require("node:async_hooks");
 
 const current = new AsyncLocalStorage();
-const SLOW_MS = Number(process.env.SLOW_PAGE_MS) || 800;
-const MANY_QUERIES = Number(process.env.MANY_QUERIES) || 25;
+// Quiet by default while developing; set SLOW_PAGE_MS / MANY_QUERIES to see more (production keeps the tighter limits).
+const DEV = process.env.NODE_ENV !== "production";
+const SLOW_MS = Number(process.env.SLOW_PAGE_MS) || (DEV ? 4000 : 800);
+const MANY_QUERIES = Number(process.env.MANY_QUERIES) || (DEV ? 60 : 25);
+// Background polling and images never tell us anything about a page.
+const QUIET_PATHS = /^\/(notifications\/|public-image|common\/setupSteps|common\/page-finder|common\/ui-preferences|api\/chatbot\/popular|me\/announcements|notices\/active|account\/session-status|api-access\/usage-banner)/;
 
 function requestStats(req, res, next) {
   const stats = { queries: 0, dbMs: 0, startedAt: process.hrtime.bigint() };
   res.on("finish", () => {
     const ms = Number(process.hrtime.bigint() - stats.startedAt) / 1e6;
     if (ms >= SLOW_MS || stats.queries >= MANY_QUERIES) {
-      console.warn(`[page] ${req.method} ${req.originalUrl.split("?")[0]} ${res.statusCode} ${Math.round(ms)}ms, ${stats.queries} queries, ${Math.round(stats.dbMs)}ms in the database`);
+      const path = req.originalUrl.split("?")[0];
+      if (QUIET_PATHS.test(path)) return;
+      console.warn(`[slow] ${req.method} ${path} ${res.statusCode} · ${(ms / 1000).toFixed(1)}s · ${stats.queries} queries · db ${(stats.dbMs / 1000).toFixed(1)}s`);
     }
   });
   current.run(stats, next);

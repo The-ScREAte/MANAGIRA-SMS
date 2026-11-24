@@ -171,5 +171,6 @@ test("the screen renders: nothing but 'Choose a role' until a role is chosen, sw
   assert.match(html, /High risk - Managers only/);
   assert.ok((html.match(/name=permissions/g) || []).length >= 70, "every permission still has its switch");
   assert.ok(!/Allow all permissions<\/span>/.test(html), "the old always-visible allow-all is gone");
-  assert.match(html, /Type <strong>ALLOW ALL<\/strong>/);
+  assert.ok(!/ALLOW ALL/.test(html), "allow-all needs no typed confirmation");
+  assert.match(html, /id="permAllOpen">Allow all permissions</);
 });

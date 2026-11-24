@@ -18,7 +18,7 @@ const { logOrganizationActivity } = require("../utils/activityLog");
 const permissions = require("../middleware/permissionMiddleware");
 
 const PAGE = "/common/class-settings";
-const LABEL = "Class settings";
+const LABEL = "Class & notif. settings";
 // The Management panel, opened from another page (links carry data-no-spa).
 const hubUrl = (page = PAGE) => `/common/management?panel=class-settings&page=${encodeURIComponent(page)}&label=${encodeURIComponent(LABEL)}`;
 // Settings › Customize School, at its School calendar card (views/account/settings.ejs).
@@ -266,7 +266,22 @@ async function managementPage(req, res, db) {
       const lead = leads.get(c.id);
       return { ...c, notices: settings.notices, lead: lead ? lead.name : "", on: Object.fromEntries(switches.map((s) => [s.key, valueAt(settings, s.key)])), locked: Object.fromEntries(switches.map((s) => [s.key, classSettings.isLocked(settings, s.key)])) };
     });
+    let schoolBriefing = null;
+    if (isManager(req) && require("../utils/shards/features").isOn("weekly_briefing", { organizationId })) {
+      try {
+        const briefing = require("../utils/weeklyBriefing");
+        const all = await briefing.settingsFor(db, organizationId, { fresh: true });
+        schoolBriefing = {
+          settings: all.school, schedule: all.schedule, sections: briefing.SECTIONS, days: briefing.DAYS,
+          timeZones: briefing.TIME_ZONES, hourLabel: briefing.hourLabel,
+          ownClasses: classes.filter((c) => all.classes.has(c.id)).map((c) => c.name),
+        };
+      } catch (error) {
+        console.error("[Class settings] weekly briefing:", error.message);
+      }
+    }
     return res.render("common/classSettings", {
+      schoolBriefing,
       title: LABEL,
       isEmbedded,
       hideGlobalHeader: isEmbedded,

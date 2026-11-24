@@ -55,6 +55,7 @@ async function review(db, organizationId, studentId, attemptId, imageUrl, { staf
   if (!shared || !shared.full) return null;
   const { rows } = await db.query(
     `SELECT q.question_id, q.question_type, q.question_text, q.options_json, q.answer_key, q.marks, q.media_json,
+            ${require("./rubric").ready() ? "q.rubric_json, r.rubric_marks," : "NULL::jsonb AS rubric_json, NULL::jsonb AS rubric_marks,"}
             r.response_text, r.response_json, r.awarded_marks
        FROM student_assessment_attempts saa
        JOIN assessment_questions q ON q.question_set_id = saa.question_set_id
@@ -89,9 +90,13 @@ async function review(db, organizationId, studentId, attemptId, imageUrl, { staf
       given: type === "multiple_choice" && given.length === 1 ? given[0].split(",").map((part) => part.trim()).filter(Boolean) : given,
       correct: type === "essay" ? [] : correct,
       media,
+      // A rubric: what each criterion was worth and what was earned (shown when marked).
+      rubric: require("./rubric").clean(row.rubric_json),
+      rubricMarks: Array.isArray(row.rubric_marks) ? row.rubric_marks.map(Number) : null,
     };
   });
   return { ...shared, questions };
 }
 
 module.exports = { sharedResults, review };
+

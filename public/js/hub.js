@@ -129,8 +129,9 @@
   // ---------- side panel (drawer) ----------
   const drawer = document.createElement('div');
   drawer.className = 'hub-drawer';
+  drawer.setAttribute('data-popup-lift', '');
   drawer.hidden = true;
-  drawer.innerHTML = `<div class="hub-drawer__backdrop" data-drawer-close></div>
+  drawer.innerHTML = `<div class="hub-drawer__backdrop"></div>
     <aside class="hub-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="hubDrawerTitle" tabindex="-1">
       <header class="hub-drawer__head">
         <div><h2 class="hub-drawer__title" id="hubDrawerTitle"></h2><p class="hub-drawer__sub"></p></div>
@@ -156,6 +157,11 @@
     if (!drawer.hidden && drawer.classList.contains('is-open')) return;
     lastFocus = document.activeElement;
     drawer.hidden = false;
+    // Start under the app header (a page scaled with CSS zoom measures it in screen pixels).
+    const header = document.getElementById('top-header');
+    const hr = header ? header.getBoundingClientRect() : null;
+    const zoom = header && header.offsetHeight && hr && hr.height ? hr.height / header.offsetHeight : 1;
+    drawer.style.top = (hr && hr.height ? Math.max(0, Math.round(hr.bottom / (zoom || 1))) : 0) + 'px';
     document.documentElement.classList.add('hub-drawer-open');
     requestAnimationFrame(() => drawer.classList.add('is-open'));
   }
@@ -401,7 +407,7 @@
       const tools = form.querySelector('[data-perm-tools]');
       if (tools) tools.hidden = admin;
       const note = form.querySelector('[data-perm-note]');
-      if (note) note.textContent = admin ? 'Hub admins get everything.' : 'Tick what this person needs.';
+      if (note) note.textContent = admin ? 'Hub admins get everything.' : '';
     };
     form.addEventListener('change', (e) => {
       if (e.target.name === 'role') { if (e.target.value === 'hub_user' && !choice.size) choice = new Set(defaults); applyRole(); }

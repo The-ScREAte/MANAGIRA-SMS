@@ -74,6 +74,7 @@ async function createSchema(db) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`);
     await client.query(`ALTER TABLE student_form_fields ADD COLUMN IF NOT EXISTS section VARCHAR(20) NOT NULL DEFAULT 'more'`);
+    await client.query(`ALTER TABLE student_form_fields ADD COLUMN IF NOT EXISTS width VARCHAR(8)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_student_form_fields_org ON student_form_fields (organization_id, position)`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS student_field_values (
@@ -122,6 +123,7 @@ function toField(r) {
     typeLabel: FIELD_TYPES[r.field_type] || "Short text",
     options: Array.isArray(r.options) ? r.options : [],
     helpText: r.help_text || "",
+    width: r.width === "half" || r.width === "full" ? r.width : "",
     required: r.is_required,
     onStudentForm: r.on_student_form,
     onApplication: r.on_application,
@@ -175,7 +177,7 @@ function readFieldInput(body) {
   const onStudentForm = truthy(body.onStudentForm);
   const onApplication = truthy(body.onApplication);
   if (!onStudentForm && !onApplication) throw new FieldError("Choose at least one form to show this field on.");
-  return { label, type, options, helpText: clean(body.helpText, 200) || null, required: truthy(body.required), onStudentForm, onApplication, section: sectionOf(body.section) };
+  return { label, type, options, helpText: clean(body.helpText, 200) || null, width: body.width === "half" || body.width === "full" ? body.width : null, required: truthy(body.required), onStudentForm, onApplication, section: sectionOf(body.section) };
 }
 
 async function assertLabelFree(db, organizationId, label, exceptId) {
@@ -208,9 +210,9 @@ async function createField(db, organizationId, body, userId) {
   if (count.rows[0].n >= MAX_FIELDS) throw new FieldError(`You can have up to ${MAX_FIELDS} fields.`);
   await assertLabelFree(db, organizationId, f.label);
   await db.query(
-    `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section)
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11)`,
-    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, count.rows[0].last + 1, userId || null, f.section]
+    `INSERT INTO student_form_fields (organization_id, label, field_type, options, help_text, is_required, on_student_form, on_application, position, created_by, section, width)
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, count.rows[0].last + 1, userId || null, f.section, f.width]
   );
 }
 
@@ -236,9 +238,9 @@ async function updateField(db, organizationId, fieldId, body) {
   await db.query(
     `UPDATE student_form_fields
         SET label = $3, field_type = $4, options = $5::jsonb, help_text = $6, is_required = $7,
-            on_student_form = $8, on_application = $9, section = $10, updated_at = NOW()
+            on_student_form = $8, on_application = $9, section = $10, width = $11, updated_at = NOW()
       WHERE field_id = $1 AND organization_id = $2`,
-    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, f.section]
+    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.required, f.onStudentForm, f.onApplication, f.section, f.width]
   );
 }
 
@@ -423,6 +425,7 @@ function suggestHome(label) {
 }
 
 module.exports = {
+  checkAnswer,
   suggestHome,
   INDICATORS,
   indicatorFor,

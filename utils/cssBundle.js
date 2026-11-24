@@ -10,7 +10,7 @@ const CSS_DIR = path.join(__dirname, "..", "public", "css");
 const BASE = [
   "style", "buttons", "index", "orgDashboard", "classDashboard", "attendanceCollection",
   "addStudent", "assessment", "deleteStudent", "editStudent", "manageClassSubjectAndGradYr",
-  "manageRecords", "registerSchoolYear", "studentDetails", "manageStudents",
+  "manageRecords", "registerSchoolYear", "studentDetails", "manageStudents", "panelFooter",
 ];
 // Served from /css/ like the originals, so relative paths inside them still work.
 const BUNDLES = {

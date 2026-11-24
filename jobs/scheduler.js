@@ -132,6 +132,18 @@ if (shouldRunNotifications) {
     }
   });
 
+  // Every 5 minutes: tell families about the days of attendance whose wait is over (utils/attendanceSends.js:
+  // 30 minutes after the teacher said they were done, 2 hours after the last save if nobody did).
+  cron.schedule('*/5 * * * *', 'attendance-sends', async () => {
+    try {
+      const { sendDue } = require('../utils/attendanceSends');
+      const done = await sendDue(require('../config/db'));
+      if (done > 0) console.log(`[Notification Scheduler] Attendance told to families for ${done} class day(s).`);
+    } catch (error) {
+      console.error('[Notification Scheduler] Attendance sends failed:', error.message);
+    }
+  });
+
   // 16:00 UTC: tomorrow's activity reminders to families (still the same calendar day from the
   // US west coast to east Africa). Each activity is sent once (utils/classActivities.js).
   cron.schedule('0 16 * * *', 'activity-reminders', async () => {

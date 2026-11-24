@@ -8,23 +8,23 @@
 <% if (_signInSso) { %>
 <% const _signInNow = locals.signInMethod === 'password' ? 'password' : (locals.signInMethod === 'sso' || !locals.signInIsExisting ? 'sso' : 'password'); %>
 <div class="ce-section signin-choice" data-signin-choice>
-  <h3 class="ce-section-title">How they sign in</h3>
+  <h3 class="ce-section-title">Sign-in</h3>
   <% if (locals.signInIsMain) { %>
-    <p class="signin-note">This is your school's main manager. They can always use their Managira password, so someone can still get in if <%= _signInSso.name %> is down<%= locals.signInMainSso ? `, and can also continue with ${_signInSso.name}` : '' %>.</p>
+    <p class="signin-note">Main manager: always keeps a Managira password<%= locals.signInMainSso ? ` and can use ${_signInSso.name}` : '' %>.</p>
   <% } else { %>
   <div class="signin-options" role="radiogroup" aria-label="How they sign in">
     <label class="signin-option">
       <input type="radio" name="sign_in_method" value="sso"<%= _signInNow === 'sso' ? ' checked' : '' %> />
       <span class="signin-option__text">
         <strong><%= _signInSso.name %></strong>
-        <small>Single sign-on<%= _signInSso.protocol ? ` (${_signInSso.protocol})` : '' %>. They log in with their school account. No password to set.</small>
+        <small>Single sign-on<%= _signInSso.protocol ? ` (${_signInSso.protocol})` : '' %></small>
       </span>
     </label>
     <label class="signin-option">
       <input type="radio" name="sign_in_method" value="password"<%= _signInNow === 'password' ? ' checked' : '' %> />
       <span class="signin-option__text">
         <strong>Managira password</strong>
-        <small><%= locals.signInIsExisting ? 'They log in with a password. If they don’t have one yet, we email them a link to set it.' : 'We email them a link to set a password.' %></small>
+        <small>Emails a link to set one</small>
       </span>
     </label>
   </div>

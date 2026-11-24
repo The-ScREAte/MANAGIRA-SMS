@@ -1,5 +1,5 @@
 <% const _later = billingRow && billingRow.hold_starts_at; %>
-<div data-ahd-title="Put on hold" data-ahd-sub="<%= hub.hub_name %>. While on hold nobody in the hub can sign in and no bills are charged.">
+<div data-ahd-title="Put on hold" data-ahd-sub="<%= hub.hub_name %>">
   <form action="/admin/hubs/<%= hub.hub_id %>/billing/hold" method="POST" class="ahd-form" data-ah-hold>
     <section class="ahd-section">
       <div class="ahb-grid ahb-grid--1">
@@ -15,9 +15,9 @@
           <input type="date" name="startsOn" class="ahb-input" value="<%= _later ? b.isoDay(billingRow.hold_starts_at) : '' %>" />
         </label>
         <label class="ahb-field">
-          <span class="ahb-label">Resumes on <em>optional</em></span>
+          <span class="ahb-label">Resumes on</span>
           <input type="date" name="endsOn" class="ahb-input" value="<%= billingRow && billingRow.hold_ends_at ? b.isoDay(billingRow.hold_ends_at) : '' %>" />
-          <span class="ahb-hint">Leave empty to resume it yourself.</span>
+          
         </label>
       </div>
     </section>

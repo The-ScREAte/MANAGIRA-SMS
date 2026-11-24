@@ -160,7 +160,7 @@ module.exports = [
         list: [
           "<strong>Many times</strong> sections keep a list: add a new entry each time.",
           "<strong>Every term</strong> and <strong>Every year</strong> sections start from the student's last answers, so you only change what's different.",
-          "A parent handed the form in on paper? Open the student and select <strong>Received on paper? Fill it in</strong>.",
+          "A parent handed the form in on paper? Open the student and select <strong>Fill in (paper)</strong>.",
           "To show a form beside each student, tick <strong>Show beside each student</strong> in its <strong>More options</strong> (if your school has it). Its icon then sits beside every student in the class's Students list: tap it to open that student's form.",
         ],
         note: "Teachers see the forms for their own classes. They read what parents and students send, but can't change it.",

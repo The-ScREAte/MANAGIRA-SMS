@@ -216,3 +216,4 @@ function hideWaitingTotals(rows) {
 }
 
 module.exports = { flowOn, columnsReady, whenColumnsChecked, hideWaitingTotals, visibleScore, visibleChoice, waitingSql, cellState, approve, waitingCounts, tellFamilies, placeOnlineResult };
+

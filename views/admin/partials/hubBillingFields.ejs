@@ -30,19 +30,19 @@
           <option value="<%= key %>" data-per="<%= c.per %>" <%= _v('billing_cycle', 'month') === key ? 'selected' : '' %>><%= c.label %></option>
         <% }) %>
       </select>
-      <% if (typeof hasSub !== 'undefined' && hasSub) { %><span class="ahb-hint">Changing this starts a new billing period today and bills it now.</span><% } %>
+      <% if (typeof hasSub !== 'undefined' && hasSub) { %><span class="ahb-hint">Changing this bills a new period now.</span><% } %>
     </label>
   </fieldset>
 
   <fieldset class="ahb-set">
-    <legend class="ahb-legend">What is charged</legend>
+    <legend class="ahb-legend">Charged</legend>
     <div class="ahb-rows">
       <% b.METER_KEYS.forEach((key) => { const def = b.METERS[key]; const m = _meters[key] || {}; const on = _isNew ? key === 'student' : !!m.on; %>
         <div class="ahb-row<%= on ? '' : ' is-off' %>" data-ahb-row>
           <label class="ahb-switch">
             <input type="checkbox" name="meters[<%= key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-meter="<%= key %>" />
             <span class="ahb-switch__track" aria-hidden="true"></span>
-            <span class="ahb-row__title"><%= def.label %><small><%= def.help %></small></span>
+            <span class="ahb-row__title"><%= def.label %></span>
           </label>
           <div class="ahb-row__fields" data-ahb-fields>
             <label class="ahb-mini">
@@ -62,7 +62,7 @@
         <label class="ahb-switch">
           <input type="checkbox" name="baseFeeOn" value="1" <%= baseOn ? 'checked' : '' %> data-ahb-toggle />
           <span class="ahb-switch__track" aria-hidden="true"></span>
-          <span class="ahb-row__title">Plan fee<small>A fixed amount on every bill.</small></span>
+          <span class="ahb-row__title">Plan fee</span>
         </label>
         <div class="ahb-row__fields" data-ahb-fields>
           <label class="ahb-mini">
@@ -72,12 +72,10 @@
         </div>
       </div>
     </div>
-    <p class="ahb-hint">The bill is for at least the included number. Any more are charged at the same price.</p>
   </fieldset>
 
   <fieldset class="ahb-set">
     <legend class="ahb-legend">Add-ons</legend>
-    <p class="ahb-hint ahb-hint--top">Free unless switched on. <%= _isNew ? 'Filled in from the standard prices' : 'Standard prices are under each one' %> (Pricing › Hubs). A price here is for this hub only. <strong>Auto</strong> bills every school that uses it; <strong>Manual</strong> is added as a charge the hub approves.</p>
     <div class="ahb-rows">
       <% b.INTEGRATIONS.forEach((i) => {
            const sp = _std[i.key];
@@ -89,7 +87,7 @@
           <label class="ahb-switch">
             <input type="checkbox" name="integrations[<%= i.key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-int="<%= i.key %>" />
             <span class="ahb-switch__track" aria-hidden="true"></span>
-            <span class="ahb-row__title"><%= i.label %><small>Standard: <%= _stdLabel(i.key) %><%= custom ? ' · this hub’s own price' : '' %><% if (!_isNew) { %> · <% const _sc = _ints[i.key] || 0; %><%= _sc ? (_sc === 1 ? '1 school uses it' : `${_sc} schools use it`) : 'no school uses it yet' %><%= i.seat && _sc ? ` (${b.seatCount(i.key, _seats[i.key] || 0)})` : '' %><% } %></small></span>
+            <span class="ahb-row__title"><%= i.label %><small>Standard: <%= _stdLabel(i.key) %><%= custom ? ' · own price' : '' %><% if (!_isNew) { %> · <% const _sc = _ints[i.key] || 0; %><%= _sc ? `${_sc} used` : 'none used' %><%= i.seat && _sc ? ` (${b.seatCount(i.key, _seats[i.key] || 0)})` : '' %><% } %></small></span>
           </label>
           <div class="ahb-row__fields" data-ahb-fields>
             <label class="ahb-mini">
@@ -117,30 +115,29 @@
   </fieldset>
 
   <fieldset class="ahb-set">
-    <legend class="ahb-legend">Schools and user licenses</legend>
+    <legend class="ahb-legend">Schools and licenses</legend>
     <div class="ahb-grid">
       <label class="ahb-field">
         <span class="ahb-label">Schools included</span>
         <input type="number" min="1" step="1" name="maxOrganizations" class="ahb-input" value="<%= _h.max_organizations || 5 %>" required />
       </label>
       <label class="ahb-field">
-        <span class="ahb-label">Each extra school, each bill <em>optional</em></span>
-        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraSchoolPrice" class="ahb-input" value="<%= _num(_b.extra_school_price) %>" placeholder="Not allowed" /></span>
-        <span class="ahb-hint">With a price, the hub can add more schools after approving the cost. Empty: only you can raise the number.</span>
+        <span class="ahb-label">Extra school, each bill</span>
+        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraSchoolPrice" class="ahb-input" value="<%= _num(_b.extra_school_price) %>" placeholder="Optional" /></span>
       </label>
       <label class="ahb-field">
-        <span class="ahb-label">User licenses (hub sign-ins, owner included)</span>
+        <span class="ahb-label">User licenses</span>
         <input type="number" min="1" step="1" name="maxUsers" class="ahb-input" value="<%= _h.max_users || '' %>" placeholder="No limit" />
       </label>
       <label class="ahb-field">
-        <span class="ahb-label">Each extra user license, each bill <em>optional</em></span>
-        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraUserPrice" class="ahb-input" value="<%= _num(_b.extra_user_price) %>" placeholder="Not allowed" /></span>
+        <span class="ahb-label">Extra license, each bill</span>
+        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraUserPrice" class="ahb-input" value="<%= _num(_b.extra_user_price) %>" placeholder="Optional" /></span>
       </label>
       <label class="ahb-field ahb-field--full">
-        <span class="ahb-label">Schools and staff on hold</span>
+        <span class="ahb-label">On hold</span>
         <select name="countOnHold" class="ahb-input">
-          <option value="1" <%= _v('count_on_hold', true) ? 'selected' : '' %>>Still billed (they stay in the hub)</option>
-          <option value="0" <%= _v('count_on_hold', true) ? '' : 'selected' %>>Not billed while on hold</option>
+          <option value="1" <%= _v('count_on_hold', true) ? 'selected' : '' %>>Still billed</option>
+          <option value="0" <%= _v('count_on_hold', true) ? '' : 'selected' %>>Not billed</option>
         </select>
       </label>
     </div>
@@ -152,29 +149,27 @@
       <label class="ahb-field">
         <span class="ahb-label">Starts</span>
         <input type="date" name="contractStartDate" class="ahb-input" value="<%= b.isoDay(_h.contract_start_date) %>" />
-        <span class="ahb-hint">If this is in the future, the first charge is on this day.</span>
       </label>
       <label class="ahb-field">
         <span class="ahb-label">Ends</span>
         <input type="date" name="contractEndDate" class="ahb-input" value="<%= b.isoDay(_h.contract_end_date) %>" />
       </label>
       <label class="ahb-field">
-        <span class="ahb-label">At the end date</span>
+        <span class="ahb-label">At the end</span>
         <select name="autoRenew" class="ahb-input">
-          <option value="1" <%= _v('auto_renew', true) ? 'selected' : '' %>>Keep billing (renews automatically)</option>
+          <option value="1" <%= _v('auto_renew', true) ? 'selected' : '' %>>Renew</option>
           <option value="0" <%= _v('auto_renew', true) ? '' : 'selected' %>>Stop billing</option>
         </select>
       </label>
       <div class="ahb-field">
         <label class="ahb-check"><input type="checkbox" name="trialEnabled" <%= _trial ? 'checked' : '' %> data-ahb-trial /> <span>Free trial until</span></label>
         <input type="date" name="trialEndDate" class="ahb-input" value="<%= b.isoDay(_b.trial_end_date) %>" aria-label="Free trial ends on" data-ahb-trial-date <%= _trial ? '' : 'hidden' %> />
-        <span class="ahb-hint">The card is still saved first. Nothing is charged before this day.</span>
       </div>
     </div>
   </fieldset>
 
   <fieldset class="ahb-set">
-    <legend class="ahb-legend">Discount <em>optional</em></legend>
+    <legend class="ahb-legend">Discount</legend>
     <div class="ahb-grid">
       <label class="ahb-field">
         <span class="ahb-label">Discount</span>
@@ -204,22 +199,21 @@
   </fieldset>
 
   <fieldset class="ahb-set">
-    <legend class="ahb-legend">Billing contact <em>optional</em></legend>
+    <legend class="ahb-legend">Billing contact</legend>
     <div class="ahb-grid">
       <label class="ahb-field">
         <span class="ahb-label">Billing email</span>
-        <input type="email" name="billingEmail" class="ahb-input" value="<%= _v('billing_email') %>" placeholder="accounts@example.com" />
-        <span class="ahb-hint">Also gets the payment link, receipts and failed-payment emails. The owner always does.</span>
+        <input type="email" name="billingEmail" class="ahb-input" value="<%= _v('billing_email') %>" placeholder="Optional" />
       </label>
       <label class="ahb-field">
-        <span class="ahb-label">Notes (only Managira sees these)</span>
-        <textarea name="billingNotes" class="ahb-input" rows="2"><%= _v('notes') %></textarea>
+        <span class="ahb-label">Notes</span>
+        <textarea name="billingNotes" class="ahb-input" rows="2" placeholder="Private to Managira"><%= _v('notes') %></textarea>
       </label>
     </div>
   </fieldset>
 
   <div class="ahb-estimate" aria-live="polite">
-    <span class="ahb-estimate__label">Each bill, with today’s numbers</span>
+    <span class="ahb-estimate__label">Each bill</span>
     <strong class="ahb-estimate__value" data-ahb-total>$0.00</strong>
     <span class="ahb-estimate__note" data-ahb-note></span>
   </div>

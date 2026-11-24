@@ -200,14 +200,14 @@
   </div>
 
   <!-- Small windows -->
-  <div class="rb-modal" data-modal="save" hidden>
+  <div class="rb-modal" data-modal="save" data-popup-lift data-rp-watch hidden>
     <form class="rb-dialog rb-dialog-wide" id="rb-save-form" role="dialog" aria-modal="true" aria-labelledby="rb-save-title">
-      <h3 id="rb-save-title">Save report</h3>
-      <label class="rb-field">Report name
-        <input class="rb-input" id="rb-report-name" type="text" maxlength="120" placeholder="e.g. Weekly absences">
+      <h3 id="rb-save-title">Save</h3>
+      <label class="rb-field">Name
+        <input class="rb-input" id="rb-report-name" type="text" maxlength="120" placeholder="Report name">
       </label>
       <div class="rb-brand">
-        <span class="rb-brand-title">Header on exported files <span class="rb-muted">(Excel and Word)</span></span>
+        <span class="rb-brand-title">Export header</span>
         <div class="rb-brand-options">
           <label class="rb-checkline"><input type="checkbox" data-brand="orgName"> School name</label>
           <label class="rb-checkline"><input type="checkbox" data-brand="logo"> Logo</label>
@@ -232,16 +232,15 @@
     </form>
   </div>
 
-  <div class="rb-modal" data-modal="download" hidden>
+  <div class="rb-modal" data-modal="download" data-popup-lift data-rp-watch hidden>
     <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="rb-download-title">
       <h3 id="rb-download-title">Export</h3>
       <div class="rb-choice-grid">
-        <button class="rb-choice" type="button" data-export="xlsx"><strong>Excel</strong><span>.xlsx spreadsheet</span></button>
-        <button class="rb-choice" type="button" data-export="docx"><strong>Word</strong><span>.docx document</span></button>
-        <button class="rb-choice" type="button" data-export="csv"><strong>CSV</strong><span>Plain data, no header</span></button>
-        <button class="rb-choice" type="button" data-export="mgrt"><strong>Managira template</strong><span>.mgrt · columns and filters to share, no data</span></button>
+        <button class="rb-choice" type="button" data-export="xlsx"><strong>Excel</strong></button>
+        <button class="rb-choice" type="button" data-export="docx"><strong>Word</strong></button>
+        <button class="rb-choice" type="button" data-export="csv"><strong>CSV</strong></button>
+        <button class="rb-choice" type="button" data-export="mgrt"><strong>Template</strong></button>
       </div>
-      <p class="rb-muted rb-template-note">A template carries the report's design only. Anyone using Managira can import it and see it filled with their own school's data.</p>
       <p class="rb-modal-status" data-modal-status></p>
       <div class="rb-dialog-actions">
         <button class="rb-btn rb-btn-light" type="button" data-close-modal data-icon="close">Close</button>
@@ -249,10 +248,9 @@
     </div>
   </div>
 
-  <div class="rb-modal" data-modal="share" hidden>
+  <div class="rb-modal" data-modal="share" data-popup-lift data-rp-watch hidden>
     <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="rb-share-title">
-      <h3 id="rb-share-title">Share report</h3>
-      <p class="rb-muted">They'll see it in My reports, showing only data their role allows.</p>
+      <h3 id="rb-share-title">Share</h3>
       <input class="rb-input" id="rb-staff-filter" type="search" placeholder="Find a person" maxlength="100" aria-label="Find a person">
       <ul class="rb-people" id="rb-staff-list"></ul>
       <p class="rb-modal-status" data-modal-status></p>
@@ -263,11 +261,11 @@
     </div>
   </div>
 
-  <div class="rb-modal" data-modal="schedule" hidden>
+  <div class="rb-modal" data-modal="schedule" data-popup-lift data-rp-watch hidden>
     <div class="rb-dialog" role="dialog" aria-modal="true" aria-labelledby="rb-schedule-title">
-      <h3 id="rb-schedule-title">Email schedule</h3>
+      <h3 id="rb-schedule-title">Schedule</h3>
       <div class="rb-form-grid">
-        <label class="rb-field">How often
+        <label class="rb-field">Repeat
           <select class="rb-input" id="rb-frequency">
             <option value="">Off</option>
             <option value="weekly">Weekly</option>
@@ -305,7 +303,7 @@
           </select>
         </label>
       </div>
-      <label class="rb-checkline" data-when-on><input type="checkbox" id="rb-include-shared"> Also send to people it's shared with</label>
+      <label class="rb-checkline" data-when-on><input type="checkbox" id="rb-include-shared"> Include shared people</label>
       <p class="rb-recipient" data-when-on id="rb-recipient"></p>
       <p class="rb-modal-status" data-modal-status></p>
       <div class="rb-dialog-actions">
@@ -317,6 +315,7 @@
 <script>
   window.reportBuilderData = <%- JSON.stringify(reportBuilderData).replace(/</g, '\\u003c') %>;
 </script>
+<script src="<%= assetUrl('/js/reportPanelLift.js') %>" defer></script>
 <script src="<%= assetUrl('/js/reportBuilder.js') %>" defer></script>
 <% if (reportBuilderData.stateReporting) { %>
 <link rel="stylesheet" href="<%= assetUrl('/css/stateFile.css') %>">

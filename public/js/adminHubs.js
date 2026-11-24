@@ -55,8 +55,9 @@
   // ---------- side panel ----------
   const drawer = document.createElement('div');
   drawer.className = 'ahd';
+  drawer.setAttribute('data-popup-lift', '');
   drawer.hidden = true;
-  drawer.innerHTML = `<div class="ahd__backdrop" data-ahd-close></div>
+  drawer.innerHTML = `<div class="ahd__backdrop"></div>
     <aside class="ahd__panel ah ah--float" role="dialog" aria-modal="true" aria-labelledby="ahdTitle" tabindex="-1">
       <header class="ahd__head">
         <div style="min-width:0"><h2 class="ahd__title" id="ahdTitle"></h2><p class="ahd__sub"></p></div>
@@ -111,6 +112,11 @@
     panel.classList.remove('is-wide');
     body.innerHTML = '<div class="ahd-loading"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i></div>';
     document.documentElement.classList.add('ahd-lock');
+    // Start under the app header (a page scaled with CSS zoom measures it in screen pixels).
+    const header = document.getElementById('top-header');
+    const hr = header ? header.getBoundingClientRect() : null;
+    const zoom = header && header.offsetHeight && hr && hr.height ? hr.height / header.offsetHeight : 1;
+    drawer.style.top = (hr && hr.height ? Math.max(0, Math.round(hr.bottom / (zoom || 1))) : 0) + 'px';
     requestAnimationFrame(() => drawer.classList.add('is-open'));
     try {
       const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'drawer=1', { credentials: 'same-origin', headers: { Accept: 'text/html' } });

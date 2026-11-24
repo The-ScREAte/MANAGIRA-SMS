@@ -29,7 +29,8 @@ function columnReady() {
   return columnKnown;
 }
 async function whenChecked() {
-  if (!columnKnown && Date.now() - lastCheck > 60000) await checkColumn();
+  // Only the very first check is waited for (a re-check in the background: see utils/assessmentSimple.js).
+  if (!columnKnown && Date.now() - lastCheck > 60000) { const again = checkColumn(); if (!lastCheck) await again; }
   return columnKnown;
 }
 
@@ -63,3 +64,4 @@ function forDisplay(value) {
 }
 
 module.exports = { columnReady, whenChecked, check, forDisplay, MAX_FILES };
+

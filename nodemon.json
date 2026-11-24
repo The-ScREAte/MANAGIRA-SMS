@@ -1,13 +1,31 @@
 {
-  "watch": ["routes", "controllers", "jobs", "utils", "config", "middleware", "models", "validation", "server.js"],
+  "watch": [
+    "routes",
+    "controllers",
+    "jobs",
+    "utils",
+    "config",
+    "middleware",
+    "models",
+    "validation",
+    "server.js"
+  ],
   "ext": "js,json",
-  "ignore": ["node_modules/*", "uploads/*", "public/*", "views/*", "docs/*", "scripts/*", "tests/*", "mira/*", "*.md"],
+  "ignore": [
+    "node_modules/*",
+    "uploads/*",
+    "public/*",
+    "views/*",
+    "docs/*",
+    "scripts/*",
+    "tests/*",
+    "mira/*",
+    "*.md"
+  ],
   "delay": 2000,
-  "quiet": false,
+  "quiet": true,
   "exec": "node --no-deprecation --use-system-ca server.js",
   "events": {
-    "start": "echo '[Nodemon] watching files and starting server'",
-    "restart": "echo '[Nodemon] restarted due to changes'",
     "crash": "echo '[Nodemon] app crashed; waiting for file changes'"
   }
 }

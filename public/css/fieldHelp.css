@@ -1,0 +1,6 @@
+/* Small round "?" next to a field label; the help text shows as a bubble on hover, focus or tap. */
+.fh { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; text-transform: none; letter-spacing: 0; }
+.fh__btn { display: inline-grid; place-items: center; width: 14px; height: 14px; min-width: 14px; min-height: 14px; margin: 0; padding: 0; border: 1.25px solid var(--ap-muted, #7b8a99); border-radius: 50%; background: transparent; color: var(--ap-muted, #7b8a99); font: 700 9px/1 inherit; cursor: help; box-shadow: none; opacity: .75; }
+.fh__btn:hover, .fh__btn:focus-visible { opacity: 1; border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); outline: none; }
+.fh__tip { position: absolute; left: 50%; bottom: calc(100% + 7px); z-index: 60; display: none; width: max-content; max-width: min(260px, 72vw); padding: 7px 10px; border: 1.5px solid var(--ap-line, #8ea3b6); border-radius: 8px; background: var(--ap-surface, #fff); color: var(--ap-text, #0f172a); font-size: 12px; font-weight: 500; line-height: 1.4; text-transform: none; letter-spacing: 0; text-align: left; white-space: normal; box-shadow: 0 8px 22px -8px rgba(15, 23, 42, .3); pointer-events: none; transform: translateX(var(--fh-shift, -50%)); }
+.fh:hover .fh__tip, .fh:focus-within .fh__tip { display: block; }

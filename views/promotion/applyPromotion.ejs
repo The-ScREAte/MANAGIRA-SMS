@@ -813,7 +813,7 @@
   <header class="ws-head">
     <div class="ws-head__text">
       <h1 class="ws-head__title">Promotion</h1>
-      <p class="ws-head__sub">Move students to their next class for a new school year or term.<% if (currentSchoolYear || currentTerm) { %> Current: <%= currentSchoolYear?.label || '—' %> · <%= currentTerm?.term_name || '—' %>.<% } %></p>
+      <p class="ws-head__sub"><% if (currentSchoolYear || currentTerm) { %><%= currentSchoolYear?.label || '—' %> · <%= currentTerm?.term_name || '—' %><% } %></p>
     </div>
     <div class="ws-head__actions">
       <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" onclick="showForm()">Plan a promotion</button>
@@ -823,11 +823,11 @@
 
   <%
     const _sug = (typeof suggestions !== 'undefined' && Array.isArray(suggestions)) ? suggestions : [];
-    const _sugKinds = { ready: 'Ready', partial: 'Partly done', applied: 'Done', empty: 'Nobody to move', 'no-target': 'No later term' };
+    const _sugKinds = { ready: 'Ready', partial: 'Partial', applied: 'Done', empty: '', 'no-target': 'No next term' };
   %>
   <% if (_sug.length) { %>
   <section class="promo-sug" id="promoSuggestions" aria-label="Suggested promotions">
-    <h3 class="promo-sug__title">Suggested</h3>
+    <h3 class="promo-sug__title">Next term</h3>
     <% _sug.forEach(function (sg) { %>
     <div class="promo-sug__card promo-sug__card--<%= sg.kind %>">
       <div class="promo-sug__main">
@@ -835,9 +835,9 @@
         <p class="promo-sug__msg"><%= sg.message %></p>
       </div>
       <% if (sg.kind === 'ready' || sg.kind === 'partial') { %>
-      <button type="button" class="ws-btn ws-btn--primary promo-sug__go" data-from-term="<%= sg.fromTermId %>" data-from-year="<%= sg.fromYearId %>" data-target-term="<%= sg.targetTermId %>" data-target-year="<%= sg.targetYearId %>" data-start="<%= sg.targetStart %>">Plan this</button>
+      <button type="button" class="ws-btn ws-btn--primary promo-sug__go" data-from-term="<%= sg.fromTermId %>" data-from-year="<%= sg.fromYearId %>" data-target-term="<%= sg.targetTermId %>" data-target-year="<%= sg.targetYearId %>" data-start="<%= sg.targetStart %>">Plan</button>
       <% } else if (sg.kind === 'no-target') { %>
-      <a class="ws-btn promo-sug__go" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20years" data-no-spa target="_top">Add a term</a>
+      <a class="ws-btn promo-sug__go" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20years" data-no-spa target="_top">Add term</a>
       <% } %>
     </div>
     <% }); %>

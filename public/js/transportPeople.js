@@ -92,7 +92,7 @@
     if (openRow) { openRow.classList.remove('is-selected'); openRow.focus(); openRow = null; }
   }
   $('tm-panel-close').addEventListener('click', closePanel);
-  backdrop.addEventListener('click', closePanel);
+  /* the backdrop does not close the panel */
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' && panel.classList.contains('is-open')) closePanel();
   });

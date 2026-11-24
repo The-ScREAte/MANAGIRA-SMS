@@ -16,8 +16,8 @@ module.exports = [
       {
         title: "From the gradebook (quickest)",
         steps: [
-          ["Open the class, choose <strong>Grading</strong> and the subject, then select <strong>+ Assessment</strong>.", "gradebook.webp", "The subject's gradebook: + Assessment, Teachers, Save and Filter at the top."],
-          ["A form opens on the right with this class and subject already ticked. Fill in the name, weight and score, then select <strong>Create Test</strong>.", "assessment-new-test.webp", "The new assessment form. The fields are explained below."],
+          ["Open the class, choose <strong>Gradebook</strong> and the subject, then select <strong>+ Assessment</strong>.", "gradebook.webp", "The subject's gradebook: + Assessment, Teachers, Save and Filter at the top."],
+          ["A form opens on the right with this class and subject already ticked. Fill in the name, weight and score, then select <strong>Create</strong>.", "assessment-new-test.webp", "The new assessment form. The fields are explained below."],
           ["Choose <strong>Add questions</strong> to make it an online test now, or <strong>Not now</strong>. You can add questions any time later.", "assessment-add-questions.webp", "After saving: add questions now, or later."],
         ],
       },
@@ -25,9 +25,9 @@ module.exports = [
         title: "From Management",
         steps: [
           ["Open <strong>Management</strong>, then <strong>Assessments</strong>, and select <strong>New test</strong>.", "assessments.webp", "Management, Assessments: the term's assessments, with weight and status."],
-          "Fill in the name, weight and what it is marked out of. Under <strong>Assign Test to Classes and Subjects</strong>, search for a class, tick it and tick its subjects. One test can go to many classes at once; <strong>Add Form</strong> adds another test.",
-          "Open <strong>More options</strong> only when you need them: the score scale, the dates scores can be entered, locking, and emailing teachers.",
-          "Select <strong>Create Test</strong>.",
+          "Fill in the name, weight and what it is marked out of. Under <strong>Classes</strong>, search for a class, tick it and tick its subjects. One test can go to many classes at once; <strong>Add another</strong> adds another test.",
+          "The due date and <strong>Late until</strong> are on the form. Open <strong>More options</strong> only when you need them: the score scale, the start date, locking, and emailing teachers.",
+          "Select <strong>Create</strong>.",
         ],
       },
       {
@@ -36,11 +36,14 @@ module.exports = [
           ["Field", "What it does"],
           ["<strong>Test Name</strong>", "Shown on the gradebook, report cards and to families."],
           ["<strong>Score</strong> or <strong>Choice</strong>", "Score: a number out of the total. Choice: your own words (Yes / No, Pass / Fail)."],
-          ["<strong>Weight in the subject total (%)</strong>", "How much it counts toward the term grade. A term's weights add up to 100."],
+          ["<strong>Weight</strong>", "How much it counts toward the subject total on a report card that scales subjects (Report Settings). Weights are relative: weight 2 counts twice as much as weight 1."],
           ["<strong>Marked out of</strong>", "The highest score."],
           ["<strong>Category</strong>", "Class Assessment, Exams Assessment or Other."],
+          ["<strong>Time limit, Attempts, Book</strong> (More options)", "The test's question settings, set here or later when you add questions. Leave them empty to keep the defaults: no time limit, one attempt, closed book."],
           ["<strong>Show the score out of</strong> (More options)", "What scores are scaled to on reports, usually 100."],
-          ["<strong>Scores can be entered from / until</strong> (More options)", "When scores can be entered. Leave empty for any time."],
+          ["<strong>Due date</strong>", "Students can take the test until then, and scores can be entered until then. Leave empty for no end date."],
+          ["<strong>Late until</strong>", "Optional. After the due date, a test handed in is still accepted and marked <strong>Late</strong> until this time. After it, the test shows as Closed to the student."],
+          ["<strong>Scores can be entered from</strong> (More options)", "The first day scores can be entered. Leave empty for any time."],
           ["<strong>Lock scores</strong> (More options)", "Stops changes once scores are final."],
           ["<strong>Open for scores now</strong> (More options)", "Opens it for scores straight away."],
           ["<strong>Email the teachers of these classes</strong> (More options)", "Tells the teachers of those classes."],
@@ -69,7 +72,7 @@ module.exports = [
       {
         title: "Start a question set",
         steps: [
-          ["Open the class and choose <strong>Assessment Questions</strong> (or <strong>Management</strong>, <strong>Assessment questions</strong>), then <strong>Set Questions</strong>. Each set shows on one line: questions, points, book, time, attempts and status.", "questions-list.webp", "Assessment questions: every set, one per line."],
+          ["Open the class and choose <strong>Assessment Questions</strong> (or <strong>Management</strong>, <strong>Assessment questions</strong>), then <strong>New questions</strong>. Each set shows on one line: questions, points, book, time, attempts and status.", "questions-list.webp", "Assessment questions: every set, one per line."],
           ["Pick the class, subject and assessment. No assessment yet? Select <strong>+</strong> beside it to create one without leaving.", "questions-start.webp", "A new set: choose how to start."],
           "Choose how to start: <strong>Write</strong> (a blank question), <strong>Reuse</strong> (copy an earlier set, then change it) or <strong>Upload</strong> (a PDF, Word file or photo of a paper test, turned into questions you can edit). You can always add more questions after.",
         ],
@@ -87,7 +90,7 @@ module.exports = [
           ["<strong>True / False</strong>", "Pick True or False.", "Automatically"],
           ["<strong>Short answer</strong>", "Type a word or phrase.", "Automatically; capitals and extra spaces don't matter"],
           ["<strong>Label a picture</strong>", "Type what each numbered spot shows.", "Automatically; a share of the marks per spot"],
-          ["<strong>Essay</strong>", "Write freely.", "By you"],
+          ["<strong>Essay</strong>", "Write freely. Add a <strong>Rubric</strong> to mark it by criteria (Content 5, Language 2 ...): its total is the question's marks.", "By you"],
         ],
       },
       {
@@ -103,16 +106,19 @@ module.exports = [
           ["Setting", "Choose"],
           ["<strong>Assessment mode</strong>", "<strong>Closed book</strong>: one secure page; leaving it locks the test until you unlock it; resources hidden. <strong>Open book</strong>: students may use notes, and see the files you attach."],
           ["<strong>Time limit</strong>", "Minutes, or Unlimited. The test submits itself when time runs out."],
+          ["<strong>Shuffle questions</strong>", "Tick it and each student gets the questions in their own order. It stays the same if they reload."],
           ["<strong>Max attempts</strong>", "How many times a student may take it."],
           ["<strong>Share with family</strong>", "After you post the grade: <strong>Nothing</strong>, the <strong>Grade</strong>, or <strong>Grade and answers</strong> (the questions, their answers and the right ones)."],
           ["<strong>Show on parent portal</strong>", "Parents see the questions to help at home, with your notes and files (resources)."],
+          ["<strong>Hint</strong> (on a question)", "One optional line under a question. Files and links go in the test's <strong>Resources</strong>, not on a question."],
         ],
       },
       {
         title: "Save, review and edit",
         list: [
-          "<strong>Save Questions</strong> sends the set for review. Students see it once a reviewer chooses <strong>Approve</strong> from the set's <strong>⋮</strong> menu.",
-          "To change a set, open its <strong>⋮</strong> menu and choose <strong>Edit</strong>. You can edit until a student starts; after that, unlock a student for a retake instead.",
+          "<strong>Save Questions</strong> makes the test available to students. If your school turned on <strong>Review tests before students see them</strong> (a manager sets this above the list), a manager or supervisor, not you, approves it first from the set's <strong>⋮</strong> menu.",
+          "To change a set, open its <strong>⋮</strong> menu and choose <strong>Edit</strong>. You can edit until a student starts.",
+          "Fixed a wrong answer after students started? Open <strong>Students</strong>, choose <strong>Fix an answer</strong>, pick the question, type the right answer and select <strong>Mark again for everyone</strong>. Only that question is marked again, a teacher's own changes to a score stay, and changed grades go back to waiting until you post them.",
         ],
       },
       {
@@ -126,15 +132,16 @@ module.exports = [
       {
         title: "Mark written answers",
         steps: [
-          ["Open the set's <strong>⋮</strong> menu, choose <strong>Students</strong>, then <strong>Grade</strong> beside a student. Check each answer, change marks, and save.", "questions-grade-attempt.webp", "Grading one student's test: their answers, the right ones and the marks."],
-          "Post the grade from the gradebook (✓). See <a href=\"/legal/user-documentation/grading-or-marking-assessment\">Enter scores and post grades</a>.",
+          "Open <strong>Gradebook</strong> in the class menu and choose <strong>Review</strong> (the first choice; the <strong>Review</strong> button in a subject's gradebook opens the same list). It lists the tests with written answers waiting, each with a count (\"3 to review\"). Select <strong>Review</strong>: you mark one question at a time across everyone who handed in, with <strong>Previous</strong>, <strong>Next</strong> and <strong>Save and next</strong>. The switch at the top changes between <strong>By student</strong> and <strong>By question</strong>. Changed grades go back to waiting until you post them.",
+          ["Or open the set's <strong>⋮</strong> menu, choose <strong>Students</strong>, then <strong>Grade</strong> beside a student. Check each answer, change marks, and save.", "questions-grade-attempt.webp", "Grading one student's test: their answers, the right ones and the marks."],
+          "Select <strong>Post grades</strong> (or ✓ on the gradebook: it is the same). Before you post, you see what families will see. See <a href=\"/legal/user-documentation/grading-or-marking-assessment\">Enter scores and post grades</a>.",
         ],
         note: "Every student's test is kept, with their answers, for as long as the term is kept.",
       },
     ],
     faq: [
-      ["Students can't see my test.", "Check that the set is approved, the assessment is active and open, and the student is enrolled in the class and subject."],
-      ["Why can't I change the questions?", "A student has already started. Unlock a student for a retake from <strong>Students</strong> instead."],
+      ["Students can't see my test.", "If your school reviews tests first, check that the set is approved. Also check the assessment is active and open, and the student is enrolled in the class and subject."],
+      ["Why can't I change the questions?", "A student has already started. To fix a wrong answer key, open <strong>Students</strong> and choose <strong>Fix an answer</strong>: only that question is marked again, and changed grades wait until you post them. To let one student try again, unlock them there."],
       ["Do parents see the questions before the test?", "Only if you turn on <strong>Show on parent portal</strong>. For a closed-book test, leave it off until after."],
     ],
     related: ["create-a-test-or-assessment", "grading-or-marking-assessment", "student-testing-room", "parent-tests-and-results"],
@@ -151,7 +158,7 @@ module.exports = [
       {
         title: "Enter scores",
         steps: [
-          ["Open the class, choose <strong>Grading</strong> and the subject. Each assessment is a column; the newest is on the right. Type each score and select <strong>Save</strong>.", "gradebook.webp", "The gradebook: dots show what families see; ✓ posts new grades."],
+          ["Open the class, choose <strong>Gradebook</strong> and the subject. Each assessment is a column; the newest is on the right. Type each score and select <strong>Save</strong>.", "gradebook.webp", "The gradebook: dots show what families see; ✓ posts new grades."],
           "Totals, the scaled score, percentage, grade and position work themselves out.",
         ],
       },
@@ -161,25 +168,25 @@ module.exports = [
         table: [
           ["Dot", "Means"],
           ["Grey", "Posted: parents and the student see it."],
-          ["Yellow", "Needs approval: you typed or changed it."],
+          ["Yellow", "Ready to post: you typed or changed it."],
           ["Blue", "New online result: the student took the test."],
         ],
         steps: [
           "When a column has grades waiting, a ✓ with their count appears beside <strong>Open</strong>.",
-          "Select ✓, then <strong>Approve and post</strong>. Parents and the student see the grades, and each family gets a notice.",
+          "Select ✓, then <strong>Post</strong>. Parents and the student see the grades, and each family gets a notice.",
         ],
         note: "Change a posted grade and it waits again; families keep seeing the last posted grade until you approve the new one.",
       },
       {
         title: "Choose what you see",
         steps: [
-          ["<strong>Filter</strong> shows all students or only male or female students, and all assessments or just the last 5, 4, 3, 2 or 1. Your choice is remembered on any device.", "gradebook-filter.webp", "Filter: students, and how many assessments show."],
+          ["<strong>Filters</strong> shows all students or only male or female students, and all assessments, the last 1, 2, 3 and so on (as many as there are), or one assessment. Your range is remembered on any device.", "gradebook-filter.webp", "Filter: students, and how many assessments show."],
           ["Select <strong>≡</strong> beside the totals to choose which ones show: total score, scaled score, percentage, grade and position. Just for you.", "gradebook-totals.webp", "Choose the totals you see."],
         ],
       },
       {
         title: "How grades are worked out",
-        text: "Each score is scaled by the assessment's <strong>Scale Base</strong> and weighted by its <strong>Test Weight</strong>. The total gets a letter grade and remark from your grading scale. See <a href=\"/legal/user-documentation/configure-dynamic-grading-and-remarks\">Grading scales and remarks</a>.",
+        text: "Each score is scaled by the assessment's <strong>Scaled out of</strong> and weighted by its <strong>Weight</strong>. The total gets a letter grade and remark from your grading scale. See <a href=\"/legal/user-documentation/configure-dynamic-grading-and-remarks\">Grading scales and remarks</a>.",
         example: "A student scores 42 out of 50 on a Unit Test worth 30%: 42 / 50 = 84%, which adds 25.2 points to the term total.",
       },
     ],
@@ -220,3 +227,4 @@ module.exports = [
     related: ["report-settings", "grading-or-marking-assessment", "report-card"],
   },
 ];
+

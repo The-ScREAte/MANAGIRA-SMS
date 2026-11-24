@@ -28,29 +28,19 @@
 
   // ---------------------------------------------------------------- sharing and exam mode
   var shareSelect = null;
+  var shuffleBox = null;
   var modeHint = null;
   function addSettings() {
     var mode = document.getElementById('question-open-book');
     if (!mode || document.getElementById('qbf-parent-share') || document.querySelector('.qbf-hint[data-qbf-mode]')) return;
     var modeField = mode.closest('.qm-field');
-    modeHint = document.createElement('p');
-    modeHint.className = 'qbf-hint';
-    modeHint.setAttribute('data-qbf-mode', '');
-    modeField.appendChild(modeHint);
-    function syncMode() {
-      modeHint.textContent = mode.value === 'true'
-        ? 'Students can use notes and your resources.'
-        : 'One secure page: leaving it locks the test. Resources stay hidden.';
-    }
-    mode.addEventListener('change', syncMode);
-    syncMode();
     if (cfg.extras === false) return; // sharing needs the flow's columns
 
     var field = document.createElement('div');
     field.className = 'qm-field qbf-share-field';
     field.innerHTML =
       '<label for="qbf-parent-share">Share with family</label>' +
-      '<select id="qbf-parent-share" title="Shared once you post the grade (✓ on the gradebook)">' +
+      '<select id="qbf-parent-share">' +
       '  <option value="">Nothing</option>' +
       '  <option value="grade">Grade</option>' +
       '  <option value="full">Grade and answers</option>' +
@@ -58,6 +48,54 @@
     modeField.parentNode.insertBefore(field, modeField.nextSibling);
     shareSelect = field.querySelector('select');
     shareSelect.value = 'grade';
+    if (cfg.shuffle) {
+      var shuffle = document.createElement('div');
+      shuffle.className = 'qm-field qbf-shuffle-field';
+      shuffle.innerHTML = '<label class="qbf-check"><input type="checkbox" id="qbf-shuffle"> Shuffle questions</label>';
+      field.parentNode.insertBefore(shuffle, field.nextSibling);
+      shuffleBox = shuffle.querySelector('input');
+    }
+  }
+
+  // ---------------------------------------------------------------- Settings, tucked under one row
+  // The year, term, class, subject, assessment, book, time, attempts, title and resources sit under one
+  // collapsed "Settings" row with a one-line summary, so Write / Reuse / Upload is the first thing seen.
+  var settings = null;
+  function summarise() {
+    if (!settings) return;
+    var sum = settings.querySelector('.qbf-settings__sum');
+    var book = document.getElementById('question-open-book');
+    var mode = document.getElementById('question-time-mode');
+    var mins = document.getElementById('question-time-limit');
+    var tries = document.getElementById('question-max-attempts');
+    var parts = [];
+    if (book && book.selectedOptions && book.selectedOptions[0]) parts.push(book.selectedOptions[0].textContent.trim());
+    if (mode && mode.value === 'unlimited') parts.push('No time limit');
+    else if (mins && String(mins.value || '').trim()) parts.push(String(mins.value).trim() + ' min');
+    var n = tries ? Math.max(parseInt(tries.value, 10) || 1, 1) : 1;
+    parts.push(n + (n === 1 ? ' attempt' : ' attempts'));
+    var text = parts.join(' · ');
+    if (sum.textContent !== text) sum.textContent = text;
+  }
+  function ensureSettings() {
+    if (settings && document.body.contains(settings)) return settings;
+    var first = document.querySelector('#question-modal-overlay .qm-body > .qm-section');
+    if (!first || !document.getElementById('question-school-year')) return null;
+    settings = document.createElement('details');
+    settings.className = 'qbf-settings';
+    settings.innerHTML = '<summary><span class="qbf-settings__name">Settings</span><span class="qbf-settings__sum"></span></summary><div class="qbf-settings__body"></div>';
+    first.parentNode.insertBefore(settings, first);
+    settings.querySelector('.qbf-settings__body').appendChild(first);
+    ['change', 'input', 'toggle'].forEach(function (type) { settings.addEventListener(type, summarise); });
+    summarise();
+    // The fields are also set from code (opening a set, picking an assessment): keep the line current.
+    setInterval(summarise, 700);
+    return settings;
+  }
+  // A required setting is missing (for example no assessment chosen): open Settings so it shows.
+  function settingsNeeded() {
+    var el = ensureSettings();
+    if (el) el.open = true;
   }
 
   // ---------------------------------------------------------------- + Assessment
@@ -115,9 +153,9 @@
     return !(text && String(text.value || '').trim()) && !cards[0].__qbfMedia;
   }
   var START_CARDS = [
-    { key: 'write', title: 'Write', text: 'Start blank', icon: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>' },
-    { key: 'reuse', title: 'Reuse', text: 'Copy an earlier set', icon: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>' },
-    { key: 'upload', title: 'Upload', text: 'PDF, Word or photo', icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>' },
+    { key: 'write', title: 'Write', text: '', icon: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>' },
+    { key: 'reuse', title: 'Reuse', text: '', icon: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>' },
+    { key: 'upload', title: 'Upload', text: '', icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>' },
   ];
   function ensureStart() {
     if (start && document.body.contains(start)) return start;
@@ -129,11 +167,11 @@
     start.className = 'qbf-start';
     start.setAttribute('aria-label', 'How to start');
     start.innerHTML =
-      '<div class="qbf-start__head"><h3>Start with</h3></div>' +
+      '<div class="qbf-start__head"><h3>Start</h3></div>' +
       '<div class="qbf-start__cards">' + START_CARDS.map(function (card) {
         return '<button type="button" class="qbf-start__card" data-qbf-start="' + card.key + '">' +
           '<span class="qbf-start__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + card.icon + '</svg></span>' +
-          '<strong>' + card.title + '</strong><span>' + card.text + '</span></button>';
+          '<strong>' + card.title + '</strong>' + (card.text ? '<span>' + card.text + '</span>' : '') + '</button>';
       }).join('') + '</div>' +
       '<div class="qbf-library" hidden>' +
       '  <div class="qbf-library__bar"><button type="button" class="qbf-link" data-qbf-back>← Back</button>' +
@@ -244,9 +282,8 @@
     var empty = box.querySelector('.qbf-media__empty');
     var stage = box.querySelector('.qbf-media__stage');
     var hint = box.querySelector('.qbf-media__hint');
-    hint.textContent = labelMode
-      ? 'Add a picture, then click it to number each part.'
-      : 'Optional picture.';
+    hint.textContent = labelMode ? 'Click the picture to number each part.' : '';
+    hint.hidden = !hint.textContent;
     if (!media || !media.image) {
       empty.hidden = false;
       stage.hidden = true;
@@ -323,7 +360,7 @@
     box.className = 'qm-field qbf-media';
     box.innerHTML =
       '<div class="qbf-media__empty">' +
-      '  <button type="button" class="qbf-pic-btn" data-qbf-pick>' + PICTURE_ICON + '<span>Add a picture</span></button>' +
+      '  <button type="button" class="qbf-pic-btn" data-qbf-pick>' + PICTURE_ICON + '<span>Picture</span></button>' +
       '  <span class="qbf-media__hint"></span>' +
       '</div>' +
       '<div class="qbf-media__stage" hidden>' +
@@ -418,13 +455,17 @@
   function loadSet(set) {
     addSettings();
     if (shareSelect) shareSelect.value = set ? (set.parentShare || '') : 'grade';
+    if (shuffleBox) shuffleBox.checked = Boolean(set && set.shuffleQuestions);
+  }
+  function shuffle() {
+    return shuffleBox ? shuffleBox.checked : undefined;
   }
   function parentShare() {
     return shareSelect ? shareSelect.value : undefined;
   }
   function afterSave(result) {
     if (!inPanel) return false;
-    tell('managira:questions-saved', { questionSetId: result && result.questionSetId, message: 'Questions saved and sent for review.' });
+    tell('managira:questions-saved', { questionSetId: result && result.questionSetId, message: (result && result.message) || 'Questions saved.' });
     return true;
   }
   function closed() {
@@ -441,6 +482,8 @@
       if (open && !wasOpen) {
         addSettings();
         addCreateButton();
+        ensureSettings();
+        if (settings) settings.open = false;
         setTimeout(function () { showStart(hooks.mode() !== 'edit' && pristine()); }, 0);
       }
       if (!open) showStart(false);
@@ -454,12 +497,15 @@
     previewMedia: previewMedia,
     loadSet: loadSet,
     parentShare: parentShare,
+    shuffle: shuffle,
     afterSave: afterSave,
     closed: closed,
+    settingsNeeded: settingsNeeded,
   };
 
   addSettings();
   addCreateButton();
+  ensureSettings();
   // Cards built before this file loaded (a restored draft) get their picture tools now.
   questionCards().forEach(function (card) { decorate(card, {}); });
 

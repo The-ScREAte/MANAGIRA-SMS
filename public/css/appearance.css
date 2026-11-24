@@ -10,7 +10,7 @@
     --ap-surface: #ffffff;
     --ap-surface-2: #f6f6f6;
     --ap-header: #ffffff;
-    --ap-line: #e4e4e7;
+    --ap-line: #d4d4d8;
     --ap-text: #111111;
     --ap-muted: #3f3f46;
   }
@@ -42,7 +42,7 @@
     --ap-page: oklch(0.185 0.006 255);
     --ap-surface: oklch(0.255 0.008 255);
     --ap-surface-2: oklch(0.29 0.008 255);
-    --ap-line: oklch(0.37 0.008 255);
+    --ap-line: oklch(0.47 0.01 255);
     --ap-text: oklch(0.93 0.004 255);
     --ap-muted: oklch(0.75 0.008 255);
     color-scheme: dark;
@@ -183,3 +183,17 @@ html[data-appearance="dark"] .ap-dots .ap-dot[aria-checked="true"] { box-shadow:
   html[data-appearance="gray"] header#top-header:has(> .sticky-nav) { background: #f8f6ef !important; }
   html[data-appearance="dark"] header#top-header:has(> .sticky-nav) { background: var(--ap-header, #1f242b) !important; }
 }
+
+
+/* Every dropdown: the arrow sits a comfortable distance from the edge, in the same place everywhere. */
+select:not([multiple]):not([size]):not(.no-chevron) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' stroke='%2364748b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 8px !important;
+  padding-right: 38px !important;
+  text-overflow: ellipsis;
+}
+select:not([multiple]):not([size]):not(.no-chevron)::-ms-expand { display: none; }

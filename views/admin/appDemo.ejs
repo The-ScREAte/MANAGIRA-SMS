@@ -142,10 +142,10 @@
 
   .ade-switch { position: relative; display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--a-ink); }
   .ade-switch input { position: absolute; opacity: 0; pointer-events: none; }
-  .ade-switch__track { position: relative; width: 32px; height: 18px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
-  .ade-switch__track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .ade-switch__track { position: relative; width: 26px; height: 15px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
+  .ade-switch__track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
   .ade-switch input:checked + .ade-switch__track { background: var(--a-brand); }
-  .ade-switch input:checked + .ade-switch__track::after { transform: translateX(14px); }
+  .ade-switch input:checked + .ade-switch__track::after { transform: translateX(11px); }
   .ade-switch input:focus-visible + .ade-switch__track { outline: 2px solid var(--a-brand); outline-offset: 2px; }
 
   /* Steps */

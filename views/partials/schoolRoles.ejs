@@ -11,7 +11,7 @@
   <% if (_sr.roles.length) { %><optgroup label="Your school's roles" data-school-roles-group><% _sr.roles.forEach((r) => { %>
     <option value="<%= r.base %>" data-role-id="<%= r.id %>" data-role-name="<%= r.name %>" data-permissions="<%= JSON.stringify(r.permissions) %>"<%= r.id === _current ? ' selected' : '' %>><%= r.name %></option>
   <% }) %></optgroup><% } %>
-  <option value="" data-add-role>＋ Add a role…</option>
+  <option value="" data-add-role>＋ Add a role</option>
 <% } else { %>
   <input type="hidden" name="schoolRoleId" value="<%= _current || '' %>" data-school-role-input>
   <div class="sr-box" data-school-role-box hidden>
@@ -26,7 +26,6 @@
         </select>
       </label>
     </div>
-    <p class="sr-hint">Starts with that role's permissions. Change them below, then save.</p>
     <p class="sr-error" data-sr-error role="alert" hidden></p>
     <div class="sr-actions">
       <button type="button" class="sr-btn sr-btn--main" data-sr-save>Add role</button>

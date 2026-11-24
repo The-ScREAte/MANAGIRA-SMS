@@ -1020,8 +1020,8 @@
     border:1px solid var(--pg-modal-line);
     border-radius:0;
     padding:0 24px;
-    max-width:560px;
-    width:min(560px, 100%);
+    max-width:min(1040px, 100%);
+    width:min(1040px, 100%);
     /* The page is zoomed, so 100vh falls short of the screen: the backdrop stretches it instead. */
     height:auto;
     min-height:0;
@@ -2584,7 +2584,7 @@
     };
 
     payModal.addEventListener('click', function(e) {
-      if (e.target === payModal) closePgPay();
+      /* panels close only with X or Escape */
     });
     payModal.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {

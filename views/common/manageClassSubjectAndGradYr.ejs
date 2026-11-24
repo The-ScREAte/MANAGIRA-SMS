@@ -99,7 +99,7 @@
       .acs-modal {
         position: relative;
         width: 100%;
-        max-width: 760px;
+        max-width: min(1040px, 100vw);
         height: 100%;
         min-height: 100%;
         max-height: 100%;
@@ -1163,14 +1163,13 @@
       <input type="hidden" name="action" value="obsolete" />
     </form>
 
-    <div class="acs-modal-overlay" id="acsModalOverlay" aria-hidden="true">
+    <div class="acs-modal-overlay" id="acsModalOverlay" aria-hidden="true" data-below-header="is-open" data-popup-lift>
       <div class="acs-modal">
         <div class="acs-modal-header">
           <div class="acs-modal-header-left">
             <div class="acs-modal-header-icon">➕</div>
             <div>
-              <h2 id="acsModalTitle"> Add New Items</h2>
-              <p>Add classes, subjects, or graduation year groups</p>
+              <h2 id="acsModalTitle">Add</h2>
             </div>
           </div>
           <button type="button" class="acs-modal-close" id="acsModalClose" title="Close">
@@ -1184,7 +1183,7 @@
             <span class="acs-modal-spinner" aria-hidden="true"></span>
             Loading…
           </div>
-          <iframe class="acs-modal-iframe" id="acsModalIframe" title=" Add New Items" style="display:none;"></iframe>
+          <iframe class="acs-modal-iframe" id="acsModalIframe" title="Add" style="display:none;"></iframe>
         </div>
       </div>
     </div>
@@ -1539,7 +1538,7 @@
         const overlay = document.getElementById('acsModalOverlay');
         if (overlay) {
           overlay.addEventListener('click', function (event) {
-            if (event.target === overlay) closeAddClassSubjectModal();
+            /* panels close only with X or Escape */
           });
         }
 
@@ -1593,5 +1592,6 @@
       })();
     </script>
     </div>
+    <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
   </body>
 </html>

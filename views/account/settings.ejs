@@ -934,7 +934,7 @@
         top: 0;
         right: 0;
         height: 100%;
-        width: min(420px, 92vw);
+        width: min(1040px, 100vw);
         background: #fff;
         box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18);
         transform: translateX(100%);
@@ -3684,8 +3684,8 @@
                         <%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'checked' : '' %>
                         onchange="toggleSidPanel(this.checked)"
                         style="position:absolute; opacity:0; width:0; height:0;" />
-                      <span id="sidToggleTrack" style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
-                        <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                      <span id="sidToggleTrack" style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:999px; transition:background 0.2s; position:relative;">
+                        <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '13px' : '2px' %>; width:11px; height:11px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
                       </span>
                     </label>
                   </div>
@@ -3711,10 +3711,10 @@
                       <label class="cz-switch">
                         <input type="checkbox" name="studentIdAutoGenerate"
                           <%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'checked' : '' %>
-                          onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'22px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
+                          onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'13px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
                           style="position:absolute; opacity:0; width:0; height:0;" />
-                        <span style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
-                          <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                        <span style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:999px; transition:background 0.2s; position:relative;">
+                          <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '13px' : '2px' %>; width:11px; height:11px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
                         </span>
                       </label>
                     </div>
@@ -3750,7 +3750,7 @@
                       var thumb = document.getElementById('sidToggleThumb');
                       if (p) p.style.display = on ? '' : 'none';
                       if (track) track.style.background = on ? 'var(--primary, #01535b)' : '#cbd5e1';
-                      if (thumb) thumb.style.left = on ? '22px' : '2px';
+                      if (thumb) thumb.style.left = on ? '13px' : '2px';
                     }
                     function updateSidPreview() {
                       var inp = document.getElementById('studentIdPrefix');
@@ -5487,8 +5487,9 @@
         </div>
       </div>
     </div>
-    <div class="integration-info-backdrop" id="integration-info-backdrop"></div>
-    <aside class="integration-info-panel" id="integration-info-panel" aria-hidden="true">
+    <div class="integration-info-backdrop" id="integration-info-backdrop" data-below-header="show"></div>
+    <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
+    <aside class="integration-info-panel" id="integration-info-panel" aria-hidden="true" data-below-header="show" data-popup-lift>
       <div class="integration-info-panel-head">
         <h3 id="integration-info-title">Integration</h3>
         <button class="integration-info-panel-close" type="button" id="integration-info-close" aria-label="Close">x</button>
@@ -9410,7 +9411,7 @@
         });
 
         if (integrationInfoClose) integrationInfoClose.addEventListener("click", closeIntegrationInfo);
-        if (integrationInfoBackdrop) integrationInfoBackdrop.addEventListener("click", closeIntegrationInfo);
+        /* the backdrop does not close the panel */
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape") closeIntegrationInfo();
         });

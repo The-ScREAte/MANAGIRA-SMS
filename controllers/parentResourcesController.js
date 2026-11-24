@@ -47,6 +47,8 @@ module.exports = {
   questionHelpFile: async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ success: false, message: "Choose a file first." });
+    const fileProblem = require("../utils/resourceFileRules").checkResourceFile(file);
+    if (fileProblem) return res.status(400).json({ success: false, message: fileProblem });
     try {
       const crypto = require("crypto");
       const path = require("path");
@@ -64,6 +66,14 @@ module.exports = {
     const organizationId = req.session.organizationId;
     const questionSetId = toId(req.body?.questionSetId);
     if (!(await parentResources.readSettings(db, organizationId, questionSetId))) return null;
+    for (const file of req.files || []) {
+      const problem = require("../utils/resourceFileRules").checkResourceFile(file);
+      if (problem) {
+        const error = new Error(problem);
+        error.status = 400;
+        throw error;
+      }
+    }
     return { files: await parentResources.addFiles(db, organizationId, questionSetId, req.files || [], req.session.userId || req.session.user?.user_id || null) };
   }),
 
@@ -72,3 +82,4 @@ module.exports = {
     return removed ? {} : null;
   }),
 };
+

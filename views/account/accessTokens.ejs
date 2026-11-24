@@ -167,26 +167,28 @@
   </div>
 
   <!-- New token drawer -->
-  <div class="mgr-drawer-overlay aa-drawer" id="patDrawer" aria-hidden="true">
-    <form class="mgr-drawer" id="patForm" style="--mgr-drawer-width:520px" autocomplete="off">
+  <div class="mgr-drawer-overlay aa-drawer" id="patDrawer" aria-hidden="true" data-below-header="is-open">
+    <form class="mgr-drawer" id="patForm" style="--mgr-drawer-width:1040px" autocomplete="off">
       <div class="mgr-drawer-header">
-        <h2>New Token</h2>
+        <h2>New token</h2>
         <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </div>
       <div class="aa-drawer-body" data-step="form">
-        <label class="aa-field"><span>Name <b aria-hidden="true">*</b></span><input name="name" placeholder="Create a unique name" maxlength="120" required></label>
+        <div class="aa-row3">
+        <label class="aa-field"><span>Name <b aria-hidden="true">*</b></span><input name="name" placeholder="Unique name" maxlength="120" required></label>
         <label class="aa-field"><span>Service account <b aria-hidden="true">*</b></span>
           <select name="serviceAccountId" required>
-            <option value="">Select a service account</option>
+            <option value="">Select</option>
             <% serviceAccounts.forEach((a) => { %><option value="<%= a.id %>"><%= a.name %></option><% }) %>
           </select>
         </label>
         <label class="aa-field"><span>Expires in</span>
           <select name="expiresInDays"><% tokenExpiryDays.forEach((d) => { %><option value="<%= d %>" <%= d === 365 ? 'selected' : '' %>><%= d === 365 ? '1 year' : d + ' days' %></option><% }) %></select>
         </label>
+        </div>
         <fieldset class="aa-fieldset">
           <legend>Scopes <b aria-hidden="true">*</b></legend>
-          <p class="aa-hint" id="patScopeHint">Select a service account to see the scopes it allows.</p>
+          <p class="aa-hint" id="patScopeHint">Choose a service account.</p>
           <% scopeGroups.forEach((g) => { %>
           <label class="aa-scope" data-group="<%= g.key %>">
             <span class="aa-scope__head"><input type="checkbox" name="scopeGroups" value="<%= g.key %>" disabled> <strong><%= g.label %></strong></span>
@@ -200,7 +202,7 @@
       <div class="aa-drawer-body" data-step="done" hidden>
         <div class="aa-reveal">
           <strong>Copy your token now</strong>
-          <p>For your security it won't be shown again. Store it in your integration's settings.</p>
+          <p>Shown once.</p>
           <div class="aa-reveal__value"><input class="aa-reveal__input" id="patValue" readonly aria-label="Personal access token"><button type="button" class="aa-btn aa-btn--primary aa-btn--sm" data-copy="#patValue">Copy</button></div>
         </div>
       </div>
@@ -212,23 +214,25 @@
   </div>
 
   <!-- New client secret drawer -->
-  <div class="mgr-drawer-overlay aa-drawer" id="secretDrawer" aria-hidden="true">
-    <form class="mgr-drawer" id="secretForm" style="--mgr-drawer-width:480px" autocomplete="off">
+  <div class="mgr-drawer-overlay aa-drawer" id="secretDrawer" aria-hidden="true" data-below-header="is-open">
+    <form class="mgr-drawer" id="secretForm" style="--mgr-drawer-width:1040px" autocomplete="off">
       <div class="mgr-drawer-header">
-        <h2>New Client Secret</h2>
+        <h2>New client secret</h2>
         <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       </div>
       <div class="aa-drawer-body" data-step="form">
-        <label class="aa-field"><span>Description</span><input name="description" placeholder="What this secret is for" maxlength="255"></label>
+        <div class="aa-row2">
+        <label class="aa-field"><span>Description</span><input name="description" placeholder="Optional" maxlength="255"></label>
         <label class="aa-field"><span>Expires in</span>
           <select name="expiresInDays"><% secretExpiryDays.forEach((d) => { %><option value="<%= d %>" <%= d === 365 ? 'selected' : '' %>><%= d === 365 ? '1 year' : d === 730 ? '2 years' : d + ' days' %></option><% }) %></select>
         </label>
+        </div>
         <p class="aa-error" id="secretError" role="alert" hidden></p>
       </div>
       <div class="aa-drawer-body" data-step="done" hidden>
         <div class="aa-reveal">
           <strong>Copy your client secret now</strong>
-          <p>For your security it won't be shown again. Use it with your client ID.</p>
+          <p>Shown once.</p>
           <span class="aa-reveal__label">Client ID</span>
           <div class="aa-reveal__value"><input class="aa-reveal__input" id="secretClientId" value="<%= clientId %>" readonly aria-label="Client ID"><button type="button" class="aa-btn aa-btn--ghost aa-btn--sm" data-copy="#secretClientId">Copy</button></div>
           <span class="aa-reveal__label">Client secret</span>
@@ -244,28 +248,29 @@
 </div>
 
 <div class="gp-page aa-page aa-guide-host">
-<div class="mgr-drawer-overlay aa-drawer" id="reqDrawer" aria-hidden="true">
-  <form class="mgr-drawer" id="reqForm" style="--mgr-drawer-width:500px" autocomplete="off">
+<div class="mgr-drawer-overlay aa-drawer" id="reqDrawer" aria-hidden="true" data-below-header="is-open">
+  <form class="mgr-drawer" id="reqForm" style="--mgr-drawer-width:1040px" autocomplete="off">
     <div class="mgr-drawer-header">
-      <h2>Request a bigger API allowance</h2>
+      <h2>Request more API calls</h2>
       <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
     <div class="aa-drawer-body">
-      <p class="aa-hint">Now: <strong><%= usage.allowance.perMinute.toLocaleString('en-US') %></strong> calls a minute and <strong><%= usage.allowance.perDay.toLocaleString('en-US') %></strong> a day. Managira replies with a monthly price; nothing is charged until we grant it.</p>
-      <label class="aa-field"><span>Calls a minute <b aria-hidden="true">*</b></span>
+      <div class="aa-row2">
+      <label class="aa-field"><span>Per minute <b aria-hidden="true">*</b></span>
         <select name="perMinute">
           <% [usage.allowance.perMinute, 240, 600, 1200, 3000].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).forEach((v) => { %><option value="<%= v %>" <%= v === Math.max(240, usage.allowance.perMinute) ? 'selected' : '' %>><%= v.toLocaleString('en-US') %><%= v === usage.allowance.perMinute ? ' (current)' : '' %></option><% }) %>
         </select>
       </label>
-      <label class="aa-field"><span>Calls a day <b aria-hidden="true">*</b></span>
+      <label class="aa-field"><span>Per day <b aria-hidden="true">*</b></span>
         <select name="perDay">
           <% [usage.allowance.perDay, 25000, 50000, 100000, 250000, 1000000].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).forEach((v) => { %><option value="<%= v %>" <%= v === Math.max(25000, usage.allowance.perDay) ? 'selected' : '' %>><%= v.toLocaleString('en-US') %><%= v === usage.allowance.perDay ? ' (current)' : '' %></option><% }) %>
         </select>
       </label>
-      <label class="aa-field"><span>What the extra calls are for <b aria-hidden="true">*</b></span>
-        <textarea name="reason" rows="4" maxlength="2000" placeholder="e.g. Our accounting app syncs PayGira payments every 15 minutes for 1,200 students." required></textarea>
+      </div>
+      <label class="aa-field"><span>Reason <b aria-hidden="true">*</b></span>
+        <textarea name="reason" rows="4" maxlength="2000" placeholder="What the extra calls are for" required></textarea>
       </label>
-      <label class="aa-field"><span>Contact email for our reply</span><input name="contactEmail" type="email" value="<%= contactEmail %>" maxlength="255"></label>
+      <label class="aa-field"><span>Reply email</span><input name="contactEmail" type="email" value="<%= contactEmail %>" maxlength="255"></label>
       <p class="aa-error" id="reqError" role="alert" hidden></p>
     </div>
     <div class="aa-drawer-footer">
@@ -274,10 +279,10 @@
     </div>
   </form>
 </div>
-<div class="mgr-drawer-overlay aa-drawer" id="guideDrawer" aria-hidden="true">
-  <div class="mgr-drawer aa-guide" style="--mgr-drawer-width:640px">
+<div class="mgr-drawer-overlay aa-drawer" id="guideDrawer" aria-hidden="true" data-below-header="is-open">
+  <div class="mgr-drawer aa-guide" style="--mgr-drawer-width:1040px">
     <div class="mgr-drawer-header">
-      <h2>How to connect an integration</h2>
+      <h2>Connect an integration</h2>
       <button type="button" class="mgr-drawer-close" data-close aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
     <div class="aa-drawer-body">
@@ -326,6 +331,7 @@ Authorization: Bearer &lt;access_token&gt;</pre>
 </div>
 
 <script src="<%= assetUrl('/js/apiAccess.js') %>"></script>
+<script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
 <script>
   (function () {
     const page = document.getElementById('accessTokensPage');

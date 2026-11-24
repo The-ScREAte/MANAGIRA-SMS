@@ -220,3 +220,8 @@ body:has(.ex) { background: #f6f7f9; }
 .ex-help summary { color: var(--org-primary-color, #2563eb); font-weight: 700; cursor: pointer; }
 .ex-help p { margin: 8px 0 0; white-space: pre-wrap; }
 .ex-help a { display: block; margin-top: 6px; color: var(--org-primary-color, #2563eb); font-weight: 600; overflow-wrap: anywhere; }
+
+/* How a written answer is marked (its rubric): small chips under the question. */
+.ex-rubric { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; }
+.ex-rubric li { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 999px; font-size: .8rem; }
+.ex-rubric li b { font-weight: 700; opacity: .8; }

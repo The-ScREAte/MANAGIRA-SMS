@@ -619,3 +619,31 @@ a.rb-link:focus-visible { outline: 2px solid var(--org-primary-color, #0f766e); 
 .rb-criterion .rb-drag { margin-top: 5px; }
 .is-reordering, .is-reordering * { cursor: grabbing !important; user-select: none; }
 .rb-chosen-row.is-dragging { opacity: 0.85; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.16); border-color: var(--rb-primary, #01535b); position: relative; z-index: 2; }
+
+/* Pop-ups from the right, under the header, to the bottom: same look as the other panels */
+.rb-modal { align-items: stretch; justify-content: flex-end; padding: 0; z-index: 12990; background: rgba(15, 23, 42, .35); }
+.rb-modal[hidden] { display: none; }
+.rb-dialog { --rb-edge: #8ea3b6; --rb-rule: #b7c4d0; width: min(1040px, 100%); height: 100%; max-height: none; padding: 0; gap: 0; border-radius: 0; border-left: 1.5px solid var(--rb-edge); background: var(--ap-surface, #ffffff); color: var(--ap-text, var(--rb-text)); box-shadow: -18px 0 40px rgba(0, 0, 0, .18); overflow: auto; }
+html[data-appearance="dark"] .rb-dialog { --rb-edge: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff); --rb-rule: var(--ap-line, #4d5763); }
+.rb-dialog-wide { width: min(1040px, 100%); }
+.rb-dialog > * { margin: 0; padding-left: 16px; padding-right: 16px; }
+.rb-dialog > * + * { margin-top: 12px; }
+.rb-dialog h3 { padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--rb-rule); font-size: 15px; font-weight: 700; }
+.rb-dialog h3 + * { margin-top: 16px; }
+.rb-dialog-actions { margin-top: auto; padding-top: 12px; padding-bottom: 12px; border-top: 1px solid var(--rb-rule); justify-content: flex-end; }
+.rb-dialog-actions:not(:first-child) { margin-top: auto; }
+.rb-dialog > .rb-modal-status:empty + .rb-dialog-actions, .rb-dialog > .rb-dialog-actions { position: sticky; bottom: 0; background: var(--ap-surface, #ffffff); }
+.rb-field { gap: 5px; color: var(--ap-muted, #475569); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.rb-field .rb-input, .rb-dialog .rb-input { min-height: 36px; padding: 6px 10px; border: 1.5px solid var(--rb-edge); border-radius: 9px; background: var(--ap-surface, #ffffff); color: var(--ap-text, var(--rb-text)); font-size: 13.5px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.rb-brand-title { color: var(--ap-muted, #475569); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.rb-brand-preview { border: 1.5px dashed var(--rb-edge); background: transparent; }
+.rb-checkline { min-height: 36px; padding: 0 10px; border: 1.5px solid var(--rb-edge); border-radius: 9px; font-size: 13px; font-weight: 600; }
+.report-builder-page .rb-brand-options { gap: 8px; }
+.report-builder-page .rb-brand-options .rb-checkline { padding: 0 10px; }
+.rb-day span { border: 1.5px solid var(--rb-edge); background: transparent; color: inherit; border-radius: 9px; }
+.report-builder-page .rb-choice, .report-builder-page .rb-choice:hover { padding: 12px 10px; border: 1.5px solid var(--rb-edge); border-radius: 9px; background: transparent; color: inherit; }
+.rb-choice-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.rb-dialog .rb-people { max-height: none; border: 1.5px solid var(--rb-edge); border-radius: 9px; }
+@media (max-width: 560px) { .rb-form-grid { grid-template-columns: minmax(0, 1fr); } }
+.rb-dialog > .rb-checkline { margin-left: 16px; margin-right: 16px; padding: 0 10px; }
+.rb-dialog > .rb-brand, .rb-dialog > .rb-form-grid, .rb-dialog > .rb-field, .rb-dialog > .rb-choice-grid, .rb-dialog > .rb-days { box-sizing: border-box; }

@@ -2337,14 +2337,14 @@
           <div class="page-header-subtitle">Register students individually or import them in bulk</div>
         </div>
         <div class="page-header-actions">
-          <button type="button" class="add-form-btn" id="addStudentBtn">
+          <button type="button" class="add-form-btn" id="addStudentBtn" aria-label="Add form" title="Add form">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 5v14"></path>
               <path d="M5 12h14"></path>
             </svg>
             <span class="action-btn-label">Add Form</span>
           </button>
-          <button type="button" class="bulk-import-btn" onclick="openBulkImportModal()">
+          <button type="button" class="bulk-import-btn" onclick="openBulkImportModal()" aria-label="Import students" title="Import students">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v11"></path>
               <path d="M8 10l4 4 4-4"></path>
@@ -2352,7 +2352,7 @@
             </svg>
             <span class="action-btn-label">Import</span>
           </button>
-          <button type="submit" class="save-form-btn" form="addStudentFormMain">
+          <button type="submit" class="save-form-btn" form="addStudentFormMain" aria-label="Save" title="Save">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
               <polyline points="17 21 17 13 7 13 7 21"></polyline>
@@ -2361,7 +2361,7 @@
             <span class="action-btn-label">Save</span>
           </button>
           <span class="action-divider" aria-hidden="true"></span>
-          <button type="button" class="clear-import-btn" onclick="clearImportedDraft()">
+          <button type="button" class="clear-import-btn" onclick="clearImportedDraft()" aria-label="Clear all forms" title="Clear all forms">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 6h18"></path>
               <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"></path>
@@ -4010,9 +4010,111 @@ function addStudentForm() {
         const fileInput = document.getElementById('bulkFileInput');
         const progress = document.getElementById('parsingProgress');
         if (modal) modal.classList.remove('show');
+        if (modal) modal.classList.remove('is-result');
+        const resultBox = document.getElementById('impResult');
+        if (resultBox) resultBox.hidden = true;
+        clearImportError();
         if (fileInput) fileInput.value = '';
         if (progress) progress.classList.remove('show');
       }
+
+      let importInFlight = false;
+
+      function clearImportError() {
+        const box = document.getElementById('impError');
+        if (box) { box.hidden = true; box.textContent = ''; }
+      }
+
+      function showImportError(message) {
+        const box = document.getElementById('impError');
+        const progress = document.getElementById('parsingProgress');
+        if (progress) progress.classList.remove('show');
+        hideImportBusyOverlay();
+        const modal = document.getElementById('bulkImportModal');
+        if (modal && !modal.classList.contains('show')) modal.classList.add('show');
+        if (!box) { alert(message); return; }
+        box.textContent = message;
+        box.hidden = false;
+      }
+
+      function fillImportList(listId, items, total) {
+        const box = document.getElementById(listId);
+        if (!box) return;
+        const list = box.querySelector('ul');
+        list.textContent = '';
+        items.forEach((text) => { const li = document.createElement('li'); li.textContent = text; list.appendChild(li); });
+        if (total > items.length) { const li = document.createElement('li'); li.className = 'imp-more'; li.textContent = `+${total - items.length} more`; list.appendChild(li); }
+        box.querySelector('summary b').textContent = String(total);
+        box.hidden = total === 0;
+        box.open = false;
+      }
+
+      // After an import: a one-line summary, the matched columns, and what was
+      // left out or looks wrong. Everything from the file goes in as text.
+      function showImportResult(info) {
+        const w = info.warnings || {};
+        const matched = Array.isArray(w.customMatched) ? w.customMatched : [];
+        const ignored = Array.isArray(w.unmatchedColumns) ? w.unmatchedColumns : [];
+        const issues = Array.isArray(w.customIssues) ? w.customIssues : [];
+        const issueTotal = Number(w.customIssuesTotal || issues.length);
+        const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+        const parts = [plural(info.added, 'student', 'students')];
+        parts.push(`${plural(matched.length, 'custom column', 'custom columns')} matched`);
+        if (ignored.length) parts.push(`${plural(ignored.length, 'column', 'columns')} ignored`);
+        if (issueTotal) parts.push(`${plural(issueTotal, 'cell', 'cells')} to check`);
+        if (w.skippedRows) parts.push(`${plural(w.skippedRows, 'row', 'rows')} skipped`);
+        if (info.skippedDuplicates) parts.push(`${plural(info.skippedDuplicates, 'duplicate', 'duplicates')} skipped`);
+        document.getElementById('impSummary').textContent = parts.join(' \u00b7 ');
+        const chips = document.getElementById('impChips');
+        chips.textContent = '';
+        matched.forEach((m) => { const c = document.createElement('span'); c.className = 'imp-chip'; c.textContent = m.label; chips.appendChild(c); });
+        fillImportList('impIgnored', ignored.slice(0, 40), ignored.length);
+        fillImportList('impCheck', issues.slice(0, 40).map((i) => [i.name || `#${i.n}`, i.label, i.raw ? `"${i.raw}"` : '', i.reason].filter(Boolean).join(' \u00b7 ')), issueTotal);
+        const modal = document.getElementById('bulkImportModal');
+        document.getElementById('impResult').hidden = false;
+        modal.classList.add('is-result', 'show');
+      }
+
+      // The school's own fields: fill them, mark the unclear ones, and mark
+      // required inputs that are still empty.
+      function fillImportedCustomFields(card, idx, studentData) {
+        const custom = studentData.custom || {};
+        Object.keys(custom).forEach((id) => {
+          const el = card.querySelector(`[name="cf${id}_${idx}"], [name="cf${id}___${idx}"]`);
+          if (!el) return;
+          const value = String(custom[id]);
+          if (el.tagName === 'SELECT' && !Array.from(el.options).some((o) => o.value === value)) {
+            const extra = document.createElement('option');
+            extra.value = value; extra.textContent = value;
+            el.appendChild(extra);
+          }
+          el.value = value;
+        });
+        (studentData.customIssues || []).forEach((issue) => {
+          const el = card.querySelector(`[name="cf${issue.fieldId}_${idx}"], [name="cf${issue.fieldId}___${idx}"]`);
+          if (!el) return;
+          el.classList.add('import-flag');
+          el.title = issue.reason + (issue.raw ? `: ${issue.raw}` : '');
+        });
+        card.querySelectorAll('[required]').forEach((el) => {
+          if (!el.name || el.type === 'hidden' || el.type === 'file' || el.disabled) return;
+          if (!String(el.value || '').trim()) el.classList.add('import-missing');
+        });
+      }
+
+      ['input', 'change'].forEach((evt) => document.addEventListener(evt, (e) => {
+        const t = e.target;
+        if (t && t.classList && (t.classList.contains('import-missing') || t.classList.contains('import-flag'))) {
+          if (String(t.value || '').trim()) t.classList.remove('import-missing');
+          if (t.classList.contains('import-flag')) { t.classList.remove('import-flag'); t.removeAttribute('title'); }
+        }
+      }));
+
+      // A required box inside a folded form must open, or the browser can't show it.
+      document.addEventListener('invalid', (e) => {
+        const block = e.target && e.target.closest ? e.target.closest('.student-form.is-collapsed') : null;
+        if (block) setStudentFormCollapsed(block, false);
+      }, true);
 
       function handleFileSelect(event) {
         const file = event.target.files[0];
@@ -4165,12 +4267,23 @@ function addStudentForm() {
       async function uploadAndParseFile(file) {
         // Validate file type
         const validExtensions = ['.xlsx', '.xls', '.csv', '.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
-        const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        const fileExtension = file.name.lastIndexOf('.') < 0 ? '' : file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         
+        clearImportError();
+        if (importInFlight) return;
         if (!validExtensions.includes(fileExtension)) {
-          alert('Invalid file type. Please upload Excel, CSV, PDF, Word, or Image files.');
+          showImportError('Unsupported file. Use Excel, CSV, Word, PDF or an image.');
           return;
         }
+        if (!file.size) {
+          showImportError('The file is empty.');
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          showImportError('The file is too large. The limit is 10 MB.');
+          return;
+        }
+        importInFlight = true;
 
         // Show progress
         document.getElementById('parsingProgress').classList.add('show');
@@ -4186,7 +4299,7 @@ function addStudentForm() {
             body: formData
           });
 
-          const result = await response.json();
+          const result = await response.json().catch(() => ({ success: false, error: 'The file could not be read.' }));
 
           if (result.success) {
             setImportProgressText(`Found ${result.students.length} students! Generating forms...`);
@@ -4225,7 +4338,7 @@ function addStudentForm() {
             if (studentsToAdd.length === 0) {
               document.getElementById('parsingProgress').classList.remove('show');
               hideImportBusyOverlay();
-              alert(`No new students were added. ${skippedDuplicates} duplicate record(s) already exist in the current forms.`);
+              showImportError(`No new students were added. ${skippedDuplicates} already on this page.`);
               return;
             }
 
@@ -4281,18 +4394,20 @@ function addStudentForm() {
             }
             hideImportBusyOverlay();
             scheduleSaveDraft();
-            const skipNote = skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicate record(s) skipped)` : '';
-            alert(`Successfully added ${studentsToAdd.length} student(s) to existing forms${skipNote}. Please review and submit.`);
+            if (result.warnings && Number(result.warnings.customFieldCount) > 0) {
+              showImportResult({ added: studentsToAdd.length, skippedDuplicates, warnings: result.warnings });
+            } else {
+              const skipNote = skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicate record(s) skipped)` : '';
+              alert(`Successfully added ${studentsToAdd.length} student(s) to existing forms${skipNote}. Please review and submit.`);
+            }
           } else {
-            alert('Error parsing file: ' + (result.error || 'Unknown error'));
-            document.getElementById('parsingProgress').classList.remove('show');
-            hideImportBusyOverlay();
+            showImportError(String(result.error || 'The file could not be read.').replace(/^Failed to parse file:\s*/, ''));
           }
         } catch (error) {
           console.error('Upload error:', error);
-          alert('Error uploading file. Please try again.');
-          document.getElementById('parsingProgress').classList.remove('show');
-          hideImportBusyOverlay();
+          showImportError('Upload failed. Check your connection and try again.');
+        } finally {
+          importInFlight = false;
         }
       }
 
@@ -4452,6 +4567,8 @@ function addStudentForm() {
           }
         }
         
+        fillImportedCustomFields(cardElement, currentIndex, studentData);
+
         // Handle Guardian Information
         if (studentData.guardian) {
           const guardian = studentData.guardian;
@@ -4774,15 +4891,25 @@ function addStudentForm() {
           onchange="handleFileSelect(event)"
         />
 
-        <div class="template-download">
-          <p>📋 Need a template?</p>
+        <div class="imp-error" id="impError" role="alert" hidden></div>
+
+        <div class="template-download" id="impTemplate">
+          <p>Need a template?</p>
           <div class="template-actions">
-            <button type="button" class="template-link" onclick="downloadCsvTemplate()">Download CSV Template</button>
-            <button type="button" class="template-link" onclick="downloadExcelTemplate()">Download Excel Template (.xls)</button>
-            <button type="button" class="template-link" onclick="downloadWordTemplate()">Download Word Template (.doc)</button>
+            <a class="template-link" href="/common/student-import-template?format=csv" download>CSV</a>
+            <a class="template-link" href="/common/student-import-template?format=xlsx" download>Excel</a>
+            <button type="button" class="template-link" onclick="downloadWordTemplate()">Word</button>
           </div>
-          <div class="template-meta">Template Types: CSV, Excel (.xls), Word (.doc)</div>
-          <div class="template-warning">Remove example rows before importing.</div>
+          <div class="template-meta">Includes your school's own student fields.</div>
+          <div class="template-warning">Remove the example row before importing.</div>
+        </div>
+
+        <div class="imp-result" id="impResult" hidden>
+          <div class="imp-summary" id="impSummary"></div>
+          <div class="imp-chips" id="impChips"></div>
+          <details class="imp-list" id="impIgnored"><summary>Ignored columns <b></b></summary><ul></ul></details>
+          <details class="imp-list" id="impCheck"><summary>Cells to check <b></b></summary><ul></ul></details>
+          <button type="button" class="imp-done" onclick="closeBulkImportModal()">Review forms</button>
         </div>
 
         <div id="parsingProgress" class="parsing-progress">
@@ -4827,3 +4954,36 @@ function addStudentForm() {
   
 </style>
 <style>.form-section > .form-field-group { margin-right: 0; padding-right: 0; } .form-section > .form-field-group .form-input { width: 100%; box-sizing: border-box; }</style>
+<style>
+  /* Import result: one summary line, matched columns, what to check. */
+  .imp-error { margin-top: 14px; padding: 10px 12px; border: 1.5px solid #dc2626; border-radius: 9px; background: #fef2f2; color: #991b1b; font-size: 0.9rem; font-weight: 600; }
+  .imp-error[hidden], .imp-result[hidden], .imp-list[hidden] { display: none; }
+  .bulk-import-modal.is-result .upload-area, .bulk-import-modal.is-result .template-download, .bulk-import-modal.is-result .imp-error { display: none; }
+  .imp-result { display: grid; gap: 12px; }
+  .imp-summary { font-size: 1rem; font-weight: 700; color: #0f2d32; line-height: 1.4; overflow-wrap: anywhere; }
+  .imp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .imp-chip { display: inline-block; max-width: 100%; padding: 3px 10px; border: 1.5px solid #01535b; border-radius: 9px; background: #e6f7f8; color: #01535b; font-size: 0.82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .imp-list { border: 1.5px solid #cbd5e1; border-radius: 9px; background: #fff; }
+  .imp-list summary { cursor: pointer; padding: 8px 12px; font-size: 0.88rem; font-weight: 600; color: #334155; }
+  .imp-list summary b { margin-left: 6px; padding: 0 7px; border-radius: 9px; background: #e2e8f0; font-size: 0.78rem; }
+  .imp-list ul { margin: 0; padding: 0 12px 10px 28px; max-height: 180px; overflow-y: auto; font-size: 0.84rem; color: #475569; }
+  .imp-list li { padding: 2px 0; overflow-wrap: anywhere; }
+  .imp-list .imp-more { color: #64748b; list-style: none; margin-left: -16px; }
+  .imp-done { justify-self: start; border: 1.5px solid #01535b; border-radius: 9px; background: #01535b; color: #fff; padding: 9px 18px; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
+  .imp-done:focus-visible, .template-link:focus-visible { outline: 2px solid #0ea5b7; outline-offset: 2px; }
+  a.template-link { text-decoration: none; display: inline-block; }
+  .import-missing { border: 1.5px solid #dc2626 !important; background-color: #fef2f2 !important; }
+  .import-flag { border: 1.5px solid #d97706 !important; background-color: #fffbeb !important; }
+  @media (max-width: 520px) {
+    /* One row of icon buttons; the labels stay as aria-labels and tooltips. */
+    .page-header-actions { display: flex !important; flex-wrap: nowrap !important; justify-content: flex-end; gap: 8px; width: 100%; }
+    .page-header-actions > button { flex: 1 1 0; min-width: 44px; max-width: 80px; height: 44px; padding: 0 !important; justify-content: center; }
+    .page-header-actions .action-btn-label { display: none !important; }
+    .page-header-actions .action-divider { display: none !important; }
+    .bulk-import-content { width: calc(100% - 24px); padding: 18px; border-radius: 12px; max-height: calc(100vh - 24px); }
+    .modal-header { margin-bottom: 14px; }
+    .modal-header h2 { font-size: 1.15rem; }
+    .upload-area { padding: 24px 12px; }
+    .imp-done { justify-self: stretch; }
+  }
+</style>

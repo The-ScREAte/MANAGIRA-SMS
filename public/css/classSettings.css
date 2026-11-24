@@ -247,3 +247,49 @@ label.cset-row__label { cursor: pointer; }
 .cset-num__input { width: 44px; height: 28px; margin: 0; padding: 0; border: 1px solid var(--cs-line, #dbe3e7); border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-weight: 700; text-align: center; -moz-appearance: textfield; box-shadow: none; }
 .cset-num__input::-webkit-outer-spin-button, .cset-num__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .cset-subhead { margin: 14px 0 4px; padding: 0 20px; color: #64748b; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+
+/* ---------- One compact size for every Class settings screen (management and the class dashboard) ---------- */
+.cset-page, .cset--wide { font-size: 13px; }
+.cset-page { padding: 16px 20px 40px; gap: 14px; }
+.cset-page__title { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.cset--wide { gap: 12px; }
+.cset-layout, .cset-stack { gap: 12px; }
+.cset--wide .cset-card__head, .cset-page .cset-card__head { padding: 12px 16px 8px; }
+.cset--wide .cset-card__title, .cset-page .cset-card__title { font-size: 14px; font-weight: 700; }
+:is(.cset--wide, .cset-page) .cset-row, .cset-crow__body .cset-row { padding: 8px 16px; gap: 10px; min-height: 0; }
+:is(.cset--wide, .cset-page) .cset-row__label, .cset-crow__body .cset-row__label { font-size: 13px; font-weight: 600; }
+:is(.cset--wide, .cset-page) .cset-colhead .cset-cell { font-size: 11px; }
+:is(.cset--wide, .cset-page) .cset-cells { width: 220px; }
+:is(.cset--wide, .cset-page) .cset-cell { width: 110px; }
+:is(.cset--wide, .cset-page) .cset-lockslot { width: 30px; height: 26px; }
+.cset-page .cset-crow__head { padding-top: 8px; padding-bottom: 8px; }
+.cset-page .cset-crow__name strong { font-size: 13px; }
+.cset-page .cset-crow__name small { font-size: 11.5px; }
+/* The school's weekly briefing card */
+.cset-brief-when { flex-wrap: wrap; border-top: 1px solid var(--cs-line); }
+.cset-brief-selects { display: flex; flex-wrap: wrap; gap: 8px; }
+.cset-brief-selects select { height: 32px; width: auto; min-width: 0; margin: 0; padding: 0 34px 0 10px; border: 1px solid var(--cs-line); border-radius: 8px; background-color: var(--cs-surface); color: var(--cs-text); font: inherit; font-size: 13px; }
+.cset-card__foot { display: flex; justify-content: flex-end; padding: 10px 16px 12px; border-top: 1px solid var(--cs-line); }
+.cset-save { height: 32px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--cs-brand); color: #fff; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.cset-save:disabled { opacity: .6; cursor: default; }
+@media (max-width: 640px) {
+  :is(.cset--wide, .cset-page) .cset-cells { width: 148px; }
+  :is(.cset--wide, .cset-page) .cset-cell { width: 74px; }
+}
+.cset-page .cset-card > .cset-list .cset-row, .cset-page form.cset-card .cset-row { display: flex; align-items: center; }
+.cset-page .cset-card > .cset-list .cset-row__label, .cset-page form.cset-card .cset-row__label { flex: 1; min-width: 0; }
+.cset-page .cset-brief-when .cset-row__label { flex: none; }
+.cset-page .cset-card__foot .cset-save { width: auto; min-width: 88px; margin: 0; }
+.cset-page .cset-colhead .cset-cell { cursor: default; }
+/* Neat details: the stepper clear of the switch, one heading colour, a little room above the first card */
+:is(.cset--wide, .cset-page) .cset-cell:has(.cset-num) { padding-right: 14px; }
+.cset-days-head { color: var(--cs-text); font-size: 13px; font-weight: 700; }
+.cset--wide { padding-top: 4px; }
+/* Smaller switches everywhere in Class & notif. settings */
+.cset-switch__track { width: 26px; height: 15px; }
+.cset-switch__track::after { top: 2px; left: 2px; width: 11px; height: 11px; }
+.cset-switch input:checked + .cset-switch__track::after { transform: translateX(11px); }
+.cset-switch input:indeterminate + .cset-switch__track::after { transform: translateX(5.5px); }
+.cset-page .cset-days-head, .cset .cset-days-head, h4.cset-days-head { color: var(--cs-text) !important; font-size: 13px; }
+:is(.cset--wide, .cset-page) .cset-cell:has(.cset-num) { width: 130px; }
+:is(.cset--wide, .cset-page) .cset-cells:has(.cset-num) { width: 240px; }

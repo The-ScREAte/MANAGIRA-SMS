@@ -82,7 +82,7 @@
   /* Drawer */
   .mp-drawer-bg{ display:none; position:fixed; inset:0; background:rgba(15,23,42,0.14); z-index:1200; }
   .mp-drawer-bg.open{ display:block; }
-  .mp-drawer{ position:fixed; top:0; right:0; bottom:0; width:min(760px,100vw); background:var(--fin-surface);
+  .mp-drawer{ position:fixed; top:0; right:0; bottom:0; width:min(1040px,100vw); background:var(--fin-surface);
     border-left:1px solid var(--fin-border); z-index:1201; transform:translateX(100%); transition:transform .25s; display:flex; flex-direction:column; color:var(--fin-text); }
   .mp-drawer.open{ transform:translateX(0); }
   .mp-drawer-head{ padding:16px 18px; border-bottom:1px solid var(--fin-border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:var(--fin-surface-2); flex-shrink:0; }
@@ -193,8 +193,8 @@
   /* Collect, bulk collect and sign off open from the right, over the bill they belong to. */
   .mp-modal-bg{ display:none; position:fixed; inset:0; background:rgba(15,23,42,0.22); z-index:1400; align-items:stretch; justify-content:flex-end; padding:0; }
   .mp-modal-bg.open{ display:flex; }
-  .mp-modal{ background:var(--fin-surface); border:0; border-left:1px solid var(--fin-border); border-radius:0; padding:18px 20px; max-width:min(560px,100vw); width:100%; max-height:none; overflow-y:auto; color:var(--fin-text); box-shadow:-24px 0 60px -30px rgba(15,23,42,.45); animation:mpPanelIn .22s ease; }
-  .mp-modal.mp-modal-wide{ max-width:min(760px,100vw); }
+  .mp-modal{ background:var(--fin-surface); border:0; border-left:1px solid var(--fin-border); border-radius:0; padding:18px 20px; max-width:min(1040px,100vw); width:100%; max-height:none; overflow-y:auto; color:var(--fin-text); box-shadow:-24px 0 60px -30px rgba(15,23,42,.45); animation:mpPanelIn .22s ease; }
+  .mp-modal.mp-modal-wide{ max-width:min(1040px,100vw); }
   @keyframes mpPanelIn { from{ transform:translateX(40px); opacity:.4 } to{ transform:none; opacity:1 } }
   @media (prefers-reduced-motion: reduce){ .mp-modal{ animation:none; } }
   .mp-modal h3{ margin:0 0 12px; font-size:1rem; display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--fin-text); }
@@ -209,6 +209,10 @@
   .mp-field textarea{ resize:vertical; min-height:50px; }
   .mp-field input:focus, .mp-field select:focus, .mp-field textarea:focus{ outline:none; border-color:var(--fin-teal); }
   .mp-modal-actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:nowrap; margin-top:12px; position:sticky; bottom:0; padding-top:10px; background:linear-gradient(to top, var(--fin-surface) 60%, transparent); overflow-x:auto; }
+  /* the action row is the panel footer, pinned at the bottom (public/css/panelFooter.css) */
+  .mp-modal{ display:flex !important; flex-direction:column; }
+  .mp-modal > form{ flex:1 1 auto; display:flex; flex-direction:column; }
+  .mp-modal .mp-modal-actions{ margin:auto -20px -18px !important; overflow:visible; }
   .mp-bulk-context{ display:flex; gap:8px; flex-wrap:nowrap; margin-bottom:12px; overflow-x:auto; }
   .mp-bulk-context-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; border:1px solid var(--fin-border); background:rgba(15,23,42,.05); color:var(--fin-muted); font-size:.68rem; font-weight:700; }
   .mp-bulk-total{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:10px; background:color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); border:1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent); margin:12px 0; }
@@ -345,8 +349,9 @@
 </div>
 
 <!-- Bill detail drawer -->
-<div class="mp-drawer-bg" id="mpDrawerBg" onclick="mpCloseBill(event)"></div>
-<aside class="mp-drawer" id="mpDrawer" aria-hidden="true">
+<div class="mp-drawer-bg" id="mpDrawerBg" data-below-header="open"></div>
+<script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
+<aside class="mp-drawer" id="mpDrawer" aria-hidden="true" data-below-header="open" data-popup-lift>
   <div class="mp-drawer-head">
     <div class="mp-drawer-head-info">
       <h2 id="mpDrawerTitle">Bill</h2>
@@ -394,7 +399,7 @@
 %></script>
 
 <!-- Collect modal -->
-<div class="mp-modal-bg" id="mpCollectModal" onclick="if(event.target===this) mpCloseCollect()">
+<div class="mp-modal-bg" id="mpCollectModal">
   <div class="mp-modal">
     <h3>
       Record Collection
@@ -439,7 +444,7 @@
 </div>
 
 <!-- Bulk collect modal -->
-<div class="mp-modal-bg" id="mpBulkModal" onclick="if(event.target===this) mpCloseBulkCollect()">
+<div class="mp-modal-bg" id="mpBulkModal">
   <div class="mp-modal mp-modal-wide">
     <h3>
       Bulk Collection Review
@@ -486,7 +491,7 @@
 </div>
 
 <!-- Sign-off modal -->
-<div class="mp-modal-bg" id="mpSignoffModal" onclick="if(event.target===this) mpCloseSignoff()">
+<div class="mp-modal-bg" id="mpSignoffModal">
   <div class="mp-modal">
     <h3>
       Sign Off Collection
@@ -1324,7 +1329,7 @@
           '<div id="mpDaySummary" style="display:none;"></div>' +
           '<div class="mp-collect-notice" style="' + (bill.bill_type === 'recurring' ? '' : 'display:none') + '">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><circle cx="12" cy="16" r=".5" fill="currentColor"></circle></svg>' +
-            'Choose the date you are collecting for (Past, All or Future above)' +
+            'Choose the date to collect for' +
           '</div>' +
           buildStudentToolbarHTML(bill) +
           '<div class="mp-section-title"><span>Students</span><button type="button" class="mp-sort-toggle" id="mpStudentSortToggle" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button><span class="ln"></span><span>' + (bill.students || []).length + '</span></div>' +
@@ -1660,6 +1665,13 @@
       document.getElementById('mpCollectModal').classList.add('open');
     };
 
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('#mpCollectModal.open')) window.mpCloseCollect();
+      else if (document.querySelector('#mpBulkModal.open')) window.mpCloseBulkCollect();
+      else if (document.querySelector('#mpSignoffModal.open')) window.mpCloseSignoff();
+      else if (document.querySelector('#mpDrawer.open')) window.mpCloseBill();
+    });
     window.mpCloseCollect = function() {
       document.getElementById('mpCollectModal').classList.remove('open');
     };

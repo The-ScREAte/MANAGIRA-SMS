@@ -1,10 +1,10 @@
 <% const _a = addon || {}; %>
-<div data-ahd-title="<%= addon ? 'Edit add-on' : 'New add-on' %>" data-ahd-sub="<%= addon ? 'Hubs that already have it keep the price they approved.' : 'Hubs can add it from their Billing page after approving the price.' %>">
+<div data-ahd-title="<%= addon ? 'Edit add-on' : 'New add-on' %>">
   <form action="/admin/hubs/add-ons<%= addon ? `/${addon.addon_id}` : '' %>" method="POST" class="ahd-form">
     <section class="ahd-section">
       <div class="ahb-grid ahb-grid--1">
         <label class="ahb-field"><span class="ahb-label">Name</span><input type="text" name="name" class="ahb-input" value="<%= _a.name || '' %>" maxlength="120" placeholder="e.g. WhatsApp messages" required /></label>
-        <label class="ahb-field"><span class="ahb-label">What the hub gets <em>optional</em></span><input type="text" name="description" class="ahb-input" value="<%= _a.description || '' %>" maxlength="500" /></label>
+        <label class="ahb-field"><span class="ahb-label">Description</span><input type="text" name="description" class="ahb-input" value="<%= _a.description || '' %>" maxlength="500" placeholder="Optional" /></label>
         <div class="ahb-grid">
           <label class="ahb-field">
             <span class="ahb-label">Price</span>

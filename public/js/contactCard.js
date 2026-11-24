@@ -8,6 +8,7 @@
 //   card.requestClose();   // asks first when there are unsaved changes
 (function () {
   if (window.ManagiraContactCard) return;
+  if (!window.__fieldHelp) { const sc = document.createElement('script'); sc.src = '/js/fieldHelp.js'; sc.defer = true; document.head.appendChild(sc); }
 
   const AVATAR_COLORS = ['#7c5cf0', '#0ea5e9', '#0f9f8f', '#f97316', '#e0457b', '#5b6ee8', '#16a34a', '#c2410c'];
   const escapeHtml = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -56,7 +57,9 @@
       // Obsolete fields keep their saved answer but can't be changed; nothing changes without edit rights.
       if (f.obsolete || !state.data.canEdit) control = control.replace(/^<(input|textarea|select)/, '<$1 disabled');
       if (!state.data.canEdit && !f.value) control = '<input disabled placeholder="Not added">';
-      return `<label class="cc-field ${f.type === 'long_text' ? 'is-wide' : ''} ${f.obsolete ? 'cc-obsolete' : ''}"><span>${escapeHtml(f.label)}</span>${control}${f.helpText ? `<small>${escapeHtml(f.helpText)}</small>` : ''}</label>`;
+      const wide = f.width === 'full' || (f.width !== 'half' && f.type === 'long_text');
+      const tip = f.helpText ? `<span class="fh"><button type="button" class="fh__btn" aria-label="About ${escapeHtml(f.label)}" aria-describedby="fh-${f.id}">?</button><span class="fh__tip" role="tooltip" id="fh-${f.id}">${escapeHtml(f.helpText)}</span></span>` : '';
+      return `<label class="cc-field ${wide ? 'is-wide' : ''} ${f.obsolete ? 'cc-obsolete' : ''}"><span>${escapeHtml(f.label)}${tip}</span>${control}</label>`;
     }
 
     function cardHtml() {
@@ -80,11 +83,6 @@
               <span class="cc-pill">${ICON.user}Parent / guardian</span>
               ${kidNames.length ? `<span class="cc-pill cc-pill--plain">Parent of ${escapeHtml(kidNames.slice(0, 3).join(', '))}${kidNames.length > 3 ? ` +${kidNames.length - 3}` : ''}</span>` : ''}
             </div>
-          </div>
-          <div class="cc-actions">
-            ${canEditTemplate ? `<a class="cc-btn" href="${templateUrl}" data-no-spa data-card-template title="Change the fields every parent's card has">${ICON.pen}Edit fields</a>` : ''}
-            <button type="button" class="cc-btn" data-card-close>Close</button>
-            ${canEdit ? '<button type="button" class="cc-btn cc-btn--primary" data-card-save disabled>Save</button>' : ''}
           </div>
         </div>
         <nav class="cc-tabs" role="tablist">
@@ -117,14 +115,19 @@
                 ${baseField('hometown', 'Hometown', b.hometown, { attrs: `maxlength="120" ${ro}` })}
               </div>
             </div>
-            ${!d.fields.length && canEditTemplate ? `<p class="cc-empty" style="padding:14px">Keep more details for every family: <a href="${templateUrl}" data-no-spa data-card-template>add parent fields</a>.</p>` : ''}`)}
+            ${!d.fields.length && canEditTemplate ? `<p class="cc-empty" style="padding:14px"><a href="${templateUrl}" data-no-spa data-card-template>Add fields</a></p>` : ''}`)}
           ${panel('kids', d.students.length
             ? `<div class="cc-kids">${d.students.map((k) => `<div class="cc-kid"><span class="cc-kid__av">${escapeHtml(initials(k.name))}</span><div><strong>${escapeHtml(k.name)}</strong><span>${escapeHtml([k.className, k.relationship].filter(Boolean).join(' · ') || 'Student')}</span></div></div>`).join('')}</div>`
             : '<div class="cc-empty">No children are linked to this contact.</div>')}
           ${d.sections.map((s) => (d.fields.some((f) => f.sectionId === s.id) ? panel(`s${s.id}`, sectionPanel(s.id)) : '')).join('')}
           ${d.fields.some((f) => !f.sectionId) ? panel('s0', sectionPanel(0)) : ''}
         </form>
-        <p class="cc-status" data-card-status role="status"></p>`;
+        <p class="cc-status" data-card-status role="status"></p>
+        <div class="cc-actions pf-footer">
+            ${canEditTemplate ? `<a class="cc-btn" href="${templateUrl}" data-no-spa data-card-template title="Change the fields every parent's card has">${ICON.pen}Edit fields</a>` : ''}
+            <button type="button" class="cc-btn" data-card-close>Close</button>
+            ${canEdit ? '<button type="button" class="cc-btn cc-btn--primary" data-card-save disabled>Save</button>' : ''}
+          </div>`;
     }
 
     function values() {

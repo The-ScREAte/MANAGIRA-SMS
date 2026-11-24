@@ -91,15 +91,14 @@
 
       <!-- Classes -->
       <section class="acs-panel" id="panel-class" role="tabpanel" aria-labelledby="tab-class">
-        <p class="acs-lead">Add one or several classes. Paste a column of names to fill them in at once. Add classes first, then give them subjects.</p>
         <form action="/common/addClass" method="post" id="classForm" novalidate>
           <label class="acs-label" for="firstClass">Class names</label>
           <div class="acs-rows" id="class-fields">
-            <div class="acs-row"><input type="text" id="firstClass" name="className[]" required maxlength="120" placeholder="For example: Grade 1" autocomplete="off"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
+            <div class="acs-row"><input type="text" id="firstClass" name="className[]" required maxlength="120" placeholder="Class name, e.g. Grade 1" autocomplete="off"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
           </div>
-          <button type="button" class="acs-add" id="addClassRow"><span aria-hidden="true">＋</span> Add another class</button>
+          <button type="button" class="acs-add" id="addClassRow"><span aria-hidden="true">＋</span> Add class</button>
           <div class="acs-error" hidden></div>
-          <div class="acs-foot"><button type="submit" class="acs-save">Save classes</button></div>
+          <div class="acs-foot"><button type="submit" class="acs-save">Save</button></div>
         </form>
       </section>
 
@@ -107,18 +106,18 @@
       <section class="acs-panel" id="panel-subject" role="tabpanel" aria-labelledby="tab-subject" hidden>
         <div class="acs-switch" role="group" aria-label="Subject action">
           <button type="button" data-mode="new" aria-pressed="true">New subject</button>
-          <% if ((assignableSubjects || []).length) { %><button type="button" data-mode="existing" aria-pressed="false">Add an existing subject to more classes</button><% } %>
+          <% if ((assignableSubjects || []).length) { %><button type="button" data-mode="existing" aria-pressed="false">Existing subject</button><% } %>
         </div>
 
         <div class="acs-mode" id="mode-new">
           <% if (!(classes || []).length) { %>
-            <div class="acs-none">Add a class first, then give it subjects.</div>
+            <div class="acs-none">Add a class first.</div>
           <% } else { %>
           <form action="/common/addSubject" method="post" id="subjectForm" novalidate>
             <div id="subject-fields"></div>
-            <button type="button" class="acs-add" id="addSubjectRow"><span aria-hidden="true">＋</span> Add another subject</button>
+            <button type="button" class="acs-add" id="addSubjectRow"><span aria-hidden="true">＋</span> Add subject</button>
             <div class="acs-error" hidden></div>
-            <div class="acs-foot"><button type="submit" class="acs-save">Save subjects</button></div>
+            <div class="acs-foot"><button type="submit" class="acs-save">Save</button></div>
           </form>
           <% } %>
         </div>
@@ -133,7 +132,7 @@
               <% }); %>
             </select>
             <div style="height:14px"></div>
-            <div id="existingSubjectClassContainer"><div class="acs-none">Choose a subject to see the classes it can still be added to.</div></div>
+            <div id="existingSubjectClassContainer"><div class="acs-none">Choose a subject.</div></div>
             <div class="acs-error" hidden></div>
             <div class="acs-foot"><button type="submit" class="acs-save">Add to classes</button></div>
           </form>
@@ -142,16 +141,15 @@
 
       <!-- Graduation years -->
       <section class="acs-panel" id="panel-grad" role="tabpanel" aria-labelledby="tab-grad" hidden>
-        <p class="acs-lead">A graduation year group holds the students who finish in the same year. Add the years you expect.</p>
         <form action="/common/addGraduationYearGroup" method="post" id="graduationYearGroupForm" novalidate>
           <label class="acs-label" for="firstYear">Graduation years</label>
           <div class="acs-rows" id="graduationYear-fields">
-            <div class="acs-row"><input type="number" id="firstYear" name="graduationYear[]" min="2000" max="2100" required placeholder="For example: 2028" inputmode="numeric"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
+            <div class="acs-row"><input type="number" id="firstYear" name="graduationYear[]" min="2000" max="2100" required placeholder="Year, e.g. 2028" inputmode="numeric"><button type="button" class="acs-x" aria-label="Remove">×</button></div>
           </div>
           <div class="acs-suggest" id="yearSuggest"><span>Quick add:</span></div>
-          <button type="button" class="acs-add" id="addYearRow"><span aria-hidden="true">＋</span> Add another year</button>
+          <button type="button" class="acs-add" id="addYearRow"><span aria-hidden="true">＋</span> Add year</button>
           <div class="acs-error" hidden></div>
-          <div class="acs-foot"><button type="submit" class="acs-save">Save graduation years</button></div>
+          <div class="acs-foot"><button type="submit" class="acs-save">Save</button></div>
         </form>
       </section>
     </div>
@@ -260,7 +258,7 @@
         var subjectBox = $('#subject-fields');
         function addSubject() {
           var card = el('div', 'acs-card'), head = el('div', 'acs-card__head'), input = el('input');
-          input.type = 'text'; input.name = 'subjectName[]'; input.required = true; input.maxLength = 120; input.placeholder = 'Subject name, for example Mathematics'; input.autocomplete = 'off'; input.setAttribute('list', 'subject-library'); input.setAttribute('aria-label', 'Subject name');
+          input.type = 'text'; input.name = 'subjectName[]'; input.required = true; input.maxLength = 120; input.placeholder = 'Subject name, e.g. Mathematics'; input.autocomplete = 'off'; input.setAttribute('list', 'subject-library'); input.setAttribute('aria-label', 'Subject name');
           var x = el('button', 'acs-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Remove subject');
           x.addEventListener('click', function () { if ($$('.acs-card', subjectBox).length > 1) card.remove(); else { input.value = ''; $$('input[type=checkbox]', card).forEach(function (c) { c.checked = false; }); } });
           head.appendChild(input); head.appendChild(x);
@@ -289,7 +287,7 @@
         if (sel) sel.addEventListener('change', function () {
           exBox.textContent = '';
           var item = ASSIGNABLE.find(function (a) { return String(a.subject_key) === sel.value; });
-          if (!item) { exBox.appendChild(el('div', 'acs-none', 'Choose a subject to see the classes it can still be added to.')); return; }
+          if (!item) { exBox.appendChild(el('div', 'acs-none', 'Choose a subject.')); return; }
           var avail = (item.available_classes || []).map(function (c) { return { id: c.class_id, name: c.class_name }; });
           if (!avail.length) { exBox.appendChild(el('div', 'acs-none', 'This subject is already in every class.')); return; }
           exBox.appendChild(el('label', 'acs-label', 'Add it to'));

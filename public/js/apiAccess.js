@@ -30,7 +30,7 @@
       if (opts.onClose) opts.onClose();
     };
     overlay.addEventListener('click', (event) => {
-      if (event.target === overlay || event.target.closest('[data-close]')) close();
+      if (event.target.closest('[data-close]')) close();
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && overlay.classList.contains('is-open')) close();

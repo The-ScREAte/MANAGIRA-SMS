@@ -1,0 +1,143 @@
+/* One footer for every right-side panel (the Register school year look): a bar pinned to the
+   bottom of the panel, a 1.5px rule on top, the actions on the right (Cancel first, the main
+   action last), a destructive action alone on the left. Use class "pf-footer" on new panels;
+   the selectors below bring the older panel families to the same look without touching their
+   markup. Loaded by the shared bundle (utils/cssBundle.js) and imported by hub.css/adminHubs.css. */
+
+:root { --pf-line: #aab8c6; --pf-bg: #fff; --pf-btn-h: 38px; }
+html[data-appearance="dark"] { --pf-line: var(--ap-line, #4d5763); --pf-bg: var(--ap-surface, #1f2328); }
+
+.pf-footer,
+.ahd__foot,
+.hub-drawer__foot:not(.hub-drawer__foot--inline),
+.rp-foot,
+.cfm__foot,
+.cf-drawer__foot,
+.ct-dlg__foot,
+.as-dlg__foot,
+.as-modal-footer,
+.rsy-modal-footer,
+.ed-panel__foot,
+.rb-dialog > .rb-dialog-actions,
+.mp-modal-actions,
+.mgr-drawer-footer,
+.ux-panel__foot,
+.af-drawer__foot {
+  flex: none !important;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  min-height: 60px;
+  margin: 0 !important;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  border: 0 !important;
+  border-top: 1.5px solid var(--pf-line) !important;
+  background: var(--pf-bg) !important;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+.pf-footer :is(button, a.btn, .btn, [role="button"]):not(.pf-keep),
+.ahd__foot :is(button, a):not(.pf-keep),
+.hub-drawer__foot :is(button, a):not(.pf-keep),
+.rp-foot :is(button, a):not(.pf-keep),
+.cfm__foot :is(button, a):not(.pf-keep),
+.cf-drawer__foot :is(button, a):not(.pf-keep),
+.ct-dlg__foot :is(button, a):not(.pf-keep),
+.as-dlg__foot :is(button, a):not(.pf-keep),
+.as-modal-footer :is(button, a):not(.pf-keep),
+.ed-panel__foot :is(button, a):not(.pf-keep),
+.rb-dialog > .rb-dialog-actions :is(button, a):not(.pf-keep),
+.mp-modal-actions :is(button, a):not(.pf-keep) {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  height: var(--pf-btn-h);
+  min-height: var(--pf-btn-h);
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+/* Cancel left of the main action when the markup lists the main action first */
+.hub-drawer__foot:not(.hub-drawer__foot--inline) { flex-direction: row-reverse !important; justify-content: flex-start !important; }
+/* A destructive action sits alone on the left */
+.pf-footer .pf-danger, .ahd__foot-left, .rp-foot .rp-spacer + .pf-danger, .pf-footer .pf-left { margin-right: auto; order: -1; }
+.rp-foot .rp-spacer { flex: 1 1 0; }
+.pf-footer .pf-danger { color: #b91c1c; border-color: #fca5a5; background: transparent; }
+
+/* Panel bodies scroll; the footer never does */
+.pf-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+@media (max-width: 700px) {
+  .pf-footer, .ahd__foot, .hub-drawer__foot:not(.hub-drawer__foot--inline), .rp-foot, .cfm__foot, .cf-drawer__foot,
+  .ct-dlg__foot, .as-dlg__foot, .as-modal-footer, .rsy-modal-footer, .ed-panel__foot, .rb-dialog > .rb-dialog-actions,
+  .mp-modal-actions { padding-left: 12px !important; padding-right: 12px !important; gap: 8px !important; }
+}
+
+/* Form pages that live in an iframe inside a drawer: their own bar is the panel's footer */
+.ce-footer-bar, .employee-actions-bar {
+  position: fixed !important; left: 0; right: 0; bottom: 0; z-index: 50;
+  box-sizing: border-box; min-height: 60px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  border: 0 !important; border-top: 1.5px solid var(--pf-line) !important; box-shadow: none !important;
+  background: var(--pf-bg) !important; display: flex; align-items: center;
+}
+.ce-footer-bar-inner, .employee-actions-row { width: 100%; max-width: none !important; margin: 0 !important; overflow: visible !important; justify-content: flex-end !important; }
+.employee-actions-row { flex-direction: row-reverse; justify-content: flex-start !important; }
+.employee-actions-row .employee-action-form:last-child { margin-right: auto !important; }
+.ce-footer-bar .btn, .employee-actions-row .btn { height: var(--pf-btn-h) !important; min-height: var(--pf-btn-h) !important; padding: 0 16px !important; border-radius: 9px !important; font-size: 13.5px !important; font-weight: 700 !important; }
+
+/* More form pages inside drawers: their action row is a fixed bar at the bottom of the page */
+.ef-bar, .acs-foot, .ann-submit-bar, .frq-bar {
+  position: fixed !important; left: 0; right: 0; bottom: 0; z-index: 50;
+  box-sizing: border-box; min-height: 60px; margin: 0 !important;
+  display: flex !important; flex-direction: row; align-items: center; justify-content: flex-end !important; gap: 10px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  border: 0 !important; border-top: 1.5px solid var(--pf-line) !important; box-shadow: none !important;
+  background: var(--pf-bg) !important;
+}
+.frq-bar { justify-content: space-between !important; }
+.ef-bar .ef-summary { flex: 1 1 auto; }
+.ef-bar .ef-btn--danger { order: -1; }
+.ef-bar :is(button), .acs-foot :is(button), .ann-submit-bar :is(button), .frq-bar :is(button) {
+  height: var(--pf-btn-h); min-height: var(--pf-btn-h); width: auto; margin: 0; padding: 0 16px; border-radius: 9px; font-size: 13.5px; font-weight: 700; line-height: 1;
+}
+body:has(.ef-bar), body:has(.acs-foot), body:has(.ann-submit-bar), body:has(.frq-bar), body:has(.ce-footer-bar), body:has(.employee-actions-bar) { padding-bottom: 76px; }
+@media (max-width: 700px) { .ef-bar, .acs-foot, .ann-submit-bar, .frq-bar { padding-left: 12px !important; padding-right: 12px !important; } }
+/* Parent / guardian edit page: its Edit fields / Close / Save row is the panel footer */
+body .gd-actions { position: fixed !important; left: 0; right: 0; bottom: 0; z-index: 50; box-sizing: border-box; min-height: 60px; margin: 0 !important; display: flex !important; align-items: center; justify-content: flex-end !important; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important; border-top: 1.5px solid var(--pf-line) !important; background: var(--pf-bg) !important; }
+body .gd-actions .gd-btn { height: var(--pf-btn-h); min-height: var(--pf-btn-h); padding: 0 16px; border-radius: 9px; font-size: 13.5px; font-weight: 700; }
+body:has(.gd-actions) { padding-bottom: 76px; }
+.as-modal-footer > *, .rsy-modal-footer > .rsy-submit-btn { flex: 0 0 auto !important; width: auto !important; }
+.rsy-modal-footer :is(button, a.rsy-add-term-link) { min-height: var(--pf-btn-h); border-radius: 9px; font-size: 13.5px; font-weight: 700; }
+.rsy-modal-footer .rsy-submit-btn { height: var(--pf-btn-h); padding: 0 16px; }
+.rsy-modal-footer { flex-direction: row-reverse !important; justify-content: flex-start !important; }
+.rsy-modal-footer .rsy-add-term-link { margin-right: auto; }
+
+/* The dimmed backdrop behind every right-side panel: the same shade everywhere. It never closes
+   a panel: only the X and Escape do. */
+.ux-panel-backdrop, .ed-backdrop, .rp-backdrop, .fin-sheet-backdrop, .fin-modal, .mp-drawer-bg, .mp-modal-bg,
+.ahd__backdrop, .hub-drawer__backdrop, .af-drawer__scrim, .integration-info-backdrop, .mr-drawer-backdrop,
+.mira-info-overlay, .pg-modal-bg, .mgr-drawer-overlay, .as-modal-overlay, .cfm, #ctDialog, #asDialog, .rb-modal {
+  background-color: rgba(10, 20, 30, .5) !important;
+}
+
+/* Report settings: the numbers panel's Done row */
+.rs-grade-config-card { display: flex !important; flex-direction: column; }
+.rs-grade-config-card .rs-grade-config-footer {
+  flex: none; position: sticky; bottom: 0; z-index: 3; box-sizing: border-box; min-height: 60px;
+  display: flex !important; align-items: center; justify-content: flex-end !important; gap: 10px;
+  margin: auto -16px -16px !important; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  border: 0 !important; border-top: 1.5px solid var(--pf-line) !important; background: var(--pf-bg) !important;
+}
+.rs-grade-config-card .rs-grade-config-footer .btn { width: auto !important; height: var(--pf-btn-h); min-height: var(--pf-btn-h); padding: 0 16px; border-radius: 9px; font-size: 13.5px; font-weight: 700; margin: 0; }
+/* Footers inside padded report-settings cards reach the card edges */
+.gr-modal-card { display: flex !important; flex-direction: column; }
+.gr-modal-card > .pf-footer { margin: auto -16px -16px !important; }

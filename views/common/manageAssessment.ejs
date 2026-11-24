@@ -49,204 +49,6 @@
       .btn-outline { background: white; color: var(--primary); border: 2px solid var(--primary); }
       .btn-outline:hover { transform: translateY(-1px);}
 
-      /* ---- Create Test drawer (AJAX, same slide-in-from-right pattern
-         used by the Assessment Question Sets "Set Questions" panel) ---- */
-      .ct-modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(10, 20, 30, 0.55);
-        backdrop-filter: blur(3px);
-        display: none;
-        z-index: 10000;
-        animation: ctFadeIn 0.2s ease;
-      }
-      .ct-modal-overlay.is-open {
-        display: flex;
-        align-items: stretch;
-        justify-content: flex-end;
-      }
-      .ct-modal {
-        position: relative;
-        width: 100%;
-        max-width: 760px;
-        height: 100%;
-        min-height: 100%;
-        max-height: 100%;
-        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
-        display: flex;
-        flex-direction: column;
-        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
-        animation: ctSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-        overflow: hidden;
-      }
-      @keyframes ctSlideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to   { transform: translateX(0);    opacity: 1; }
-      }
-      @keyframes ctFadeIn {
-        from { opacity: 0; }
-        to   { opacity: 1; }
-      }
-      .ct-modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
-        background: #fff;
-        border-bottom: 1px solid #e2e8f0;
-        flex-shrink: 0;
-        gap: 12px;
-      }
-      .ct-modal-header-left { display: flex; align-items: center; gap: 10px; }
-      .ct-modal-header-icon {
-        width: 34px;
-        height: 34px;
-        background: linear-gradient(135deg, var(--primary) 0%, #1a8fa0 100%);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 15px;
-        flex-shrink: 0;
-      }
-      .ct-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
-      .ct-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
-      .ct-modal-close {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        color: #64748b;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s;
-        flex-shrink: 0;
-      }
-      
-      .ct-modal-body { flex: 1; position: relative; overflow: hidden; }
-      .ct-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
-      .ct-modal-loading {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        color: #475569;
-        font-size: 0.85rem;
-      }
-      .ct-modal-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(15, 90, 102, 0.25);
-        border-top-color: #0f5a66;
-        border-radius: 50%;
-        animation: ctSpin 0.7s linear infinite;
-        flex-shrink: 0;
-      }
-      @keyframes ctSpin { to { transform: rotate(360deg); } }
-      @media (max-width: 500px) {
-        .ct-modal-overlay { padding: 0; }
-        .ct-modal { border-radius: 0; }
-      }
-
-      /* ---- Modify Assessment drawer (AJAX, same slide-in-from-right
-         pattern as the Create Test drawer above) ---- */
-      .ma-modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(10, 20, 30, 0.55);
-        backdrop-filter: blur(3px);
-        display: none;
-        z-index: 10000;
-        animation: ctFadeIn 0.2s ease;
-      }
-      .ma-modal-overlay.is-open {
-        display: flex;
-        align-items: stretch;
-        justify-content: flex-end;
-      }
-      .ma-modal {
-        position: relative;
-        width: 100%;
-        max-width: 760px;
-        height: 100%;
-        min-height: 100%;
-        max-height: 100%;
-        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
-        display: flex;
-        flex-direction: column;
-        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
-        animation: ctSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-        overflow: hidden;
-      }
-      .ma-modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
-        background: #fff;
-        border-bottom: 1px solid #e2e8f0;
-        flex-shrink: 0;
-        gap: 12px;
-      }
-      .ma-modal-header-left { display: flex; align-items: center; gap: 10px; }
-      .ma-modal-header-icon {
-        width: 34px;
-        height: 34px;
-        background: linear-gradient(135deg, var(--primary) 0%, #1a8fa0 100%);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 15px;
-        flex-shrink: 0;
-      }
-      .ma-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
-      .ma-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
-      .ma-modal-close {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        color: #64748b;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s;
-        flex-shrink: 0;
-      }
-      
-      .ma-modal-body { flex: 1; position: relative; overflow: hidden; }
-      .ma-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
-      .ma-modal-loading {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        color: #475569;
-        font-size: 0.85rem;
-      }
-      .ma-modal-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(15, 90, 102, 0.25);
-        border-top-color: #0f5a66;
-        border-radius: 50%;
-        animation: ctSpin 0.7s linear infinite;
-        flex-shrink: 0;
-      }
-      @media (max-width: 500px) {
-        .ma-modal-overlay { padding: 0; }
-        .ma-modal { border-radius: 0; }
-      }
       .btn-disabled {
         background: var(--btn-disabled-bg);
         color: var(--btn-disabled-text);
@@ -596,7 +398,6 @@
   <header class="ws-head">
     <div class="ws-head__text">
       <h1 class="ws-head__title">Assessments</h1>
-      <p class="ws-head__sub">Tests and exams by term. Select one to see its details.</p>
     </div>
     <div class="ws-head__actions">
       <% const _years = Array.isArray(locals.termYears) ? termYears : []; %>
@@ -714,58 +515,6 @@
 
 </div>
 
-<div class="ct-modal-overlay" id="ctModalOverlay" aria-hidden="true">
-  <div class="ct-modal">
-    <div class="ct-modal-header">
-      <div class="ct-modal-header-left">
-        <div class="ct-modal-header-icon">📝</div>
-        <div>
-          <h2 id="ctModalTitle">Create Test</h2>
-          <p>Add one or more tests for this term</p>
-        </div>
-      </div>
-      <button type="button" class="ct-modal-close" id="ctModalClose" title="Close">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-    <div class="ct-modal-body">
-      <div class="ct-modal-loading" id="ctModalLoading">
-        <span class="ct-modal-spinner" aria-hidden="true"></span>
-        Loading…
-      </div>
-      <iframe class="ct-modal-iframe" id="ctModalIframe" title="Create Test" style="display:none;"></iframe>
-    </div>
-  </div>
-</div>
-
-<div class="ma-modal-overlay" id="maModalOverlay" aria-hidden="true">
-  <div class="ma-modal">
-    <div class="ma-modal-header">
-      <div class="ma-modal-header-left">
-        <div class="ma-modal-header-icon">✏️</div>
-        <div>
-          <h2 id="maModalTitle">Modify Assessment</h2>
-          <p>Edit this test's details</p>
-        </div>
-      </div>
-      <button type="button" class="ma-modal-close" id="maModalClose" title="Close">
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-    <div class="ma-modal-body">
-      <div class="ma-modal-loading" id="maModalLoading">
-        <span class="ma-modal-spinner" aria-hidden="true"></span>
-        Loading…
-      </div>
-      <iframe class="ma-modal-iframe" id="maModalIframe" title="Modify Assessment" style="display:none;"></iframe>
-    </div>
-  </div>
-</div>
-
 <script>
   /* ---- Term picker: show another term's assessments ---- */
   (function () {
@@ -809,7 +558,7 @@
         + '<td class="ws-card-wide" data-label="Class">' + classText(a) + '</td>'
         + '<td class="ws-card-wide" data-label="Subject">' + subjectText(a) + '</td>'
         + '<td data-label="Category">' + escH(a.category) + '</td>'
-        + '<td data-label="Weight">' + (a.isChoice && !a.choiceCounts ? '—' : escH(a.shownWeight) + '%') + '</td>'
+        + '<td data-label="Weight">' + (a.isChoice && !a.choiceCounts ? '—' : escH(a.shownWeight)) + '</td>'
         + '<td data-label="Out of">' + (a.isChoice ? '<span class="ws-pill" title="Results are recorded as a choice">' + escH(a.choiceSummary) + '</span>' : escH(a.shownMax)) + '</td>'
         + '<td data-label="Status"><span class="ws-pill ' + pill + '">' + escH(a.status) + '</span></td></tr>';
     }
@@ -852,11 +601,11 @@
     function render(a) {
       var pill = a.status === 'Open' ? 'ws-pill--green' : a.status === 'Turned off' ? '' : 'ws-pill--amber';
       var html = '<div class="ux-who"><div><div class="ux-who__name">' + (a.obsolete ? '<s class="ux-struck">' + esc(a.title) + '</s>' : esc(a.title)) + '</div><span class="ws-pill ' + pill + '">' + esc(a.status) + '</span></div></div>' +
-        '<section class="ux-sec"><h3>Settings</h3>' + kv('Results', a.results) + (a.results.indexOf('not in totals') === -1 ? kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) : '') + kv('Scaled to', a.scale) + kv('Category', a.category) + kv('Used in', a.termsUsed + (a.termsUsed === 1 ? ' term' : ' terms')) + '</section>' +
+        '<section class="ux-sec"><h3>Settings</h3>' + kv('Results', a.results) + (a.results.indexOf('not in totals') === -1 ? kv('Weight', a.weight) + kv('Score out of', Number(a.maxScore)) : '') + kv('Scaled to', a.scale) + kv('Category', a.category) + kv('Used in', a.termsUsed + (a.termsUsed === 1 ? ' term' : ' terms')) + '</section>' +
         '<section class="ux-sec"><h3>Score entry</h3>' + kv('Status', a.status) + kv('Opens', a.windowStart) + kv('Closes', a.windowEnd) + kv('Scores saved', a.scores) + '</section>' +
         '<section class="ux-sec"><h3>Classes <span class="ux-count">' + a.classes.length + '</span></h3>' +
           a.classes.map(function (c) { return '<div class="ux-class"><strong>' + esc(c.name) + '</strong><span>' + esc(c.subjects.join(', ') || 'No subjects') + '</span></div>'; }).join('') + '</section>' +
-        (a.obsolete ? '<p class="ux-muted" style="margin:0 0 4px">Obsolete: kept with its scores on report cards and closed to new scores. Restore it to use it again.</p>' : '') +
+        (a.obsolete ? '<p class="ux-muted" style="margin:0 0 4px">Obsolete</p>' : '') +
         '<div class="ux-actions" style="gap:8px;flex-wrap:wrap"><button type="button" class="ws-btn" id="uxObsolete"><i class="fa-solid ' + (a.obsolete ? 'fa-rotate-left' : 'fa-box-archive') + '" aria-hidden="true"></i> ' + (a.obsolete ? 'Restore' : 'Make obsolete') + '</button>' +
         '<button type="button" class="ws-btn" id="uxLock"><i class="fa-solid ' + (a.locked ? 'fa-lock-open' : 'fa-lock') + '" aria-hidden="true"></i> ' + (a.locked ? 'Unlock' : 'Lock') + '</button>' +
         '<button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>';
@@ -864,8 +613,8 @@
       get('uxEdit').addEventListener('click', function () { showEdit(a); });
       get('uxObsolete').addEventListener('click', function () {
         var msg = a.obsolete
-          ? 'Restore "' + a.title + '"? It opens for scores again (unless it is locked or outside its dates).'
-          : 'Make "' + a.title + '" obsolete?\n\nIts saved scores stay on report cards exactly as they are. It is closed to new scores and marked Obsolete. You can restore it any time.';
+          ? 'Restore "' + a.title + '"?'
+          : 'Make "' + a.title + '" obsolete? Saved scores stay on report cards.';
         if (!window.confirm(msg)) return;
         var btn = get('uxObsolete'); btn.disabled = true;
         fetch('/common/obsolete/assessment', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ kind: 'assessment', groupId: a.id, action: a.obsolete ? 'restore' : 'obsolete' }) })
@@ -877,6 +626,13 @@
         if (!window.confirm((a.locked ? 'Unlock' : 'Lock') + ' "' + a.title + '" for every class?')) return;
         updateControl(a.id, ctOrganizationId, ctTermId, a.locked ? 'unlock' : 'lock');
       });
+    }
+    // The panel starts under the app header when this page has one (inside a class tab the frame is lifted instead).
+    function placePanel() {
+      var header = document.getElementById('top-header');
+      var top = header && header.offsetHeight ? Math.round(header.getBoundingClientRect().bottom) + 'px' : '0px';
+      get('uxPanel').style.top = top;
+      get('uxBackdrop').style.top = top;
     }
     function setMode(editing) {
       get('uxPanel').classList.toggle('is-editing', editing);
@@ -905,6 +661,7 @@
       current = a;
       render(a);
       setMode(false);
+      placePanel();
       get('uxBackdrop').hidden = false;
       get('uxPanel').classList.add('is-open');
       get('uxPanel').setAttribute('aria-hidden', 'false');
@@ -920,8 +677,30 @@
       Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.remove('is-selected'); });
     }
     window.openAssessmentPanel = open;
+    window.closeAssessmentPanel = close;
+    // "New test" opens the same panel, on the create form.
+    window.openCreateAssessmentPanel = function (organizationId, termId) {
+      var frame = get('uxEditFrame'), loading = get('uxEditLoading');
+      current = null;
+      setMode(true);
+      get('uxPanelTitle').textContent = 'New test';
+      get('uxBack').hidden = true;
+      frame.style.visibility = 'hidden';
+      loading.style.display = 'flex';
+      frame.onload = function () {
+        var path = null;
+        try { path = frame.contentWindow.location.pathname; } catch (err) { /* ignore */ }
+        if (path === '/common/manageAssessment') { window.location.reload(); return; }
+        loading.style.display = 'none';
+        frame.style.visibility = 'visible';
+      };
+      frame.src = '/common/createTest?organizationId=' + organizationId + '&termId=' + termId + '&embed=workspace&flow=1';
+      placePanel();
+      get('uxBackdrop').hidden = false;
+      get('uxPanel').classList.add('is-open');
+      get('uxPanel').setAttribute('aria-hidden', 'false');
+    };
     get('uxClose').addEventListener('click', close);
-    get('uxBackdrop').addEventListener('click', close);
     get('uxBack').addEventListener('click', function () { setMode(false); get('uxEditFrame').removeAttribute('src'); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && get('uxPanel').classList.contains('is-open')) close(); });
     var body = get('uxBody');
@@ -961,13 +740,12 @@
   /* ---- Create Test drawer (AJAX, no page navigation) ---- */
   const ctOrganizationId = <%= Number(organizationId) %>;
   const ctTermId = <%= Number(termId) %>;
-  let ctModalIframeLoaded = false;
   // The assessments flow: a new test can get its questions straight away (questions are
   // optional; "Not now" just shows the list).
   const CT_CAN_ADD_QUESTIONS = <%= (canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions) ? 'true' : 'false' %>;
   window.addEventListener('message', function (event) {
     if (event.origin !== window.location.origin || !event.data || event.data.type !== 'managira:assessments-created') return;
-    closeCreateTestModal();
+    if (window.closeAssessmentPanel) window.closeAssessmentPanel();
     const created = Array.isArray(event.data.created) ? event.data.created : [];
     if (!created.length || !CT_CAN_ADD_QUESTIONS || !window.AssessmentFlow) { window.location.reload(); return; }
     window.AssessmentFlow.askAddQuestions({ created: created }).then(function (pick) {
@@ -985,110 +763,11 @@
     });
   });
 
+  // New test: the same side panel as Edit (one drawer for both).
   function openCreateTestModal() {
-    const overlay = document.getElementById('ctModalOverlay');
-    const iframe = document.getElementById('ctModalIframe');
-    const loading = document.getElementById('ctModalLoading');
-    if (!overlay || !iframe) return;
-
-    if (!ctModalIframeLoaded) {
-      iframe.addEventListener('load', function onLoad() {
-        // createTest.ejs redirects itself to manageAssessment on a
-        // successful save — when that happens inside our iframe, the test
-        // is already saved, so close the drawer and refresh the list
-        // instead of showing the list page a second time inside itself.
-        let path = null;
-        try { path = iframe.contentWindow.location.pathname; } catch (err) { /* cross-origin, ignore */ }
-        if (path === '/common/manageAssessment') {
-          window.location.reload();
-          return;
-        }
-
-        ctModalIframeLoaded = true;
-        if (loading) loading.style.display = 'none';
-        iframe.style.display = 'block';
-      });
-      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace&flow=1';
-    }
-
-    overlay.classList.add('is-open');
-    overlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    if (window.openCreateAssessmentPanel) window.openCreateAssessmentPanel(ctOrganizationId, ctTermId);
   }
-
-  function closeCreateTestModal() {
-    const overlay = document.getElementById('ctModalOverlay');
-    if (!overlay) return;
-    overlay.classList.remove('is-open');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
-  document.getElementById('ctModalClose').addEventListener('click', closeCreateTestModal);
-  document.getElementById('ctModalOverlay').addEventListener('click', function (event) {
-    if (event.target === this) closeCreateTestModal();
-  });
-  document.addEventListener('keydown', function (event) {
-    if (event.key !== 'Escape') return;
-    const overlay = document.getElementById('ctModalOverlay');
-    if (overlay && overlay.classList.contains('is-open')) closeCreateTestModal();
-  });
-
-  /* ---- Modify Assessment drawer (AJAX, no page navigation) ---- */
-  let maModalIframe = null;
-
-  function openModifyAssessmentModal(groupId) {
-    const overlay = document.getElementById('maModalOverlay');
-    const iframe = document.getElementById('maModalIframe');
-    const loading = document.getElementById('maModalLoading');
-    if (!overlay || !iframe) return;
-
-    // Each row edits a different assessment group, so unlike the other
-    // drawers this one reloads its iframe fresh on every open instead of
-    // caching a single load.
-    iframe.style.display = 'none';
-    if (loading) loading.style.display = 'flex';
-
-    iframe.onload = function onLoad() {
-      // modifyAssessment.ejs redirects itself to manageAssessment on a
-      // successful save — when that happens inside our iframe, the change
-      // is already saved, so close the drawer and refresh the list instead
-      // of showing the list page a second time inside itself.
-      let path = null;
-      try { path = iframe.contentWindow.location.pathname; } catch (err) { /* cross-origin, ignore */ }
-      if (path === '/common/manageAssessment') {
-        window.location.reload();
-        return;
-      }
-
-      if (loading) loading.style.display = 'none';
-      iframe.style.display = 'block';
-    };
-    iframe.src = '/common/modifyAssessment?groupId=' + encodeURIComponent(groupId)
-      + '&termId=' + ctTermId + '&organizationId=' + ctOrganizationId + '&embed=workspace';
-
-    overlay.classList.add('is-open');
-    overlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeModifyAssessmentModal() {
-    const overlay = document.getElementById('maModalOverlay');
-    if (!overlay) return;
-    overlay.classList.remove('is-open');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
-  document.getElementById('maModalClose').addEventListener('click', closeModifyAssessmentModal);
-  document.getElementById('maModalOverlay').addEventListener('click', function (event) {
-    if (event.target === this) closeModifyAssessmentModal();
-  });
-  document.addEventListener('keydown', function (event) {
-    if (event.key !== 'Escape') return;
-    const overlay = document.getElementById('maModalOverlay');
-    if (overlay && overlay.classList.contains('is-open')) closeModifyAssessmentModal();
-  });
 </script>
 </body>
 </html>
+

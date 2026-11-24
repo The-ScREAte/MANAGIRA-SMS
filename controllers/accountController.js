@@ -1897,23 +1897,12 @@ async function completeStripeRegistrationPayment(
   registrationDetails,
   paymentContext
 ) {
-  console.log("[Stripe][complete] start", {
-    paymentIntentId: paymentIntent.id,
-    sourceType: paymentIntent.type || "payment_intent",
-    status: paymentIntent.status,
-    amount_received: paymentIntent.amount_received,
-    customer: paymentIntent.customer,
-    org: registrationDetails.orgName,
-    email: registrationDetails.email,
-    planId: registrationDetails.planId,
-  });
   await ensurePaymentProviderSchema(db);
   await ensureStripeProcessedIntentsSchema(db);
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    console.log("[Stripe][complete] transaction begin");
 
     const processedIntentId = String(paymentIntent?.id || "").trim();
     if (!processedIntentId) {
@@ -1939,10 +1928,6 @@ async function completeStripeRegistrationPayment(
     if (existingProcessed.rows.length > 0) {
       const existingOrganizationId = Number(existingProcessed.rows[0].organization_id || 0) || null;
       await client.query("COMMIT");
-      console.log("[Stripe][complete] duplicate intent ignored", {
-        paymentIntentId: processedIntentId,
-        organizationId: existingOrganizationId,
-      });
       return {
         organizationId: existingOrganizationId,
         discountAmount: paymentContext.discountAmount,
@@ -2010,7 +1995,6 @@ async function completeStripeRegistrationPayment(
     );
 
     const organizationId = orgResult.rows[0].organization_id;
-    console.log("[Stripe][complete] organization inserted", { organizationId });
     invalidateAdminOrganizationsCache();
 
     const nextPaymentEndDate = computeNextPaymentEndDate({
@@ -2056,11 +2040,6 @@ async function completeStripeRegistrationPayment(
         "stripe",
       ]
     );
-    console.log("[Stripe][complete] payments row inserted", {
-      organizationId,
-      stripe_payment_intent_id: paymentIntent.type === "setup_intent" ? null : paymentIntent.id,
-      next_payment_end_date: nextPaymentEndDate,
-    });
 
     const stripe = await getStripeClient(db);
     const paymentMethodId = typeof paymentIntent.payment_method === "string"
@@ -2094,12 +2073,6 @@ async function completeStripeRegistrationPayment(
         provider: "stripe",
         authorizationCode: paymentMethodId,
       });
-      console.log("[Stripe][complete] stored_cards row saved", {
-        organizationId,
-        paymentMethodId,
-        brand: paymentMethod.card?.brand,
-        last4: paymentMethod.card?.last4,
-      });
     } else {
       console.warn("[Stripe][complete] no payment method on intent; skipping stored_cards");
     }
@@ -2119,7 +2092,6 @@ async function completeStripeRegistrationPayment(
     );
 
     await client.query("COMMIT");
-    console.log("[Stripe][complete] transaction committed", { organizationId });
 
     try {
       await sendRegistrationSuccessEmail(
@@ -2134,7 +2106,6 @@ async function completeStripeRegistrationPayment(
     // The receipt for a paid sign-up comes from Stripe (`receipt_email` on the PaymentIntent),
     // so no second one is sent here.
 
-    console.log("[Stripe][complete] done", { organizationId });
     return {
       organizationId,
       discountAmount: paymentContext.discountAmount,
@@ -3520,17 +3491,9 @@ const accountController = {
     }
 
     try {
-      console.log("[Stripe][intent] start", {
-        email: registrationDetails.email,
-        org: registrationDetails.orgName,
-        planId: registrationDetails.planId,
-        promoCode: req.body?.promoCode || null,
-        trialStartDate: req.body?.trialStartDate || null,
-      });
       await ensurePaymentProviderSchema(db);
       const paymentProvider = await getActivePaymentProvider();
       const selectedGateway = req.body?.selectedGateway;
-      console.log("[Stripe][intent] provider", { paymentProvider, selectedGateway });
       if (!providerSupportsStripe(paymentProvider)) {
         return res.status(400).json({
           success: false,
@@ -3554,15 +3517,6 @@ const accountController = {
         }
       );
       const stripeChargeCurrency = String(paymentContext.chargeCurrency || "USD").toLowerCase();
-      console.log("[Stripe][intent] charge context", {
-        amountDue: paymentContext.amountDue,
-        finalAmount: paymentContext.finalAmount,
-        discountAmount: paymentContext.discountAmount,
-        billingPeriodKey: paymentContext.billingPeriodKey,
-        billingPeriodMonths: paymentContext.billingPeriodMonths,
-        isTrial: paymentContext.isTrialCheckout,
-        currency: stripeChargeCurrency,
-      });
 
       const stripeSettings = await getStripeSettings(db);
       const stripeConfigError = getStripeConfigurationIssue(stripeSettings);
@@ -3589,10 +3543,8 @@ const accountController = {
           }
         }
         if (!customerId) {
-          console.log("[Stripe][intent] cached customer invalid; creating new one");
           req.session.stripePendingCustomerId = null;
         } else {
-          console.log("[Stripe][intent] reusing customer", { customerId });
         }
       }
       if (!customerId) {
@@ -3607,12 +3559,10 @@ const accountController = {
         });
         customerId = customer.id;
         req.session.stripePendingCustomerId = customerId;
-        console.log("[Stripe][intent] created customer", { customerId });
       }
 
       const finished = await findFinishedRegistrationIntent(stripe, req.session, registrationDetails);
       if (finished) {
-        console.log("[Stripe][intent] already confirmed earlier; finishing sign-up", finished);
         return req.session.save(() => res.json({
           success: true,
           alreadyConfirmed: true,
@@ -3646,11 +3596,6 @@ const accountController = {
         }, {
           idempotencyKey: paymentIdempotencyKey,
         });
-        console.log("[Stripe][intent] created setup intent", {
-          id: stripeIntent.id,
-          status: stripeIntent.status,
-          customer: stripeIntent.customer,
-        });
       } else {
         stripeIntent = await stripe.paymentIntents.create({
           amount: paymentContext.amountDue,
@@ -3668,13 +3613,6 @@ const accountController = {
           },
         }, {
           idempotencyKey: paymentIdempotencyKey,
-        });
-        console.log("[Stripe][intent] created", {
-          id: stripeIntent.id,
-          status: stripeIntent.status,
-          amount: stripeIntent.amount,
-          currency: stripeIntent.currency,
-          customer: stripeIntent.customer,
         });
       }
 
@@ -4090,10 +4028,6 @@ const accountController = {
   },
 
   paymentConfirmPost: async (req, res) => {
-    console.log("[Stripe][confirm] entered", {
-      paymentIntentId: req.body?.paymentIntentId || null,
-      hasSession: Boolean(req.session.registrationDetails),
-    });
     const paymentProvider = await getActivePaymentProvider();
 
     if (!providerSupportsStripe(paymentProvider)) {
@@ -4124,12 +4058,6 @@ const accountController = {
       let paymentIntent = null;
       if (stripeIntentType === "setup") {
         const setupIntent = await stripe.setupIntents.retrieve(paymentIntentId);
-        console.log("[Stripe][confirm] retrieved setup intent", {
-          id: setupIntent.id,
-          status: setupIntent.status,
-          customer: setupIntent.customer,
-          payment_method: setupIntent.payment_method,
-        });
 
         if (setupIntent.status !== "succeeded") {
           const setupFriendlyError = getPlainEnglishStripeError(
@@ -4155,13 +4083,6 @@ const accountController = {
         };
       } else {
         paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        console.log("[Stripe][confirm] retrieved intent", {
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          amount_received: paymentIntent.amount_received,
-          customer: paymentIntent.customer,
-          payment_method: paymentIntent.payment_method,
-        });
 
         if (paymentIntent.status !== "succeeded") {
           const paymentFriendlyError = getPlainEnglishStripeError(
@@ -4192,7 +4113,6 @@ const accountController = {
         registrationDetails,
         paymentContext
       );
-      console.log("[Stripe][confirm] registration complete", result);
 
       req.session.registrationDetails = null;
       req.session.paymentIntentId = null;

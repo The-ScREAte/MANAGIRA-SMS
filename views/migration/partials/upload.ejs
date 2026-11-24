@@ -4,8 +4,8 @@
 <form class="mg-upload" method="POST" action="<%= action %>" enctype="multipart/form-data" data-upload data-max-mb="<%= locals.maxFileMb || 60 %>" data-max-files="<%= locals.maxFiles || 50 %>">
   <div class="mg-drop" data-drop>
     <span class="mg-drop__icon" aria-hidden="true"></span>
-    <strong>Drag your school's export folder here</strong>
-    <small>Or choose the folder, its files, or a .zip of it. Lists (CSV, text, Excel) and documents (PDFs, photos, scans, Word): any number of files, up to <%= locals.maxFileMb || 60 %> MB each.</small>
+    <strong>Drop your export here</strong>
+    <small>or choose files, a folder or a .zip · up to <%= locals.maxFileMb || 60 %> MB each</small>
     <div class="mg-drop__choose">
       <button type="button" class="mg-btn mg-btn--sm" data-pick-folder-button>Choose a folder</button>
       <label class="mg-btn mg-btn--sm">Choose files<input type="file" name="files" data-pick-files multiple title="" /></label>
@@ -25,7 +25,7 @@
   </div>
   <div class="mg-upload__row">
     <button class="mg-btn mg-btn--primary" type="submit"<%= locals.task && task.open && task.kind !== 'read_files' ? ' disabled' : '' %>>Upload</button>
-    <p class="mg-trust"><span class="mg-trust__icon" aria-hidden="true"></span><span><strong>Private to your school.</strong> Your files travel encrypted and are kept in your school's private sandbox. Nothing reaches your live account until you review and sign off. Managira works out what each list is by itself, and reading carries on in the background, so you don't need to wait.</span></p>
+    <p class="mg-trust"><span class="mg-trust__icon" aria-hidden="true"></span><span>Private to your school. Nothing goes live until you sign off.</span></p>
   </div>
   <div class="mg-sending" data-sending hidden>
     <div class="mg-task__bar" role="progressbar" aria-label="Uploading" aria-valuemin="0" aria-valuemax="100"><span data-sending-bar style="width:0%"></span></div>

@@ -49,13 +49,14 @@
 /* Pictures on a question, and "Label a picture" */
 .qm-question-card.is-image-label .qm-options-field,
 .qm-question-card.is-image-label .qm-answer-field { display: none !important; }
-.qbf-media { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; background: #fbfdff; }
+.qbf-media { border: 0; border-radius: 12px; padding: 0; background: transparent; }
+.qbf-media__hint[hidden] { display: none; }
 .qbf-media.is-drop { border-color: var(--primary, #01535b); background: color-mix(in srgb, var(--primary, #01535b) 5%, white); }
 .qbf-media__empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .qbf-media__empty[hidden], .qbf-media__stage[hidden], .qbf-labels[hidden] { display: none; }
 .qbf-media__hint { font-size: .76rem; color: #64748b; flex: 1; min-width: 200px; }
 .qbf-pic-btn {
-  display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px;
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid #8ea3b6; border-radius: 10px;
   background: #fff; color: #0f172a; font-size: .82rem; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .qbf-pic-btn:hover { border-color: var(--primary, #01535b); color: var(--primary, #01535b); }
@@ -93,3 +94,15 @@
 .qbf-in-panel .question-modal { max-width: none; box-shadow: none; animation: none; }
 .qbf-in-panel .qm-topbar-left, .qbf-in-panel #question-modal-close { display: none; }
 .qbf-in-panel .qm-topbar { justify-content: flex-end; padding-top: 10px; padding-bottom: 10px; }
+
+/* Settings: one collapsed row above Write / Reuse / Upload, with a one-line summary. */
+.qbf-settings { margin: 0 0 14px; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 12px; }
+.qbf-settings > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 14px; cursor: pointer; list-style: none; font-weight: 700; font-size: .92rem; }
+.qbf-settings > summary::-webkit-details-marker { display: none; }
+.qbf-settings > summary::after { content: ""; flex: none; width: 8px; height: 8px; margin-left: auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); opacity: .55; transition: transform .15s ease; }
+.qbf-settings[open] > summary::after { transform: rotate(-135deg); }
+.qbf-settings > summary:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary, #01535b) 55%, transparent); outline-offset: -2px; }
+.qbf-settings__sum { min-width: 0; font-weight: 500; font-size: .82rem; opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qbf-settings__body { padding: 4px 14px 14px; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+.qbf-settings__body > .qm-section { margin: 12px 0 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
+@media (max-width: 640px) { .qbf-settings > summary { flex-wrap: wrap; gap: 2px 10px; } .qbf-settings__sum { flex-basis: 100%; order: 3; white-space: normal; } .qbf-settings > summary::after { order: 2; } }

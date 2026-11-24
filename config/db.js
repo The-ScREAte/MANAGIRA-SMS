@@ -51,7 +51,7 @@ warnIfDbConfigLooksWrong();
 
 // Development connected to the hosted database changes real schools' data.
 if (process.env.NODE_ENV !== 'production' && /\.render\.com/i.test(dbConnectionString || '')) {
-  console.warn('[DB] ⚠️ This is not production, but DB_CONNECTION_STRING points at the hosted database. Table changes and tests here affect real schools. Use a local or staging database for development.');
+  console.warn('[DB] Development is using the hosted database.');
 }
 
 const pool = new Pool({

@@ -6,6 +6,8 @@
   Shows nothing until something is shared.  locals: mode ("parent" | "student")
 %>
 <section class="fd" id="familyDetails" data-mode="<%= mode %>" hidden aria-live="polite"></section>
+<link rel="stylesheet" href="/css/fieldHelp.css">
+<script src="/js/fieldHelp.js" defer></script>
 <style>
   .fd { margin: 14px 0; }
   .fd-card { padding: 16px 18px; border: 1px solid #e5e9ef; border-radius: 16px; background: #fff; }
@@ -29,7 +31,9 @@
   .fd-person > span { font-size: .8rem; color: #64748b; }
   .fd-person .fd-list { margin-top: 6px; }
   .fd-person .fd-row:first-child { border-top: 0; }
-  .fd-form { margin-top: 12px; display: grid; gap: 12px; }
+  .fd-form { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .fd-form > .fd-field.fd-wide, .fd-form > .fd-actions, .fd-form > .fd-status { grid-column: 1 / -1; }
+  @media (max-width: 560px) { .fd-form { grid-template-columns: minmax(0, 1fr); } }
   .fd-field { display: grid; gap: 5px; font-size: .84rem; font-weight: 700; color: #334155; }
   .fd-field small { font-weight: 500; color: #64748b; }
   .fd-field input, .fd-field select, .fd-field textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid #d5dce4; border-radius: 10px; font: inherit; font-size: .9rem; font-weight: 500; color: #0f172a; background: #fff; }
@@ -77,20 +81,21 @@
         + '<button type="button" class="fd-btn" data-fd-edit>Update</button></div>'
         + rows(sec.fields.map(function (f) { return { label: f.label, value: shown(f) }; })) + '</div>';
     }
+    function wideCls(f) { return f.width === 'full' || (f.width !== 'half' && f.type === 'long_text') ? ' fd-wide' : ''; }
     function input(f) {
       var name = 'f' + f.id;
-      var help = f.helpText ? '<small>' + esc(f.helpText) + '</small>' : '';
+      var help = f.helpText ? '<span class="fh"><button type="button" class="fh__btn" aria-label="About ' + esc(f.label) + '" aria-describedby="fh' + f.id + '">?</button><span class="fh__tip" role="tooltip" id="fh' + f.id + '">' + esc(f.helpText) + '</span></span>' : '';
       if (f.type === 'yes_no') {
-        return '<div class="fd-field"><span>' + esc(f.label) + '</span>' + help + '<div class="fd-yesno" role="radiogroup" aria-label="' + esc(f.label) + '">'
+        return '<div class="fd-field' + wideCls(f) + '"><span>' + esc(f.label) + help + '</span><div class="fd-yesno" role="radiogroup" aria-label="' + esc(f.label) + '">'
           + ['yes', 'no', ''].map(function (v) { return '<label><input type="radio" name="' + name + '" value="' + v + '"' + (f.value === v ? ' checked' : '') + '><span>' + (v === 'yes' ? 'Yes' : v === 'no' ? 'No' : 'Not set') + '</span></label>'; }).join('') + '</div></div>';
       }
       if (f.type === 'choice') {
-        return '<label class="fd-field">' + esc(f.label) + help + '<select name="' + name + '"><option value="">Choose…</option>'
+        return '<label class="fd-field' + wideCls(f) + '"><span>' + esc(f.label) + help + '</span><select name="' + name + '"><option value="">Choose…</option>'
           + (f.options || []).map(function (o) { return '<option' + (o === f.value ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></label>';
       }
-      if (f.type === 'long_text') return '<label class="fd-field">' + esc(f.label) + help + '<textarea name="' + name + '" maxlength="4000">' + esc(f.value) + '</textarea></label>';
+      if (f.type === 'long_text') return '<label class="fd-field' + wideCls(f) + '"><span>' + esc(f.label) + help + '</span><textarea name="' + name + '" maxlength="4000">' + esc(f.value) + '</textarea></label>';
       var type = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
-      return '<label class="fd-field">' + esc(f.label) + help + '<input type="' + type + '" name="' + name + '" value="' + esc(f.value) + '"' + (type === 'text' ? ' maxlength="500"' : '') + '></label>';
+      return '<label class="fd-field' + wideCls(f) + '"><span>' + esc(f.label) + help + '</span><input type="' + type + '" name="' + name + '" value="' + esc(f.value) + '"' + (type === 'text' ? ' maxlength="500"' : '') + '></label>';
     }
     function editCard(sec) {
       return '<div class="fd-card" data-section="' + sec.id + '"><div class="fd-head"><span class="fd-icon">' + ICON + '</span>'

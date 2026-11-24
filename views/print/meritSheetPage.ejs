@@ -959,7 +959,7 @@
                       <%= preselectedAssessmentIds.has(Number(assessment.assessment_id)) ? 'checked' : '' %>
                     />
                     <span class="assessment-title"><%= assessment.title %></span>
-                    <span class="assessment-weight"><%= assessment.weight %>%</span>
+                    <span class="assessment-weight" title="Weight">Weight <%= assessment.weight %></span>
                   </label>
                   <% }); %>
                 </div>

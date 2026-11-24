@@ -183,9 +183,12 @@ module.exports = (db) => {
   router.get("/addStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.STUDENTS_ADD), (req, res) =>
     commonController.addStudentGet(req, res, db)
   );
+  // Every student form sends a few file boxes (photo, guardian photo, documents), empty ones
+  // included, so an imported list of 300 needs a far higher count than the usual 20.
+  const addStudentUpload = require("multer")({ storage: require("multer").memoryStorage(), ...require("../utils/uploadSafety").safeUploadOptions({ maxMb: 15, maxFiles: 4000 }) });
   router.post(
     "/addStudent",
-    upload.any(), // ⬅️ Accept dynamic file fields like studentImage_0, studentImage_1, etc.
+    addStudentUpload.any(), // ⬅️ Accept dynamic file fields like studentImage_0, studentImage_1, etc.
     isAuthenticated,
     requirePermission(PERMISSIONS.STUDENTS_ADD),
     commonValidation.validateStudents, // ✅ Validate student data
@@ -205,8 +208,22 @@ module.exports = (db) => {
     "/parse-bulk-students",
     isAuthenticated,
     requirePermission(PERMISSIONS.STUDENTS_ADD),
-    bulkUpload.single('bulkFile'),
+    (req, res, next) => bulkUpload.single('bulkFile')(req, res, (err) => {
+      if (!err) return next();
+      // Too big or a broken upload: answer in the shape the import screen reads.
+      return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({
+        success: false,
+        error: err.code === 'LIMIT_FILE_SIZE' ? 'File is too large. The limit is 10 MB.' : 'The upload could not be read.',
+      });
+    }),
     (req, res) => commonController.parseBulkStudents(req, res, db)
+  );
+
+  router.get(
+    "/student-import-template",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.STUDENTS_ADD),
+    (req, res) => commonController.studentImportTemplate(req, res, db)
   );
 
   router.get("/publicRegister", (req, res) =>
@@ -505,7 +522,7 @@ module.exports = (db) => {
   router.post("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), require("../utils/classScope").requireGroupScope(db), (req, res) =>
     commonController.modifyAssessmentPost(req, res, db)
   );
-  router.get("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
+  router.get("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), require("../utils/classScope").requireGroupScope(db), (req, res) =>
     commonController.modifyAssessmentGet(req, res, db)
   );
   router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), classScope, (req, res) =>
@@ -542,6 +559,9 @@ module.exports = (db) => {
   );
   router.post("/assessment/questions/extract-file", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, bulkUpload.single('examFile'), (req, res) =>
     commonController.extractAssessmentQuestionsFromPdf(req, res, db)
+  );
+  router.post("/assessment/review-setting", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), express.json(), (req, res) =>
+    commonController.saveAssessmentReviewSetting(req, res, db)
   );
   router.post("/assessment/questions/review", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), questionScope, (req, res) =>
     commonController.reviewAssessmentQuestionSet(req, res, db)
@@ -580,6 +600,13 @@ module.exports = (db) => {
   const questionGuards = [isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature];
   router.post("/assessment/approve", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), express.json(), questionScope, (req, res) => assessmentFlow.approve(req, res, db));
   router.post("/gradebook/view", isAuthenticated, blockGuardians, express.json(), (req, res) => assessmentFlow.saveGradebookView(req, res));
+  router.post("/assessment/questions/remark", ...questionGuards, express.json(), questionScope, (req, res) => assessmentFlow.remark(req, res, db));
+  // Marking one question across everyone who handed in: "By question" on the grading screen.
+  const markByQuestion = require("../controllers/markByQuestionController");
+  router.get("/assessment/mark/counts", ...questionGuards, (req, res) => markByQuestion.counts(req, res, db));
+  router.get("/assessment/mark/questions", ...questionGuards, questionScope, (req, res) => markByQuestion.questions(req, res, db));
+  router.get("/assessment/mark/answers", ...questionGuards, questionScope, (req, res) => markByQuestion.answers(req, res, db));
+  router.post("/assessment/mark/save", ...questionGuards, express.json(), questionScope, (req, res) => markByQuestion.save(req, res, db));
   router.post("/assessment/questions/image", ...questionGuards, upload.single("image"), (req, res) => assessmentFlow.uploadQuestionImage(req, res));
   router.post("/assessment/questions/help-file", ...questionGuards, upload.single("file"), (req, res) => parentResourcesController.questionHelpFile(req, res));
   router.get("/assessment/questions/library", ...questionGuards, (req, res) => assessmentFlow.library(req, res, db));
@@ -632,7 +659,7 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.birthdaysPageGet(req, res, db)
   );
-  router.get("/classSchedule", isAuthenticated, (req, res) =>
+  router.get("/classSchedule", isAuthenticated, require("../utils/classScope").requireClassScope(db), (req, res) =>
     commonController.getClassSchedule(req, res, db)
   );
   router.post("/classSchedule/save", isAuthenticated, (req, res) =>
@@ -961,6 +988,9 @@ module.exports = (db) => {
   );
   router.post("/saveLunch", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveLunch(req, res, db)
+  );
+  router.post("/confirmAttendanceDone", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
+    commonController.confirmAttendanceDone(req, res, db)
   );
   router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveSingleAttendance(req, res, db)
@@ -1380,3 +1410,4 @@ module.exports = (db) => {
 
   return router;
 };
+

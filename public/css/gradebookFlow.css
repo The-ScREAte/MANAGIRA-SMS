@@ -115,3 +115,26 @@ thead tr:hover .gb-sum-btn, .gb-sum-btn:focus-visible, .gb-sum-btn[aria-expanded
   .gb-legend__hint { margin-left: 0; }
   .gb-chip span { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* To mark: a quiet link beside + Assessment. */
+.gb-add--quiet { background: transparent !important; color: inherit !important; border: 1px solid color-mix(in srgb, currentColor 25%, transparent) !important; text-decoration: none; font-weight: 500; }
+.gb-add--quiet:hover { background: color-mix(in srgb, currentColor 8%, transparent) !important; }
+
+/* The Filters pop-up, as on the attendance page: labelled fields, the range beside the button, Reset. */
+.gb-chip .gb-range { font-weight: 500; opacity: .75; }
+.gb-chip .gb-range:empty { display: none; }
+.gb-chip .gb-range::before { content: "· "; }
+.gb-filter-pop { display: grid; gap: 12px; min-width: 260px; padding: 14px; }
+.gb-filter-pop .gb-field { display: grid; gap: 5px; margin: 0; font-size: .74rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #64748b; }
+.gb-filter-pop .gb-field select { width: 100%; height: 36px; margin: 0; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-size: .86rem; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.gb-filter-pop .gb-field select:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary, #01535b) 40%, transparent); outline-offset: 1px; }
+.gb-filter-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gb-filter-actions .gb-menu__note { margin: 0; }
+.gb-reset { width: auto; margin: 0; padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: transparent; color: #334155; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.gb-reset:disabled { opacity: .45; cursor: default; }
+
+/* Review: a small count of what waits for review, beside the button. */
+.gb-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: #d97706; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; }
+.gb-count[hidden] { display: none; }
+/* Weight under the assessment's name: muted, never a percentage. */
+.gb-weight { font-weight: 500; opacity: .7; text-transform: none; letter-spacing: 0; white-space: nowrap; }

@@ -92,7 +92,7 @@
     .emp-modal {
       position: relative;
       width: 100%;
-      max-width: 760px;
+      max-width: min(1040px, 100vw);
       height: 100%;
       min-height: 100%;
       max-height: 100%;
@@ -196,7 +196,7 @@
     .mfe-modal {
       position: relative;
       width: 100%;
-      max-width: 760px;
+      max-width: min(1040px, 100vw);
       height: 100%;
       min-height: 100%;
       max-height: 100%;
@@ -701,7 +701,7 @@
   </div>
 
   <div class="ux-panel-backdrop" id="uxBackdrop" hidden></div>
-  <aside class="ux-panel" id="uxPanel" role="dialog" aria-modal="true" aria-labelledby="uxPanelTitle" aria-hidden="true">
+  <aside class="ux-panel" id="uxPanel" role="dialog" aria-modal="true" aria-labelledby="uxPanelTitle" aria-hidden="true" data-below-header="is-open">
     <div class="ux-panel__bar">
       <strong id="uxPanelTitle">User</strong>
       <button type="button" class="ux-close" id="uxClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -712,19 +712,19 @@
       <iframe id="uxEditFrame" title="Edit user"></iframe>
     </div>
   </aside>
+  <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
   <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
   <script src="<%= assetUrl('/js/listPager.js') %>"></script>
   <script>window.UX_SSO = <%- JSON.stringify({ on: Boolean(_sso), name: _ssoName }) %>;</script>
   <script type="application/json" id="uxUsers"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
-  <div class="emp-modal-overlay" id="empModalOverlay" aria-hidden="true">
+  <div class="emp-modal-overlay" id="empModalOverlay" aria-hidden="true" data-below-header="is-open" data-popup-lift>
     <div class="emp-modal">
       <div class="emp-modal-header">
         <div class="emp-modal-header-left">
           <div class="emp-modal-header-icon">👥</div>
           <div>
-            <h2 id="empModalTitle">Add Employee</h2>
-            <p>Create a new employee account</p>
+            <h2 id="empModalTitle">Add employee</h2>
           </div>
         </div>
         <button type="button" class="emp-modal-close" id="empModalClose" title="Close">
@@ -743,14 +743,13 @@
     </div>
   </div>
 
-  <div class="mfe-modal-overlay" id="mfeModalOverlay" aria-hidden="true">
+  <div class="mfe-modal-overlay" id="mfeModalOverlay" aria-hidden="true" data-below-header="is-open" data-popup-lift>
     <div class="mfe-modal">
       <div class="mfe-modal-header">
         <div class="mfe-modal-header-left">
           <div class="mfe-modal-header-icon">✏️</div>
           <div>
-            <h2 id="mfeModalTitle">Modify Employee</h2>
-            <p>Edit this employee's details</p>
+            <h2 id="mfeModalTitle">Edit employee</h2>
           </div>
         </div>
         <button type="button" class="mfe-modal-close" id="mfeModalClose" title="Close">
@@ -835,7 +834,7 @@
 
     document.getElementById('empModalClose').addEventListener('click', closeAddEmployeeModal);
     document.getElementById('empModalOverlay').addEventListener('click', function (event) {
-      if (event.target === this) closeAddEmployeeModal();
+      /* closes only with X or Escape */
     });
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;
@@ -948,7 +947,7 @@
         '<div><div class="ux-who__name">' + uxEsc(user.name) + '</div>' +
         '<span class="ws-pill ' + statusClass + '">' + uxEsc(user.status) + '</span>' +
         (user.owner ? ' <span class="ux-owner">Main manager</span>' : '') + '</div></div>' +
-        (user.removed ? '<div class="ux-removed"><strong>Removed' + (user.removedOn ? ' on ' + uxEsc(user.removedOn) : '') + (user.removedBy ? ' by ' + uxEsc(user.removedBy) : '') + '.</strong> They can\'t sign in. Their records are kept. Enable them to bring them back with the same email, password, classes and permissions.</div>' : '') +
+        (user.removed ? '<div class="ux-removed"><strong>Removed' + (user.removedOn ? ' on ' + uxEsc(user.removedOn) : '') + (user.removedBy ? ' by ' + uxEsc(user.removedBy) : '') + '.</strong> Can\'t sign in.</div>' : '') +
         '<section class="ux-sec"><h3>Account</h3>' +
           uxRow('Email', user.email) + uxRow('Phone', user.phone) + uxRow('Role', user.role) + uxRow('Title', user.title) +
           uxRow('Signs in with', user.signIn) + uxRow('Last sign-in', user.lastLogin) + uxRow('Last single sign-on', user.lastSso) + uxRow('Added', user.joined) +
@@ -956,9 +955,9 @@
         '<section class="ux-sec"><h3>Classes &amp; subjects <span class="ux-count">' + user.classes.length + '</span></h3>' +
           (user.classes.length ? user.classes.map(function (c) {
             return '<div class="ux-class"><strong>' + uxEsc(c.name) + '</strong>' + (c.subjects.length ? '<span>' + c.subjects.map(uxEsc).join(', ') + '</span>' : '<span class="ux-muted">No subjects</span>') + '</div>';
-          }).join('') : '<p class="ux-muted">Not assigned to a class.</p>') +
+          }).join('') : '<p class="ux-muted">None</p>') +
         '</section>' +
-        (user.locked ? '<p class="ux-muted">Only a manager can change this account.</p>' : user.removed
+        (user.locked ? '<p class="ux-muted">Managers only.</p>' : user.removed
           ? !UX_ACCESS.canRemove ? '' : '<form class="ux-actions" method="post" action="/common/enableEmployee/' + encodeURIComponent(user.id) + '" data-no-spa><button type="submit" class="ws-btn ws-btn--primary" id="uxEnable"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Enable</button></form>'
           : !UX_ACCESS.canEdit ? '' : '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>');
       document.getElementById('uxPanelBody').innerHTML = html;
@@ -996,7 +995,7 @@
         if (path && path !== '/common/modifyEmployee' && path !== 'blank') {
           frame.removeAttribute('src');
           setPanelMode(false);
-          document.getElementById('uxPanelBody').insertAdjacentHTML('afterbegin', '<p class="ux-alert">The edit form couldn\'t open. Please try again.</p>');
+          document.getElementById('uxPanelBody').insertAdjacentHTML('afterbegin', '<p class="ux-alert">Couldn\'t open.</p>');
           return;
         }
         loading.style.display = 'none';
@@ -1035,7 +1034,6 @@
       if (row) row.focus();
     }
     document.getElementById('uxClose').addEventListener('click', closeUserPanel);
-    document.getElementById('uxBackdrop').addEventListener('click', closeUserPanel);
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && document.getElementById('uxPanel').classList.contains('is-open')) closeUserPanel();
     });
@@ -1097,7 +1095,7 @@
 
     document.getElementById('mfeModalClose').addEventListener('click', closeModifyEmployeeModal);
     document.getElementById('mfeModalOverlay').addEventListener('click', function (event) {
-      if (event.target === this) closeModifyEmployeeModal();
+      /* closes only with X or Escape */
     });
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;

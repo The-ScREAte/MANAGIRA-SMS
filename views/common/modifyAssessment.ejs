@@ -552,7 +552,10 @@
   .ma-sec:last-of-type { border-bottom: 0; }
   .ma-sec__title { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7; }
   .ma-count { padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); font-size: 11px; }
-  .ma-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+  .ma-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+  .ma-sec:first-of-type .ma-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ma-sec:first-of-type .ma-grid .ma-field--wide { grid-column: 1 / -1; }
+  .ma-sec + .ma-sec .ma-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ma-field { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; }
   .ma-field--wide { grid-column: 1 / -1; }
   .ma-field input, .ma-field select { width: 100%; box-sizing: border-box; margin: 0; padding: 9px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent) !important; border-radius: 8px; background: transparent !important; color: inherit !important; font: inherit; font-weight: 400; }
@@ -568,12 +571,16 @@
   .ma-class { padding: 10px 12px; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 10px; }
   .ma-class__name { font-weight: 700; margin-bottom: 8px; }
   .ma-class .subject-container { margin: 0; padding-left: 26px; }
+  .ma-sec .aem { margin: 12px 0 0; padding: 0; }
+  .ma-sec .ma-grid + .ma-check, .ma-sec .ma-check + .ma-grid { margin-top: 10px; }
   .ma-footer-bar { background: var(--ap-surface, #fff); }
   /* Room for the fixed Save bar, so the last classes can scroll fully into view. */
   .ma-spacer { height: calc(140px + env(safe-area-inset-bottom, 0px)); }
   @media (max-width: 640px) {
     main.ma-clean { padding: 12px 12px 110px; }
     .ma-grid, .ma-class-grid { grid-template-columns: 1fr; }
+    .ma-sec:first-of-type .ma-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ma-sec + .ma-sec .ma-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -597,10 +604,10 @@
             <label class="ma-field ma-field--wide">Name
               <input type="text" name="testName" value="<%= assessment.title %>" required>
             </label>
-            <label class="ma-field">Weight (%)
+            <label class="ma-field" title="How much it counts toward the subject total on a report card that scales subjects (Report Settings). Weights are relative: weight 2 counts twice as much as weight 1.">Weight
               <input type="number" name="testWeight" step="0.1" value="<%= assessment.weight %>" required>
             </label>
-            <label class="ma-field">Score out of
+            <label class="ma-field">Out of
               <input type="number" name="maxScore" value="<%= Number(assessment.max_score) %>" required>
             </label>
             <label class="ma-field">Scaled to
@@ -621,7 +628,7 @@
 
         <section class="ma-sec">
           <h3 class="ma-sec__title">Score entry</h3>
-          <label class="ma-check"><input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> /> Locked (no score changes)</label>
+          <label class="ma-check"><input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> /> Lock scores</label>
           <div class="ma-grid">
             <label class="ma-field">Opens
               <input type="datetime-local" id="editWindowStart" name="editWindowStart"
@@ -631,18 +638,23 @@
               <input type="datetime-local" id="editWindowEnd" name="editWindowEnd"
                 value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>">
             </label>
+            <% if (typeof lateUntilAvailable !== 'undefined' && lateUntilAvailable) { %>
+            <label class="ma-field">Late until
+              <input type="datetime-local" id="lateUntil" name="lateUntil"
+                value="<%= assessment.late_until ? new Date(assessment.late_until).toISOString().slice(0,16) : '' %>">
+            </label>
+            <% } %>
           </div>
-          <p class="ma-hint">Leave the dates blank to allow score entry any time.</p>
-          <label class="ma-check"><input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" /> Email the class teachers about this change</label>
+          <label class="ma-check"><input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" /> Email teachers</label>
         </section>
 
         <section class="ma-sec">
-          <h3 class="ma-sec__title">Classes and subjects <span class="ma-count"><%= _chosenClasses %></span></h3>
+          <h3 class="ma-sec__title">Classes <span class="ma-count"><%= _chosenClasses %></span></h3>
           <button type="button" class="ma-toggle" onclick="toggleClassesCollapse()">
-            <span class="arrow" id="arrow-classes">&#9654;</span> Show or change classes
+            <span class="arrow" id="arrow-classes">&#9654;</span> Choose
           </button>
           <div class="ma-classes" id="collapse-classes" style="display:none;">
-            <label class="ma-check ma-check--all"><input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()"> Select every class and subject</label>
+            <label class="ma-check ma-check--all"><input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()"> Select all</label>
             <div class="ma-class-grid">
               <% (classes || []).forEach(cls => { %>
                 <div class="ma-class">
@@ -666,7 +678,7 @@
   <div class="ma-footer-bar-inner form-actions">
     <button type="submit" class="submit-btn" id="saveAssessmentBtn" form="modifyAssessmentForm">
       <span class="submit-spinner" aria-hidden="true"></span>
-      <span class="submit-btn-text">Save Changes</span>
+      <span class="submit-btn-text">Save</span>
     </button>
     <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()" aria-label="Delete assessment" title="Delete assessment">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

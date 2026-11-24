@@ -3,24 +3,24 @@
   const _max = Number(typeof maxOrganizations !== 'undefined' ? maxOrganizations : 0) || 0;
   const _pct = _max ? Math.min(100, Math.round((_count / _max) * 100)) : 0;
 %>
-<div data-drawer-title="Invite a school" data-drawer-sub="They get an email to accept and join <%= (hub && hub.hub_name) || 'your hub' %>." data-invite>
+<div data-drawer-title="Invite a school" data-invite>
   <div class="hub-capacity hub-capacity--drawer">
     <span class="hub-small" style="margin:0"><strong><%= _count %></strong> of <%= _max || '∞' %> places used</span>
     <% if (_max) { %><div class="hub-capacity__bar" aria-hidden="true"><span style="width:<%= _pct %>%"></span></div><% } %>
     <% if (typeof places !== 'undefined' && places && places.full && places.canBuy) { %>
-      <span class="hub-small" style="margin:6px 0 0">All places are used. One more school adds <strong><%= places.priceLabel %> each <%= places.per %></strong> to your bill; you’ll be asked to approve it.</span>
+      <span class="hub-small" style="margin:6px 0 0">All places used. One more adds <strong><%= places.priceLabel %> each <%= places.per %></strong>.</span>
     <% } %>
   </div>
 
   <div data-step="choose">
     <div class="hub-choices hub-choices--compact">
       <button type="button" class="hub-choice" data-go="new">
-        <span class="hub-choice__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> A new school</span>
-        <span class="hub-choice__text">Not on Managira yet. They create their account from the invitation.</span>
+        <span class="hub-choice__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> New school</span>
+        
       </button>
       <button type="button" class="hub-choice" data-go="existing">
-        <span class="hub-choice__title"><i class="fa-solid fa-school" aria-hidden="true"></i> Already on Managira</span>
-        <span class="hub-choice__text">Find the school and invite it to join your hub.</span>
+        <span class="hub-choice__title"><i class="fa-solid fa-school" aria-hidden="true"></i> On Managira</span>
+        
       </button>
     </div>
   </div>
@@ -29,16 +29,15 @@
     <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-go="choose" style="justify-self:start"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
     <div class="hub-field">
       <label class="hub-label" for="ivName">School name <span class="req">*</span></label>
-      <input type="text" id="ivName" name="organization_name" placeholder="e.g. Bright Future Academy" required />
+      <input type="text" id="ivName" name="organization_name" placeholder="School name" required />
     </div>
     <div class="hub-field">
       <label class="hub-label" for="ivContact">Contact person <span class="req">*</span></label>
-      <input type="text" id="ivContact" name="contact_person_name" placeholder="First and last name" required />
+      <input type="text" id="ivContact" name="contact_person_name" placeholder="Full name" required />
     </div>
     <div class="hub-field">
       <label class="hub-label" for="ivEmail">Contact email <span class="req">*</span></label>
-      <input type="email" id="ivEmail" name="contact_person_email" placeholder="head@school.com" required />
-      <span class="hub-help">The invitation is sent here.</span>
+      <input type="email" id="ivEmail" name="contact_person_email" placeholder="Email" required />
     </div>
     <div class="hub-field">
       <label class="hub-label" for="ivPhone">Phone number</label>
@@ -48,12 +47,11 @@
       </div>
     </div>
     <div class="hub-field">
-      <label class="hub-label" for="ivHubContact">Hub contact for this school <span class="hub-help">(optional)</span></label>
+      <label class="hub-label" for="ivHubContact">Hub contact</label>
       <select id="ivHubContact" name="hub_contact_id">
-        <option value="">No one assigned</option>
+        <option value="">None</option>
         <% (contacts || []).forEach((c) => { %><option value="<%= c.contact_id %>" <%= String('') === String(c.contact_id) ? 'selected' : '' %>><%= c.full_name %><%= c.job_title ? ' · ' + c.job_title : '' %></option><% }) %>
       </select>
-      <span class="hub-help">The person at your hub this school should talk to. Add people in Settings › Contact people.</span>
     </div>
     <% const _hp = (typeof hubPlans !== 'undefined' && hubPlans) || { plans: [] }; %>
     <% if (_hp.plans.length > 1 || (_hp.plans.length === 1 && !_hp.defaultPlan)) { %>
@@ -63,22 +61,21 @@
         <option value=""><%= _hp.defaultPlan ? `Hub default (${_hp.defaultPlan.plan_name})` : 'Hub default' %></option>
         <% _hp.plans.forEach((p) => { %><option value="<%= p.id %>"><%= p.plan_name %></option><% }) %>
       </select>
-      <span class="hub-help">What the school can use once it joins. You can change it later.</span>
     </div>
     <% } %>
     <div class="hub-field">
-      <label class="hub-label" for="ivMessage">Personal message <span class="hub-help">(optional)</span></label>
-      <textarea id="ivMessage" name="message" rows="3" placeholder="A short note for the invitation email"></textarea>
+      <label class="hub-label" for="ivMessage">Message</label>
+      <textarea id="ivMessage" name="message" rows="2" placeholder="Optional note"></textarea>
     </div>
     <div class="hub-drawer__foot">
-      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send invitation</button>
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send</button>
       <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
     </div>
   </form>
 
   <div class="hub-form" data-step="existing" hidden>
     <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-go="choose" style="justify-self:start"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
-    <label class="hub-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="email" data-org-search placeholder="The school's sign-in email" aria-label="The school's sign-in email" autocomplete="off" inputmode="email" /></label>
-    <div data-org-results><div class="hub-empty"><i class="fa-regular fa-envelope" aria-hidden="true"></i>Enter the school&rsquo;s full email address: the one it signs in to Managira with.</div></div>
+    <label class="hub-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="email" data-org-search placeholder="School sign-in email" aria-label="School sign-in email" autocomplete="off" inputmode="email" /></label>
+    <div data-org-results><div class="hub-empty"><i class="fa-regular fa-envelope" aria-hidden="true"></i>Enter the school&rsquo;s sign-in email.</div></div>
   </div>
 </div>

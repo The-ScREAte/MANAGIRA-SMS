@@ -28,7 +28,7 @@
 
   function create(options) {
     const id = options.id;
-    const width = options.width || 1160;
+    const width = Math.max(options.width || 0, 1040); // one standard panel width
     let iframeLoaded = false;
     let dirty = false;
 
@@ -115,9 +115,7 @@
     }
 
     closeBtn.addEventListener("click", close);
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) close();
-    });
+    // The panel closes with its X (or Escape), never by clicking outside it.
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && overlay.classList.contains("is-open")) close();
     });

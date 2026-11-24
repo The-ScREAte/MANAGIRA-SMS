@@ -291,6 +291,8 @@ function normalizeQuestionPayload(rawQuestions = []) {
         media: question.media && typeof question.media === "object" ? question.media : null,
         // Help for this one question; checked where it's saved (utils/questionHelp.js).
         help: question.help && typeof question.help === "object" ? question.help : null,
+        // A rubric on a written question; checked where it's saved (utils/rubric.js).
+        rubric: question.rubric && typeof question.rubric === "object" ? question.rubric : null,
       };
     })
     .filter(Boolean);

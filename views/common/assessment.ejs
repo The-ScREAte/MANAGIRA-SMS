@@ -288,7 +288,7 @@ body {
   top: 0;
   right: 0;
   width: 100%;
-  max-width: 760px;
+  max-width: min(1040px, 100vw);
   height: 100dvh;
   background: #f8fafc;
   display: flex;
@@ -1531,7 +1531,7 @@ input[type="number"].score-input-invalid {
         <div class="assessment-compact-heading">
           <div class="assessment-compact-titles">
             <h1 class="assessment-compact-title" title="<%= subjectName %>"><%= subjectName %></h1>
-            <p class="assessment-compact-subtitle"><%= className %> &middot; <%= currentTerm.term_name %> &middot; <%= students.length %> student<%= students.length === 1 ? '' : 's' %></p>
+            <p class="assessment-compact-subtitle"><%= students.length %> student<%= students.length === 1 ? '' : 's' %></p>
           </div>
         </div>
         <div class="assessment-compact-actions">
@@ -1624,8 +1624,8 @@ input[type="number"].score-input-invalid {
                 <% assessments.forEach(function(assessment, _gbIndex) { %>
                 <% const _isObsolete = assessment.access_reason === 'Obsolete'; %>
                 <th class="<%= _isObsolete ? 'is-obsolete' : '' %> gb-col<%= _gbIndex < _gbHideBefore ? ' gb-off' : '' %>"<% if (_isObsolete) { %> title="Obsolete: kept on report cards, closed to new scores"<% } %> data-gb-col="<%= _gbIndex %>" data-assessment-id="<%= assessment.assessment_id %>">
-                  <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %><% if (!assessment.is_choice || assessment.choice_counts) { %> (<%= assessment.weight %>%)<% } %><br />
-                  <%= assessment.category %></span><br />
+                  <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %><br />
+                  <%= assessment.category %><% if (!assessment.is_choice || assessment.choice_counts) { %> <small class="gb-weight" title="How much it counts toward the subject total on a report card that scales subjects (Report Settings). Weights are relative: weight 2 counts twice as much as weight 1.">· Weight <%= assessment.weight %></small><% } %></span><br />
                   <% if (assessment.is_choice) { %><small class="choice-kind" title="<%= assessment.choice_counts ? 'Each choice has points that count in the total' : 'Recorded as a choice; doesn’t change the total' %>"><%= assessment.choice_labels.join(' / ') %><%= assessment.choice_counts ? '' : ' · not in total' %></small><br /><% } %>
                   <%
                     // Plain-English status: "Open" or "Closed" with the reason.
@@ -1654,8 +1654,8 @@ input[type="number"].score-input-invalid {
                   <% if (Number(assessment.waiting_count || 0) > 0) { %>
                   <% const _waiting = Number(assessment.waiting_count || 0); %>
                   <button type="button" class="gb-approve has-waiting" data-gb-approve="<%= assessment.assessment_id %>" data-title="<%= assessment.title %>"
-                    title="<%= `${_waiting} new grade${_waiting === 1 ? '' : 's'}: approve to post ${_waiting === 1 ? 'it' : 'them'} to parents` %>"
-                    aria-label="<%= `Approve ${_waiting} new grade${_waiting === 1 ? '' : 's'} for ${assessment.title}` %>">
+                    title="<%= `Post ${_waiting} new grade${_waiting === 1 ? '' : 's'} to parents and students` %>"
+                    aria-label="<%= `Post ${_waiting} new grade${_waiting === 1 ? '' : 's'} for ${assessment.title}` %>">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span class="gb-approve__count"><%= _waiting %></span>
                   </button>
                   <% } %>
@@ -1782,7 +1782,7 @@ input[type="number"].score-input-invalid {
 
           <div class="qm-body">
             <div class="qm-draft-banner" id="qm-draft-banner" style="display:none;">
-              <span>📝 Draft restored from last session.</span>
+              <span>Draft restored from last session.</span>
             </div>
 
             <div class="qm-section">
@@ -2290,7 +2290,7 @@ input[type="number"].score-input-invalid {
           ? "Editable"
           : `Locked for editing (${selectedAssessmentRule.accessReason || "Not editable"})`;
 
-        questionAssessmentRules.textContent = `Rules: ${selectedAssessmentRule.title} | Category: ${selectedAssessmentRule.category} | Weight: ${selectedAssessmentRule.weight}% | Max score: ${selectedAssessmentRule.maxScore} | Scale: ${selectedAssessmentRule.scaleBase} | Mode: ${selectedAssessmentRule.openBook ? "Open Book" : "Secure"} | Time: ${selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0 ? `${selectedAssessmentRule.timeLimitMinutes} min` : "Untimed"} | Status: ${statusLabel}`;
+        questionAssessmentRules.textContent = `Rules: ${selectedAssessmentRule.title} | Category: ${selectedAssessmentRule.category} | Weight: ${selectedAssessmentRule.weight} | Max score: ${selectedAssessmentRule.maxScore} | Scale: ${selectedAssessmentRule.scaleBase} | Mode: ${selectedAssessmentRule.openBook ? "Open Book" : "Secure"} | Time: ${selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0 ? `${selectedAssessmentRule.timeLimitMinutes} min` : "Untimed"} | Status: ${statusLabel}`;
         applyAssessmentMarksLimit(selectedAssessmentRule.maxScore);
       }
 
@@ -2488,7 +2488,7 @@ input[type="number"].score-input-invalid {
         if (addOptionButton) addOptionButton.style.display = "none";
         if (answerLabel) answerLabel.textContent = type === "essay" ? "Marking Guide" : "Correct Answer";
         if (addAnswerButton) addAnswerButton.style.display = "none";
-        setAnswerRows(answerList, currentAnswers, false, type === "essay" ? "Key points / rubric" : "Expected short answer");
+        setAnswerRows(answerList, currentAnswers, false, type === "essay" ? "Key points to look for" : "Expected short answer");
       }
 
       function setQuestionEditorContent(editor, value) {
@@ -3008,9 +3008,7 @@ input[type="number"].score-input-invalid {
 
       if (questionModalOverlay) {
         questionModalOverlay.addEventListener("click", (event) => {
-          if (event.target === questionModalOverlay) {
-            closeQuestionModal();
-          }
+          /* panels close only with X or Escape */
         });
       }
 
@@ -3020,7 +3018,7 @@ input[type="number"].score-input-invalid {
       if (qmPreviewPrintButton) qmPreviewPrintButton.addEventListener('click', printQuestionPreview);
       if (qmPreviewOverlay) {
         qmPreviewOverlay.addEventListener('click', function(e) {
-          if (e.target === qmPreviewOverlay) closeQuestionPreview();
+          /* panels close only with X or Escape */
         });
       }
 
@@ -3333,3 +3331,4 @@ input[type="number"].score-input-invalid {
   <script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/gradebookFlow.js') %>" defer></script>
 </body>
 </html>
+

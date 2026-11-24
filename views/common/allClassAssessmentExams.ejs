@@ -6,6 +6,40 @@
   <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
   <title>Assessment Question Sets</title>
   <style>
+  /* The questions page: a quiet header, one small Filters button after New questions. */
+  .top-bar { position: relative; z-index: 200; }
+  .ws-filters { position: relative; display: inline-block; }
+  .ws-filters__btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 9px; background: transparent; color: inherit; font-size: .86rem; font-weight: 600; cursor: pointer; list-style: none; white-space: nowrap; }
+  .ws-filters__btn::-webkit-details-marker { display: none; }
+  .ws-filters[open] > .ws-filters__btn { border-color: var(--org-primary-color, #01535b); color: var(--org-primary-color, #01535b); }
+  .ws-filters[open] .ws-filters__chev { transform: rotate(180deg); }
+  .ws-filters__pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: min(560px, 92vw); max-height: 70vh; overflow-y: auto; padding: 16px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 12px 32px rgba(15, 23, 42, .14); text-align: left; }
+  .ws-filters__pop .filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .ws-filters--simple [data-simple-hide], .ws-filters--simple [data-class-hide] { display: none; }
+  .ws-filters__pop .filter-actions { margin-top: 14px; }
+  .top-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; overflow: visible !important; }
+  .qm-review-setting--foot { margin: 26px 0 0; opacity: .8; font-size: .8rem; }
+  .subject-group-head { margin-bottom: 6px; }
+
+  /* One way to post: a plain button. Posted: a quiet "Take back". */
+  .post-grades-btn { flex: none; width: auto; margin: 0; padding: 5px 12px; border: 1px solid var(--primary, #01535b); border-radius: 8px; background: var(--primary, #01535b); color: #fff; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .post-grades-btn:hover { filter: brightness(0.94); }
+  .post-grades-btn.is-on { background: transparent; color: #64748b; border-color: #cbd5e1; font-weight: 500; }
+  .post-grades-btn:disabled { opacity: .6; cursor: default; }
+  .to-mark-chip { flex: none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, #d97706 14%, transparent); color: #b45309; font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+  .to-mark-note { margin: 0 0 10px; color: #64748b; font-size: 0.84rem; }
+  .students-share-line { color: #64748b; font-size: 0.8rem; white-space: nowrap; }
+  .students-remark { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+  .students-remark select, .students-remark input { margin: 0; width: auto; min-width: 12rem; height: 34px; padding: 0 10px; font-size: 0.85rem; }
+  .students-remark[hidden] { display: none; }
+  .qbf-check { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
+  .qbf-shuffle-field { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; }
+  .qbf-shuffle-field .qbf-check, .qbf-shuffle-field label { margin: 0 !important; }
+  .qbf-shuffle-field .qbf-check { height: 34px; display: inline-flex; align-items: center; gap: 8px; justify-content: flex-start; text-transform: none; letter-spacing: 0; font-size: .86rem; white-space: nowrap; }
+  .qbf-check input { width: 16px; height: 16px; margin: 0; }
+  .qm-review-setting { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.85rem; color: #475569; cursor: pointer; }
+  .qm-review-setting input { width: 16px; height: 16px; margin: 0; }
+
     :root {
       --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       --primary: var(--org-primary-color, #0f5a66);
@@ -637,8 +671,8 @@
     }
 
     .score-status-wrap .qm-answer-toggle {
-      width: 20px;
-      height: 12px;
+      width: 26px;
+      height: 15px;
     }
 
     .score-status-wrap .qm-answer-toggle.is-on {
@@ -649,12 +683,12 @@
     .score-status-wrap .qm-answer-toggle-knob {
       top: 1px;
       left: 1px;
-      width: 8px;
-      height: 8px;
+      width: 11px;
+      height: 11px;
     }
 
     .score-status-wrap .qm-answer-toggle.is-on .qm-answer-toggle-knob {
-      transform: translateX(8px);
+      transform: translateX(11px);
     }
 
     .set-actions-menu {
@@ -710,6 +744,8 @@
       z-index: 9999;
     }
 
+    .set-actions-menu.open { z-index: 300; }
+    .set-actions-menu.drop-down .set-actions-dropdown { bottom: auto; top: calc(100% + 8px); }
     .set-actions-menu.open .set-actions-dropdown {
       display: grid;
       gap: 4px;
@@ -1126,7 +1162,7 @@
 
     .grade-modal {
       width: 100%;
-      max-width: 760px;
+      max-width: min(1040px, 100vw);
       height: 100%;
       background: #fff;
       display: flex;
@@ -1215,6 +1251,25 @@
       font-size: 0.82rem;
     }
 
+    #gradeModalQuestions[style*="block"] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+    @media (max-width: 860px) { #gradeModalQuestions[style*="block"] { grid-template-columns: 1fr; } }
+    .grade-modal-headrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .grade-modal-x { flex: none; width: 34px; height: 34px; margin: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; }
+    .grade-modal-x:hover { background: #f1f5f9; color: #0f172a; }
+    .gm-rubric { display: grid; gap: 8px; margin: 12px 0 0; padding-top: 12px; border-top: 1px dashed #e2e8f0; }
+    .gm-rubric[hidden] { display: none; }
+    .gm-crit { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; align-items: center; font-size: 0.85rem; }
+    .gm-crit small { color: #64748b; font-weight: 500; }
+    .gm-crit input { width: 100%; height: 36px; margin: 0; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; font-size: 0.85rem; box-sizing: border-box; background: transparent; color: inherit; }
+    .gm-switch { display: inline-flex; margin-top: 10px; padding: 3px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .gm-seg { width: auto; margin: 0; padding: 5px 14px; border: 0; border-radius: 8px; background: transparent; color: #475569; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .gm-seg.is-on { background: #fff; color: #0f2d32; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12), inset 0 0 0 1px #155e75; }
+    .gm-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+    .gm-tab { width: auto; margin: 0; padding: 4px 11px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #334155; font: inherit; font-size: 0.78rem; cursor: pointer; }
+    .gm-tab.is-on { border-color: #155e75; color: #155e75; font-weight: 700; }
+    #gmFooter { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+    #gmFooter .btn { width: auto; flex: none; margin: 0; }
+    #gradeByQuestion[hidden], #gmFooter[hidden] { display: none; }
     .grade-modal-footer {
       display: flex;
       align-items: center;
@@ -1270,6 +1325,42 @@
       from { opacity: 0; }
       to   { opacity: 1; }
     }
+
+    /* Small screens: the header never overflows; Import becomes an icon and the X always stays visible. */
+    .qm-topbar-left { min-width: 0; flex: 1 1 auto; }
+    .qm-topbar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 560px) {
+      body .qm-topbar { flex-wrap: nowrap; padding-left: 14px; padding-right: 14px; }
+      body .qm-topbar-right { width: auto; flex: 0 0 auto; }
+      .qm-upload-text { display: none; }
+      .qm-upload-btn { width: 36px; height: 36px; padding: 0 !important; justify-content: center; }
+    }
+
+    /* Text tools: bold, italic and colour are the same size and line up. */
+    .qm-question-text-toolbar { gap: 6px; align-items: center; }
+    .qm-text-tool-btn, .qm-text-color-wrap { width: 28px !important; height: 28px !important; border: 1.5px solid #8ea3b6 !important; border-radius: 7px !important; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; }
+    .qm-text-color-wrap { padding: 4px; background: #fff; box-shadow: none !important; position: relative; }
+    .qm-text-color-wrap input.qm-text-color { width: 100% !important; height: 100% !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; cursor: pointer; -webkit-appearance: none; appearance: none; }
+    .qm-text-color-wrap::before { content: "A"; position: absolute; left: 0; right: 0; top: 3px; text-align: center; font-size: .78rem; font-weight: 800; line-height: 1; color: #334155; pointer-events: none; }
+    .qm-text-color-wrap input.qm-text-color::-webkit-color-swatch-wrapper { padding: 0; display: flex; align-items: flex-end; }
+    .qm-text-color-wrap input.qm-text-color::-webkit-color-swatch { border: 1px solid rgba(128, 128, 128, .5); border-radius: 2px; height: 4px; width: 100%; }
+    .qm-text-color-wrap input.qm-text-color::-moz-color-swatch { border: 1px solid rgba(128, 128, 128, .5); border-radius: 2px; height: 4px; }
+
+    /* Questions, preview, reuse: the same panel from the right, under the header, wide for long lists. */
+    .question-modal { max-width: min(1040px, 100vw); }
+    body .qm-preview-overlay, body .reuse-modal-overlay { align-items: stretch; justify-content: flex-end; padding: 0; background: rgba(10, 20, 30, 0.55); }
+    body .reuse-modal-overlay { z-index: 10200; }
+    body .qm-preview-panel, body .reuse-modal {
+      width: min(1040px, 100vw); max-width: 100%; height: 100%; max-height: 100%;
+      border: 0; border-radius: 0; box-shadow: -8px 0 40px rgba(0,0,0,0.18);
+      animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    body .reuse-modal { width: min(1040px, 100vw); display: flex; flex-direction: column; overflow: hidden; }
+    body .reuse-modal { position: relative; padding-top: 18px; }
+    .reuse-modal-x { position: absolute; top: 12px; right: 14px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid #8ea3b6; border-radius: 9px; background: transparent; color: inherit; cursor: pointer; z-index: 2; }
+    .reuse-modal-x:hover { background: rgba(100, 116, 139, .14); }
+    body .qm-preview-topbar { padding: 14px 20px; }
+    body .qm-preview-body { padding: 18px 20px; }
 
     .qm-topbar {
       display: flex;
@@ -1435,6 +1526,12 @@
     }
 
     .qm-full { grid-column: 1 / -1; }
+    .qm-span-2 { grid-column: span 2; }
+    .question-modal .qm-grid-2 { gap: 12px 14px; }
+    .qm-time-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    .qm-time-pair.is-single { grid-template-columns: 1fr; }
+    @media (max-width: 760px) { .question-modal .qm-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+    @media (max-width: 480px) { .question-modal .qm-grid-2 { grid-template-columns: 1fr !important; } .qm-span-2 { grid-column: auto; } }
 
     .qm-field {
       display: flex;
@@ -1457,7 +1554,7 @@
     .qm-field input,
     .qm-field select,
     .qm-field textarea {
-      border: 1.5px solid #c9d7e3;
+      border: 1.5px solid #8ea3b6;
       border-radius: 9px;
       padding: 7px 9px;
       font-size: 0.78rem;
@@ -1562,7 +1659,7 @@
 
     .qm-question-card {
       background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-      border: 1.5px solid #d2dfe9;
+      border: 1.5px solid #8ea3b6;
       border-radius: 10px;
       overflow: hidden;
       margin-bottom: 0;
@@ -1776,7 +1873,7 @@
     .qm-text-color-wrap {
       width: 24px;
       height: 24px;
-      border: 1px solid #cbd5e1;
+      border: 1.5px solid #8ea3b6;
       border-radius: 6px;
       overflow: hidden;
       cursor: pointer;
@@ -2203,10 +2300,10 @@
     }
 
     .qm-preview-panel {
-      width: min(980px, 96vw);
+      width: min(1100px, 96vw);
       max-height: calc(100dvh - 32px);
       background: #fff;
-      border: 1px solid #dbe4ee;
+      border: 1.5px solid #8ea3b6;
       border-radius: 14px;
       overflow: hidden;
       display: flex;
@@ -2334,8 +2431,11 @@
 
     .qm-preview-context {
       background: #fff;
-      border: 1px solid #e2e8f0;
+      border: 1.5px solid #8ea3b6;
       border-radius: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 18px;
       padding: 10px 12px;
       font-size: 0.82rem;
       color: #334155;
@@ -2344,7 +2444,7 @@
 
     .qm-preview-card {
       background: #fff;
-      border: 1px solid #e2e8f0;
+      border: 1.5px solid #8ea3b6;
       border-radius: 12px;
       padding: 12px;
       display: grid;
@@ -2406,8 +2506,9 @@
 
     .qm-answer-toggle {
       position: relative;
-      width: 40px;
-      height: 22px;
+      width: 26px;
+      height: 15px;
+      box-sizing: border-box;
       border-radius: 999px;
       border: 1px solid #cbd5e1;
       background: #e2e8f0;
@@ -2425,8 +2526,8 @@
       position: absolute;
       top: 1px;
       left: 1px;
-      width: 18px;
-      height: 18px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
       background: #fff;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
@@ -2434,7 +2535,7 @@
     }
 
     .qm-answer-toggle.is-on .qm-answer-toggle-knob {
-      transform: translateX(18px);
+      transform: translateX(11px);
     }
 
     .qm-answer-password-overlay {
@@ -2827,6 +2928,7 @@
     .exam-summary { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 9px 44px 9px 14px; }
     .exam-title { flex: 1 1 280px; }
     .exam-title span { display: none; } /* the class and subject headings already say it */
+    .exam-title .exam-assess { display: inline; font-size: .8rem; color: #64748b; font-weight: 500; white-space: nowrap; }
     .exam-meta-row { flex-direction: row; flex-wrap: wrap; width: auto; gap: 6px; }
     .exam-meta-line { display: contents; }
     .exam-summary-actions { margin-left: auto; justify-content: flex-end; gap: 12px; }
@@ -2853,41 +2955,30 @@
       <% if (_inHub) { %>
         <div class="qh">
           <h1 class="qh__title">Assessment questions</h1>
-          <p class="qh__sub">The questions for online tests, by class and subject. Open a set to edit it, or choose Set Questions to write a new one.</p>
         </div>
       <% } else if (!isEmbedded) { %><h1>Assessment Question Sets</h1><% } %>
+      <% const _simpleFilters = isEmbedded && Number(selectedClassId || 0) > 0; %>
       <div class="top-bar-actions">
-        <button type="button" class="btn btn-outline" id="all-class-set-questions">Set Questions</button>
-        <% if (canUseGoogleClassroom) { %>
-          <button type="button" class="btn btn-google" id="all-class-sync-google">Sync Google</button>
-        <% } %>
-      </div>
-    </div>
-
-    <%- include('../partials/flash') %>
-
-    <details class="form-card collapsible-card" id="workspace-filters-card">
-      <summary class="collapsible-summary workspace-filters-summary">
-        <div class="workspace-filters-main">
-          <h2 class="section-title workspace-filters-title">Filters</h2>
-          <div class="filter-summary-line workspace-filter-summary-line">
-            <% if (!isEmbedded) { %><span class="current-pill">Current Term: <%= selectedTermName || ('Term ' + termId) %></span><% } %>
-          </div>
-        </div>
-        <span class="collapsible-hint" id="workspace-filters-hint">Expand</span>
-      </summary>
-      <div class="collapsible-content">
+        <button type="button" class="btn btn-outline" id="all-class-set-questions">New questions</button>
+        <details class="ws-filters" id="workspace-filters-card">
+          <summary class="ws-filters__btn" title="Filter the question sets">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z"/></svg>
+            <span>Filters</span>
+            <span id="workspace-filters-hint" hidden>Expand</span>
+            <svg class="ws-filters__chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </summary>
+          <div class="collapsible-content ws-filters__pop<%= _simpleFilters ? ' ws-filters--simple' : '' %>">
         <div class="filter-panel">
           <div class="filters-grid">
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="workspace-school-year">School Year</label>
               <select id="workspace-school-year"></select>
             </div>
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="workspace-term">Term</label>
               <select id="workspace-term"></select>
             </div>
-            <div class="field-group">
+            <div class="field-group" data-class-hide>
               <label for="filter-class">Class</label>
               <select id="filter-class">
                 <option value="">All Classes</option>
@@ -2914,19 +3005,19 @@
                 <option value="rejected">Rejected</option>
               </select>
             </div>
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="filter-points-min">Min Points</label>
               <input id="filter-points-min" type="number" min="0" step="1" placeholder="Any" />
             </div>
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="filter-points-max">Max Points</label>
               <input id="filter-points-max" type="number" min="0" step="1" placeholder="Any" />
             </div>
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="filter-percent-min">Min %</label>
               <input id="filter-percent-min" type="number" min="0" max="100" step="1" placeholder="Any" />
             </div>
-            <div class="field-group">
+            <div class="field-group" data-simple-hide>
               <label for="filter-percent-max">Max %</label>
               <input id="filter-percent-max" type="number" min="0" max="100" step="1" placeholder="Any" />
             </div>
@@ -2958,11 +3049,33 @@
             <button type="button" class="btn btn-secondary" id="clear-set-filters">Clear</button>
           </div>
         </div>
+          </div>
+        </details>
+        <% if (canUseGoogleClassroom) { %>
+          <button type="button" class="btn btn-google" id="all-class-sync-google">Sync Google</button>
+        <% } %>
       </div>
-    </details>
+    </div>
+
+    <%- include('../partials/flash') %>
+
 
     <% if (!isEmbedded) { %><h2 class="section-title" style="margin-bottom:6px;">Created Question Sets</h2><% } %>
 
+    <% if (typeof toMarkOnly !== 'undefined' && toMarkOnly) { %>
+      <%# To review: just the tests and their Review buttons. %>
+      <style>.top-bar-actions, .to-mark-note, .card-score-toggle-wrap, .qm-review-setting, #question-set-groups .qs-more, .exam-meta-line, .exam-updated, .set-actions-menu { display: none !important; }
+      .exam-card { padding-block: 6px; }
+      .exam-summary { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+      .exam-title { flex: 1 1 180px; min-width: 0; }
+      .exam-title strong { font-size: 1rem; }
+      .exam-title span { display: none; }
+      .exam-title .exam-assess { display: none; }
+      .exam-meta-row { width: auto !important; margin-left: auto; }
+      .exam-summary-actions { display: flex; align-items: center; gap: 10px; width: auto !important; flex-wrap: nowrap; }
+      .exam-title { align-items: center; }
+      .to-mark-chip { font-size: .8rem; }</style>
+    <% } %>
     <% const reviewRole = String((session && (session.userRole || (session.user && session.user.account_type))) || '').trim().toLowerCase(); %>
     <% const canReviewQuestionSets = reviewRole === 'manager' || reviewRole === 'supervisor'; %>
     <%
@@ -2988,7 +3101,7 @@
       }
     %>
     <% if (!questionSets || !questionSets.length) { %>
-      <div class="empty-state">No question sets are available for this term.</div>
+      <div class="empty-state"><%= typeof toMarkOnly !== "undefined" && toMarkOnly ? "Nothing to review." : "No question sets are available for this term." %></div>
     <% } else { %>
       <% const classSetMap = new Map(); %>
       <% questionSets.forEach(function(setItem) { %>
@@ -3048,10 +3161,6 @@
                   }); %>
                   <div class="subject-group-head">
                     <h4 class="subject-group-title"><%= subjectGroup.subjectName %></h4>
-                    <span class="subject-group-meta"><%= subjectGroup.sets.length %> set<%= subjectGroup.sets.length === 1 ? '' : 's' %></span>
-                    <% if (assessmentGroups.length === 1) { %>
-                      <span class="subject-group-assessment-inline"><%= assessmentGroups[0].assessmentTitle %></span>
-                    <% } %>
                   </div>
                   <div class="assessment-group-list">
                     <% assessmentGroups.forEach(function(assessmentGroup) { %>
@@ -3069,6 +3178,7 @@
                   data-subject-name="<%= String(setItem.subject_name || '').toLowerCase() %>"
                   data-assessment-id="<%= Number(setItem.assessment_id || 0) %>"
                   data-assessment-title="<%= String(setItem.assessment_title || '').toLowerCase() %>"
+                  data-assessment-shown="<%= String(setItem.assessment_title || '') %>"
                   data-review-status="<%= reviewStatusKey %>"
                   data-total-points="<%= Number(setItem.total_points || 0) %>"
                   data-question-count="<%= Number(setItem.question_count || 0) %>"
@@ -3076,8 +3186,20 @@
                   data-set-title="<%= String(setItem.set_title || '').toLowerCase() %>">
             <div class="exam-summary">
               <div class="exam-title" title="<%= setItem.set_title %>">
-                <strong><%= setItem.set_title || 'Question Set' %></strong>
-                <span><%= setItem.class_name %> · <%= setItem.subject_name %> · <%= setItem.assessment_title %></span>
+                <%# The subject is the heading above, so its name isn't repeated in the title. %>
+                <% const _plainTitle = (function () {
+                  const title = String(setItem.set_title || '').trim();
+                  const subject = String(setItem.subject_name || '').trim();
+                  if (!title) return 'Question Set';
+                  const lower = title.toLowerCase();
+                  if (subject && lower.startsWith(subject.toLowerCase())) {
+                    const rest = title.slice(subject.length).replace(/^\s*[·\-–:]\s*/, '').trim();
+                    if (rest) return rest;
+                  }
+                  return title;
+                })(); %>
+                <strong><%= (typeof toMarkOnly !== 'undefined' && toMarkOnly && setItem.assessment_title) ? setItem.assessment_title : _plainTitle %></strong>
+                <span class="exam-assess" title="The assessment these questions belong to">Assessment: <%= setItem.assessment_title || 'not linked' %></span>
               </div>
               <div class="exam-meta-row">
                 <div class="exam-meta-line">
@@ -3128,22 +3250,22 @@
               <div class="exam-summary-actions">
                 <% const postedCount = Number(setItem.posted_count || 0); %>
                 <% const pendingPostCount = Number(setItem.pending_post_count || 0); %>
+                <% if (Number(setItem.to_mark || 0) > 0) { %><span class="to-mark-chip" title="Written answers waiting for review"><%= Number(setItem.to_mark) %><%= (typeof toMarkOnly !== 'undefined' && toMarkOnly) ? (Number(setItem.to_mark) === 1 ? ' answer to review' : ' answers to review') : ' to review' %></span><% if (typeof toMarkOnly !== 'undefined' && toMarkOnly) { %><button type="button" class="post-grades-btn js-review-set" data-question-set-id="<%= setItem.question_set_id %>">Review</button><% } %><% } %>
                 <% const completedCount = Number(setItem.completed_count || 0); %>
                 <% if (completedCount > 0) { %>
                   <% const isPostedOn = postedCount > 0; %>
                   <span class="card-score-toggle-wrap score-status-wrap<%= isPostedOn ? ' is-posted' : '' %>"
                     data-question-set-id="<%= setItem.question_set_id %>"
                     data-posted-count="<%= postedCount %>"
-                    data-pending-count="<%= pendingPostCount %>">
+                    data-pending-count="<%= pendingPostCount %>"
+                    data-share="<%= setItem.parent_share || '' %>">
                     <span class="score-status-dot"></span>
                     <span class="card-score-toggle-status"><%
                       if (!isPostedOn) { %>Not posted<%
                       } else if (pendingPostCount > 0) { %>Posted (<%= pendingPostCount %> new)<%
                       } else { %>Posted<% }
                     %></span>
-                    <button type="button" class="qm-answer-toggle card-post-score-toggle<%= isPostedOn ? ' is-on' : '' %>" role="switch" aria-checked="<%= isPostedOn ? 'true' : 'false' %>" title="Post or unpost scores for this assessment">
-                      <span class="qm-answer-toggle-knob"></span>
-                    </button>
+                    <button type="button" class="card-post-score-toggle post-grades-btn<%= isPostedOn && pendingPostCount <= 0 ? ' is-on' : '' %>" title="<%= isPostedOn && pendingPostCount <= 0 ? 'Hide these grades from families again' : 'Families will see: ' + (setItem.parent_share === 'full' ? 'Grade and answers' : (setItem.parent_share === 'grade' ? 'Grade' : 'Nothing about the test itself')) %>"><%= isPostedOn && pendingPostCount <= 0 ? 'Take back' : 'Post grades' %></button>
                   </span>
                 <% } %>
                 <% const updatedInfo = formatRelativeUpdated(setItem.updated_at); %>
@@ -3184,7 +3306,7 @@
                       class="set-action-link students-set-btn"
                       data-question-set-id="<%= setItem.question_set_id %>"
                       data-set-title="<%= String(setItem.set_title || '').replace(/"/g, '&quot;') %>"
-                    >Students</a>
+                    >Review</a>
                     <a
                       href="#"
                       class="set-action-link edit-set-btn"
@@ -3226,6 +3348,13 @@
       </div>
       <div class="empty-state" id="question-set-filter-empty" hidden>No question sets match the current filters.</div>
     <% } %>
+    <% if (reviewRole === 'manager') { %>
+      <label class="qm-review-setting qm-review-setting--foot" title="Off: a saved test is available to students at once. On: a manager or supervisor approves it first.">
+        <input type="checkbox" id="reviewSettingBox" <%= typeof reviewRequired !== 'undefined' && reviewRequired ? 'checked' : '' %>>
+        <span>Review tests before students see them</span>
+      </label>
+    <% } %>
+
   </div>
 
   <div class="question-modal-overlay" id="question-modal-overlay" aria-hidden="true">
@@ -3242,7 +3371,7 @@
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
               <path d="M8 10V3M5 6l3-3 3 3M3 11v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            Import Exam File
+            <span class="qm-upload-text">Import Exam File</span>
           </button>
           <input type="file" id="qm-pdf-file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" style="display:none;" />
           <button type="button" class="qm-close-btn" id="question-modal-close" title="Close">
@@ -3255,11 +3384,10 @@
 
       <div class="qm-body">
         <div class="qm-draft-banner" id="qm-draft-banner" style="display:none;">
-          <span>📝 Draft restored from last session.</span>
+          <span>Draft restored.</span>
         </div>
 
         <div class="qm-section">
-          <p class="qm-section-label">Assessment Context</p>
           <div class="qm-grid-2">
             <div class="qm-field">
               <label>School Year</label>
@@ -3282,33 +3410,32 @@
               <select id="question-assessment"></select>
             </div>
             <div class="qm-field">
-              <label>Assessment Mode</label>
+              <label>Book</label>
               <select id="question-open-book">
-                <option value="false">Secure (Closed Book)</option>
-                <option value="true">Open Book</option>
+                <option value="false">Closed book</option>
+                <option value="true">Open book</option>
               </select>
             </div>
             <div class="qm-field">
-              <label>Time Limit (minutes)</label>
-              <div style="display:grid;grid-template-columns:150px 1fr;gap:8px;">
-                <select id="question-time-mode">
-                  <option value="timed">Timed</option>
-                  <option value="unlimited">Unlimited</option>
+              <label>Time limit</label>
+              <div class="qm-time-pair">
+                <select id="question-time-mode" aria-label="Time limit">
+                  <option value="timed">Minutes</option>
+                  <option value="unlimited">No limit</option>
                 </select>
-                <input id="question-time-limit" type="number" min="1" step="1" placeholder="e.g. 45" />
+                <input id="question-time-limit" type="number" min="1" step="1" placeholder="e.g. 45" aria-label="Minutes" />
               </div>
             </div>
             <div class="qm-field">
-              <label>Max Attempts</label>
+              <label>Attempts</label>
               <input id="question-max-attempts" type="number" min="1" step="1" value="1" placeholder="1" />
             </div>
-            <div class="qm-field">
-              <label>Question Set Title</label>
-              <input id="question-set-title" type="text" placeholder="Leave blank to use the subject and test name" />
+            <div class="qm-field qm-span-2">
+              <label>Title</label>
+              <input id="question-set-title" type="text" placeholder="Optional" />
             </div>
             <div class="qm-field qm-full">
-              <label>Description <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
-              <textarea id="question-set-description" rows="2" placeholder="Brief context for this question set"></textarea>
+              <textarea id="question-set-description" rows="2" placeholder="Description (optional)" aria-label="Description"></textarea>
             </div>
           </div>
         </div>
@@ -3398,12 +3525,13 @@
 
   <div class="reuse-modal-overlay" id="reuse-modal-overlay" aria-hidden="true">
     <div class="reuse-modal" role="dialog" aria-modal="true" aria-labelledby="reuse-modal-title">
-      <h3 class="reuse-modal-title" id="reuse-modal-title">Reuse Question Set</h3>
+      <button type="button" class="reuse-modal-x" id="reuse-modal-x" aria-label="Close" title="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <h3 class="reuse-modal-title" id="reuse-modal-title">Reuse</h3>
       <p class="reuse-source" id="reuse-source-summary"></p>
 
       <div class="reuse-modal-grid">
         <div class="field-group">
-          <label for="reuse-school-year">School Year</label>
+          <label for="reuse-school-year">School year</label>
           <select id="reuse-school-year"></select>
         </div>
         <div class="field-group">
@@ -3419,15 +3547,15 @@
           <select id="reuse-subject"></select>
         </div>
         <div class="field-group">
-          <label for="reuse-assessment-title">Assessment Title</label>
-          <input type="text" id="reuse-assessment-title" placeholder="Enter new or existing assessment title" />
+          <label for="reuse-assessment-title">Assessment</label>
+          <input type="text" id="reuse-assessment-title" placeholder="New or existing title" />
         </div>
         <div class="field-group">
-          <label for="reuse-shuffle-mode">Question Order</label>
+          <label for="reuse-shuffle-mode">Order</label>
           <select id="reuse-shuffle-mode">
-            <option value="none">Keep Original Order</option>
-            <option value="random">Shuffle Randomly</option>
-            <option value="reverse">Reverse Order</option>
+            <option value="none">Keep order</option>
+            <option value="random">Shuffle</option>
+            <option value="reverse">Reverse</option>
           </select>
         </div>
       </div>
@@ -3435,12 +3563,12 @@
       <div class="reuse-checkbox-row">
         <label for="reuse-shuffle-options" class="reuse-checkbox-label">
           <input type="checkbox" id="reuse-shuffle-options" />
-          Shuffle options inside each question
+          Shuffle options
         </label>
       </div>
 
       <div class="row-actions">
-        <button type="button" class="btn btn-primary" id="reuse-confirm-btn">Reuse Now</button>
+        <button type="button" class="btn btn-primary" id="reuse-confirm-btn">Reuse</button>
         <button type="button" class="btn btn-outline" id="reuse-cancel-btn">Cancel</button>
       </div>
       <p class="status-text" id="reuse-status"></p>
@@ -3451,8 +3579,8 @@
     <div class="students-modal" role="dialog" aria-modal="true" aria-labelledby="students-modal-title">
       <div class="students-modal-header">
         <div>
-          <h3 class="students-modal-title" id="students-modal-title">Students Taking This Exam</h3>
-          <p class="students-modal-subtitle" id="students-modal-subtitle">Class/term/subject scoped list.</p>
+          <h3 class="students-modal-title" id="students-modal-title">Students</h3>
+          <p class="students-modal-subtitle" id="students-modal-subtitle"></p>
         </div>
         <button type="button" class="students-modal-close" id="students-modal-close" aria-label="Close students modal" title="Close">×</button>
       </div>
@@ -3462,14 +3590,19 @@
       <div class="students-toolbar">
         <p class="students-status" id="students-status"></p>
         <div style="display:flex;align-items:center;gap:12px;">
-          <button type="button" class="btn btn-outline" id="students-unlock-all-btn">Unlock All Completed</button>
-          <span class="qm-answer-toggle-wrap" style="border-right:none;padding-right:0;">
-            <span class="qm-answer-toggle-label">Post Score</span>
-            <button type="button" class="qm-answer-toggle" id="students-post-scores-toggle" role="switch" aria-checked="false" title="Post or unpost scores for this assessment">
-              <span class="qm-answer-toggle-knob"></span>
-            </button>
-          </span>
+          <button type="button" class="btn btn-outline" id="students-unlock-all-btn">Unlock all</button>
+          <button type="button" class="post-grades-btn is-on" id="students-bq-btn" title="Mark one written question for everyone who handed in">Mark by question</button>
+          <button type="button" class="post-grades-btn is-on" id="students-remark-btn" title="Fixed a wrong answer key? Mark one question again for everyone who handed in.">Fix an answer</button>
+          <span class="students-share-line" id="students-share-line"></span>
+          <button type="button" class="post-grades-btn" id="students-post-scores-toggle" title="Post these grades to families">Post grades</button>
         </div>
+      </div>
+
+      <div class="students-remark" id="students-remark-panel" hidden>
+        <select id="students-remark-question" aria-label="Question"></select>
+        <input type="text" id="students-remark-key" placeholder="Right answer" aria-label="Right answer">
+        <button type="button" class="post-grades-btn" id="students-remark-go">Mark again for everyone</button>
+        <span class="students-share-line" id="students-remark-status" role="status"></span>
       </div>
 
       <div class="students-table-wrap">
@@ -3499,22 +3632,53 @@
   <div class="grade-modal-overlay" id="gradeModalOverlay" aria-hidden="true">
     <div class="grade-modal" role="dialog" aria-modal="true" aria-labelledby="gradeModalTitle">
       <div class="grade-modal-header">
-        <div>
-          <h3 class="grade-modal-title" id="gradeModalTitle">Grade Attempt</h3>
-          <p class="grade-modal-subtitle" id="gradeModalSubtitle"></p>
+        <div class="grade-modal-headrow">
+          <div>
+            <h3 class="grade-modal-title" id="gradeModalTitle">Grade</h3>
+            <p class="grade-modal-subtitle" id="gradeModalSubtitle"></p>
+          </div>
+          <button type="button" class="grade-modal-x" id="gradeModalX" aria-label="Close" title="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </div>
+        <div class="gm-switch" id="gradeModeSwitch" role="group" aria-label="Grade by">
+          <button type="button" class="gm-seg is-on" data-gm-mode="student">By student</button>
+          <button type="button" class="gm-seg" data-gm-mode="question">By question</button>
         </div>
       </div>
 
       <div class="grade-modal-body" id="gradeModalBody">
-        <div class="grade-modal-loading" id="gradeModalLoading">Loading questions...</div>
+        <div class="grade-modal-loading" id="gradeModalLoading">Loading…</div>
         <div id="gradeModalQuestions" style="display:none;"></div>
+        <div id="gradeByQuestion" hidden>
+          <div class="gm-tabs" id="gmTabs"></div>
+          <div class="grade-question-card">
+            <div class="grade-question-head">
+              <div class="grade-question-title-wrap"><span class="grade-q-index" id="gmIndex">1</span><h3 id="gmQuestion"></h3></div>
+              <span class="grade-mark" id="gmOutOf"></span>
+            </div>
+            <p class="grade-modal-subtitle" id="gmWho"></p>
+            <div class="grade-response-box" id="gmAnswer"></div>
+            <div class="gm-rubric" id="gmRubric" hidden></div>
+            <div class="grade-question-marks-row">
+              <label for="gmMarks">Mark</label>
+              <input type="number" id="gmMarks" class="grade-question-marks-input" min="0" step="0.5" inputmode="decimal">
+              <span class="grade-modal-subtitle" id="gmPos"></span>
+            </div>
+          </div>
+          <p class="grade-modal-subtitle" id="gmStatus" role="status"></p>
+        </div>
       </div>
 
       <div class="grade-modal-footer">
         <span class="grade-modal-total" id="gradeModalTotal"></span>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:10px;" id="gradeStudentFooter">
           <button type="button" class="btn btn-outline" id="gradeModalCancel">Cancel</button>
-          <button type="button" class="btn btn-primary" id="gradeModalSave">Save Grades</button>
+          <button type="button" class="btn btn-primary" id="gradeModalSave">Save</button>
+        </div>
+        <div id="gmFooter" hidden>
+          <button type="button" class="btn btn-outline" id="gmClose">Close</button>
+          <button type="button" class="btn btn-outline" id="gmPrev">Back</button>
+          <button type="button" class="btn btn-outline" id="gmNext">Next</button>
+          <button type="button" class="btn btn-primary" id="gmSave">Save &amp; next</button>
         </div>
       </div>
     </div>
@@ -3663,6 +3827,8 @@
         if (!questionModalStatus) return;
         questionModalStatus.textContent = message || '';
         questionModalStatus.style.color = isError ? '#b91c1c' : '#0f5a66';
+        // A problem with a setting (no assessment chosen, class, subject, time, attempts): open Settings.
+        if (isError && window.QuestionBuilderFlow && /assessment|class|subject|term|time limit|attempt/i.test(String(message || ''))) window.QuestionBuilderFlow.settingsNeeded();
       }
 
       function syncQuestionTimeLimitUi() {
@@ -3672,6 +3838,8 @@
           : 'timed';
         var isTimed = mode === 'timed';
         questionTimeLimitInput.disabled = !isTimed;
+        questionTimeLimitInput.style.display = isTimed ? '' : 'none';
+        if (questionTimeModeSelect.parentNode) questionTimeModeSelect.parentNode.classList.toggle('is-single', !isTimed);
         questionTimeLimitInput.placeholder = isTimed ? 'e.g. 45' : 'No limit';
         if (!isTimed) {
           questionTimeLimitInput.value = '';
@@ -3828,7 +3996,7 @@
         var unlockedCount = Number(summary.unlockedCount || 0);
         studentsSummary.innerHTML = [
           '<span class="exam-pill">Total: ' + totalStudents + '</span>',
-          '<span class="exam-pill">Completed / Locked: ' + completedCount + '</span>',
+          '<span class="exam-pill">Finished or locked: ' + completedCount + '</span>',
           '<span class="exam-pill">Open: ' + unlockedCount + '</span>'
         ].join('');
       }
@@ -3940,10 +4108,10 @@
 
             if (action !== 'unlock') return;
 
-            var approved = window.confirm('Unlock this student so they can retake the assessment?');
+            var approved = window.confirm('Let this student take the test again? Their answers and their mark for this test are deleted, including a grade already posted.');
             if (!approved) return;
 
-            var reshuffleQuestions = window.confirm('Should the questions be reshuffled for this retake? Click OK to reshuffle, or Cancel to keep the same order.');
+            var reshuffleQuestions = window.confirm('Shuffle the order of the questions for the new try? OK shuffles them. Cancel keeps the same order (the student is still unlocked).');
 
             button.disabled = true;
             button.textContent = 'Unlocking...';
@@ -3981,10 +4149,183 @@
         });
       }
 
+      // ---- Grade by question: one written question across everyone who handed in (the same screen).
+      var gm = { mode: 'student', questions: [], q: 0, answers: [], at: 0 };
+      var gmBase = '/common/assessment/mark';
+      function gmEl(id) { return document.getElementById(id); }
+      function gmJson(url, options) {
+        return fetch(url, Object.assign({ headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, credentials: 'same-origin' }, options || {}))
+          .then(function (response) { return response.json().then(function (body) { if (!response.ok || body.success === false) throw new Error(body.error || 'Something went wrong.'); return body; }); });
+      }
+      function gmStatus(text, bad) { var el = gmEl('gmStatus'); if (!el) return; el.textContent = text || ''; el.style.color = bad ? '#b42318' : ''; }
+      function gmSetMode(mode) {
+        gm.mode = mode;
+        Array.prototype.forEach.call(document.querySelectorAll('#gradeModeSwitch .gm-seg'), function (b) { b.classList.toggle('is-on', b.getAttribute('data-gm-mode') === mode); });
+        var byQuestion = mode === 'question';
+        gmEl('gradeByQuestion').hidden = !byQuestion;
+        gmEl('gmFooter').hidden = !byQuestion;
+        gmEl('gradeStudentFooter').style.display = byQuestion ? 'none' : 'flex';
+        gradeModalTotal.style.display = byQuestion ? 'none' : '';
+        if (byQuestion) {
+          if (gradeModalQuestions) gradeModalQuestions.style.display = 'none';
+          if (gradeModalLoading) gradeModalLoading.style.display = 'none';
+        }
+      }
+      function gmOpen() {
+        var scope = (latestStudentsPayload && latestStudentsPayload.scope) || {};
+        if (gradeModalTitle) gradeModalTitle.textContent = 'Review · ' + (scope.assessmentTitle || 'Assessment');
+        if (gradeModalSubtitle) gradeModalSubtitle.textContent = [scope.className, scope.subjectName].filter(Boolean).join(' • ');
+        gmSetMode('question');
+        gmEl('gmQuestion').textContent = 'Loading…'; gmEl('gmAnswer').textContent = ''; gmEl('gmWho').textContent = ''; gmEl('gmTabs').innerHTML = '';
+        gmJson(gmBase + '/questions?questionSetId=' + encodeURIComponent(activeStudentsQuestionSetId)).then(function (data) {
+          gm.questions = data.questions || [];
+          var first = gm.questions.findIndex(function (q) { return q.toMark > 0; });
+          gm.q = first >= 0 ? first : 0;
+          gmTabs(); gmLoad();
+        }).catch(function (error) { gmEl('gmQuestion').textContent = error.message; });
+      }
+      function gmTabs() {
+        var box = gmEl('gmTabs'); box.innerHTML = '';
+        gm.questions.forEach(function (q, i) {
+          var b = document.createElement('button');
+          b.type = 'button'; b.className = 'gm-tab' + (i === gm.q ? ' is-on' : '');
+          b.textContent = 'Question ' + (i + 1) + (q.toMark ? ' · ' + q.toMark + ' to review' : ' · done');
+          b.addEventListener('click', function () { gm.q = i; gmTabs(); gmLoad(); });
+          box.appendChild(b);
+        });
+      }
+      // A question with a rubric is marked per criterion; the single mark box then shows the total.
+      function gmCriteria() { var q = gm.questions[gm.q]; return q && q.rubric && Array.isArray(q.rubric.criteria) ? q.rubric.criteria : null; }
+      function gmRubricTotal() {
+        var sum = 0;
+        Array.prototype.forEach.call(document.querySelectorAll('#gmRubric .gm-crit input'), function (input) { var n = Number(input.value); if (Number.isFinite(n)) sum += n; });
+        return Math.round(sum * 100) / 100;
+      }
+      function gmShowRubric(answer) {
+        var box = gmEl('gmRubric'); var criteria = gmCriteria();
+        var marksInput = gmEl('gmMarks');
+        if (!criteria) { box.hidden = true; box.innerHTML = ''; marksInput.readOnly = false; return; }
+        box.hidden = false;
+        box.innerHTML = criteria.map(function (c, i) {
+          var given = answer && Array.isArray(answer.rubricMarks) ? answer.rubricMarks[i] : '';
+          return '<label class="gm-crit"><span>' + escapeHtml(c.name) + ' <small>out of ' + escapeHtml(String(c.marks)) + '</small></span>' +
+            '<input type="number" min="0" max="' + escapeHtml(String(c.marks)) + '" step="0.5" data-i="' + i + '" value="' + (given === undefined || given === null ? '' : escapeHtml(String(given))) + '"></label>';
+        }).join('');
+        marksInput.readOnly = true;
+        marksInput.value = answer && answer.marked ? answer.marks : '';
+        Array.prototype.forEach.call(box.querySelectorAll('input'), function (input) {
+          input.addEventListener('input', function () { marksInput.value = gmRubricTotal(); });
+          input.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); gmSave(); } });
+        });
+      }
+      function gmLeft() { return gm.answers.filter(function (a) { return !a.marked; }).length; }
+      function gmLoad() {
+        var q = gm.questions[gm.q];
+        if (!q) { gmEl('gmQuestion').textContent = 'This test has no written questions to review.'; gmEl('gmIndex').textContent = '–'; gmEl('gmOutOf').textContent = ''; gmEl('gmAnswer').textContent = ''; gmEl('gmWho').textContent = ''; gmEl('gmPos').textContent = ''; return; }
+        gmEl('gmIndex').textContent = String(gm.q + 1);
+        gmEl('gmQuestion').textContent = q.text;
+        gmEl('gmOutOf').textContent = 'out of ' + q.marks;
+        gmJson(gmBase + '/answers?questionSetId=' + encodeURIComponent(activeStudentsQuestionSetId) + '&questionId=' + encodeURIComponent(q.questionId)).then(function (data) {
+          gm.answers = data.answers || []; gm.at = 0; gmRender();
+        }).catch(function (error) { gmStatus(error.message, true); });
+      }
+      function gmRender() {
+        var a = gm.answers[gm.at];
+        if (!a) { gmEl('gmWho').textContent = ''; gmEl('gmAnswer').textContent = 'Nobody has answered this question.'; gmEl('gmMarks').value = ''; gmEl('gmPos').textContent = ''; return; }
+        gmEl('gmWho').textContent = a.student;
+        gmEl('gmAnswer').textContent = a.text;
+        gmEl('gmMarks').value = a.marked ? a.marks : '';
+        gmEl('gmMarks').max = a.outOf;
+        gmShowRubric(a);
+        gmEl('gmPos').textContent = (gm.at + 1) + ' of ' + gm.answers.length + ' · ' + gmLeft() + ' to review';
+        gmEl('gmPrev').disabled = gm.at === 0;
+        gmEl('gmNext').disabled = gm.at >= gm.answers.length - 1;
+        gmStatus('');
+      }
+      function gmStep(by) { var n = gm.at + by; if (n >= 0 && n < gm.answers.length) { gm.at = n; gmRender(); } }
+      function gmSave() {
+        var a = gm.answers[gm.at]; var q = gm.questions[gm.q];
+        if (!a || !q) return;
+        var criteria = gmCriteria();
+        var body = { questionSetId: activeStudentsQuestionSetId, questionId: q.questionId, attemptId: a.attemptId };
+        if (criteria) {
+          var inputs = Array.prototype.slice.call(document.querySelectorAll('#gmRubric .gm-crit input'));
+          if (inputs.some(function (input) { return input.value === ''; })) { gmStatus('Give a mark for each criterion.', true); return; }
+          body.rubricMarks = inputs.map(function (input) { return Number(input.value); });
+        } else {
+          var value = gmEl('gmMarks').value;
+          if (value === '') { gmStatus('Type a mark.', true); return; }
+          body.marks = Number(value);
+        }
+        gmEl('gmSave').disabled = true; gmStatus('Saving…');
+        gmJson(gmBase + '/save', { method: 'POST', body: JSON.stringify(body) })
+          .then(function (data) {
+            var was = a.marked; a.marked = true; a.marks = data.marks; if (data.rubricMarks) a.rubricMarks = data.rubricMarks;
+            if (!was) q.toMark = Math.max(0, q.toMark - 1);
+            gmTabs();
+            var next = -1;
+            for (var i = 1; i <= gm.answers.length; i++) { var j = (gm.at + i) % gm.answers.length; if (!gm.answers[j].marked) { next = j; break; } }
+            if (next >= 0) gm.at = next; else if (gm.at < gm.answers.length - 1) gm.at += 1;
+            gmRender();
+            if (gm.questions.every(function (item) { return !item.toMark; })) gmStatus('All reviewed — post grades with ✓ in the gradebook.', false);
+            loadStudentsForQuestionSet(activeStudentsQuestionSetId).catch(function () {});
+          })
+          .catch(function (error) { gmStatus(error.message, true); })
+          .then(function () { gmEl('gmSave').disabled = false; });
+      }
+      Array.prototype.forEach.call(document.querySelectorAll('#gradeModeSwitch .gm-seg'), function (button) {
+        button.addEventListener('click', function () {
+          var mode = button.getAttribute('data-gm-mode');
+          if (mode === gm.mode) return;
+          if (mode === 'question') { gmOpen(); return; }
+          // Back to one student: with no student open, return to the list to pick one.
+          if (!activeGradeAttemptId) { closeGradeDrawer(); return; }
+          gmSetMode('student');
+          openGradeDrawer(activeGradeAttemptId);
+        });
+      });
+      gmEl('gmPrev').addEventListener('click', function () { gmStep(-1); });
+      gmEl('gmNext').addEventListener('click', function () { gmStep(1); });
+      gmEl('gmSave').addEventListener('click', gmSave);
+      gmEl('gmClose').addEventListener('click', function () { closeGradeDrawer(); });
+      gmEl('gmMarks').addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); gmSave(); } });
+      // To review: Review opens the marking screen (By question) for that test straight away.
+      Array.prototype.forEach.call(document.querySelectorAll('.js-review-set'), function (button) {
+        button.addEventListener('click', async function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          button.disabled = true;
+          try {
+            await loadStudentsForQuestionSet(Number(button.getAttribute('data-question-set-id')));
+            activeGradeAttemptId = 0;
+            gradeModalOverlay.classList.add('is-open');
+            gradeModalOverlay.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            gmOpen();
+          } catch (error) {
+            window.alert(error.message || 'This test could not be opened.');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
+      var studentsBqBtn = document.getElementById('students-bq-btn');
+      if (studentsBqBtn) {
+        studentsBqBtn.addEventListener('click', function () {
+          if (!activeStudentsQuestionSetId) return;
+          activeGradeAttemptId = 0;
+          gradeModalOverlay.classList.add('is-open');
+          gradeModalOverlay.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+          gmOpen();
+        });
+      }
+
       function openGradeDrawer(attemptId) {
+        gmSetMode('student');
         activeGradeAttemptId = attemptId;
         activeGradeQuestions = [];
-        if (gradeModalTitle) gradeModalTitle.textContent = 'Grade Attempt';
+        if (gradeModalTitle) gradeModalTitle.textContent = 'Grade';
         if (gradeModalSubtitle) gradeModalSubtitle.textContent = '';
         if (gradeModalTotal) gradeModalTotal.textContent = '';
         if (gradeModalQuestions) {
@@ -3993,7 +4334,7 @@
         }
         if (gradeModalLoading) {
           gradeModalLoading.style.display = 'block';
-          gradeModalLoading.textContent = 'Loading questions...';
+          gradeModalLoading.textContent = 'Loading…';
         }
         if (gradeModalSave) gradeModalSave.disabled = true;
 
@@ -4020,6 +4361,7 @@
       }
 
       function closeGradeDrawer() {
+        gmSetMode('student');
         gradeModalOverlay.classList.remove('is-open');
         gradeModalOverlay.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
@@ -4055,7 +4397,7 @@
 
         if (!payload.canEdit && gradeModalLoading) {
           gradeModalLoading.style.display = 'block';
-          gradeModalLoading.textContent = 'This assessment is not editable right now: ' + (payload.editReason || 'locked') + '.';
+          gradeModalLoading.textContent = 'Not editable: ' + (payload.editReason || 'locked') + '.';
           if (gradeModalQuestions) gradeModalQuestions.style.display = 'none';
           if (gradeModalSave) gradeModalSave.disabled = true;
           updateGradeDrawerTotal();
@@ -4128,7 +4470,14 @@
           var responseText = question.responseText || (question.responseJson ? JSON.stringify(question.responseJson) : '');
           var responseBox = '<div class="grade-response-box">' + (responseText ? escapeHtml(responseText) : '<span class="student-subtle">No response submitted.</span>') + '</div>';
           if (type === 'essay') {
-            return responseBox;
+            var criteria = question.rubric && Array.isArray(question.rubric.criteria) ? question.rubric.criteria : null;
+            if (!criteria) return responseBox;
+            var crit = criteria.map(function (c, i) {
+              var given = Array.isArray(question.rubricMarks) ? question.rubricMarks[i] : '';
+              return '<label class="gm-crit"><span>' + escapeHtml(c.name) + ' <small>out of ' + escapeHtml(String(c.marks)) + '</small></span>' +
+                '<input type="number" class="grade-crit" data-q="' + question.questionId + '" data-i="' + i + '" min="0" max="' + escapeHtml(String(c.marks)) + '" step="0.5" value="' + (given === undefined || given === null ? '' : escapeHtml(String(given))) + '"></label>';
+            }).join('');
+            return responseBox + '<div class="gm-rubric">' + crit + '</div>';
           }
           var answerKeyBox = question.answerKey
             ? '<div class="grade-answer-key">Expected answer: ' + escapeHtml(String(question.answerKey)) + '</div>'
@@ -4169,6 +4518,18 @@
           if (input) {
             input.addEventListener('input', updateGradeDrawerTotal);
           }
+          // A rubric question: its mark box shows the total of its criteria.
+          var criteriaInputs = gradeModalQuestions.querySelectorAll('.grade-crit[data-q="' + question.questionId + '"]');
+          if (criteriaInputs.length && input) {
+            input.readOnly = true;
+            var sum = function () {
+              var total = 0;
+              Array.prototype.forEach.call(criteriaInputs, function (c) { var n = Number(c.value); if (Number.isFinite(n)) total += n; });
+              input.value = Math.round(total * 100) / 100;
+              updateGradeDrawerTotal();
+            };
+            Array.prototype.forEach.call(criteriaInputs, function (c) { c.addEventListener('input', sum); });
+          }
         });
 
         updateGradeDrawerTotal();
@@ -4176,6 +4537,8 @@
 
       if (gradeModalCancel) {
         gradeModalCancel.addEventListener('click', closeGradeDrawer);
+        var gradeModalX = document.getElementById('gradeModalX');
+        if (gradeModalX) gradeModalX.addEventListener('click', closeGradeDrawer);
       }
 
       if (gradeModalSave) {
@@ -4183,11 +4546,16 @@
           if (!activeGradeAttemptId) return;
 
           var marks = {};
+          var rubricMarks = {};
           activeGradeQuestions.forEach(function (question) {
             var input = document.getElementById('grade-marks-' + question.questionId);
             var value = input ? Number(input.value) : 0;
             if (!Number.isFinite(value)) value = 0;
             marks[question.questionId] = value;
+            var criteriaInputs = gradeModalQuestions.querySelectorAll('.grade-crit[data-q="' + question.questionId + '"]');
+            if (criteriaInputs.length) {
+              rubricMarks[question.questionId] = Array.prototype.map.call(criteriaInputs, function (c) { var n = Number(c.value); return Number.isFinite(n) ? n : 0; });
+            }
           });
 
           var originalLabel = gradeModalSave.textContent;
@@ -4201,7 +4569,7 @@
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
               },
-              body: JSON.stringify({ attemptId: activeGradeAttemptId, marks: marks }),
+              body: JSON.stringify({ attemptId: activeGradeAttemptId, marks: marks, rubricMarks: rubricMarks }),
             });
             var result = await response.json();
             if (!response.ok || !result.success) {
@@ -4245,7 +4613,7 @@
         latestStudentsPayload = payload;
         var scope = payload.scope || {};
         if (studentsModalTitle) {
-          studentsModalTitle.textContent = 'Students: ' + String(scope.setTitle || 'Question Set');
+          studentsModalTitle.textContent = 'Review · ' + String(scope.assessmentTitle || scope.setTitle || 'Question Set');
         }
         if (studentsModalSubtitle) {
           studentsModalSubtitle.textContent = [
@@ -4278,9 +4646,11 @@
       function syncPostScoresToggleState() {
         if (!studentsPostScoresToggle) return;
         var state = computePostScoresState();
-        var isOn = state.postedCount > 0;
-        studentsPostScoresToggle.classList.toggle('is-on', isOn);
-        studentsPostScoresToggle.setAttribute('aria-checked', isOn ? 'true' : 'false');
+        var allPosted = state.postedCount > 0 && state.pendingCount <= 0;
+        studentsPostScoresToggle.classList.toggle('is-on', allPosted);
+        studentsPostScoresToggle.textContent = allPosted ? 'Take back' : 'Post grades';
+        var shareEl = document.getElementById('students-share-line');
+        if (shareEl) shareEl.textContent = allPosted ? '' : shareLine(latestStudentsPayload && latestStudentsPayload.summary ? latestStudentsPayload.summary.parentShare : '');
       }
 
       function renderUploadButtonIdle() {
@@ -4290,14 +4660,14 @@
           '<svg width="15" height="15" viewBox="0 0 16 16" fill="none">',
           '<path d="M8 10V3M5 6l3-3 3 3M3 11v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
           '</svg>',
-          'Import Exam File'
+          '<span class="qm-upload-text">Import Exam File</span>'
         ].join('');
       }
 
       function setUploadButtonLoading(labelText) {
         if (!qmUploadPdfBtn) return;
         qmUploadPdfBtn.classList.add('loading');
-        qmUploadPdfBtn.innerHTML = '<span class="qm-spinner"></span>' + String(labelText || 'Processing...');
+        qmUploadPdfBtn.innerHTML = '<span class="qm-spinner"></span><span class="qm-upload-text">' + String(labelText || 'Processing...') + '</span>';
       }
 
       function normalizeExtractedQuestionType(rawType) {
@@ -4434,7 +4804,7 @@
           optionLayout: optionLayout,
           answerKey: answerKey,
           marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
-          positionIndex: Number.isFinite(questionIndex) && questionIndex > 0 ? questionIndex : (index + 1),
+          positionIndex: index + 1,
         };
       }
 
@@ -4496,9 +4866,9 @@
         maxAttemptsValue = Number.isInteger(maxAttemptsValue) && maxAttemptsValue > 0 ? maxAttemptsValue : 1;
 
         var contextBits = [];
-        contextBits.push('Assessment Mode: ' + (isOpenBook ? 'Open Book' : 'Secure (Closed Book)'));
-        contextBits.push('Duration: ' + (isTimed && Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'Unlimited'));
-        contextBits.push('Max Attempts: ' + String(maxAttemptsValue));
+        contextBits.push(isOpenBook ? 'Open book' : 'Closed book');
+        contextBits.push((isTimed && Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'No time limit'));
+        contextBits.push(maxAttemptsValue + (maxAttemptsValue === 1 ? ' attempt' : ' attempts'));
 
         var questionCardLayout = questionItems
           ? String(questionItems.getAttribute('data-layout-mode') || 'stacked').toLowerCase()
@@ -4544,9 +4914,9 @@
         questionCardLayout = questionCardLayout === 'side_by_side' ? 'side_by_side' : 'stacked';
 
         var contextBits = [];
-        contextBits.push('Assessment Mode: ' + (isOpenBook ? 'Open Book' : 'Secure (Closed Book)'));
-        contextBits.push('Duration: ' + (Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'Unlimited'));
-        contextBits.push('Max Attempts: ' + String(maxAttemptsValue));
+        contextBits.push(isOpenBook ? 'Open book' : 'Closed book');
+        contextBits.push((Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'No time limit'));
+        contextBits.push(maxAttemptsValue + (maxAttemptsValue === 1 ? ' attempt' : ' attempts'));
 
         var questions = Array.isArray(setData.questions) ? setData.questions : [];
         return {
@@ -4899,7 +5269,20 @@
       function updateQuestionCount() {
         var count = document.querySelectorAll('#question-items .qm-question-card').length;
         updateQuestionHeaderActionLabels(count);
+        // The gradebook gets the marks a student earns as they are, so show how the marks add up against the test.
+        var counter = document.getElementById('qm-question-count');
+        if (counter && count) {
+          var totalMarks = Array.prototype.reduce.call(document.querySelectorAll('#question-items .question-marks'), function (sum, el) { return sum + (Number(el.value) || 0); }, 0);
+          var outOf = typeof selectedAssessmentRule !== 'undefined' && selectedAssessmentRule ? Number(selectedAssessmentRule.maxScore) || 0 : 0;
+          counter.textContent += ' · ' + totalMarks + (outOf ? ' of ' + outOf : '') + ' marks';
+          counter.title = outOf && totalMarks < outOf
+            ? 'The gradebook gets the marks a student earns, not a share of ' + outOf + '. Make the marks add up to ' + outOf + ' if the test is marked out of ' + outOf + '.'
+            : '';
+        }
       }
+      document.addEventListener('input', function (event) {
+        if (event.target && event.target.classList && event.target.classList.contains('question-marks')) updateQuestionCount();
+      });
 
       function applyQuestionCardsLayoutMode(layoutMode) {
         if (!questionItems) return;
@@ -4942,6 +5325,7 @@
               : 'stacked',
             media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(card) : null,
             help: window.QuestionHelp ? window.QuestionHelp.helpOf(card) : null,
+            rubric: window.QuestionRubric ? window.QuestionRubric.rubricOf(card) : null,
           });
         });
 
@@ -5329,11 +5713,11 @@
           : 'Locked for editing (' + (selectedAssessmentRule.accessReason || 'Not editable') + ')';
 
         questionAssessmentRules.textContent = window.QuestionBuilderFlow
-          ? selectedAssessmentRule.title + ' · up to ' + selectedAssessmentRule.maxScore + ' marks · ' + selectedAssessmentRule.weight + '% of the grade' +
+          ? selectedAssessmentRule.title + ' · up to ' + selectedAssessmentRule.maxScore + ' marks · ' + 'weight ' + selectedAssessmentRule.weight +
             (selectedAssessmentRule.canEditScores ? '' : ' · ' + statusLabel)
           : 'Rules: ' + selectedAssessmentRule.title +
           ' | Category: ' + selectedAssessmentRule.category +
-          ' | Weight: ' + selectedAssessmentRule.weight + '%' +
+          ' | Weight: ' + selectedAssessmentRule.weight +
           ' | Max score: ' + selectedAssessmentRule.maxScore +
           ' | Scale: ' + selectedAssessmentRule.scaleBase +
           ' | Mode: ' + summary.modeLabel +
@@ -5369,7 +5753,7 @@
         }
         var modalTitle = document.getElementById('question-modal-title');
         if (modalTitle) {
-          modalTitle.textContent = questionModalMode === 'edit' ? 'Review and Edit Questions' : 'Create Questions';
+          modalTitle.textContent = questionModalMode === 'edit' ? 'Edit Questions' : 'Create Questions';
         }
         if (saveQuestionSetButton) {
           renderSaveButtonIdle();
@@ -5862,7 +6246,7 @@
           answerList,
           currentAnswers,
           false,
-          type === 'essay' ? 'Key points / rubric (optional)' : 'Expected short answer (optional)'
+          type === 'essay' ? 'Key points to look for (optional)' : 'Expected short answer (optional)'
         );
       }
 
@@ -5995,13 +6379,10 @@
           '<div class="qm-question-card-body">',
           '  <div class="qm-field">',
           '    <div class="qm-question-text-head">',
-          '      <label>Question Text</label>',
+          '      <label>Question</label>',
           '      <div class="qm-question-text-toolbar">',
           '        <button type="button" class="qm-text-tool-btn" data-format-cmd="bold" title="Bold">B</button>',
           '        <button type="button" class="qm-text-tool-btn" data-format-cmd="italic" title="Italic">I</button>',
-          '        <label class="qm-text-color-wrap" title="Text Color">',
-          '          <input type="color" class="qm-text-color" value="#0f172a" />',
-          '        </label>',
           '      </div>',
           '    </div>',
           '    <div class="qm-question-text-editor-wrap">',
@@ -6223,6 +6604,7 @@
 
         if (window.QuestionBuilderFlow) window.QuestionBuilderFlow.decorate(wrapper, question || {});
         if (window.QuestionHelp) window.QuestionHelp.decorate(wrapper, question || {});
+        if (window.QuestionRubric) window.QuestionRubric.decorate(wrapper, question || {});
         return wrapper;
       }
 
@@ -6251,6 +6633,7 @@
             questionText: typedText || (questionType === 'image_label' ? 'Label the picture.' : ''),
             media: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.mediaOf(item) : null,
             help: window.QuestionHelp ? window.QuestionHelp.helpOf(item) : null,
+            rubric: window.QuestionRubric ? window.QuestionRubric.rubricOf(item) : null,
             options: options,
             optionLayout: item.querySelector('.qm-options-layout-select')
               ? String(item.querySelector('.qm-options-layout-select').value || 'stacked')
@@ -6442,7 +6825,7 @@
 
         if (questionModalMode === 'edit') {
           setQuestionEditorEnabled(true);
-          setQuestionStatus('Editing existing question set. Save changes to send for review.', false);
+          setQuestionStatus(<%= typeof reviewRequired !== 'undefined' && reviewRequired ? 'true' : 'false' %> ? 'Save to send for review.' : '', false);
         } else {
           setQuestionEditorEnabled(false);
           setQuestionStatus('Questions already exist for this assessment (status: ' + String(selectedSet.reviewStatus || 'pending').toLowerCase() + '). Use Edit to improve it.', true);
@@ -6528,7 +6911,7 @@
           var subjectId = String(detailsItem.getAttribute('data-subject-id') || '').trim();
           var subjectName = String(detailsItem.getAttribute('data-subject-name') || '').trim();
           var assessmentId = String(detailsItem.getAttribute('data-assessment-id') || '').trim();
-          var assessmentTitle = String(detailsItem.getAttribute('data-assessment-title') || '').trim();
+          var assessmentTitle = String(detailsItem.getAttribute('data-assessment-shown') || detailsItem.getAttribute('data-assessment-title') || '').trim();
 
           if (classId) classMap.set(classId, className);
           if (subjectId) subjectMap.set(subjectId, subjectName);
@@ -6559,7 +6942,9 @@
             .forEach(function (entry) {
               var opt = document.createElement('option');
               opt.value = String(entry[0]);
-              opt.textContent = String(entry[1] || '').replace(/(^\w|\s\w)/g, function (m) { return m.toUpperCase(); });
+              var optionText = String(entry[1] || '');
+              // Names typed in capitals ("QA Quiz") stay as typed; only all-lowercase ones are capitalised.
+              opt.textContent = optionText === optionText.toLowerCase() ? optionText.replace(/(^\w|\s\w)/g, function (m) { return m.toUpperCase(); }) : optionText;
               selectEl.appendChild(opt);
             });
 
@@ -7038,6 +7423,15 @@
 
       updateWorkspaceFiltersHint();
 
+      // The Filters pop-up closes after Apply or Clear, on Escape, and when you click elsewhere.
+      if (workspaceFiltersCard) {
+        ['apply-set-filters', 'clear-set-filters'].forEach(function (id) {
+          var button = document.getElementById(id);
+          if (button) button.addEventListener('click', function () { workspaceFiltersCard.open = false; });
+        });
+        document.addEventListener('click', function (event) { if (workspaceFiltersCard.open && !workspaceFiltersCard.contains(event.target)) workspaceFiltersCard.open = false; });
+        document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && workspaceFiltersCard.open) workspaceFiltersCard.open = false; });
+      }
       if (workspaceFiltersCard) {
         workspaceFiltersCard.addEventListener('toggle', updateWorkspaceFiltersHint);
       }
@@ -7097,6 +7491,10 @@
           if (!wasOpen) {
             menu.classList.add('open');
             trigger.setAttribute('aria-expanded', 'true');
+            // The menu opens upward; near the top of the page it opens downward instead, so it is never cut off.
+            menu.classList.remove('drop-down');
+            var dropdown = menu.querySelector('.set-actions-dropdown');
+            if (dropdown && dropdown.getBoundingClientRect().top < 8) menu.classList.add('drop-down');
           }
         });
       });
@@ -7133,6 +7531,11 @@
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Tab' || event.key === 'Escape') {
           closeAllSetActionMenus();
+        }
+        // Escape closes the Preview or Reuse panel on top (the X does too); the questions panel keeps its draft until its own X.
+        if (event.key === 'Escape') {
+          if (qmPreviewOverlay && qmPreviewOverlay.classList.contains('show')) closeQuestionPreview();
+          else if (reuseModalOverlay && reuseModalOverlay.classList.contains('show')) closeReuseModal();
         }
       });
 
@@ -7218,16 +7621,22 @@
         });
       });
 
+      // One line before posting: what families will see (set on the test, "Share with family").
+      function shareLine(share) {
+        return 'Families will see: ' + (share === 'full' ? 'Grade and answers' : (share === 'grade' ? 'Grade' : 'Nothing about the test itself (the grade shows on the gradebook)')) + '.';
+      }
+
       function updateCardScoreToggleUI(wrap, postedCount, pendingCount) {
         var toggle = wrap.querySelector('.card-post-score-toggle');
         var statusEl = wrap.querySelector('.card-score-toggle-status');
         var isOn = postedCount > 0;
+        var allPosted = isOn && pendingCount <= 0;
         wrap.setAttribute('data-posted-count', String(postedCount));
         wrap.setAttribute('data-pending-count', String(pendingCount));
         wrap.classList.toggle('is-posted', isOn);
         if (toggle) {
-          toggle.classList.toggle('is-on', isOn);
-          toggle.setAttribute('aria-checked', isOn ? 'true' : 'false');
+          toggle.classList.toggle('is-on', allPosted);
+          toggle.textContent = allPosted ? 'Take back' : 'Post grades';
         }
         if (statusEl) {
           statusEl.textContent = !isOn ? 'Not posted' : (pendingCount > 0 ? 'Posted (' + pendingCount + ' new)' : 'Posted');
@@ -7251,11 +7660,11 @@
 
           if (isCurrentlyOn) {
             if (postedCount <= 0) return;
-            var confirmedUnpost = window.confirm('Unpost ' + postedCount + ' score(s) for this assessment? They will disappear from the subject dashboard.');
+            var confirmedUnpost = window.confirm('Take back ' + postedCount + ' grade(s)? Families will stop seeing them until you post again.');
             if (!confirmedUnpost) return;
           } else {
             if (pendingCount <= 0) return;
-            var confirmedPost = window.confirm('Post ' + pendingCount + ' completed score(s) now? They will become visible on the subject dashboard.');
+            var confirmedPost = window.confirm('Post ' + pendingCount + ' grade(s)? ' + shareLine(wrap.getAttribute('data-share') || ''));
             if (!confirmedPost) return;
           }
 
@@ -7318,7 +7727,7 @@
             return;
           }
 
-          var confirmed = window.confirm('Unlock all completed students for this assessment scope?');
+          var confirmed = window.confirm('Let every student who has finished take this test again? All their answers and marks for it are deleted, including grades already posted. This cannot be undone.');
           if (!confirmed) return;
 
           var originalLabel = studentsUnlockAllButton.textContent;
@@ -7354,6 +7763,89 @@
         });
       }
 
+      // Fix an answer: mark one question again for everyone who handed in.
+      (function () {
+        var openBtn = document.getElementById('students-remark-btn');
+        var panel = document.getElementById('students-remark-panel');
+        if (!openBtn || !panel) return;
+        var pick = document.getElementById('students-remark-question');
+        var keyBox = document.getElementById('students-remark-key');
+        var go = document.getElementById('students-remark-go');
+        var status = document.getElementById('students-remark-status');
+        var questions = [];
+        function syncKey() {
+          var chosen = questions.find(function (q) { return String(q.questionId) === pick.value; });
+          keyBox.value = chosen ? (chosen.answerKey || '') : '';
+        }
+        pick.addEventListener('change', syncKey);
+        openBtn.addEventListener('click', async function () {
+          if (!panel.hidden) { panel.hidden = true; return; }
+          var scope = (latestStudentsPayload && latestStudentsPayload.scope) || {};
+          status.textContent = 'Loading…';
+          panel.hidden = false;
+          try {
+            var url = '/common/assessment/questions?questionSetId=' + encodeURIComponent(activeStudentsQuestionSetId)
+              + '&classId=' + encodeURIComponent(scope.classId) + '&subjectId=' + encodeURIComponent(scope.subjectId)
+              + '&termId=' + encodeURIComponent(scope.termId) + '&assessmentId=' + encodeURIComponent(scope.assessmentId);
+            var response = await fetch(url, { headers: { Accept: 'application/json' } });
+            var data = await response.json();
+            var set = (data.sets || []).find(function (item) { return Number(item.questionSetId) === Number(activeStudentsQuestionSetId); });
+            questions = ((set && set.questions) || []).filter(function (q) { return ['essay', 'matching'].indexOf(q.questionType) === -1; });
+            pick.innerHTML = questions.map(function (q, i) {
+              var text = String(q.questionText || '').replace(/\s+/g, ' ').slice(0, 60);
+              return '<option value="' + q.questionId + '">' + (i + 1) + '. ' + text.replace(/[<>&"]/g, '') + '</option>';
+            }).join('');
+            syncKey();
+            status.textContent = questions.length ? '' : 'No question can be marked again here.';
+          } catch (error) {
+            status.textContent = 'Questions could not be loaded.';
+          }
+        });
+        go.addEventListener('click', async function () {
+          if (!pick.value) return;
+          if (!window.confirm('Mark this question again for everyone who handed in? Changed grades go back to waiting until you post them.')) return;
+          go.disabled = true;
+          status.textContent = 'Marking…';
+          try {
+            var response = await fetch('/common/assessment/questions/remark', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ questionSetId: activeStudentsQuestionSetId, questionId: Number(pick.value), answerKey: keyBox.value }),
+            });
+            var result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'That could not be marked again.');
+            status.textContent = result.message || 'Done.';
+            await loadStudentsForQuestionSet(activeStudentsQuestionSetId);
+          } catch (error) {
+            status.textContent = error.message || 'That could not be marked again.';
+          } finally {
+            go.disabled = false;
+          }
+        });
+      })();
+
+      var reviewSettingBox = document.getElementById('reviewSettingBox');
+      if (reviewSettingBox) {
+        reviewSettingBox.addEventListener('change', async function () {
+          var wanted = reviewSettingBox.checked;
+          reviewSettingBox.disabled = true;
+          try {
+            var saved = await fetch('/common/assessment/review-setting', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ required: wanted }),
+            });
+            var savedBody = await saved.json();
+            if (!saved.ok || !savedBody.success) throw new Error(savedBody.error || 'That could not be saved.');
+          } catch (error) {
+            reviewSettingBox.checked = !wanted;
+            window.alert(error.message || 'That could not be saved.');
+          } finally {
+            reviewSettingBox.disabled = false;
+          }
+        });
+      }
+
       if (studentsPostScoresToggle) {
         studentsPostScoresToggle.addEventListener('click', async function () {
           if (!activeStudentsQuestionSetId) return;
@@ -7366,7 +7858,7 @@
               setStudentsStatus('No posted scores to unpost.', true);
               return;
             }
-            var confirmedUnpost = window.confirm('Unpost ' + state.postedCount + ' score(s)? They will disappear from the subject dashboard until posted again.');
+            var confirmedUnpost = window.confirm('Take back ' + state.postedCount + ' grade(s)? Families will stop seeing them until you post again.');
             if (!confirmedUnpost) return;
 
             studentsPostScoresToggle.disabled = true;
@@ -7396,7 +7888,7 @@
             return;
           }
 
-          var confirmed = window.confirm('Post ' + state.pendingCount + ' completed score(s) now? They will become visible on the subject dashboard.');
+          var confirmed = window.confirm('Post ' + state.pendingCount + ' grade(s)? ' + shareLine(latestStudentsPayload && latestStudentsPayload.summary ? latestStudentsPayload.summary.parentShare : ''));
           if (!confirmed) return;
 
           studentsPostScoresToggle.disabled = true;
@@ -7462,10 +7954,8 @@
       }
 
       if (qmPreviewOverlay) {
-        qmPreviewOverlay.addEventListener('click', function (event) {
-          if (event.target === qmPreviewOverlay) {
-            closeQuestionPreview();
-          }
+        qmPreviewOverlay.addEventListener('click', function () {
+          // Closes only with the X, never by clicking outside.
         });
       }
 
@@ -7746,6 +8236,7 @@
             setDescription: String(questionSetDescriptionInput ? questionSetDescriptionInput.value : '').trim(),
             questions: questions,
             parentShare: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.parentShare() : undefined,
+            shuffleQuestions: window.QuestionBuilderFlow ? window.QuestionBuilderFlow.shuffle() : undefined,
           };
 
           setQuestionStatus('Saving question set...', false);
@@ -7767,7 +8258,7 @@
 
             currentQuestionSetId = result.questionSetId || currentQuestionSetId;
             if (window.ParentResources) await window.ParentResources.afterSave(currentQuestionSetId);
-            setQuestionStatus(questionModalMode === 'edit' ? 'Question set updated and submitted for review successfully.' : 'Question set submitted for review successfully.', false);
+            setQuestionStatus(result.message || 'Questions saved.', false);
             clearDraft();
             if (window.QuestionBuilderFlow && window.QuestionBuilderFlow.afterSave(result)) return;
             window.location.reload();
@@ -7900,9 +8391,8 @@
 
       if (reuseModalOverlay) {
         reuseModalOverlay.addEventListener('click', function (event) {
-          if (event.target === reuseModalOverlay) {
-            closeReuseModal();
-          }
+          // Closes only with the X (or Cancel), never by clicking outside.
+          if (event.target.closest && event.target.closest('#reuse-modal-x')) closeReuseModal();
         });
       }
 
@@ -8068,12 +8558,13 @@
           updateQuestionCount();
         },
       };
-      window.QuestionBuilderFlowConfig = <%- JSON.stringify({ open: locals.flowOpen || null, embedded: Boolean(isEmbedded), organizationId: Number(organizationId), termId: Number(termId), canCreateAssessments: Boolean(locals.canCreateAssessments), extras: Boolean(locals.questionExtras) }).replace(/</g, '\\u003c') %>;
+      window.QuestionBuilderFlowConfig = <%- JSON.stringify({ open: locals.flowOpen || null, embedded: Boolean(isEmbedded), organizationId: Number(organizationId), termId: Number(termId), canCreateAssessments: Boolean(locals.canCreateAssessments), extras: Boolean(locals.questionExtras), shuffle: Boolean(locals.shuffleAvailable) }).replace(/</g, '\\u003c') %>;
     })();
   </script>
 <%# Resources & recommendations and help on each question: setResources.js takes the place of the older parent-only box. %>
-<link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><link rel="stylesheet" href="<%= assetUrl('/css/questionRubric.css') %>" /><script>window.QuestionRubricConfig = { on: <%= locals.rubricAvailable ? 'true' : 'false' %> };</script><script src="<%= assetUrl('/js/questionRubric.js') %>" defer></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
 </body>
 </html>
+

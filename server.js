@@ -448,7 +448,8 @@ const miraProxy = createProxyMiddleware({
   target: MIRA_INTERNAL_URL,
   changeOrigin: true,
   ws: true,
-  logger: console,
+  // Quiet: only problems are logged, not "proxy created".
+  logger: { info() {}, log() {}, debug() {}, warn: (...a) => console.warn(...a), error: (...a) => console.error(...a) },
 });
 app.use((req, res, next) => {
   const host = String(req.hostname || "").toLowerCase();
@@ -909,6 +910,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+// Lists and JSON a signed-in person's pages fetch: private to them unless a route says otherwise.
+app.use(require("./utils/privateByDefault").privateByDefault);
 
 // Flash messages middleware
 app.use(flash());

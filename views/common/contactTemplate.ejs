@@ -6,124 +6,117 @@
 <style>
   #ctRoot, #ctDialog {
     --ct-primary: <%= primary %>;
-    --ct-bg: transparent;
-    --ct-panel: #fff;
-    --ct-line: #e4e9ee;
-    --ct-text: #13202b;
-    --ct-muted: #667788;
+    --ct-surface: var(--ap-surface, #fff);
+    --ct-soft: var(--ap-surface-2, #f6f8fa);
+    --ct-line: var(--ap-line, #d4d4d8);
+    --ct-edge: #8ea3b6;
+    --ct-text: var(--ap-text, #13202b);
+    --ct-muted: var(--ap-muted, #667788);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     color: var(--ct-text);
   }
-  #ctRoot { background: var(--ct-bg); min-height: 100%; padding: 20px 24px 40px; box-sizing: border-box; }
+  #ctRoot { min-height: 100%; padding: 0 0 40px; box-sizing: border-box; }
   #ctRoot *, #ctDialog * { box-sizing: border-box; }
   #ctRoot :where(button), #ctDialog :where(button) { width: auto; margin: 0; font-family: inherit; line-height: 1.2; }
-  .ct-wrap { display: grid; gap: 14px; }
-  .ct-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
-  .ct-head h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; text-align: left; color: var(--ct-text); }
-  .ct-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--ct-muted); max-width: 640px; }
+  #ctRoot svg, #ctDialog svg { flex: none; }
+  .ct-wrap { display: grid; gap: 16px; }
+  .ct-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .ct-head h1, .ct-head .ct-head__title { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ct-muted); text-align: left; }
   .ct-head__actions { display: flex; gap: 8px; }
-
-  .ct-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; color: var(--ct-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s; }
-  
-  .ct-btn svg { width: 15px; height: 15px; }
-  .ct-btn--primary { background: var(--ct-primary); border-color: transparent; color: #fff; }
-  
+  .ct-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1.5px solid var(--ct-edge); border-radius: 9px; background: var(--ct-surface); color: var(--ct-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .ct-btn:hover { background: var(--ct-soft); }
+  .ct-btn svg { width: 16px; height: 16px; }
+  .ct-btn--primary { background: var(--ct-primary); border-color: var(--ct-primary); color: #fff; }
+  .ct-btn--primary:hover { background: var(--ct-primary); filter: brightness(.93); }
   .ct-btn:disabled { opacity: .45; cursor: default; }
   .ct-icon-btn { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ct-muted); cursor: pointer; }
-  
-  
+  .ct-icon-btn:hover, .ct-icon-btn[aria-expanded="true"] { background: var(--ct-soft); color: var(--ct-text); }
   .ct-icon-btn svg { width: 16px; height: 16px; }
-  .ct-link { height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--ct-primary); font-size: 12.5px; font-weight: 700; cursor: pointer; }
-  
+  .ct-btn:focus-visible, .ct-icon-btn:focus-visible, .ct-menu button:focus-visible { outline: 2px solid var(--ct-primary); outline-offset: 1px; }
 
-  .ct-card { background: var(--ct-panel); border: 1px solid var(--ct-line); border-radius: 14px; }
-  .ct-sec__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
-  .ct-sec__title { flex: 1; min-width: 0; display: grid; gap: 1px; }
-  .ct-sec__title strong { font-size: 14.5px; font-weight: 800; }
+  .ct-card { background: var(--ct-surface); border: 1.5px solid var(--ct-line); border-radius: 9px; }
+  .ct-sec__head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px 0 8px; }
+  .ct-sec__title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+  .ct-sec__title strong { font-size: 13.5px; font-weight: 800; }
   .ct-sec__title span { font-size: 12px; color: var(--ct-muted); }
   .ct-sec__actions { display: flex; align-items: center; gap: 2px; }
-  .ct-lock { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--ct-primary) 10%, #fff); color: var(--ct-primary); flex: none; }
-  .ct-lock svg { width: 15px; height: 15px; }
-  .ct-base { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 14px 54px; }
-  .ct-base span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; background: #f4f6f8; font-size: 12.5px; font-weight: 600; color: #334252; }
+  .ct-lock { display: grid; place-items: center; width: 16px; height: 16px; margin-left: 8px; color: var(--ct-muted); }
+  .ct-lock svg { width: 16px; height: 16px; }
+  .ct-base { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 16px; }
+  .ct-base span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 7px; background: var(--ct-soft); font-size: 12.5px; font-weight: 600; }
   .ct-base em { font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--ct-primary); text-transform: uppercase; letter-spacing: .03em; }
-
-  .ct-sections { display: grid; gap: 14px; }
-  .ct-fields { display: grid; gap: 6px; padding: 0 12px 12px; min-height: 52px; }
-  .ct-fields:empty::before { content: "Drag fields here, or add one."; display: grid; place-items: center; height: 52px; border: 1.5px dashed var(--ct-line); border-radius: 10px; font-size: 12.5px; color: #8796a5; }
-  .ct-row { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 4px; border: 1px solid var(--ct-line); border-radius: 10px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-  .ct-row:hover { box-shadow: 0 1px 3px rgba(16, 32, 48, .05);}
-  .ct-row.is-obsolete { background: #fafbfc; }
-  .ct-row.is-obsolete .ct-row__main strong { color: #8796a5; }
-  .ct-grip { display: grid; place-items: center; width: 24px; height: 30px; border-radius: 7px; color: #a8b4c0; cursor: grab; touch-action: none; flex: none; }
-  
+  .ct-sections { display: grid; gap: 20px; }
+  .ct-fields { display: grid; min-height: 0; border-top: 1.5px solid var(--ct-line); }
+  .ct-fields:empty::before { content: "Drop here"; display: grid; place-items: center; height: 44px; font-size: 12.5px; color: var(--ct-muted); }
+  .ct-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 130px 56px 32px; align-items: center; gap: 8px; min-height: 46px; padding: 0 8px 0 4px; border-top: 1.5px solid var(--ct-line); background: var(--ct-surface); }
+  .ct-row:first-child { border-top: 0; }
+  .ct-row:hover { background: var(--ct-soft); }
+  .ct-row.is-obsolete .ct-row__name { opacity: .55; }
+  .ct-grip { display: grid; place-items: center; width: 24px; height: 30px; color: var(--ct-muted); opacity: .55; cursor: grab; touch-action: none; }
   .ct-grip svg { width: 14px; height: 14px; }
-  .ct-type { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #f1f4f7; color: #4a5b6c; flex: none; }
-  .ct-type svg { width: 16px; height: 16px; }
-  .ct-row__main { flex: 1; min-width: 0; display: grid; gap: 1px; }
-  .ct-row__main strong { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ct-row__main span { font-size: 12px; color: var(--ct-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ct-chip { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; flex: none; }
-  .ct-chip--obsolete { background: #fdf3dc; color: #8a5a00; }
-  .ct-row__actions { display: flex; gap: 2px; flex: none; }
-
-  /* While dragging */
+  .ct-row__name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13.5px; font-weight: 700; }
+  .ct-row__name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+  .ct-row__type { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; color: var(--ct-muted); white-space: nowrap; }
+  .ct-row__type svg { width: 16px; height: 16px; }
+  .ct-chip { justify-self: start; padding: 2px 8px; border-radius: 999px; background: var(--ct-soft); border: 1px solid var(--ct-line); font-size: 11px; font-weight: 700; color: var(--ct-muted); }
+  .ct-chip--obsolete { background: #fdf3dc; border-color: transparent; color: #8a5a00; }
+  .ct-menuwrap { position: relative; }
+  .ct-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; display: none; min-width: 176px; padding: 4px; border: 1.5px solid var(--ct-line); border-radius: 9px; background: var(--ct-surface); box-shadow: 0 12px 28px -10px rgba(15, 23, 42, .3); }
+  .ct-menu.is-open { display: grid; }
+  .ct-menu button { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--ct-text); font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+  .ct-menu button svg { width: 16px; height: 16px; color: var(--ct-muted); }
+  .ct-menu button:hover { background: var(--ct-soft); }
+  .ct-menu .is-danger, .ct-menu .is-danger svg { color: #b42318; }
   .ct-dragging, .ct-dragging * { cursor: grabbing !important; user-select: none; }
   .ct-placeholder { opacity: .35; }
-  .ct-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); transform: rotate(.6deg); opacity: .97; }
-
-  .ct-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 4px 0; font-size: 12.5px; line-height: 1.5; color: var(--ct-muted); }
-  .ct-note svg { flex: none; width: 15px; height: 15px; margin-top: 2px; }
-  .ct-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20001; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 10px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
+  .ct-ghost { position: fixed; z-index: 20000; margin: 0; pointer-events: none; border: 1.5px solid var(--ct-line); border-radius: 9px; box-shadow: 0 16px 40px -10px rgba(16, 32, 48, .35); opacity: .97; }
+  .ct-toast { position: fixed; left: 50%; bottom: 22px; z-index: 20003; transform: translate(-50%, 10px); opacity: 0; padding: 9px 14px; border-radius: 9px; background: #13202b; color: #fff; font-size: 13px; font-weight: 600; transition: .2s; pointer-events: none; }
   .ct-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
-  /* Dialog */
-  #ctDialog { position: fixed; inset: 0; z-index: 20002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+  /* Field panel: slides in from the right, under the app header; closes only with X or Esc. */
+  #ctDialog { position: fixed; inset: 0; z-index: 20002; display: none; justify-content: flex-end; background: rgba(15, 23, 42, .35); }
   #ctDialog.is-open { display: flex; }
-  .ct-dlg { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); overflow: auto; border-radius: 16px; background: #fff; box-shadow: 0 30px 70px -20px rgba(15, 23, 42, .45); }
-  .ct-dlg__head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 6px; }
-  .ct-dlg__head h2 { margin: 0; font-size: 16px; font-weight: 800; text-align: left; }
-  .ct-dlg__body { display: grid; gap: 12px; padding: 10px 20px 4px; }
-  .ct-dlg label, .ct-dlg__label { display: grid; gap: 5px; margin: 0; font-size: 12px; font-weight: 700; color: #556676; }
-  .ct-dlg label small { margin-left: 4px; font-weight: 500; color: #8796a5; }
   #ctDialog [hidden] { display: none !important; }
-  #ctDialog :is(input, select, textarea) { width: 100%; height: auto; margin: 0; padding: 9px 11px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #13202b; font: inherit; font-size: 13.5px; }
+  .ct-dlg { display: flex; flex-direction: column; width: min(1040px, 100vw); height: 100%; background: var(--ct-surface); border-left: 1.5px solid var(--ct-line); box-shadow: -20px 0 50px -24px rgba(15, 23, 42, .4); animation: ct-slide .22s ease-out; }
+  @keyframes ct-slide { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .ct-dlg { animation: none; } }
+  .ct-dlg > form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .ct-dlg__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 14px 20px; border-bottom: 1.5px solid var(--ct-line); }
+  .ct-dlg__head h2 { margin: 0; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; text-align: left; }
+  .ct-dlg__body { display: grid; align-content: start; gap: 16px; flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
+  .ct-dlg label, .ct-dlg__label { display: grid; gap: 6px; margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ct-muted); }
+  #ctDialog :is(input, select, textarea) { width: 100%; height: 38px; margin: 0; padding: 0 12px; border: 1.5px solid var(--ct-edge); border-radius: 9px; background: var(--ct-surface); color: var(--ct-text); font: inherit; font-size: 13.5px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+  #ctDialog textarea { height: auto; min-height: 96px; padding: 9px 12px; resize: vertical; }
+  #ctDialog :is(input, select, textarea)::placeholder { color: #a6b2be; font-weight: 400; }
   #ctDialog :is(input, select, textarea):focus { outline: none; border-color: var(--ct-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ct-primary) 15%, transparent); }
-  #ctDialog textarea { min-height: 96px; resize: vertical; }
-  .ct-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  #ctDialog .ct-types button { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid #dfe5eb; border-radius: 10px; background: #fff; color: #334252; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; }
-  #ctDialog .ct-types button svg { width: 15px; height: 15px; color: #6b7c8d; flex: none; }
-  #ctDialog .ct-types button.is-on { border-color: var(--ct-primary); background: color-mix(in srgb, var(--ct-primary) 7%, #fff); color: var(--ct-text); box-shadow: 0 0 0 1px var(--ct-primary) inset; }
+  .ct-dlg__foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: none; padding: 12px 20px; border-top: 1.5px solid var(--ct-line); background: var(--ct-surface); }
+  .ct-dlg__foot > div { display: flex; gap: 8px; }
+  .ct-error { flex: 1; min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
+  .ct-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  #ctDialog .ct-types button { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border: 1.5px solid var(--ct-edge); border-radius: 9px; background: var(--ct-surface); color: var(--ct-text); font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; text-align: left; }
+  #ctDialog .ct-types button svg { width: 16px; height: 16px; color: var(--ct-muted); }
+  #ctDialog .ct-types button.is-on { border-color: var(--ct-primary); background: color-mix(in srgb, var(--ct-primary) 8%, var(--ct-surface)); box-shadow: 0 0 0 1px var(--ct-primary) inset; }
   #ctDialog .ct-types button.is-on svg { color: var(--ct-primary); }
   #ctDialog .ct-types button:disabled { cursor: default; opacity: .45; }
   #ctDialog .ct-types button.is-on:disabled { opacity: 1; }
-  .ct-dlg__hint { margin: -4px 0 0; font-size: 12px; color: #8796a5; }
-  .ct-dlg__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 18px; }
-  .ct-dlg__foot > div { display: flex; gap: 8px; }
-  .ct-error { min-height: 18px; margin: 0; font-size: 12.5px; color: #c0262d; }
-
+  .ct-seg { display: grid; grid-template-columns: 1fr 1fr; height: 38px; padding: 3px; border: 1.5px solid var(--ct-edge); border-radius: 9px; background: var(--ct-surface); }
+  #ctDialog .ct-seg button { border: 0; border-radius: 7px; background: none; color: var(--ct-muted); font-size: 12.5px; font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  #ctDialog .ct-seg button.is-on { background: var(--ct-primary); color: #fff; }
   @media (max-width: 640px) {
-    #ctRoot { padding: 14px 12px 32px; }
-    .ct-head__actions { width: 100%; }
     .ct-head__actions .ct-btn { flex: 1; justify-content: center; }
-    .ct-base { padding-left: 14px; }
     .ct-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .ct-type { display: none; }
+    .ct-row { grid-template-columns: 24px minmax(0, 1fr) 56px 32px; }
+    .ct-row__type { display: none; }
   }
   /* Who else sees a section. */
-  #ctRoot .ct-share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -2px 14px 10px; padding: 8px 10px; border-radius: 10px; background: #f6f8fa; }
-  #ctRoot .ct-share__label { display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; font-size: 12px; font-weight: 700; color: #64748b; }
+  #ctRoot .ct-share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 16px 14px; }
+  #ctRoot .ct-share__label { display: inline-flex; align-items: center; gap: 6px; margin-right: 2px; font-size: 12px; font-weight: 700; color: var(--ct-muted); }
   #ctRoot .ct-share__label svg { width: 14px; height: 14px; }
-  #ctRoot .ct-share__chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px; border: 1px solid #dfe5ec; border-radius: 999px; background: #fff; color: #475569; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  #ctRoot .ct-share__chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px; border: 1.5px solid var(--ct-line); border-radius: 999px; background: var(--ct-surface); color: var(--ct-muted); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   #ctRoot .ct-share__chip svg { width: 12px; height: 12px; }
-  #ctRoot .ct-share__chip:hover { border-color: #c3ccd6; }
-  #ctRoot .ct-share__chip.is-on { border-color: color-mix(in srgb, var(--ct-primary) 45%, #fff); background: color-mix(in srgb, var(--ct-primary) 10%, #fff); color: var(--ct-primary); }
+  #ctRoot .ct-share__chip.is-on { border-color: color-mix(in srgb, var(--ct-primary) 45%, var(--ct-surface)); background: color-mix(in srgb, var(--ct-primary) 10%, var(--ct-surface)); color: var(--ct-primary); }
   #ctRoot .ct-share__chip:focus-visible { outline: 2px solid var(--ct-primary); outline-offset: 1px; }
-  #ctRoot .ct-share__none { font-size: 12px; color: #94a3b8; }
-  /* Inside Admissions > Admission Settings: a card-sized heading, not a page heading. */
-  #ctRoot .ct-head--inline { align-items: center; margin-bottom: 14px; }
-  #ctRoot .ct-head--inline .ct-head__title { margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a; text-align: left; }
-  #ctRoot .ct-head--inline p { margin-top: 2px; }
+  #ctRoot .ct-share__none { font-size: 12px; color: var(--ct-muted); }
 </style>
 
 <div id="ctRoot">
@@ -131,11 +124,9 @@
     <div class="ct-head<%= locals.inAdmissions ? ' ct-head--inline' : '' %>">
       <div>
         <% if (locals.inAdmissions) { %>
-          <h2 class="ct-head__title">Parents &amp; guardians</h2>
-          <p>Kept once for each parent and shown on their card in Mail Room. Each section is a tab there. Drag to arrange.</p>
+          <span></span>
         <% } else { %>
           <h1>Parents &amp; guardians</h1>
-          <p>Kept once for each parent and shown on their card in Mail Room. Each section is a tab there. Drag to arrange.</p>
         <% } %>
       </div>
       <div class="ct-head__actions">
@@ -153,7 +144,7 @@
     <section class="ct-card">
       <header class="ct-sec__head">
         <span class="ct-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-        <div class="ct-sec__title"><strong>Always asked</strong><span>On every parent's card. They can't be changed.</span></div>
+        <div class="ct-sec__title"><strong>Always asked</strong></div>
       </header>
       <div class="ct-base">
         <% baseFields.forEach(function (f) { %>
@@ -164,15 +155,11 @@
 
     <div class="ct-sections" id="ctSections"></div>
 
-    <p class="ct-note">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
-      <span>A field that's been filled in can't be deleted: make it obsolete to hide it, and saved answers stay on the card.</span>
-    </p>
   </div>
   <div class="ct-toast" id="ctToast" role="status"></div>
 </div>
 
-<div id="ctDialog" role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
+<div id="ctDialog" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
 
 <script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: true }).replace(/</g, '\\u003c') %></script>
 <script>
@@ -199,6 +186,8 @@
     restore: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>'),
     trash: svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
     close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>',
+    plus: svg('<path d="M12 5v14M5 12h14"/>'),
   };
   const TYPE_ICON = {
     text: svg('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>'),
@@ -210,36 +199,33 @@
   };
 
   // ---------- render ----------
+  function menuHtml(label, items) {
+    return `<div class="ct-menuwrap"><button type="button" class="ct-icon-btn" data-menu aria-haspopup="true" aria-expanded="false" aria-label="Actions for ${esc(label)}">${ICON.more}</button><div class="ct-menu" role="menu">${items}</div></div>`;
+  }
   function rowHtml(f) {
     const obsolete = f.status !== 'active';
-    const meta = [TYPES[f.type] || 'Short text', f.type === 'choice' ? f.options.join(', ') : '', f.used ? 'In use' : ''].filter(Boolean).join(' · ');
+    const w = f.width === 'full' || (f.width !== 'half' && f.type === 'long_text') ? 'Full' : 'Half';
     return `<div class="ct-row ${obsolete ? 'is-obsolete' : ''}" data-field="${f.id}">
       <span class="ct-grip" data-grip="field" title="Drag to move" aria-hidden="true">${ICON.grip}</span>
-      <span class="ct-type" aria-hidden="true">${TYPE_ICON[f.type] || TYPE_ICON.text}</span>
-      <div class="ct-row__main"><strong>${esc(f.label)}</strong><span>${esc(meta)}</span></div>
-      ${obsolete ? '<span class="ct-chip ct-chip--obsolete">Obsolete</span>' : ''}
-      <div class="ct-row__actions">
-        <button type="button" class="ct-icon-btn" data-edit title="Edit" aria-label="Edit ${esc(f.label)}">${ICON.edit}</button>
-        ${obsolete
-          ? `<button type="button" class="ct-icon-btn" data-status="active" title="Restore" aria-label="Restore ${esc(f.label)}">${ICON.restore}</button>`
-          : `<button type="button" class="ct-icon-btn" data-status="obsolete" title="Make obsolete" aria-label="Make ${esc(f.label)} obsolete">${ICON.archive}</button>`}
-        ${f.used ? '' : `<button type="button" class="ct-icon-btn ct-icon-btn--danger" data-delete title="Delete" aria-label="Delete ${esc(f.label)}">${ICON.trash}</button>`}
-      </div>
+      <div class="ct-row__name"><b>${esc(f.label)}</b>${obsolete ? '<span class="ct-chip ct-chip--obsolete">Obsolete</span>' : ''}</div>
+      <div class="ct-row__type">${TYPE_ICON[f.type] || TYPE_ICON.text}<span>${esc(TYPES[f.type] || 'Short text')}</span></div>
+      <span class="ct-chip">${w}</span>
+      ${menuHtml(f.label, `<button type="button" role="menuitem" data-edit>${ICON.edit}Edit</button>
+        ${obsolete ? `<button type="button" role="menuitem" data-status="active">${ICON.restore}Restore</button>` : `<button type="button" role="menuitem" data-status="obsolete">${ICON.archive}Obsolete</button>`}
+        ${f.used ? '' : `<button type="button" role="menuitem" class="is-danger" data-delete>${ICON.trash}Delete</button>`}`)}
     </div>`;
   }
 
   function sectionHtml(sec) {
     const list = fields.filter((f) => (f.sectionId || 0) === sec.id);
     const custom = sec.id !== 0;
-    const count = `${list.length} field${list.length === 1 ? '' : 's'}`;
     return `<section class="ct-card ct-sec" data-section="${sec.id}">
       <header class="ct-sec__head">
-        ${custom ? `<span class="ct-grip" data-grip="section" title="Drag to move" aria-hidden="true">${ICON.grip}</span>` : ''}
-        <div class="ct-sec__title"><strong>${esc(sec.name)}</strong><span>${custom ? `${count} · its own tab on the contact card` : `${count} · fields that aren't in a section`}</span></div>
+        ${custom ? `<span class="ct-grip" data-grip="section" title="Drag to move" aria-hidden="true">${ICON.grip}</span>` : '<span style="width:8px"></span>'}
+        <div class="ct-sec__title"><strong>${esc(sec.name)}</strong><span>${list.length}</span></div>
         <div class="ct-sec__actions">
-          <button type="button" class="ct-link" data-add-field-in="${sec.id}">+ Add field</button>
-          ${custom ? `<button type="button" class="ct-icon-btn" data-rename title="Rename section" aria-label="Rename ${esc(sec.name)}">${ICON.edit}</button>
-          <button type="button" class="ct-icon-btn ct-icon-btn--danger" data-delete-section title="Delete section" aria-label="Delete ${esc(sec.name)}">${ICON.trash}</button>` : ''}
+          <button type="button" class="ct-icon-btn" data-add-field-in="${sec.id}" title="Add field" aria-label="Add field to ${esc(sec.name)}">${ICON.plus}</button>
+          ${custom ? menuHtml(sec.name, `<button type="button" role="menuitem" data-rename>${ICON.edit}Rename</button><button type="button" role="menuitem" class="is-danger" data-delete-section>${ICON.trash}Delete</button>`) : ''}
         </div>
       </header>
       ${custom && SHARING ? shareHtml(sec) : ''}
@@ -294,6 +280,7 @@
   function openDialog(html, onSubmit) {
     dlg.innerHTML = html;
     dialogSubmit = onSubmit;
+    { const h = document.getElementById('top-header'); dialog.style.top = (h ? h.offsetHeight : 0) + 'px'; }
     dialog.classList.add('is-open');
     const first = dlg.querySelector('input, textarea');
     if (first) first.focus();
@@ -310,23 +297,31 @@
   function fieldDialog(f, sectionId) {
     const locked = f && f.used > 0;
     let type = f ? f.type : 'text';
+    let width = f && f.width ? f.width : (f && f.type === 'long_text' ? 'full' : 'half');
+    let widthPicked = !!(f && f.width);
     const secId = f ? (f.sectionId || 0) : (sectionId || 0);
     const body = `
       <label>Field name<input name="label" maxlength="80" value="${esc(f ? f.label : '')}" placeholder="e.g. Emergency contact" autocomplete="off"></label>
       <div class="ct-dlg__label">Type
         <div class="ct-types">${Object.entries(TYPES).map(([k, v]) => `<button type="button" data-type="${k}" class="${k === type ? 'is-on' : ''}" ${locked ? 'disabled' : ''}>${TYPE_ICON[k]}${esc(v)}</button>`).join('')}</div>
       </div>
-      ${locked ? '<p class="ct-dlg__hint">This field has answers, so its type stays the same.</p>' : ''}
-      <label data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices <small>one per line</small></span><textarea name="options" placeholder="English&#10;Spanish&#10;French">${esc(f ? f.options.join('\n') : '')}</textarea></label>
+      <label data-options ${type === 'choice' ? '' : 'hidden'}><span>Choices</span><textarea name="options" placeholder="One per line">${esc(f ? f.options.join('\n') : '')}</textarea></label>
       <label>Section<select name="sectionId"><option value="0">More details</option>${sections.map((s) => `<option value="${s.id}" ${s.id === secId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
-      <label><span>Help text <small>optional, shown under the field</small></span><input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" autocomplete="off"></label>`;
+      <div class="ct-dlg__label">Width
+        <div class="ct-seg" role="group" aria-label="Width"><button type="button" data-width="half" class="${width === 'half' ? 'is-on' : ''}">Half</button><button type="button" data-width="full" class="${width === 'full' ? 'is-on' : ''}">Full</button></div>
+      </div>
+      <label>Help<input name="helpText" maxlength="200" value="${esc(f ? f.helpText : '')}" placeholder="Help text (shows as ?)" autocomplete="off"></label>`;
     openDialog(dialogFrame(f ? 'Edit field' : 'New field', body, f ? 'Save' : 'Add field'), async (form) => {
       await call(f ? `/common/contact-template/fields/${f.id}` : '/common/contact-template/fields', {
         label: form.label.value, type, options: form.options.value,
-        sectionId: Number(form.sectionId.value) || null, helpText: form.helpText.value,
+        sectionId: Number(form.sectionId.value) || null, helpText: form.helpText.value, width: widthPicked ? width : '',
       });
       toast(f ? 'Field saved' : 'Field added');
     });
+    dlg.querySelectorAll('[data-width]').forEach((b) => b.addEventListener('click', () => {
+      width = b.dataset.width; widthPicked = true;
+      dlg.querySelectorAll('[data-width]').forEach((x) => x.classList.toggle('is-on', x === b));
+    }));
     dlg.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
       type = b.dataset.type;
       dlg.querySelectorAll('[data-type]').forEach((x) => x.classList.toggle('is-on', x === b));
@@ -335,16 +330,15 @@
   }
 
   function sectionDialog(sec) {
-    const body = `<label>Section name<input name="name" maxlength="60" value="${esc(sec ? sec.name : '')}" placeholder="e.g. Emergency & pickup" autocomplete="off"></label>
-      <p class="ct-dlg__hint">Each section is its own tab on the contact card.</p>`;
+    const body = `<label>Section name<input name="name" maxlength="60" value="${esc(sec ? sec.name : '')}" placeholder="e.g. Emergency & pickup" autocomplete="off"></label>`;
     openDialog(dialogFrame(sec ? 'Rename section' : 'New section', body, sec ? 'Save' : 'Add section'), async (form) => {
       await call(sec ? `/common/contact-template/sections/${sec.id}` : '/common/contact-template/sections', { name: form.name.value });
       toast(sec ? 'Section renamed' : 'Section added');
     });
   }
 
-  dialog.addEventListener('click', (e) => { if (e.target === dialog || e.target.closest('[data-dlg-close]')) closeDialog(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog.classList.contains('is-open')) closeDialog(); });
+  dialog.addEventListener('click', (e) => { if (e.target.closest('[data-dlg-close]')) closeDialog(); });
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (dialog.classList.contains('is-open')) closeDialog(); else closeMenus(); });
   dialog.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!dialogSubmit) return;
@@ -364,7 +358,18 @@
   // ---------- actions ----------
   root.querySelector('[data-add-field]').addEventListener('click', () => fieldDialog(null, 0));
   root.querySelector('[data-add-section]').addEventListener('click', () => sectionDialog(null));
+  const closeMenus = () => host.querySelectorAll('.ct-menu.is-open').forEach((m) => { m.classList.remove('is-open'); const t = m.parentNode.querySelector('[data-menu]'); if (t) t.setAttribute('aria-expanded', 'false'); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.ct-menuwrap')) closeMenus(); });
   host.addEventListener('click', async (e) => {
+    const mb = e.target.closest('[data-menu]');
+    if (mb) {
+      const menu = mb.parentNode.querySelector('.ct-menu');
+      const was = menu.classList.contains('is-open');
+      closeMenus();
+      if (!was) { menu.classList.add('is-open'); mb.setAttribute('aria-expanded', 'true'); const first = menu.querySelector('button'); if (first) first.focus(); }
+      return;
+    }
+    closeMenus();
     const shareBtn = e.target.closest('[data-share]');
     if (shareBtn) {
       const sec = sections.find((x) => String(x.id) === shareBtn.closest('[data-section]').dataset.section);

@@ -84,6 +84,7 @@ async function createSchema(db) {
       )`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_contact_field_sections_org ON contact_field_sections (organization_id, position)`);
     await client.query(`ALTER TABLE contact_fields ADD COLUMN IF NOT EXISTS section_id INTEGER REFERENCES contact_field_sections(section_id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE contact_fields ADD COLUMN IF NOT EXISTS width VARCHAR(8)`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS contact_field_values (
         field_id INTEGER NOT NULL REFERENCES contact_fields(field_id) ON DELETE CASCADE,
@@ -140,7 +141,7 @@ function readFieldInput(body) {
     if (options.length < 2) throw new ContactError("A choice list needs at least two options.");
   }
   const sectionId = Number(body.sectionId) > 0 ? Number(body.sectionId) : null;
-  return { label, type, options, helpText: clean(body.helpText, 200) || null, sectionId };
+  return { label, type, options, helpText: clean(body.helpText, 200) || null, width: body.width === "half" || body.width === "full" ? body.width : null, sectionId };
 }
 
 async function assertSection(db, organizationId, sectionId) {
@@ -153,7 +154,7 @@ async function assertSection(db, organizationId, sectionId) {
 async function listFields(db, organizationId) {
   await ensureContactsSchema(db);
   const { rows } = await db.query(
-    `SELECT f.field_id, f.label, f.field_type, f.options, f.help_text, f.position, f.status, f.updated_at, f.section_id,
+    `SELECT f.field_id, f.label, f.field_type, f.options, f.help_text, f.width, f.position, f.status, f.updated_at, f.section_id,
             (SELECT COUNT(DISTINCT v.contact_key)::int FROM contact_field_values v WHERE v.field_id = f.field_id) AS used
        FROM contact_fields f
       WHERE f.organization_id = $1
@@ -162,7 +163,7 @@ async function listFields(db, organizationId) {
   );
   return rows.map((r) => ({
     id: r.field_id, label: r.label, type: r.field_type, typeLabel: FIELD_TYPES[r.field_type] || "Short text",
-    options: Array.isArray(r.options) ? r.options : [], helpText: r.help_text || "",
+    options: Array.isArray(r.options) ? r.options : [], helpText: r.help_text || "", width: r.width === "half" || r.width === "full" ? r.width : "",
     status: r.status, used: r.used, sectionId: r.section_id || null,
   }));
 }
@@ -289,7 +290,7 @@ async function parentPortalDetails(db, organizationId, guardianId) {
     sections: sections.map((sec) => ({
       id: sec.id,
       name: sec.name,
-      fields: sec.fields.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, helpText: f.helpText, value: answer.get(f.id) || "" })),
+      fields: sec.fields.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, helpText: f.helpText, width: f.width, value: answer.get(f.id) || "" })),
     })),
   };
 }
@@ -416,9 +417,9 @@ async function createField(db, organizationId, body, userId) {
   await assertLabelFree(db, organizationId, f.label);
   await assertSection(db, organizationId, f.sectionId);
   const { rows } = await db.query(
-    `INSERT INTO contact_fields (organization_id, label, field_type, options, help_text, position, created_by, section_id)
-     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8) RETURNING field_id`,
-    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, count.rows[0].last + 1, userId || null, f.sectionId]
+    `INSERT INTO contact_fields (organization_id, label, field_type, options, help_text, position, created_by, section_id, width)
+     VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9) RETURNING field_id`,
+    [organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, count.rows[0].last + 1, userId || null, f.sectionId, f.width]
   );
   return rows[0].field_id;
 }
@@ -452,9 +453,9 @@ async function updateField(db, organizationId, fieldId, body) {
   await assertLabelFree(db, organizationId, f.label, fieldId);
   await assertSection(db, organizationId, f.sectionId);
   await db.query(
-    `UPDATE contact_fields SET label = $3, field_type = $4, options = $5::jsonb, help_text = $6, section_id = $7, updated_at = NOW()
+    `UPDATE contact_fields SET label = $3, field_type = $4, options = $5::jsonb, help_text = $6, section_id = $7, width = $8, updated_at = NOW()
       WHERE field_id = $1 AND organization_id = $2`,
-    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.sectionId]
+    [fieldId, organizationId, f.label, f.type, JSON.stringify(f.options), f.helpText, f.sectionId, f.width]
   );
 }
 
@@ -559,7 +560,7 @@ async function readContact(db, organizationId, keys) {
     // Active fields always; obsolete ones only where this contact has an answer.
     fields: fields
       .filter((f) => f.status === "active" || answer.has(f.id))
-      .map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, helpText: f.helpText, sectionId: f.sectionId, obsolete: f.status !== "active", value: answer.get(f.id) || "" })),
+      .map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, helpText: f.helpText, width: f.width, sectionId: f.sectionId, obsolete: f.status !== "active", value: answer.get(f.id) || "" })),
   };
 }
 

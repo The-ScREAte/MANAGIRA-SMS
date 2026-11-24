@@ -107,12 +107,12 @@
       .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 10px; background: #f1f5f8; }
       .seg button { height: 32px; color: #3b4a5c; font-weight: 600; }
       .seg button[aria-pressed="true"] { background: #fff; color: #0b1b2b; box-shadow: 0 1px 2px rgba(11,27,43,.08), 0 0 0 1px #e4e9ef; }
-      .switch { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid #e4e9ef; border-radius: 10px; cursor: pointer; }
+      .switch { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid #e4e9ef; border-radius: 10px; cursor: pointer; }
       .switch input { position: absolute; opacity: 0; pointer-events: none; }
-      .switch .track { position: relative; width: 32px; height: 18px; margin-top: 2px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
-      .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+      .switch .track { position: relative; width: 26px; height: 15px; margin-top: 2px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
+      .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
       .switch input:checked + .track { background: #01535b; }
-      .switch input:checked + .track::after { transform: translateX(14px); }
+      .switch input:checked + .track::after { transform: translateX(11px); }
       .switch input:focus-visible + .track { outline: 2px solid #01535b; outline-offset: 2px; }
       .switch-text { display: grid; gap: 2px; }
       .switch-text b { font-size: 13px; font-weight: 600; color: #0b1b2b; }

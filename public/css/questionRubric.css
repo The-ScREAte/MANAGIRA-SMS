@@ -1,0 +1,31 @@
+/* The rubric on an essay question (public/js/questionRubric.js): quiet rows, a small total. */
+.qm-rubric-field[hidden] { display: none; }
+.qr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.qr-title { margin: 0; }
+.qr-tools { display: inline-flex; align-items: center; gap: 8px; }
+.qr-tools select, .qr-tools button { width: auto; height: 32px; margin: 0; padding: 0 12px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.qr-tools button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.qr-rows { display: grid; gap: 6px; }
+.qr-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 32px; gap: 8px; align-items: center; }
+.qr-row input { width: 100%; height: 38px; margin: 0; padding: 0 10px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .88rem; box-sizing: border-box; }
+.qr-row input:focus-visible { outline: 2px solid color-mix(in srgb, var(--org-primary-color, #01535b) 45%, transparent); outline-offset: 0; }
+.qr-remove { width: 32px; height: 32px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; opacity: .6; font-size: 18px; line-height: 1; cursor: pointer; }
+.qr-remove:hover { opacity: 1; }
+.qr-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.qr-foot[hidden] { display: none; }
+.qr-total { font-size: .85rem; font-weight: 700; }
+.qr-clear { width: auto; margin: 0; padding: 0; border: 0; background: none; color: #b42318; font: inherit; font-size: .8rem; cursor: pointer; }
+.question-marks[readonly] { opacity: .75; cursor: not-allowed; }
+
+/* The Rubric button sits on the same row as Hint. */
+.qh--row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.qh--row .qh-body { flex-basis: 100%; }
+.qr-toggle { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; background: none; color: var(--org-primary-color, #01535b); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.qr-toggle[hidden] { display: none; }
+.qr-toggle.has-rubric { color: #0a7d4f; }
+.qm-field.qh.qh--row { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; justify-content: flex-start !important; gap: 8px 18px; }
+.qm-field.qh.qh--row .qh-body { flex: 0 0 100%; }
+.qm-rubric-field .qr-title { display: none; }
+.qm-rubric-field .qr-head { justify-content: flex-end; }
+.qm-field .qr-toggle { display: inline-flex !important; width: auto !important; height: auto !important; flex: 0 0 auto !important; padding: 4px 0 !important; margin: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+.qm-field .qr-toggle[hidden] { display: none !important; }

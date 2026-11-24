@@ -12,6 +12,7 @@ const {
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const features = require("../utils/shards/features");
 const overallLunch = require("../utils/overallLunch");
+const assessmentSimple = require("../utils/assessmentSimple");
 const assessmentApproval = require("../utils/assessmentApproval");
 const questionHelp = require("../utils/questionHelp");
 const questionMedia = require("../utils/questionMedia");
@@ -340,8 +341,17 @@ function evaluateResponse(question, rawResponse) {
   const responseText = Array.isArray(rawResponse) ? rawResponse.join(",") : String(rawResponse || "");
 
   if (questionType === "multiple_choice") {
-    const expected = toAnswerSet(answerKey);
-    const received = toAnswerSet(responseText);
+    // The question builder saves several right answers as a JSON list (["2","3"]); older keys are "2,3".
+    let keyList = null;
+    if (/^\s*\[[\s\S]*\]\s*$/.test(answerKey)) {
+      try { const parsed = JSON.parse(answerKey); if (Array.isArray(parsed)) keyList = parsed; } catch (_) { keyList = null; }
+    }
+    const expected = keyList
+      ? keyList.map((part) => normalizeAnswerValue(part)).filter(Boolean).sort()
+      : toAnswerSet(answerKey);
+    const received = Array.isArray(rawResponse)
+      ? rawResponse.map((part) => normalizeAnswerValue(part)).filter(Boolean).sort()
+      : toAnswerSet(responseText);
     const correct = expected.length > 0 && expected.join("|") === received.join("|");
     return {
       isCorrect: correct,
@@ -559,10 +569,12 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
         a.time_limit_minutes,
       GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
         a.edit_window_end,
+        ${assessmentSimple.ready() ? "a.late_until," : ""}
         s.subject_name,
         COALESCE(sa.submitted_count, 0)::int AS submitted_attempts,
             qs.question_set_id,
             qs.question_count,
+            qs.question_marks,
             qs.updated_at AS latest_question_update
        FROM assessments a
        JOIN subjects s
@@ -572,6 +584,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
          SELECT
            qs.question_set_id,
            qs.updated_at,
+           COALESCE(SUM(q.marks), 0)::numeric AS question_marks,
            COUNT(q.question_id)::int AS question_count
          FROM assessment_question_sets qs
          LEFT JOIN assessment_questions q
@@ -604,7 +617,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
         AND a.term_id = $3
         AND COALESCE(a.is_active, TRUE) = TRUE
         AND (a.edit_window_start IS NULL OR a.edit_window_start <= NOW())
-        AND (a.edit_window_end IS NULL OR a.edit_window_end >= NOW())
+        AND ${assessmentSimple.stillOpenSql("a.")}
         AND EXISTS (
           SELECT 1
             FROM student_subjects ss
@@ -617,7 +630,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
           COALESCE(sa.submitted_count, 0) < GREATEST(COALESCE(a.max_attempts, 1), 1)
           OR (salo.id IS NOT NULL AND COALESCE(salo.is_locked, FALSE) = FALSE)
         )
-      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.max_attempts, a.edit_window_end, s.subject_name, sa.submitted_count, qs.question_count, qs.updated_at, qs.question_set_id
+      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.max_attempts, a.edit_window_end, s.subject_name, sa.submitted_count, qs.question_count, qs.question_marks, qs.updated_at, qs.question_set_id
       ORDER BY s.subject_name ASC, a.title ASC`,
     [organizationId, classId, termId, studentId]
   );
@@ -690,9 +703,9 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
 // The Testing Room (assessments flow): tests locked for this student that they haven't
 // submitted (left a secure test), when each unfinished attempt was started (Resume), and
 // which finished tests have a posted grade (the rest still wait for the teacher).
-async function getTestingRoomExtras(db, organizationId, studentId, classId, termId) {
-  if (!classId || !termId) return { locked: [], startedAt: {}, posted: {} };
-  const [locked, started, posted] = await Promise.all([
+async function getTestingRoomExtras(db, organizationId, studentId, classId, termId, { flow = true } = {}) {
+  if (!classId || !termId) return { closed: [], locked: [], startedAt: {}, posted: {} };
+  const [locked, started, posted, closed] = await Promise.all([
     db.query(
       `SELECT a.assessment_id, a.title, a.category, s.subject_name
          FROM student_assessment_lock_overrides salo
@@ -700,7 +713,7 @@ async function getTestingRoomExtras(db, organizationId, studentId, classId, term
          JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
         WHERE salo.organization_id = $1 AND salo.student_id = $2 AND salo.is_locked = TRUE
           AND a.class_id = $3 AND a.term_id = $4 AND COALESCE(a.is_active, TRUE) = TRUE
-          AND (a.edit_window_end IS NULL OR a.edit_window_end >= NOW())
+          AND ${assessmentSimple.stillOpenSql("a.")}
           AND NOT EXISTS (
             SELECT 1 FROM student_assessment_attempts saa
              WHERE saa.organization_id = $1 AND saa.student_id = $2
@@ -720,11 +733,30 @@ async function getTestingRoomExtras(db, organizationId, studentId, classId, term
     db.query(
       `SELECT assessment_id FROM assessment_results
         WHERE organization_id = $1 AND student_id = $2 AND class_id = $3 AND term_id = $4
-          AND pending_since IS NULL AND (score IS NOT NULL OR choice_label IS NOT NULL)`,
+          ${flow ? "AND pending_since IS NULL" : ""} AND (score IS NOT NULL OR choice_label IS NOT NULL)`,
       [organizationId, studentId, classId, termId]
     ),
+    // Tests whose time is over and this student didn't hand in: shown as Closed, not removed.
+    db.query(
+      `SELECT a.assessment_id, a.title, a.category, s.subject_name,
+              ${assessmentSimple.ready() ? "GREATEST(a.edit_window_end, COALESCE(a.late_until, a.edit_window_end))" : "a.edit_window_end"} AS closed_at
+         FROM assessments a
+         JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
+        WHERE a.organization_id = $1 AND a.class_id = $3 AND a.term_id = $4 AND COALESCE(a.is_active, TRUE) = TRUE
+          AND a.edit_window_end IS NOT NULL AND NOT ${assessmentSimple.stillOpenSql("a.")}
+          AND EXISTS (SELECT 1 FROM assessment_question_sets qs
+                       WHERE qs.assessment_id = a.assessment_id AND qs.organization_id = a.organization_id
+                         AND LOWER(COALESCE(qs.review_status, 'pending')) = 'approved' AND COALESCE(qs.is_active, TRUE))
+          AND NOT EXISTS (SELECT 1 FROM student_assessment_attempts saa
+                           WHERE saa.organization_id = $1 AND saa.student_id = $2
+                             AND saa.assessment_id = a.assessment_id AND saa.status = 'submitted')
+        ORDER BY 5 DESC NULLS LAST
+        LIMIT 10`,
+      [organizationId, studentId, classId, termId]
+    ).catch(() => ({ rows: [] })),
   ]);
   return {
+    closed: closed.rows,
     locked: locked.rows,
     startedAt: Object.fromEntries(started.rows.map((row) => [row.assessment_id, row.started_at])),
     posted: Object.fromEntries(posted.rows.map((row) => [row.assessment_id, true])),
@@ -1241,13 +1273,14 @@ module.exports = {
         resultsFlow
           ? require("../utils/testResults").sharedResults(db, organizationId, Number(studentId), { classId: effectiveClassId, termId: selectedTerm.term_id }).catch(() => [])
           : [],
-        resultsFlow ? getTestingRoomExtras(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id) : null,
+        getTestingRoomExtras(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id, { flow: resultsFlow }),
       ]);
 
-      res.render(resultsFlow ? "student/testingRoomNext" : "student/testingRoom", {
-        lockedAssessments: extras ? extras.locked : [],
-        startedAtByAssessment: extras ? extras.startedAt : {},
-        postedByAssessment: extras ? extras.posted : {},
+      res.render("student/testingRoom", {
+        lockedAssessments: extras.locked,
+        closedAssessments: extras.closed,
+        startedAtByAssessment: extras.startedAt,
+        postedByAssessment: extras.posted,
         title: "Testing Room",
         student,
         terms: [selectedTerm],
@@ -1335,7 +1368,7 @@ module.exports = {
             AND a.term_id = $5
             AND COALESCE(a.is_active, TRUE) = TRUE
             AND (a.edit_window_start IS NULL OR a.edit_window_start <= NOW())
-            AND (a.edit_window_end IS NULL OR a.edit_window_end >= NOW())
+            AND ${assessmentSimple.stillOpenSql("a.")}
             AND EXISTS (
               SELECT 1 FROM student_subjects ss
                WHERE ss.organization_id = $1
@@ -1466,11 +1499,14 @@ module.exports = {
       const questionsResult = await db.query(
         `SELECT question_id, question_type, question_text, options_json, marks, position_index,
                 ${assessmentApproval.columnsReady() ? "media_json" : "NULL::jsonb AS media_json"},
-                ${(await questionHelp.whenChecked()) ? "help_json" : "NULL::jsonb AS help_json"}
+                ${(await questionHelp.whenChecked()) ? "help_json" : "NULL::jsonb AS help_json"},
+                ${(await require("../utils/rubric").whenChecked()) ? "rubric_json" : "NULL::jsonb AS rubric_json"}
            FROM assessment_questions
           WHERE question_set_id = $1
-          ORDER BY position_index ASC, question_id ASC`,
-        [questionSet.question_set_id]
+          ORDER BY ${assessmentSimple.ready()
+            ? "CASE WHEN (SELECT shuffle_questions FROM assessment_question_sets WHERE question_set_id = $1) THEN md5(question_id::text || $2::text) END ASC NULLS FIRST,"
+            : ""} position_index ASC, question_id ASC`,
+        assessmentSimple.ready() ? [questionSet.question_set_id, String(studentId)] : [questionSet.question_set_id]
       );
 
       if (!questionsResult.rows.length) {
@@ -1572,6 +1608,9 @@ module.exports = {
           media_json: undefined,
           help: questionHelp.forDisplay(q.help_json),
           help_json: undefined,
+          // How a written answer is marked: the criteria and their marks.
+          rubric: require("../utils/rubric").clean(q.rubric_json),
+          rubric_json: undefined,
         })),
         // An open-book test shows the resources the teacher attached.
         resources,
@@ -1682,7 +1721,7 @@ module.exports = {
             AND term_id = $4
             AND COALESCE(is_active, TRUE) = TRUE
             AND (edit_window_start IS NULL OR edit_window_start <= NOW())
-            AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND ${assessmentSimple.stillOpenSql("")}
             AND EXISTS (
               SELECT 1
               FROM student_subjects ss
@@ -1882,6 +1921,7 @@ module.exports = {
     }
 
     const client = await db.connect();
+    let released = false;
 
     try {
       await ensureStudentPortalSchema(client);
@@ -1947,7 +1987,7 @@ module.exports = {
             AND term_id = $4
             AND COALESCE(is_active, TRUE) = TRUE
             AND (edit_window_start IS NULL OR edit_window_start <= NOW())
-            AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND ${assessmentSimple.stillOpenSql("")}
             AND EXISTS (
               SELECT 1 FROM student_subjects ss
                WHERE ss.organization_id = $2 AND ss.student_id = $5 AND ss.subject_id = assessments.subject_id
@@ -2048,6 +2088,11 @@ module.exports = {
 
       await client.query(`DELETE FROM student_assessment_responses WHERE attempt_id = $1`, [attemptId]);
 
+      const answerIds = [];
+      const answerTexts = [];
+      const answerJson = [];
+      const answerCorrect = [];
+      const answerMarks = [];
       for (const question of questionsResult.rows) {
         const raw = responses[String(question.question_id)] ?? "";
         const evaluated = evaluateResponse(question, raw);
@@ -2059,18 +2104,22 @@ module.exports = {
         const responseText = Array.isArray(raw) ? raw.join(",") : String(raw || "").trim();
         const responseJson = Array.isArray(raw) ? { values: raw } : null;
 
+        answerIds.push(question.question_id);
+        answerTexts.push(responseText || null);
+        answerJson.push(responseJson ? JSON.stringify(responseJson) : null);
+        answerCorrect.push(evaluated.isCorrect);
+        answerMarks.push(Number(evaluated.awardedMarks || 0));
+      }
+
+      // One statement for all the answers: the connection is held for one trip, not one per question.
+      if (answerIds.length) {
         await client.query(
           `INSERT INTO student_assessment_responses (
              attempt_id, question_id, response_text, response_json, is_correct, awarded_marks, created_at, updated_at
-           ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, NOW(), NOW())`,
-          [
-            attemptId,
-            question.question_id,
-            responseText || null,
-            responseJson ? JSON.stringify(responseJson) : null,
-            evaluated.isCorrect,
-            Number(evaluated.awardedMarks || 0),
-          ]
+           ) SELECT $1::int, t.question_id, t.response_text, t.response_json::jsonb, t.is_correct, t.awarded_marks, NOW(), NOW()
+               FROM unnest($2::int[], $3::text[], $4::text[], $5::boolean[], $6::numeric[])
+                    AS t(question_id, response_text, response_json, is_correct, awarded_marks)`,
+          [attemptId, answerIds, answerTexts, answerJson, answerCorrect, answerMarks]
         );
       }
 
@@ -2085,6 +2134,15 @@ module.exports = {
           WHERE attempt_id = $3`,
         [autoScore, maxScore, attemptId]
       );
+      // Handed in after the due date but within "accept late until": marked Late for the teacher.
+      if (await assessmentSimple.whenChecked()) {
+        await client.query(
+          `UPDATE student_assessment_attempts saa
+              SET is_late = COALESCE((SELECT a.edit_window_end < NOW() FROM assessments a WHERE a.assessment_id = saa.assessment_id), FALSE)
+            WHERE saa.attempt_id = $1`,
+          [attemptId]
+        );
+      }
 
       // Note: does NOT write into assessment_results here. Scores only become
       // visible on the subject/class dashboard once a teacher explicitly
@@ -2124,6 +2182,10 @@ module.exports = {
       const remainingAttempts = Math.max(maxAttempts - submittedAfter, 0);
 
       await client.query("COMMIT");
+      // Done with the transaction: give the connection back before anything else asks the pool for one
+      // (a class handing in together would otherwise hold every connection and wait for another).
+      client.release();
+      released = true;
 
       // The assessments flow: the result goes on the gradebook as new, and the teacher checks
       // it and posts the grade. Until then the student isn't shown a score.
@@ -2145,12 +2207,12 @@ module.exports = {
       );
       return res.redirect("/student/testing-room");
     } catch (error) {
-      await client.query("ROLLBACK").catch(() => {});
+      if (!released) await client.query("ROLLBACK").catch(() => {});
       console.error("[SubmitAssessment]", error.message || error);
       req.flash("error", "Could not submit assessment. Please try again.");
       return res.redirect(`/student/testing-room/${assessmentId}`);
     } finally {
-      client.release();
+      if (!released) client.release();
     }
   },
 
@@ -2187,7 +2249,7 @@ module.exports = {
             AND term_id = $4
             AND COALESCE(is_active, TRUE) = TRUE
             AND (edit_window_start IS NULL OR edit_window_start <= NOW())
-            AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND ${assessmentSimple.stillOpenSql("")}
             AND EXISTS (
               SELECT 1
               FROM student_subjects ss
@@ -2254,6 +2316,9 @@ module.exports = {
 
       await client.query(`DELETE FROM student_assessment_responses WHERE attempt_id = $1`, [attemptId]);
 
+      const draftIds = [];
+      const draftTexts = [];
+      const draftJson = [];
       for (const questionId of allowedQuestionIds) {
         const raw = responses[questionId] ?? "";
         const isArrayResponse = Array.isArray(raw);
@@ -2269,16 +2334,19 @@ module.exports = {
           continue;
         }
 
+        draftIds.push(Number(questionId));
+        draftTexts.push(normalizedText || null);
+        draftJson.push(isArrayResponse ? JSON.stringify({ values: normalizedArray }) : null);
+      }
+
+      // One statement for all the answers: the connection is held for one trip, not one per question.
+      if (draftIds.length) {
         await client.query(
           `INSERT INTO student_assessment_responses (
              attempt_id, question_id, response_text, response_json, created_at, updated_at
-           ) VALUES ($1, $2, $3, $4::jsonb, NOW(), NOW())`,
-          [
-            attemptId,
-            Number(questionId),
-            normalizedText || null,
-            isArrayResponse ? JSON.stringify({ values: normalizedArray }) : null,
-          ]
+           ) SELECT $1::int, t.question_id, t.response_text, t.response_json::jsonb, NOW(), NOW()
+               FROM unnest($2::int[], $3::text[], $4::text[]) AS t(question_id, response_text, response_json)`,
+          [attemptId, draftIds, draftTexts, draftJson]
         );
       }
 
@@ -2304,7 +2372,9 @@ module.exports = {
   },
 };
 
+module.exports.evaluateResponse = evaluateResponse;
 module.exports.getOpenAssessments = getOpenAssessments;
 module.exports.canUseStudentTestingRoom = canUseStudentTestingRoom;
 module.exports.studentSees = studentSees;
 module.exports.resolveCurrentStudentTermContext = resolveCurrentStudentTermContext;
+

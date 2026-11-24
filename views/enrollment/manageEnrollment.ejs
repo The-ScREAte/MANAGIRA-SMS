@@ -126,7 +126,7 @@
   .me-p-class summary small { padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, currentColor 8%, transparent); font-size: .76rem; }
   .me-p-class ol { margin: 0 0 12px; padding: 0 0 0 40px; columns: 2; column-gap: 16px; font-size: .88rem; line-height: 1.7; }
   .me-p-none { margin: 0 0 12px 24px; color: var(--ws-muted, #64748b); font-size: .88rem; }
-  .ux-panel.is-editing { width: min(760px, 100vw); }
+  .ux-panel.is-editing { width: min(1040px, 100vw); }
   @media (max-width: 640px) {
     /* The name gets the whole line; the counts sit under it. */
     .me .me-row { display: grid; grid-template-columns: 38px auto 1fr auto; grid-template-areas: "icon main main go" ". a b ."; align-items: center; gap: 6px 12px; padding: 12px; text-align: left; }
@@ -229,7 +229,6 @@
   document.querySelectorAll('.me-row').forEach(function (row) { row.addEventListener('click', function () { open(row.dataset.id); }); });
   document.querySelectorAll('#meAdd, [data-add]').forEach(function (b) { b.addEventListener('click', function () { open(null, { add: true }); }); });
   document.getElementById('uxClose').addEventListener('click', close);
-  document.getElementById('uxBackdrop').addEventListener('click', close);
   document.getElementById('uxBack').addEventListener('click', function () { frame.removeAttribute('src'); setMode(false, 'Enrollment'); if (current) render(current); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && panel.classList.contains('is-open')) close(); });
   window.addEventListener('message', function (event) {

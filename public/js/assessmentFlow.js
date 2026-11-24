@@ -39,7 +39,7 @@
     var root = document.createElement('div');
     root.className = 'af-drawer' + (opts.wide ? ' af-drawer--wide' : '');
     root.innerHTML =
-      '<div class="af-drawer__scrim" data-af-close></div>' +
+      '<div class="af-drawer__scrim"' + '' + '></div>' +
       '<aside class="af-drawer__panel" role="dialog" aria-modal="true" aria-label="' + esc(opts.title || '') + '">' +
       '  <header class="af-drawer__head">' +
       '    <div><h2 class="af-drawer__title">' + esc(opts.title || '') + '</h2>' +
@@ -174,7 +174,7 @@
     var off = null;
     var panel = drawer({
       title: 'New assessment',
-      subtitle: 'Questions are optional.',
+      wide: true,
       src: '/common/createTest?' + params.toString(),
       onClose: function () { if (off) off(); },
     });
@@ -204,7 +204,7 @@
       icon: QUESTION_ICON,
       tone: 'success',
       title: '“' + (first.title || 'Your assessment') + '” is ready',
-      text: 'Add questions so students can take it online?',
+      text: 'Add questions now?',
       html: pick,
       read: function (root) { var s = root.querySelector('[data-af-pick]'); return s ? Number(s.value) : 0; },
       escapeValue: { value: false },
@@ -218,7 +218,10 @@
   // The questions builder for one assessment, in a wide panel. onDone(saved) when it closes.
   function openQuestions(options) {
     var opts = options || {};
-    var params = new URLSearchParams({ embed: 'workspace', flow: '1', open: opts.questionSetId ? 'edit' : 'new' });
+    // To mark: just the list (no builder opening), with only the tests that have answers waiting.
+    var params = opts.toMark
+      ? new URLSearchParams({ embed: 'workspace', toMark: '1' })
+      : new URLSearchParams({ embed: 'workspace', flow: '1', open: opts.questionSetId ? 'edit' : 'new' });
     ['classId', 'subjectId', 'termId', 'schoolYearId', 'assessmentId', 'questionSetId'].forEach(function (key) {
       if (opts[key]) params.set(key, String(opts[key]));
     });

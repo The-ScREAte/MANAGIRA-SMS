@@ -1,3 +1,4 @@
+@import url('/css/fieldHelp.css');
 /* The parent / guardian contact card (public/js/contactCard.js), used by the Mail Room and by
    Parents & guardians. Everything is scoped to the card's box (.cc-card). */
 .cc-card { --mr-primary: var(--org-primary-color, #01535b); --mr-text: #14232f; --mr-muted: #64748b; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: #f5f7f9; color: var(--mr-text); }
@@ -73,3 +74,8 @@
   .cc-card .cc-tabs { padding: 10px 12px 0; }
   .cc-card .cc-body { padding: 12px 14px 16px; }
   .cc-card .cc-row2, .cc-card .cc-grid, .cc-card .cc-grid--2 { grid-template-columns: minmax(0, 1fr); }
+/* Edit fields / Close / Save are the panel's footer (public/css/panelFooter.css) */
+.cc-card .cc-actions.pf-footer { align-self: stretch; width: auto; order: 0; }
+.cc-card .cc-actions.pf-footer .cc-btn { height: 38px; padding: 0 16px; border-radius: 9px; font-size: 13.5px; font-weight: 700; flex: 0 0 auto; }
+.cc-card .cc-actions.pf-footer [data-card-template] { margin-right: auto; }
+@media (max-width: 700px) { .cc-card .cc-actions.pf-footer { width: auto; order: 0; } .cc-card .cc-actions.pf-footer .cc-btn { flex: 0 0 auto; } }

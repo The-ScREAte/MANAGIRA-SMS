@@ -114,14 +114,14 @@ module.exports = [
       {
         title: "Set up and turn on single sign-on",
         steps: [
-          ["Open <strong>Settings</strong>, then <strong>Tenant configuration</strong>, and scroll to <strong>Single sign-on</strong>. Under <strong>1. Your provider</strong>, choose yours (Google Workspace, Microsoft Entra ID, Okta, OneLogin and more) and the protocol (SAML or OpenID Connect).", "sso-settings.webp", "Settings, Tenant configuration, Single sign-on: choose your provider, then give your IT team the addresses shown."],
-          "Select <strong>Copy all for our IT team</strong>. It copies the addresses your provider needs: for SAML the <strong>ACS URL (Reply URL)</strong> and <strong>Entity ID (Audience)</strong>; for OpenID Connect the redirect address and the scopes <code>openid email profile</code>.",
-          "Your IT team adds Managira as an app in your provider, using the steps shown for that provider (for example, in the Google Admin console: Apps, Web and mobile apps, Add custom SAML app).",
+          ["Open <strong>Settings</strong>, then <strong>Tenant configuration</strong>, and scroll to <strong>Single sign-on</strong>. Under <strong>Provider</strong>, choose yours (Google Workspace, Microsoft Entra ID, Okta, OneLogin and more) and the protocol (SAML or OpenID Connect).", "sso-settings.webp", "Settings, Tenant configuration, Single sign-on: choose your provider, then give your IT team the addresses shown."],
+          "Select <strong>Copy all</strong>. It copies the addresses your provider needs: for SAML the <strong>ACS URL</strong> and <strong>Entity ID</strong>; for OpenID Connect the redirect address and the scopes <code>openid email profile</code>.",
+          "Your IT team adds Managira as an app in your provider, using the steps in the provider's own guide (for example, in the Google Admin console: Apps, Web and mobile apps, Add custom SAML app).",
           "Back in Managira, paste the provider's <strong>Metadata address</strong> (SAML) or its <strong>Issuer address</strong>, <strong>Client ID</strong> and client secret (OpenID Connect), and select <strong>Save</strong>.",
-          "Select <strong>Test the connection</strong> and finish signing in on the new tab. When it works, the status says <strong>Ready to turn on</strong>.",
+          "Select <strong>Test</strong> and finish signing in on the new tab. When it works, the status says <strong>Ready to turn on</strong>.",
           "Select <strong>Turn on</strong> and confirm with your password.",
         ],
-        note: "Tick <strong>Students sign in this way too</strong> if your students have accounts with your provider. Otherwise they keep signing in with passwords.",
+        note: "Tick <strong>Students too</strong> if your students have accounts with your provider. Otherwise they keep signing in with passwords.",
       },
       {
         title: "Move everyone, or one person, to your provider",
@@ -171,7 +171,7 @@ module.exports = [
         title: "Who does what",
         table: [
           ["Step", "Who", "Where"],
-          ["Choose the provider and protocol, and copy the addresses", "A Managira manager", "Settings › Tenant configuration › Single sign-on › <strong>Copy all for our IT team</strong>"],
+          ["Choose the provider and protocol, and copy the addresses", "A Managira manager", "Settings › Tenant configuration › Single sign-on › <strong>Copy all</strong>"],
           ["Add Managira as an application", "IT administrator", "Your provider's admin console (steps below)"],
           ["Paste the provider's details, test, turn on", "The Managira manager", "The same Settings page"],
           ["Move people to the provider", "The Managira manager", "<strong>Use your provider for everyone</strong>, or one person at a time on Edit user"],
@@ -213,12 +213,12 @@ module.exports = [
       {
         title: "Test, then roll out",
         steps: [
-          "The manager saves your details and selects <strong>Test the connection</strong>, then signs in on the new tab with a test account that exists in Managira. Nothing changes for anyone until the test passes.",
+          "The manager saves your details and selects <strong>Test</strong>, then signs in on the new tab with a test account that exists in Managira. Nothing changes for anyone until the test passes.",
           "The manager selects <strong>Turn on</strong> and confirms with their password. Turning it on moves nobody.",
           "Move two or three people first (Edit user › How they sign in) and check they can sign in from the login page and from your app launcher.",
           "Then move everyone with <strong>Use your provider for everyone</strong>, and send staff the short note: enter your email on the Managira login page and choose Continue.",
         ],
-        note: "Students sign in through the provider only if the manager ticks <strong>Students sign in this way too</strong>.",
+        note: "Students sign in through the provider only if the manager ticks <strong>Students too</strong>.",
       },
       {
         title: "Security notes for your records",

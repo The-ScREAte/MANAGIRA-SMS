@@ -74,7 +74,7 @@
   #mrReplyForm.mr-reply button { flex: 0 0 auto; width: auto; margin: 0; align-self: flex-end; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--mr-primary); color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
   #mrReplyForm.mr-reply button:disabled { opacity: .5; cursor: default; }
   @media (max-width: 980px) { .mr-inbox { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; } .mr-inbox-list { min-height: 320px; } .mr-inbox-rows { max-height: calc(100vh - 260px); } .mr-thread { min-height: 420px; height: auto; } }
-  .mr-header h1 { margin: 0 0 4px; padding: 0; font-size: 22px; font-weight: 800; color: var(--mr-primary); text-align: left; }
+  .mr-header h1 { margin: 0 0 4px; padding: 0; font-size: 22px; font-weight: 700; font-family: inherit; letter-spacing: -.01em; color: var(--mr-primary); text-align: left; }
   .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
 
   .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: stretch; height: min(1000px, calc(100dvh - 210px)); min-height: 320px; }
@@ -309,7 +309,7 @@
       bottom: 0;
       left: auto;
       width: 100%;
-      max-width: 420px;
+      max-width: min(1040px, 100vw);
       max-height: none;
       min-height: 0;
       border-radius: 0;
@@ -369,7 +369,7 @@
     <a href="/common/management?panel=integrations&page=%2Faccount%2Fintegrations&label=Integrations" data-no-spa>Activate in Integrations</a>
   </div>
 
-  <div class="mr-drawer-backdrop" id="mrDrawerBackdrop"></div>
+  <div class="mr-drawer-backdrop" id="mrDrawerBackdrop" data-below-header="mr-drawer-open"></div>
 
   <div class="mr-directory-open-row mr-send-only">
     <button type="button" class="mr-directory-toggle" id="mrDirectoryToggle" aria-expanded="false" aria-controls="mrDirectory">
@@ -382,7 +382,7 @@
   </div>
 
   <div class="mr-layout mr-send-only">
-    <section class="mr-panel mr-directory" id="mrDirectory">
+    <section class="mr-panel mr-directory" id="mrDirectory" data-below-header="mr-drawer-open" data-popup-lift>
       <div class="mr-directory-head">
         <button type="button" class="mr-directory-close" id="mrDirectoryClose" aria-label="Close">&times;</button>
         <div class="mr-directory-head-top">
@@ -1240,7 +1240,7 @@
   }
   $('mrDirectoryToggle').addEventListener('click', openContactsDrawer);
   $('mrDirectoryClose').addEventListener('click', closeContactsDrawer);
-  $('mrDrawerBackdrop').addEventListener('click', closeContactsDrawer);
+  /* the backdrop does not close the panel */
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if ($('mrCard').classList.contains('mr-open')) closeContactCard();
@@ -1409,3 +1409,4 @@
   loadInbox().then(() => { if (startThread) openThread(startThread); });
 })();
 </script>
+<script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>

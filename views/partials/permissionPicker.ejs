@@ -90,15 +90,7 @@
         </div>
       </section>
       <section class="perm-allbox" id="permAllBox" hidden>
-        <button type="button" class="perm-btn" id="permAllOpen">Allow all permissions…</button>
-        <div id="permAllConfirm" hidden>
-          <p class="perm-hr-warn">Type <strong>ALLOW ALL</strong> to turn everything on.</p>
-          <div class="perm-switch-actions">
-            <input type="text" id="permAllType" autocomplete="off" aria-label="Type ALLOW ALL to confirm" placeholder="ALLOW ALL">
-            <button type="button" class="perm-btn perm-btn--main" id="permAllGo" disabled>Allow all</button>
-            <button type="button" class="perm-btn" id="permAllCancel">Cancel</button>
-          </div>
-        </div>
+        <button type="button" class="perm-btn" id="permAllOpen">Allow all permissions</button>
       </section>
     </div>
   </div>
@@ -126,10 +118,10 @@
   .perm-node:has(> .perm-row input.perm-switch:checked) > .perm-row > .perm-caret { display: inline-flex; }
   .perm-node:has(> .perm-row input.perm-switch:checked) > .perm-row > .perm-count { display: inline; }
   .perm-node.is-open > .perm-row > .perm-caret svg { transform: rotate(90deg); }
-  .perm-picker input.perm-switch { flex: 0 0 auto; appearance: none; -webkit-appearance: none; position: relative; width: 32px !important; min-width: 32px; height: 18px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 999px; background: #94a3b8; box-shadow: none !important; cursor: pointer; transition: background .12s ease; }
-  .perm-picker input.perm-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .3); transition: transform .12s ease; }
+  .perm-picker input.perm-switch { flex: 0 0 auto; appearance: none; -webkit-appearance: none; position: relative; width: 26px !important; min-width: 26px; height: 15px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 999px; background: #94a3b8; box-shadow: none !important; cursor: pointer; transition: background .12s ease; }
+  .perm-picker input.perm-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .3); transition: transform .12s ease; }
   .perm-picker input.perm-switch:checked { background: var(--org-primary-color, var(--primary, #01535b)); }
-  .perm-picker input.perm-switch:checked::after { transform: translateX(14px); }
+  .perm-picker input.perm-switch:checked::after { transform: translateX(11px); }
   .perm-picker input.perm-switch:disabled { opacity: .5; cursor: not-allowed; }
   .perm-picker input.perm-switch:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
   .perm-children { display: none; gap: 0; margin: 0 0 6px 4px; padding: 0 0 0 10px; border-left: 2px solid color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent); }
@@ -164,7 +156,6 @@
   .perm-picker .perm-btn { margin: 0; padding: 8px 14px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; width: auto; }
   .perm-picker .perm-btn--main { border-color: transparent; background: var(--org-primary-color, #01535b); color: #fff; }
   .perm-picker .perm-btn[disabled] { opacity: .5; cursor: not-allowed; }
-  .perm-picker #permAllType { margin: 0; width: 10rem; min-height: 36px; padding: 6px 10px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 8px; font: inherit; font-size: 0.85rem; }
   @media (max-width: 480px) {
     .perm-picker .perm-row { flex-wrap: nowrap; gap: 6px; }
     .perm-text { flex: 1 1 0; }
@@ -332,17 +323,9 @@
       hrBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
 
-    // "Allow all permissions" (Managers, inside Advanced): turned on only after ALLOW ALL is typed.
-    var allOpen = $('permAllOpen'), allConfirm = $('permAllConfirm'), allType = $('permAllType'), allGo = $('permAllGo');
-    allOpen.addEventListener('click', function () { allConfirm.hidden = false; allOpen.hidden = true; allType.value = ''; allGo.disabled = true; allType.focus(); });
-    allType.addEventListener('input', function () { allGo.disabled = allType.value.trim().toUpperCase() !== 'ALLOW ALL'; });
-    allType.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') { event.preventDefault(); if (!allGo.disabled) allGo.click(); }
-    });
-    var closeAll = function () { allConfirm.hidden = true; allOpen.hidden = false; allType.value = ''; };
-    $('permAllCancel').addEventListener('click', closeAll);
-    allGo.addEventListener('click', function () {
-      if (allGo.disabled || !committed || !committed.isManager) return;
+    // "Allow all permissions" (Managers, inside Advanced): one click turns everything on.
+    $('permAllOpen').addEventListener('click', function () {
+      if (!committed || !committed.isManager) return;
       bulk = true;
       allSwitches().forEach(function (box) {
         if (box.disabled || box.closest('.perm-node[hidden]') || box.checked) return;
@@ -350,7 +333,6 @@
         box.dispatchEvent(new Event('change', { bubbles: true }));
       });
       bulk = false;
-      closeAll();
       layout();
     });
 

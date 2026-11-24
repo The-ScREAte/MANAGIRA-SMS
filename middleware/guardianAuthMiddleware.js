@@ -1,5 +1,12 @@
 const db = require("../config/db");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+const { createShortCache } = require("../utils/shortCache");
+
+// Is the school active, is its parent portal on, and what is this parent's name: kept for a few
+// seconds per school instead of three lookups on every page and poll. Anything the school saves
+// clears them straight away (utils/shortCache.js), so switching the portal off still takes effect.
+const schoolGate = createShortCache({ ttlMs: 15000, max: 20000 });
+const parentNames = createShortCache({ ttlMs: 15000, max: 50000 });
 
 const isGuardianAuthenticated = async (req, res, next) => {
   const safeFlashError = (message) => {
@@ -25,38 +32,40 @@ const isGuardianAuthenticated = async (req, res, next) => {
 
     // Validate organization is active
     if (req.session.organizationId) {
-      const org = await db.query(
-        "SELECT deleted, on_hold FROM organizations WHERE organization_id = $1",
-        [req.session.organizationId]
-      );
-      if (!org.rows.length || org.rows[0].deleted || org.rows[0].on_hold) {
+      const gate = await schoolGate.get(req.session.organizationId, "guardian-gate", async () => {
+        const org = await db.query(
+          "SELECT deleted, on_hold FROM organizations WHERE organization_id = $1",
+          [req.session.organizationId]
+        );
+        if (!org.rows.length || org.rows[0].deleted || org.rows[0].on_hold) return { active: false };
+        return { active: true, portal: await hasGuardianPortalFeature(db, req.session.organizationId) };
+      });
+      if (!gate.active) {
         safeFlashError("School account is not active.");
         req.session.destroy(() => {});
         return res.redirect("/account/login");
       }
 
-      const guardianPortalEnabled = await hasGuardianPortalFeature(
-        db,
-        req.session.organizationId
-      );
-
-      if (!guardianPortalEnabled) {
+      if (!gate.portal) {
         safeFlashError("Parent portal access is not enabled for this school.");
         req.session.destroy(() => {});
         return res.redirect("/account/guardian-login");
       }
 
       // Keep session greeting identity in sync with canonical guardian profile.
-      const guardianProfile = await db.query(
-        `SELECT first_name, last_name
-           FROM guardian_profiles
-          WHERE guardian_id = $1 AND organization_id = $2
-          LIMIT 1`,
-        [req.session.guardianId, req.session.organizationId]
-      );
+      const guardianRow = await parentNames.get(req.session.organizationId, `guardian:${req.session.guardianId}`, async () => {
+        const guardianProfile = await db.query(
+          `SELECT first_name, last_name
+             FROM guardian_profiles
+            WHERE guardian_id = $1 AND organization_id = $2
+            LIMIT 1`,
+          [req.session.guardianId, req.session.organizationId]
+        );
+        return guardianProfile.rows[0] || null;
+      });
 
-      if (guardianProfile.rows.length) {
-        const row = guardianProfile.rows[0];
+      if (guardianRow) {
+        const row = guardianRow;
         req.session.firstName = row.first_name || req.session.firstName;
         req.session.lastName = row.last_name || req.session.lastName;
         if (req.session.user && typeof req.session.user === "object") {
