@@ -3,15 +3,19 @@
 // Security headers and cross-site request protection for every response.
 // See docs/SECURITY.md for the full list of protections in the app.
 
+const contentSecurityPolicy = require("../utils/contentSecurityPolicy");
 const isProduction = process.env.NODE_ENV === "production";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-// Our own sites: managira.com and every school subdomain (*.managira.com).
+// Our own sites: managira.com and every school subdomain (*.managira.com), compared as whole
+// host names (parsed, lower-case, one or more plain labels before managira.com), never by a
+// text suffix on the raw address. Anything else must be the very host this request came to.
+const SUBDOMAIN_OF_OURS = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+managira\.com$/;
 function isOwnHost(hostname, requestHost) {
-  const host = String(hostname || "").toLowerCase();
+  const host = String(hostname || "").toLowerCase().replace(/\.$/, "");
   if (!host) return false;
   if (requestHost && host === String(requestHost).toLowerCase().split(":")[0]) return true;
-  if (host === "managira.com" || host.endsWith(".managira.com")) return true;
+  if (host === "managira.com" || SUBDOMAIN_OF_OURS.test(host)) return true;
   if (!isProduction && (host === "localhost" || host === "127.0.0.1")) return true;
   return false;
 }
@@ -31,7 +35,9 @@ function securityHeaders(req, res, next) {
   // Browsers must not guess file types (stops uploaded files running as scripts).
   res.setHeader("X-Content-Type-Options", "nosniff");
   // Only our own pages may frame ours (stops clickjacking).
-  res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://managira.com https://*.managira.com");
+  // One nonce per response: every inline <script> in a page carries it (nonce="<%= locals.cspNonce %>").
+  res.locals.cspNonce = require("crypto").randomBytes(16).toString("base64");
+  for (const h of contentSecurityPolicy.headers({ miraOrigin: MIRA_ORIGIN, nonce: res.locals.cspNonce })) res.setHeader(h.name, h.value);
   res.setHeader("X-Frame-Options", "SAMEORIGIN"); // older browsers; CSP above wins in modern ones
   // Don't leak full page addresses (which can hold IDs) to other sites.
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -40,8 +46,8 @@ function securityHeaders(req, res, next) {
   res.setHeader("Permissions-Policy", `camera=(self), microphone=(self${MIRA_ORIGIN ? ` "${MIRA_ORIGIN}"` : ""}), geolocation=(self), payment=(self)`);
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   if (isProduction) {
-    // Always use HTTPS for managira.com for the next 180 days.
-    res.setHeader("Strict-Transport-Security", "max-age=15552000");
+    // Always use HTTPS for managira.com for the next year.
+    res.setHeader("Strict-Transport-Security", "max-age=31536000");
   }
   res.removeHeader("X-Powered-By");
   next();
@@ -70,6 +76,30 @@ const SSO_ANSWER = /^\/account\/sso\/saml\/[a-f0-9]{24}\/acs$/;
 // Mail providers send one-click unsubscribes (RFC 8058) from their own sites; the signed link is the proof.
 const EMAIL_UNSUBSCRIBE = /^\/email\/unsubscribe$/;
 
+// Callers that prove themselves another way and never ride a browser's cookies: Managira's own
+// API (bearer tokens), Mira's service calls (service token) and payment / messaging provider
+// callbacks (signatures or a secret).
+const OWN_AUTH_POSTS = /^\/csp-report$|^\/api\/v1\/|^\/internal\/(api|shard)\/|^\/account\/(webhook|paystack-webhook|whatsapp\/webhook|sms\/webhook\/[a-z]+|settings\/finance\/webhooks\/.*)$/i;
+
+const hasSessionCookie = (req) => /(?:^|;\s*)connect\.sid=/.test(String(req.get("cookie") || ""));
+const hostOf = (value) => { try { return new URL(value).hostname; } catch (_) { return ""; } };
+
+// Why a state-changing request should be refused, or null. Own sites only: the Origin the
+// browser sends, else the Referer, else (no cookie, so nothing to ride) it passes. A request
+// carrying a sign-in cookie with neither header is refused: browsers always send one on a post.
+function crossSiteReason(req) {
+  const host = req.get("host");
+  const origin = req.get("origin");
+  if (origin && origin !== "null") return isOwnHost(hostOf(origin), host) ? null : "origin";
+  const cookie = hasSessionCookie(req);
+  if (origin === "null") return cookie ? "origin" : null;
+  const referer = req.get("referer");
+  if (referer) return isOwnHost(hostOf(referer), host) ? null : "referer";
+  if (!cookie) return null;
+  if (req.get("sec-fetch-site") === "same-origin") return null;
+  return "no-origin";
+}
+
 function crossSiteRequestGuard(req, res, next) {
   if (req.method === "POST" && (SSO_ANSWER.test(req.path) || EMAIL_UNSUBSCRIBE.test(req.path))) return next();
   if (SAFE_METHODS.has(req.method)) {
@@ -79,20 +109,21 @@ function crossSiteRequestGuard(req, res, next) {
     }
     return next();
   }
-  const origin = req.get("origin");
-  if (!origin || origin === "null") return next();
-  let hostname = "";
-  try {
-    hostname = new URL(origin).hostname;
-  } catch (_) {
-    hostname = "";
+  if (OWN_AUTH_POSTS.test(req.path)) return next();
+  const reason = crossSiteReason(req);
+  if (!reason) {
+    if (req.get("sec-fetch-site") === "cross-site" && hasSessionCookie(req)) return refuse(req, res, "fetch-site");
+    return next();
   }
-  if (isOwnHost(hostname, req.get("host"))) return next();
+  return refuse(req, res, reason);
+}
 
-  console.warn(`[Security] Blocked cross-site ${req.method} ${req.originalUrl} from ${origin}`);
+function refuse(req, res, reason) {
+  console.warn(`[Security] Blocked cross-site ${req.method} ${String(req.path).slice(0, 120)} (${reason}) from ${String(req.get("origin") || req.get("referer") || "no origin").slice(0, 120)}`);
   const wantsJson = req.xhr || /json/i.test(req.get("accept") || "") || /json/i.test(req.get("content-type") || "");
-  if (wantsJson) return res.status(403).json({ success: false, message: "This request came from another website and was blocked." });
-  return res.status(403).send("This request came from another website and was blocked.");
+  const message = reason === "no-origin" ? "This request couldn't be checked. Reload the page and try again." : "This request came from another website and was blocked.";
+  if (wantsJson) return res.status(403).json({ success: false, message });
+  return res.status(403).send(message);
 }
 
 // Fair-use request limit, so one user or one network can't flood the server.
@@ -127,4 +158,4 @@ function requestRateLimit(req, res, next) {
   return res.status(429).type("txt").send(message);
 }
 
-module.exports = { securityHeaders, crossSiteRequestGuard, requestRateLimit, isOwnHost };
+module.exports = { securityHeaders, crossSiteRequestGuard, crossSiteReason, requestRateLimit, isOwnHost };

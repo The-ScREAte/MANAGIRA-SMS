@@ -88,8 +88,11 @@ class ManagiraChatbot {
     // Create chatbot toggle button
     const toggleButton = document.createElement('button');
     toggleButton.className = 'chatbot-toggle';
+    toggleButton.type = 'button';
+    toggleButton.setAttribute('aria-label', 'Open the Mira Assistant chat');
+    toggleButton.setAttribute('aria-expanded', 'false');
     toggleButton.innerHTML = `
-      <svg viewBox="0 0 24 24">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M12 3C17.5 3 22 6.58 22 11C22 15.42 17.5 19 12 19C10.76 19 9.57 18.82 8.47 18.5L5 20V16.5C3.24 14.93 2 12.62 2 10C2 5.58 6.5 2 12 2L12 3M8.5 14L9.5 12H14.5L15.5 14H8.5Z"/>
       </svg>
     `;
@@ -97,26 +100,29 @@ class ManagiraChatbot {
     // Create chatbot container
     const container = document.createElement('div');
     container.className = 'chatbot-container';
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-label', 'Mira Assistant chat');
     container.innerHTML = `
       <div class="chatbot-header">
         <h3>Mira Assistant</h3>
         <div class="chatbot-controls">
-          <button class="chatbot-minimize">−</button>
-          <button class="chatbot-close">&times;</button>
+          <button type="button" class="chatbot-minimize" aria-label="Minimize chat">−</button>
+          <button type="button" class="chatbot-close" aria-label="Close chat">&times;</button>
         </div>
       </div>
       <div class="chatbot-content">
-        <div class="chatbot-messages" id="chatbot-messages"></div>
+        <div class="chatbot-messages" id="chatbot-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
         <div class="chatbot-input-area">
           <input 
             type="text" 
             class="chatbot-input" 
             id="chatbot-input"
+            aria-label="Type your question"
             placeholder="Ask me about Managira..."
             maxlength="200"
           />
-          <button class="chatbot-send" id="chatbot-send">
-            <svg viewBox="0 0 24 24">
+          <button type="button" class="chatbot-send" id="chatbot-send" aria-label="Send message">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
             </svg>
           </button>
@@ -153,6 +159,15 @@ class ManagiraChatbot {
 
     // Toggle chatbot
     bind(this.toggleButton, 'click', () => this.toggle());
+
+    // Escape closes the chat and puts the keyboard back on its button
+    bind(this.container, 'keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen && !this.isMinimized) {
+        e.stopPropagation();
+        this.close();
+        try { this.toggleButton.focus(); } catch (_) {}
+      }
+    });
     
     // Close chatbot (starts fresh chat)
     bind(this.closeButton, 'click', () => this.close());
@@ -240,11 +255,15 @@ class ManagiraChatbot {
     this.container.classList.remove('minimized');
     this.container.classList.remove('keyboard-active');
     this.minimizeButton.innerHTML = '−'; // Reset to minimize icon
+    this.minimizeButton.setAttribute('aria-label', 'Minimize chat');
 
     // Hide toggle button whenever full chat is open
     this.toggleButton.style.opacity = '0';
     this.toggleButton.style.pointerEvents = 'none';
-    
+    this.toggleButton.tabIndex = -1;
+    this.toggleButton.setAttribute('aria-hidden', 'true');
+    this.toggleButton.setAttribute('aria-expanded', 'true');
+
     if (this.input && window.innerWidth > 768) {
       this.input.focus();
     }
@@ -268,6 +287,9 @@ class ManagiraChatbot {
     // Show toggle button again
     this.toggleButton.style.opacity = '1';
     this.toggleButton.style.pointerEvents = 'auto';
+    this.toggleButton.tabIndex = 0;
+    this.toggleButton.removeAttribute('aria-hidden');
+    this.toggleButton.setAttribute('aria-expanded', 'false');
     
     // Reset chatbot so re-open starts fresh
     this.resetConversation();
@@ -280,18 +302,26 @@ class ManagiraChatbot {
       this.container.classList.add('minimized');
       this.container.classList.remove('active');
       this.minimizeButton.innerHTML = '□'; // Maximize icon
-      
+      this.minimizeButton.setAttribute('aria-label', 'Restore chat');
+
       // Show toggle button when minimized (acts as restore control)
       this.toggleButton.style.opacity = '1';
       this.toggleButton.style.pointerEvents = 'auto';
+      this.toggleButton.tabIndex = 0;
+      this.toggleButton.removeAttribute('aria-hidden');
+      this.toggleButton.setAttribute('aria-expanded', 'false');
     } else {
       this.container.classList.remove('minimized');
       this.container.classList.add('active');
       this.minimizeButton.innerHTML = '−'; // Minimize icon
+      this.minimizeButton.setAttribute('aria-label', 'Minimize chat');
 
       // Hide toggle button when expanded
       this.toggleButton.style.opacity = '0';
       this.toggleButton.style.pointerEvents = 'none';
+      this.toggleButton.tabIndex = -1;
+      this.toggleButton.setAttribute('aria-hidden', 'true');
+      this.toggleButton.setAttribute('aria-expanded', 'true');
 
       if (this.input) {
         this.input.focus();

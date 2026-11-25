@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <style>
@@ -1039,6 +1039,7 @@
     .license-form input { width: 110px; height: 32px; margin: 0 !important; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; font: inherit; }
     .license-form button { height: 32px; margin: 0 !important; padding: 0 12px !important; width: auto !important; border-radius: 8px; font-size: .82rem; box-shadow: none !important; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="dashboard-wrapper">
@@ -1068,7 +1069,7 @@
           <a href="/admin/migrations" class="btn-secondary" data-no-spa>Migration queue</a>
           <a href="/admin/backups" class="btn-secondary" data-no-spa>Backups</a>
           <a href="/admin/api-requests" class="btn-secondary">API requests<span data-api-requests-count></span></a>
-          <script>
+          <script nonce="<%= locals.cspNonce || '' %>">
             // Pending school requests for more API calls (count only).
             fetch('/admin/api-requests/count.json', { credentials: 'same-origin' }).then((r) => r.json()).then((d) => {
               const el = document.querySelector('[data-api-requests-count]');

@@ -18,7 +18,7 @@
       '.students-modal-overlay.show', '.students-modal-overlay.is-open', '.qm-preview-overlay.show',
       '.qm-answer-password-overlay.show', '.af-drawer.is-open', '.af-dialog.is-open',
       '.mgr-drawer-overlay.is-open', '.cf-drawer[open]', '.ux-panel.is-open', '.ed-panel.is-open',
-      '.ah-drawer.is-open', '.ah-panel[open]', '.cfm', '[data-popup-lift].is-open'
+      '.ah-drawer.is-open', '.ah-panel[open]', '.att-done.is-in', '.app-confirm', '.cfm', '[data-popup-lift].is-open'
     ].join(',');
     var last = null;
     var tell = function (open) { try { window.parent.postMessage({ type: TYPE, open: open }, window.location.origin); } catch (e) {} };
@@ -46,7 +46,7 @@
         if (!saved.has(frame)) { saved.set(frame, frame.getAttribute('style')); lifted += 1; }
         var header = document.getElementById('top-header');
         var top = header ? header.offsetHeight : 0;
-        var zoom = header && header.offsetHeight ? header.getBoundingClientRect().height / header.offsetHeight : 1;
+        var zoom = header && header.offsetHeight ? header.getBoundingClientRect().height / header.offsetHeight : (parseFloat(window.getComputedStyle(document.documentElement).zoom) || 1);
         frame.style.cssText = (saved.get(frame) || '') + ';position:fixed;left:0;right:0;top:' + top + 'px;width:100%;max-width:none;' +
           'height:' + Math.floor(window.innerHeight / zoom - top) + 'px;min-height:0;z-index:12990;border:0;';
       } else if (saved.has(frame)) {

@@ -125,6 +125,14 @@
       const t = o.C < 0.03 ? { C: 0.006, h: TINT_H } : { C: Math.min(o.C, 0.16), h: o.h };
       return fromLch(Math.max(0.7, 0.96 - o.L * 0.42), t.C, t.h, c.a);
     }
+    // 1.4.11: the edge of a text field, select or text area is at least 3:1 against what is behind it.
+    const FIELD_SEL = 'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]), select, textarea';
+    function fieldLine(el, c) {
+      if (!c || c.a < 0.03 || !el.matches || !el.matches(FIELD_SEL)) return null;
+      const o = toLch(c);
+      if (o.C > 0.06) return null; // error and focus colors keep their hue
+      return DARK ? fromLch(0.64, 0.008, TINT_H, 1) : { r: 138, g: 138, b: 138, a: 1 };
+    }
     function mapLine(c) {
       if (!c || c.a < 0.03) return null;
       const o = toLch(c);
@@ -383,7 +391,7 @@
       const g = st.getPropertyValue('background-image');
       if (g) { const next = mapGradient(g); if (next && next !== g) setStyle(el, 'background-image', next, st.getPropertyPriority('background-image')); }
       if (!bgKept) for (const prop of TEXT) { const c = mapText(parse(st.getPropertyValue(prop))); if (c) setStyle(el, prop, css(c), st.getPropertyPriority(prop)); }
-      for (const prop of LINE) { const c = mapLine(parse(st.getPropertyValue(prop))); if (c) setStyle(el, prop, css(c), st.getPropertyPriority(prop)); }
+      for (const prop of LINE) { const raw = parse(st.getPropertyValue(prop)); const c = (prop.startsWith('border') && fieldLine(el, raw)) || mapLine(raw); if (c) setStyle(el, prop, css(c), st.getPropertyPriority(prop)); }
       for (let i = 0; i < st.length; i++) {
         const prop = st[i];
         if (!prop.startsWith('--')) continue;
@@ -457,7 +465,8 @@
         if (img && img !== 'none' && !/url\(/i.test(img)) { const g = mapGradient(img); if (g) writes.push([el, 'background-image', g]); }
         for (const side of SIDES) {
           if (s.getPropertyValue(`border-${side}-width`) === '0px' || s.getPropertyValue(`border-${side}-style`) === 'none') continue;
-          const line = mapLine(parse(s.getPropertyValue(`border-${side}-color`)));
+          const bcol = parse(s.getPropertyValue(`border-${side}-color`));
+          const line = fieldLine(el, bcol) || mapLine(bcol);
           if (line) writes.push([el, `border-${side}-color`, css(line)]);
         }
       }

@@ -90,4 +90,4 @@
     ],
   };
 %>
-<script type="application/ld+json"><%- JSON.stringify(_ld).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json"><%- JSON.stringify(_ld).replace(/</g, '\\u003c') %></script>

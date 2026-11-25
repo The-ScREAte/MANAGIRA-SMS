@@ -117,7 +117,7 @@
           <button type="button" class="gp-btn gp-btn--primary" data-gp-confirm>Archive students</button>
         </div>
       </dialog>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
           var dialog = document.querySelector('.gp-dialog--archive');
           if (!dialog) return;

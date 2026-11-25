@@ -69,6 +69,8 @@
     var mins = document.getElementById('question-time-limit');
     var tries = document.getElementById('question-max-attempts');
     var parts = [];
+    var assess = document.getElementById('question-assessment');
+    if (assess && assess.selectedOptions && assess.selectedOptions[0] && assess.value) parts.push(assess.selectedOptions[0].textContent.trim());
     if (book && book.selectedOptions && book.selectedOptions[0]) parts.push(book.selectedOptions[0].textContent.trim());
     if (mode && mode.value === 'unlimited') parts.push('No time limit');
     else if (mins && String(mins.value || '').trim()) parts.push(String(mins.value).trim() + ' min');
@@ -88,6 +90,18 @@
     settings.querySelector('.qbf-settings__body').appendChild(first);
     ['change', 'input', 'toggle'].forEach(function (type) { settings.addEventListener(type, summarise); });
     summarise();
+    // The line naming the test is how people check which test the questions go to: tapping it opens the choice.
+    var strip = document.getElementById('question-assessment-rules');
+    if (strip && !strip.dataset.qbfChange) {
+      strip.dataset.qbfChange = '1';
+      strip.style.cursor = 'pointer';
+      strip.title = 'Change the test';
+      strip.addEventListener('click', function () {
+        settings.open = true;
+        var pick = document.getElementById('question-assessment');
+        if (pick) { pick.scrollIntoView({ block: 'center' }); pick.focus(); }
+      });
+    }
     // The fields are also set from code (opening a set, picking an assessment): keep the line current.
     setInterval(summarise, 700);
     return settings;
@@ -379,10 +393,10 @@
     else card.appendChild(box);
 
     var input = box.querySelector('input[type="file"]');
-    box.addEventListener('click', function (event) {
+    box.addEventListener('click', async function (event) {
       if (event.target.closest('[data-qbf-pick]')) { input.click(); return; }
       if (event.target.closest('[data-qbf-clear]')) {
-        if (card.__qbfMedia && card.__qbfMedia.labels && card.__qbfMedia.labels.length && !window.confirm('Remove the picture and its spots?')) return;
+        if (card.__qbfMedia && card.__qbfMedia.labels && card.__qbfMedia.labels.length && !await window.appConfirm('Remove the picture and its spots?')) return;
         card.__qbfMedia = null;
         renderMedia(card);
         hooks.saveDraft();

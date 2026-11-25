@@ -61,7 +61,7 @@
   </div>
   <p class="mpc-emblem__status" data-emblem-status role="status" aria-live="polite"></p>
 </section>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var box = document.getElementById('mpcEmblem');
     if (!box) return;

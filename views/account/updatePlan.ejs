@@ -4,7 +4,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Update Subscription Plan</title>
     <style>
       :root {
@@ -219,6 +219,7 @@
         
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
 
   <body>
@@ -283,7 +284,7 @@
       <button type="submit" class="btn">Upgrade Plan</button>
     </form>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       document.addEventListener("DOMContentLoaded", function () {
         const plans = document.querySelectorAll(".plan");
         const selectedPlanInput = document.getElementById("selectedPlanId");
@@ -314,7 +315,7 @@
           });
         });
 
-        form.addEventListener("submit", function (event) {
+        form.addEventListener("submit", async function (event) {
           event.preventDefault(); // Prevent form submission
 
           const newPlanId = selectedPlanInput.value;
@@ -328,8 +329,9 @@
 
           // Show confirmation alert
           if (
-            confirm(
-              `🔔 You are about to change your plan to "${selectedPlanName}".\n\nThis will update your subscription, and you will start paying the new plan's amount.\n\nDo you want to continue?`
+            await window.appConfirm(
+              `Change your plan to "${selectedPlanName}"?\n\nThis updates your subscription. You start paying the new plan's amount.`,
+              { ok: 'Change plan' }
             )
           ) {
             form.submit(); // Proceed with form submission

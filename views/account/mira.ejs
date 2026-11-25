@@ -113,7 +113,7 @@
 
   .mira-card {
     background: #fff; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #e5e7eb);
-    border-radius: 16px; padding: 24px; margin-bottom: 20px; width: 100%; box-sizing: border-box;
+    border-radius: 14px; padding: var(--card-pad, 18px); margin-bottom: 20px; width: 100%; box-sizing: border-box;
     box-shadow: 0 1px 2px rgba(15,23,42,0.04);
   }
   .mira-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -208,7 +208,7 @@
   .mira-switch { position: relative; display: inline-block; width: 26px; height: 15px; flex-shrink: 0; }
   .mira-switch input { opacity: 0; width: 0; height: 0; }
   .mira-switch-slider {
-    position: absolute; cursor: pointer; inset: 0; background: #d1d5db;
+    position: absolute; cursor: pointer; inset: 0; background: #7890b2;
     border-radius: 999px; transition: background 0.18s ease;
   }
   .mira-switch-slider::before {
@@ -315,6 +315,7 @@
     <p>Turn Mira on or off for each person. Mira only ever does what that person's own permissions allow; those, and who can create skills for the whole school, are set on <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.employees) { %><a href="/common/management?panel=employees&page=%2Fcommon%2FmanageEmployees&label=Users%20%2F%20Employees" data-no-spa>Users / Employees</a><% } else { %>Users / Employees<% } %>.</p>
     <p class="mira-access-status" id="mira-access-status" role="status" aria-live="polite"></p>
 
+    <div style="overflow-x:auto;max-width:100%">
     <table class="mira-access-table">
       <thead>
         <tr>
@@ -348,6 +349,7 @@
         <% } %>
       </tbody>
     </table>
+    </div>
     <% if (miraTotal > employees.length) { %>
       <div class="mira-more">
         <span class="mira-more-count" id="mira-more-count">Showing <%= employees.length %> of <%= miraTotal %></span>
@@ -357,7 +359,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const infoButton = document.getElementById('mira-info-toggle');
   const infoOverlay = document.getElementById('mira-info-overlay');

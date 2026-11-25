@@ -6,9 +6,10 @@
       <h1 class="gp-title">API Data-Sharing Agreement</h1>
       <p class="gp-sub">Accepted for each service account before an integration can read any data.</p>
     </div>
-    <button type="button" class="aa-btn aa-btn--ghost" onclick="window.print()">Print</button>
+    <button type="button" class="aa-btn aa-btn--ghost" data-onclick="account-apiAgreement.1">Print</button>
   </header>
   <section class="gp-card">
     <%- include('../partials/apiDataAgreement', { version: agreementVersion, schoolName }) %>
   </section>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

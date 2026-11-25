@@ -225,7 +225,7 @@
     }
     flow.confirm({
       title: 'Post ' + waiting + ' grade' + (waiting === 1 ? '' : 's') + ' for “' + title + '”?',
-      text: 'Parents and the student will see ' + (waiting === 1 ? 'it' : 'them') + ', and each family gets a notice. You can still change a grade later; it then waits for your approval again.',
+      text: 'Parents and the student will see ' + (waiting === 1 ? 'it' : 'them') + ', and each family gets a notice. You can still change a grade later; it then waits to be posted again.',
       okLabel: 'Post',
     }).then(function (yes) {
       if (!yes) return;
@@ -238,13 +238,13 @@
       })
         .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
         .then(function (result) {
-          if (!result.ok || !result.data.success) throw new Error(result.data.error || 'The grades couldn’t be approved.');
+          if (!result.ok || !result.data.success) throw new Error(result.data.error || 'The grades couldn’t be posted.');
           markColumnPosted(assessmentId);
           flow.toast(result.data.message || 'Grades posted.');
         })
         .catch(function (error) {
           btn.disabled = false;
-          flow.toast(error.message || 'The grades couldn’t be approved. Try again.', true);
+          flow.toast(error.message || 'The grades couldn’t be posted. Try again.', true);
         });
     });
   });

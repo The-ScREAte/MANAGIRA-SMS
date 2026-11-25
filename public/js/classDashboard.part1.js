@@ -84,7 +84,7 @@
           html += '<div class="rd-meta-inline">'
             +   '<span>Parent: ' + esc(rp.guardian_name) + '</span>'
             +   '<span class="rd-meta-sep"></span>'
-            +   '<span class="rd-cc-hover" tabindex="0" onmouseenter="loadClassReportCcHover(' + rp.report_id + ')" onfocus="loadClassReportCcHover(' + rp.report_id + ')">CC: ' + Number(rp.cc_count || 0) + ' staff'
+            +   '<span class="rd-cc-hover" tabindex="0" data-onmouseenter="cd.ccHoverIn" data-onfocus="cd.ccHoverFocus" data-mga0="' + rp.report_id + '">CC: ' + Number(rp.cc_count || 0) + ' staff'
             +     '<span class="rd-cc-tooltip"><span class="rd-cc-tooltip-title">CC Staff</span><span class="rd-cc-tooltip-list" id="rdCcTooltipList"><span class="rd-cc-tooltip-state">Hover to load...</span></span></span>'
             +   '</span>'
             + '</div>';
@@ -124,9 +124,9 @@
               html += '<div class="rd-reply ' + bubbleCls + ' ' + sideCls + '">';
               if (!isGuardian && isMine) {
                 html += '<div class="rd-msg-menu-wrap" id="rdMsgMenu-' + reply.reply_id + '">' +
-                  '<button type="button" class="rd-msg-menu-btn" onclick="toggleReportMsgMenu(' + reply.reply_id + ')" aria-label="Message actions">⋯</button>' +
+                  '<button type="button" class="rd-msg-menu-btn" data-onclick="cd.toggleMsgMenu" data-mga0="' + reply.reply_id + '" aria-label="Message actions">⋯</button>' +
                   '<div class="rd-msg-menu-dropdown">' +
-                    '<a href="#" class="rd-msg-menu-text" onclick="return deleteClassReply(' + rp.report_id + ', ' + reply.reply_id + ')">Delete message</a>' +
+                    '<a href="#" class="rd-msg-menu-text" data-onclick="cd.deleteReply" data-mga0="' + rp.report_id + '" data-mga1="' + reply.reply_id + '">Delete message</a>' +
                   '</div>' +
                 '</div>';
               }
@@ -148,8 +148,8 @@
           // Reply form
           html += '<div class="rd-reply-form">' +
             '<div class="rd-reply-composer">' +
-              '<textarea id="staffReplyMsg" rows="1" placeholder="Type a message..." oninput="autoResizeStaffReplyInput(this)" onkeydown="handleStaffReplyKeydown(event, ' + rp.report_id + ')"></textarea>' +
-              '<button id="staffReplyBtn" class="rd-reply-send-btn" onclick="submitStaffReply(' + rp.report_id + ')" aria-label="Send reply" title="Send">' +
+              '<textarea id="staffReplyMsg" rows="1" placeholder="Type a message..." data-oninput="cd.replyInput" data-onkeydown="cd.replyKeydown" data-mga0="' + rp.report_id + '"></textarea>' +
+              '<button id="staffReplyBtn" class="rd-reply-send-btn" data-onclick="cd.submitReply" data-mga0="' + rp.report_id + '" aria-label="Send reply" title="Send">' +
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2L15 22L11 13L2 9L22 2Z"></path></svg>' +
               '</button>' +
             '</div>' +
@@ -203,9 +203,9 @@
 
       if (isMine && reply.reply_id) {
         actions = '<div class="rd-msg-menu-wrap" id="rdMsgMenu-' + Number(reply.reply_id) + '">' +
-          '<button type="button" class="rd-msg-menu-btn" onclick="toggleReportMsgMenu(' + Number(reply.reply_id) + ')" aria-label="Message actions">⋯</button>' +
+          '<button type="button" class="rd-msg-menu-btn" data-onclick="cd.toggleMsgMenu" data-mga0="' + Number(reply.reply_id) + '" aria-label="Message actions">⋯</button>' +
           '<div class="rd-msg-menu-dropdown">' +
-            '<a href="#" class="rd-msg-menu-text" onclick="return deleteClassReply(' + Number(reportId) + ', ' + Number(reply.reply_id) + ')">Delete message</a>' +
+            '<a href="#" class="rd-msg-menu-text" data-onclick="cd.deleteReply" data-mga0="' + Number(reportId) + '" data-mga1="' + Number(reply.reply_id) + '">Delete message</a>' +
           '</div>' +
         '</div>';
       }
@@ -286,8 +286,8 @@
       if (!isOpen) wrap.classList.add('open');
     }
 
-    function deleteClassReply(reportId, replyId) {
-      if (!confirm('Delete this message?')) return false;
+    async function deleteClassReply(reportId, replyId) {
+      if (!await window.appConfirm('Delete this message?', { ok: 'Delete', danger: true })) return false;
       fetch('/common/classReportReplies/' + replyId + '/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -446,7 +446,7 @@
       var classes = 'nav-link schedule-action-button' + (config.active ? ' active' : '') + (isLoading ? ' is-loading' : '');
       var styleAttr = config.style ? ' style="' + config.style + '"' : '';
       var disabledAttr = (isDisabled || isLoading) ? ' disabled' : '';
-      return '<button type="button" class="' + classes + '" onclick="' + onclick + '"' + styleAttr + disabledAttr + '>' + esc(buttonLabel) + '</button>';
+      return '<button type="button" class="' + classes + '" data-onclick="cd.scheduleAction" data-mga0="' + String(onclick).replace(/\(\)\s*;?$/, '').replace(/[^\w$.]/g, '') + '"' + styleAttr + disabledAttr + '>' + esc(buttonLabel) + '</button>';
     }
 
     function getScheduleWeekdays() {
@@ -686,7 +686,7 @@
               '<div class="schedule-slot-header-inner">' +
                 '<div class="schedule-slot-period-row">' +
                   '<div class="schedule-slot-period">Period ' + (index + 1) + '</div>' +
-                  (slots.length > 1 ? '<button type="button" class="schedule-slot-remove" onclick="removeScheduleColumn(' + index + ')" title="Remove column">&times;</button>' : '') +
+                  (slots.length > 1 ? '<button type="button" class="schedule-slot-remove" data-onclick="cd.removeColumn" data-mga0="' + index + '" title="Remove column">&times;</button>' : '') +
                 '</div>' +
                 '<div class="schedule-slot-time-grid">' +
                   '<input class="schedule-cell-input schedule-slot-time-input" type="time" value="' + esc(slot.startTime) + '" data-slot-index="' + index + '" data-slot-field="startTime" />' +
@@ -732,7 +732,7 @@
             '</td>';
         }).join('');
 
-        return '<tr><th class="schedule-day-cell"><div class="schedule-day-label-row"><span class="schedule-day-label-text">' + esc(day.label) + '</span>' + (isEditing && weekdays.length > 1 ? '<button type="button" class="schedule-slot-remove" onclick="removeScheduleDay(' + Number(day.value) + ')" title="Remove day">&times;</button>' : '') + '</div></th>' + cells + '</tr>';
+        return '<tr><th class="schedule-day-cell"><div class="schedule-day-label-row"><span class="schedule-day-label-text">' + esc(day.label) + '</span>' + (isEditing && weekdays.length > 1 ? '<button type="button" class="schedule-slot-remove" data-onclick="cd.removeDay" data-mga0="' + Number(day.value) + '" title="Remove day">&times;</button>' : '') + '</div></th>' + cells + '</tr>';
       }).join('');
 
       container.innerHTML =
@@ -748,7 +748,7 @@
               buildScheduleButtonMarkup('Add time column', 'addScheduleColumn()', { style: 'border:1px solid var(--border);' }) +
               (missingWeekdays.length
                 ? '<div class="schedule-day-restore-row"><span class="schedule-day-restore-label">Add day:</span>' + missingWeekdays.map(function(day) {
-                    return '<button type="button" class="schedule-day-chip" onclick="restoreScheduleDay(' + Number(day.value) + ')">' + esc(day.label) + '</button>';
+                    return '<button type="button" class="schedule-day-chip" data-onclick="cd.restoreDay" data-mga0="' + Number(day.value) + '">' + esc(day.label) + '</button>';
                   }).join('') + '</div>'
                 : '') +
             '</div>'
@@ -1001,9 +1001,9 @@
         });
     }
 
-    function deleteCurrentClassSchedule() {
+    async function deleteCurrentClassSchedule() {
       if (!classScheduleState.isEditing) return;
-      if (!confirm('Delete the class schedule for this term?')) return;
+      if (!await window.appConfirm('Delete the class schedule for this term?')) return;
       setSchedulePendingAction('delete');
       scheduleFetch('/common/classSchedule/delete', {
         method: 'POST',

@@ -162,7 +162,7 @@
         </ul>
       <% } %>
 
-      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off" enctype="multipart/form-data" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off" enctype="multipart/form-data" data-onsubmit="admin-profile.1">
         <label>
           First name
           <input type="text" name="firstName" value="<%= profile.first_name || '' %>" required maxlength="255" />
@@ -174,7 +174,7 @@
         <label class="full">
           Phone number
           <div class="phone-combo" data-default-iso2="US">
-            <select class="phone-dial-select"></select>
+            <select class="phone-dial-select" aria-label="Country code"></select>
             <input type="tel" class="phone-local-input" name="phoneNumber" value="<%= profile.phone_number || '' %>" maxlength="50" />
           </div>
         </label>
@@ -250,3 +250,4 @@
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

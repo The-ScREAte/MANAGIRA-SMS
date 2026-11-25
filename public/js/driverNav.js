@@ -116,22 +116,11 @@
     }
   }
 
-  // On a driver's page only the map zooms: a quick second tap on a button must never
-  // enlarge the page. iPhones ignore the viewport tag, so they need touch-action and these.
+  // Double-tap on a button must never enlarge a driver's page (touch-action: manipulation),
+  // but pinch-zoom always stays available (WCAG 1.4.4): nothing here disables page zoom.
   function pageZoom(allowed) {
     document.documentElement.classList.toggle('drv-nozoom', !allowed);
-    var tag = document.querySelector('meta[name="viewport"]');
-    if (!tag) return;
-    if (tag.getAttribute('data-usual') === null) tag.setAttribute('data-usual', tag.getAttribute('content') || '');
-    var usual = tag.getAttribute('data-usual');
-    tag.setAttribute('content', allowed ? usual : usual + ', user-scalable=no');
   }
-  ['gesturestart', 'gesturechange'].forEach(function (type) {
-    document.addEventListener(type, function (event) {
-      if (!document.documentElement.classList.contains('drv-nozoom')) return;
-      if (!(event.target && event.target.closest && event.target.closest('.maplibregl-map'))) event.preventDefault();
-    }, { passive: false });
-  });
 
   function mount() {
     var configEl = document.getElementById('drv-config');

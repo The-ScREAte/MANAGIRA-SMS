@@ -37,6 +37,7 @@ const { ensureStudentContactMethodsSchema } = require("../utils/studentContactMe
 const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, setSignatureObsolete, signatureStillUsed, wantsJson } = require("../utils/obsolete");
 const { REPORT_SIGNATURE_TERM_ID, ensurePersistentReportSignatures } = require("../utils/reportSignature");
 const { UNIFORM_SUBJECT_SCALING_TERM_ID, normalizeUniformSubjectScaling, calculateUniformSubjectScores } = require("../utils/uniformSubjectScaling");
+const termTotals = require("../utils/termTotals");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -1710,7 +1711,7 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
-          `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score, ar.choice_label
+          `SELECT ar.student_id, ar.assessment_id, ar.score, ar.choice_label
              FROM assessment_results ar
              WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
                AND (
@@ -1746,7 +1747,8 @@ const printController = (db) => ({
       const indivScoresMap = {};
       const indivChoicesMap = {}; // studentId_assessmentId -> "Yes" (choice assessments)
       indivScoresResult.rows.forEach((row) => {
-        indivScoresMap[`${row.student_id}_${row.assessment_id}`] = parseFloat(row.score) || 0;
+        // A score that was never entered isn't counted (utils/termTotals.js), as in the gradebook.
+        if (!termTotals.isBlank(row.score)) indivScoresMap[`${row.student_id}_${row.assessment_id}`] = parseFloat(row.score);
         if (row.choice_label) indivChoicesMap[`${row.student_id}_${row.assessment_id}`] = row.choice_label;
       });
 
@@ -1872,26 +1874,18 @@ const printController = (db) => ({
       const enabledExamsIds = buildEnabledSet(displaySettings.columns.examsScore, colVis.examsScore_items || {}, EXAMS_CATS);
       const enabledOtherIds = buildEnabledSet(displaySettings.columns.otherScore, colVis.otherScore_items || {}, OTHER_CATS);
 
-      // Helper: sum individual scores for enabled assessments
-      function getFilteredScore(studentId, subjectId, enabledIds) {
-        let total = 0;
+      // This student's scores for a subject's enabled assessments, each with the maximum it is out of.
+      // A score that was never entered is null: it leaves the total and the maximum alike, the way the
+      // gradebook counts (utils/termTotals.js). A 0 that was entered counts.
+      function getScoredItems(studentId, subjectId, enabledIds) {
+        const items = [];
         for (const a of allAssessments) {
           if (a.subject_id !== subjectId) continue;
           if (!enabledIds.has(a.assessment_id)) continue;
-          total += indivScoresMap[`${studentId}_${a.assessment_id}`] || 0;
+          const key = `${studentId}_${a.assessment_id}`;
+          items.push({ score: Object.prototype.hasOwnProperty.call(indivScoresMap, key) ? indivScoresMap[key] : null, max: parseFloat(a.max_score || 0), category: a.category });
         }
-        return total;
-      }
-
-      // Helper: sum max_scores for enabled assessments (to recalculate percentage)
-      function getFilteredMaxScore(subjectId, enabledIds) {
-        let total = 0;
-        for (const a of allAssessments) {
-          if (a.subject_id !== subjectId) continue;
-          if (!enabledIds.has(a.assessment_id)) continue;
-          total += parseFloat(a.max_score || 0);
-        }
-        return total;
+        return items;
       }
 
       const students = studentsResult.rows.map((student) => ({
@@ -2110,11 +2104,20 @@ const printController = (db) => ({
 
         student.subjects = allSubjects.map((subject) => {
           const enabledAllIds = new Set([...enabledClassIds, ...enabledExamsIds, ...enabledOtherIds]);
-          let classScore = getFilteredScore(student.student_id, subject.subject_id, enabledClassIds);
-          let examsScore = getFilteredScore(student.student_id, subject.subject_id, enabledExamsIds);
-          let otherScore = getFilteredScore(student.student_id, subject.subject_id, enabledOtherIds);
+          const classTotals = termTotals.subjectTotals(getScoredItems(student.student_id, subject.subject_id, enabledClassIds));
+          const examsTotals = termTotals.subjectTotals(getScoredItems(student.student_id, subject.subject_id, enabledExamsIds));
+          const otherTotals = termTotals.subjectTotals(getScoredItems(student.student_id, subject.subject_id, enabledOtherIds));
+          const allTotals = termTotals.subjectTotals(getScoredItems(student.student_id, subject.subject_id, enabledAllIds));
+          let classScore = classTotals.total;
+          let examsScore = examsTotals.total;
+          let otherScore = otherTotals.total;
           let totalScore = classScore + examsScore + otherScore;
-          let filteredMaxScore = getFilteredMaxScore(subject.subject_id, enabledAllIds);
+          let filteredMaxScore = allTotals.max;
+          // What was scored: a "-" is a blank, not a zero.
+          let classEntered = classTotals.entered > 0;
+          let examsEntered = examsTotals.entered > 0;
+          let otherEntered = otherTotals.entered > 0;
+          let hasScores = allTotals.entered > 0;
 
           if (uniformSubjectScaling.enabled) {
             const subjectAssessments = allAssessments.filter((assessment) =>
@@ -2124,7 +2127,10 @@ const printController = (db) => ({
             );
             const scaled = calculateUniformSubjectScores(
               subjectAssessments,
-              (assessment) => indivScoresMap[`${student.student_id}_${assessment.assessment_id}`] || 0,
+              (assessment) => {
+                const key = `${student.student_id}_${assessment.assessment_id}`;
+                return Object.prototype.hasOwnProperty.call(indivScoresMap, key) ? indivScoresMap[key] : null;
+              },
               uniformSubjectScaling.baseMaxScore,
               (assessment) => CLASS_CATS.includes(assessment.category)
                 ? "class"
@@ -2137,6 +2143,11 @@ const printController = (db) => ({
             otherScore = scaled.categoryScores.other || 0;
             totalScore = scaled.totalScore;
             filteredMaxScore = scaled.maxScore;
+            // The same blanks: a category or subject with nothing scored stays "-".
+            classEntered = "class" in scaled.categoryScores;
+            examsEntered = "exams" in scaled.categoryScores;
+            otherEntered = "other" in scaled.categoryScores;
+            hasScores = classEntered || examsEntered || otherEntered;
           }
 
           // Recalculate percentage from enabled max scores
@@ -2146,25 +2157,25 @@ const printController = (db) => ({
 
           // Recalculate grade from score remarks
           const matchingRule = resolveClosestScoreRemarkRule(totalPercentage, scoreRemarks);
-          const grade = totalScore > 0
+          const grade = hasScores
             ? (matchingRule
                 ? resolveGradeLabelFromRule(matchingRule, totalPercentage)
                 : getDefaultGradeLabel(totalPercentage))
             : "-";
           const gradeMode = gradePresentationSettings.mode;
           const parsedGradeParts = parseGradeLabelParts(grade);
-          const gradeDisplay = totalScore > 0 ? formatGradeByPresentation(grade, gradeMode) : '-';
+          const gradeDisplay = hasScores ? formatGradeByPresentation(grade, gradeMode) : '-';
 
           // Recalculate remarks column
-          const remarks = totalScore > 0 ? (matchingRule ? matchingRule.remark : "-") : "-";
+          const remarks = hasScores ? (matchingRule ? matchingRule.remark : "-") : "-";
 
           const scaleBase = uniformSubjectScaling.enabled
             ? uniformSubjectScaling.baseMaxScore
             : (scaleBasesMap[subject.subject_id] || 100);
-          const scaledScore = totalScore > 0
+          const scaledScore = hasScores
             ? `${(totalPercentage / 100 * scaleBase).toFixed(2)} / ${scaleBase}` : "-";
 
-          if (totalScore > 0) {
+          if (hasScores) {
             totalPercentageSum += totalPercentage;
             subjectCount++;
           }
@@ -2179,17 +2190,17 @@ const printController = (db) => ({
           return {
             subject_id: subject.subject_id,
             subject_name: subject.subject_name,
-            classAssessmentScore: classScore > 0 ? classScore.toFixed(2) : "-",
-            examsAssessmentScore: examsScore > 0 ? examsScore.toFixed(2) : "-",
-            otherAssessmentScore: otherScore > 0 ? otherScore.toFixed(2) : "-",
-            totalScore: totalScore > 0 ? totalScore.toFixed(2) : "-",
+            classAssessmentScore: classEntered ? classScore.toFixed(2) : "-",
+            examsAssessmentScore: examsEntered ? examsScore.toFixed(2) : "-",
+            otherAssessmentScore: otherEntered ? otherScore.toFixed(2) : "-",
+            totalScore: hasScores ? totalScore.toFixed(2) : "-",
             scaledScore,
-            totalPercentage: totalScore > 0 ? `${totalPercentage} %` : "-",
+            totalPercentage: hasScores ? `${totalPercentage} %` : "-",
             grade: gradeDisplay,
             gradeRaw: grade,
             gradeNumeric: Number.isFinite(parsedGradeParts.number) ? Number(parsedGradeParts.number) : null,
             remarks,
-            position: totalScore > 0 && subjectPos
+            position: hasScores && subjectPos
               ? `${subjectPos}${getOrdinalSuffix(subjectPos)}`
               : "-",
           };
@@ -2630,13 +2641,13 @@ const printController = (db) => ({
         const remarkBox = (def, student, hidden) => {
           const id = `${def.rowKey}-${student.student_id}`;
           const fromForm = (student.formRemarks || {})[def.rowKey];
-          const area = `<textarea id="${id}" name="${id}" data-custom-remark-type="${escHtml(def.typeKey)}" maxlength="150" rows="1"${hidden || fromForm ? " hidden" : ' onfocus="this.select();"'}>${escHtml(fromForm ? savedRemark(def, student) : def.value(student))}</textarea>`;
+          const area = `<textarea id="${id}" name="${id}" data-custom-remark-type="${escHtml(def.typeKey)}" maxlength="150" rows="1"${hidden || fromForm ? " hidden" : ' data-onfocus="misc.select"'}>${escHtml(fromForm ? savedRemark(def, student) : def.value(student))}</textarea>`;
           if (hidden) return area;
           if (fromForm) {
             return `<span class="remark-line rt-remark rt-remark--form"><textarea class="remark-from-form" rows="1" readonly tabindex="-1" aria-readonly="true" title="${escHtml(`Collected with the Custom editor › ${fromForm}`)}">${escHtml(def.value(student))}</textarea>${area}</span>`;
           }
-          const options = (def.options || []).map((r) => `<div class="remark-dropdown-option" onclick="selectRemark('${def.rowKey}', ${Number(student.student_id)}, this.textContent.trim())">${escHtml(r.remark)}</div>`).join("");
-          return `<span class="remark-line rt-remark">${area}<span class="remark-arrow" id="arrow-${id}" onclick="toggleDropdown('${def.rowKey}', ${Number(student.student_id)})">▼</span><div class="remark-dropdown" id="dropdown-${id}">${options}</div></span>`;
+          const options = (def.options || []).map((r) => `<div class="remark-dropdown-option" data-onclick="print.selectRemark" data-mga0="${escHtml(def.rowKey)}" data-mga1="${Number(student.student_id)}">${escHtml(r.remark)}</div>`).join("");
+          return `<span class="remark-line rt-remark">${area}<span class="remark-arrow" id="arrow-${id}" data-onclick="print.toggleDropdown" data-mga0="${escHtml(def.rowKey)}" data-mga1="${Number(student.student_id)}">▼</span><div class="remark-dropdown" id="dropdown-${id}">${options}</div></span>`;
         };
         const templateCtx = {
           locals: reportLocals,

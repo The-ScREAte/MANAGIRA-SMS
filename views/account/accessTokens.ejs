@@ -332,7 +332,7 @@ Authorization: Bearer &lt;access_token&gt;</pre>
 
 <script src="<%= assetUrl('/js/apiAccess.js') %>"></script>
 <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const page = document.getElementById('accessTokensPage');
     if (!page || page.dataset.bound) return;

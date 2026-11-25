@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PayGira Receipt — #<%= payment.payment_id %></title>
 <style>
   * { box-sizing:border-box; }
@@ -25,12 +26,21 @@
   .btn.primary { background:#00D4AA; color:#062018; }
   .btn.ghost { background:transparent; color:#1a1f2e; border:1px solid #d4d9e3; }
   .foot { margin-top:20px; padding-top:12px; border-top:1px solid #e6e9f0; font-size:.72rem; color:#5a6378; text-align:center; }
+  @media (max-width: 600px) {
+    .doc { margin:0; padding:20px 16px; border-radius:0; box-shadow:none; }
+    .head .doc-title { text-align:left; }
+    .grid { grid-template-columns:1fr; }
+    table { display:block; max-width:100%; overflow-x:auto; }
+    .totals .row { min-width:0; width:100%; }
+    .actions { flex-wrap:wrap; }
+  }
   @media print {
     body { background:#fff; }
     .doc { box-shadow:none; margin:0; padding:14px; }
     .actions { display:none; }
   }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <%
@@ -114,11 +124,12 @@
   <p style="margin:14px 0 0;color:#5a6378;font-size:.78rem;">Received by <strong style="color:#1a1f2e;"><%= payment.organization_name || 'School' %></strong></p>
 
   <div class="actions">
-    <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
-    <button class="btn primary" onclick="window.close()">Done</button>
+    <button class="btn ghost" data-onclick="finance-receipt.1">🖨️ Print</button>
+    <button class="btn primary" data-onclick="finance-receipt.2">Done</button>
   </div>
 
   <div class="foot">Thank you. Keep this receipt for your records · <%= typeof formatDisplayDate === 'function' ? formatDisplayDate(new Date()) : new Date().toLocaleDateString() %></div>
 </div>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

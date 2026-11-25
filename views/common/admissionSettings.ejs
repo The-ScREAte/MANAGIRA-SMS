@@ -50,9 +50,9 @@
   /* Cards, buttons */
   .as-card { background: var(--as-surface); border: 1.5px solid var(--as-line); border-radius: 9px; }
   .as-card + .as-card { margin-top: 16px; }
-  .as-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; }
+  .as-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px var(--card-pad, 18px); }
   .as-card__head h2 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--as-muted); text-align: left; }
-  .as-card__body { padding: 0 20px 20px; }
+  .as-card__body { padding: 0 var(--card-pad, 18px) var(--card-pad, 18px); }
   .as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border: 1.5px solid var(--as-edge); border-radius: 9px; background: var(--as-surface); color: var(--as-text); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; text-decoration: none; }
   .as-btn:hover { background: var(--as-soft); }
   .as-btn--primary { background: var(--as-primary); border-color: var(--as-primary); color: #fff; }
@@ -75,7 +75,7 @@
   .as-switch span { font-size: 12.5px; color: var(--as-muted); }
   .as-toggle { position: relative; flex: none; width: 26px; height: 15px; }
   #asRoot .as-toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  .as-toggle i { position: absolute; inset: 0; border-radius: 999px; background: #cfd8e1; transition: background-color .15s; pointer-events: none; }
+  .as-toggle i { position: absolute; inset: 0; border-radius: 999px; background: #7890b2; transition: background-color .15s; pointer-events: none; }
   .as-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
   .as-toggle input:checked + i { background: var(--as-primary); }
   .as-toggle input:checked + i::after { transform: translateX(11px); }
@@ -256,8 +256,18 @@
             </label>
             <label class="as-field">Application fee<input type="number" min="0" step="0.01" name="price" value="<%= Number(org.public_registration_price) > 0 ? org.public_registration_price : '' %>" placeholder="0 (free)" /></label>
           </div>
+          <p class="as-flash as-flash--error" id="asDatesNeeded" role="status" hidden style="margin:12px 0 0">Set when applications open and close.</p>
           <div class="as-actions"><button type="submit" class="as-btn as-btn--primary">Save online admission</button></div>
         </form>
+        <script nonce="<%= locals.cspNonce || '' %>">
+          (function () {
+            var f = document.getElementById('asDatesNeeded'); if (!f) return;
+            var form = f.closest('form'), on = form.elements.enabled, a = form.elements.startDate, b = form.elements.endDate;
+            var sync = function () { f.hidden = !(on.checked && (!a.value || !b.value)); };
+            [on, a, b].forEach(function (el) { el.addEventListener('change', sync); el.addEventListener('input', sync); });
+            sync();
+          })();
+        </script>
       </div>
     </div>
   </section>
@@ -294,7 +304,7 @@
         <span><strong>Require a file for each new student</strong><span id="asFilesState"><%= filesSettings.requiredOnAdd ? 'Required' : 'Optional' %></span></span>
       </label>
     </div>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
         var box = document.getElementById('asFilesRequired');
         if (!box || box.dataset.bound) return;
@@ -351,8 +361,8 @@
 
 <div id="asDialog" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="asDialogTitle"><div class="as-dlg" id="asDlg"></div></div>
 
-<script type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite, indicators: (typeof indicatorLabels !== 'undefined' ? indicatorLabels : []) }).replace(/</g, '\\u003c') %></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="asData"><%- JSON.stringify({ fields: formFields, types: fieldTypes, sections: (typeof fieldSections !== 'undefined' ? fieldSections : { more: 'More Details' }), hasWebsite, indicators: (typeof indicatorLabels !== 'undefined' ? indicatorLabels : []) }).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const root = document.getElementById('asRoot');
   if (!root || root.dataset.ready) return;
@@ -599,7 +609,7 @@
         return render();
       }
       if (e.target.closest('[data-delete]')) {
-        if (!confirm(`Delete "${f.label}"? No one has answered it yet.`)) return;
+        if (!await window.appConfirm(`Delete "${f.label}"? No one has answered it yet.`)) return;
         await call(`/common/admissionSettings/fields/${f.id}/delete`);
         toast('Field deleted');
         return render();

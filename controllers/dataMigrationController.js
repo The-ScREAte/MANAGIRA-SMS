@@ -12,7 +12,10 @@ const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { isOrgAdmin } = require("../middleware/migrationLock");
 
 // preservePath: a file chosen in a folder keeps its path, so a student's documents find them.
-const upload = multer({ storage: multer.memoryStorage(), preservePath: true, limits: { fileSize: m.MAX_FILE_BYTES, files: m.MAX_UPLOAD_FILES } });
+const { isAllowedFile } = require("../utils/uploadSafety");
+// An old system's export: spreadsheets and text, .zip files of them, and the pictures and documents kept on a student.
+// A folder holds stray files (.DS_Store, Thumbs.db, scripts): anything else is left out rather than stopping the upload.
+const upload = multer({ storage: multer.memoryStorage(), preservePath: true, limits: { fileSize: m.MAX_FILE_BYTES, files: m.MAX_UPLOAD_FILES }, fileFilter: (req, file, cb) => cb(null, isAllowedFile(file, ["document", "image", "archive", "data"])) });
 const orgOf = (req) => Number(req.session.organizationId);
 const toId = (v) => { const n = Number.parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
 const userIdOf = (req) => req.session.userId || req.session.user?.user_id || null;

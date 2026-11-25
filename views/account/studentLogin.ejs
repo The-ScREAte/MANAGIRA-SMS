@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title>Student Login - Managira</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
@@ -269,6 +269,9 @@
       }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <div class="page-wrapper<%= (typeof loginAds !== 'undefined' && loginAds && loginAds.length) ? ' auth-split' : '' %>">
@@ -315,7 +318,7 @@
                 required
                 autocomplete="current-password"
               />
-              <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" onmousedown="event.preventDefault()" aria-label="Show password">
+              <button type="button" class="password-toggle-btn" data-onclick="account-studentLogin.1" data-onmousedown="account-studentLogin.2" aria-label="Show password">
                 <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
               </button>
             </div>
@@ -336,7 +339,7 @@
     <%- include('../partials/loginAdsPanel') %>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     function togglePasswordVisibility(inputId, button) {
       var input = document.getElementById(inputId);
       var icon = button.querySelector('i');
@@ -351,3 +354,4 @@
 <%- include('../partials/authLoader') %>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -47,7 +47,7 @@ storage, backups, email, and the outside services listed at
   when no longer needed.
 
 **Sign-in**
-- Passwords are at least 8 characters, may not be ones found in known data breaches, and are stored
+- Passwords are at least 10 characters, may not be common ones, their own name or email, or ones found in known data breaches, and are stored
   only as salted bcrypt hashes.
 - Password sign-ins are confirmed with a code: emailed (unless the school turns it off), or from
   an authenticator app. A school can require the app for managers and supervisors, for all

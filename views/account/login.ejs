@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= locals.schoolName ? `Log in to ${schoolName}` : 'Log in - Managira' %></title>
   <meta name="description" content="Log in to Managira: staff, parents, students and hubs all sign in here." />
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
   <link rel="preload" as="image" href="/images/managira-logo-sm.png" />
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // A panel inside the app (a workspace pane) that lost its sign-in: the whole window comes here.
     (function () { try { if (window.top !== window.self && window.top.location.origin === window.location.origin) window.top.location.replace(window.location.href); } catch (_) {} })();
   </script>
@@ -168,6 +168,9 @@
       h1 { font-size: 1.5rem; margin-bottom: 24px; }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <div class="page-wrapper<%= (typeof loginAds !== 'undefined' && loginAds && loginAds.length) ? ' auth-split' : '' %>">
@@ -268,7 +271,7 @@
     <%- include('../partials/loginAdsPanel') %>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       // A finished sign-up leaves its saved form behind: clear it.
       var params = new URLSearchParams(location.search);

@@ -73,7 +73,7 @@ module.exports = [
       {
         title: "Password rules",
         list: [
-          "At least 8 characters. Some forms also ask for a mix of letters, numbers and symbols.",
+          "At least 10 characters, and not a common password. Some forms also ask for a mix of letters, numbers and symbols.",
           "A password that has appeared in a known data breach is refused, even if it looks strong. Your password never leaves Managira for this check: only the first five characters of a scrambled (hashed) copy are looked up in a public list of breached passwords, and the match is made on Managira's side.",
           "Changing your password signs you out on your other devices.",
         ],

@@ -151,7 +151,7 @@
                 <tr data-ah-row="<%= [hub.hub_name, hub.hub_nickname, owner, hub.hub_email].join(' ').toLowerCase() %>">
                   <td class="ah-col-school">
                     <div class="ah-name">
-                      <span class="ah-avatar"><% if (logo) { %><img src="<%= logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+                      <span class="ah-avatar"><% if (logo) { %><img src="<%= logo %>" alt="" data-onerror="admin-organizations.1" /><% } else { %><%= (hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
                       <div style="min-width:0">
                         <a class="ah-name__link" href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= hub.hub_name %></a>
                         <span class="ah-sub"><%= owner || hub.hub_email %></span>
@@ -212,3 +212,4 @@
   <%- include('partials/hubAdminDialogs') %>
   <script src="<%= assetUrl('/js/adminPricing.js') %>"></script>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

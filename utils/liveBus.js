@@ -7,7 +7,10 @@
 const { BoundedMap } = require("./boundedMap");
 const { roadRoute } = require("./roadRouting");
 
-const WRITE_EVERY_MS = 15000;
+// With one server, viewers read the newest position from memory and the database copy only matters
+// after a restart. With several servers a viewer may be on another one than the driver, and sees the
+// database copy: set LIVE_BUS_SAVE_MS=3000 (a write per bus every 3 seconds) so it is never far behind.
+const WRITE_EVERY_MS = Math.max(1000, Number(process.env.LIVE_BUS_SAVE_MS) || (process.env.CLUSTER_WORKER ? 3000 : 15000));
 const DRIVER_TRIP_TTL_MS = 60000;
 const BOARD_TTL_MS = 5000;
 const IDLE_BOARD_TTL_MS = 15000;

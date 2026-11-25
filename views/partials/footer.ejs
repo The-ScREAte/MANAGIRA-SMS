@@ -112,7 +112,7 @@
       <% const _hubBrand = (typeof hubBrand !== 'undefined' && hubBrand) || null; %>
       <% if (_hubBrand) { %>
         <div class="footer-hub-section">
-          <% if (_hubBrand.logo) { %><span class="footer-hub-logo-wrap"><img src="<%= publicImageUrl(_hubBrand.logo, { public: true }) %>" alt="<%= _hubBrand.name %>" class="footer-hub-logo" onerror="this.parentNode.remove()" /></span><% } %>
+          <% if (_hubBrand.logo) { %><span class="footer-hub-logo-wrap"><img src="<%= publicImageUrl(_hubBrand.logo, { public: true }) %>" alt="<%= _hubBrand.name %>" class="footer-hub-logo" data-onerror="partials-footer.1" /></span><% } %>
           <p class="footer-hub-text">Part of <strong><%= _hubBrand.name %></strong></p>
         </div>
       <% } %>
@@ -462,3 +462,4 @@
 </style>
 
 <%# Log out asks first: public/js/logoutConfirm.js (in partials/head.ejs), on every page. %>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

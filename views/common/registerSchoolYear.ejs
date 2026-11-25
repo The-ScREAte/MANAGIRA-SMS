@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title>Register School Year</title>
   <style>
     :root {
@@ -248,6 +248,7 @@
       box-shadow: 0 6px 20px rgba(1, 83, 91, 0.3);
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <%- include('../partials/flash') %>
@@ -263,7 +264,7 @@
       <div class="page-content">
         <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
         <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
-<form id="registerSchoolYearForm" action="/common/registerSchoolYear" method="POST" onsubmit="return validateRegisterSchoolYearForm(this)">
+<form id="registerSchoolYearForm" action="/common/registerSchoolYear" method="POST" data-onsubmit="common-registerSchoolYear.1">
           <div class="form-group">
             <label class="form-label" for="schoolYear">School Year Label</label>
             <input type="text" id="schoolYear" name="schoolYear" class="form-input" placeholder="e.g., 2024-2025" required>
@@ -274,7 +275,7 @@
             <!-- Terms will be added here dynamically -->
           </div>
 
-          <a href="#" class="add-term-link" onclick="addTerm(); return false;">
+          <a href="#" class="add-term-link" data-onclick="common-registerSchoolYear.2">
             ➕ Add Term / Semester
           </a>
 
@@ -285,7 +286,7 @@
   </div>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const classes = <%- JSON.stringify(classes) %>;
     let termCount = 0;
 
@@ -414,9 +415,9 @@
         <div class="term-card-header">
           <h3>Term ${termIndex + 1}</h3>
           <div style="position: relative;">
-            <button type="button" class="term-menu-btn" onclick="toggleTermDeleteMenu(event, this)">⋮</button>
+            <button type="button" class="term-menu-btn" data-onclick="common-registerSchoolYear.3">⋮</button>
             <div class="term-menu-dropdown">
-              <button type="button" class="term-menu-item delete" onclick="removeField(this)">🗑️ Remove Term</button>
+              <button type="button" class="term-menu-item delete" data-onclick="common-registerSchoolYear.4">🗑️ Remove Term</button>
             </div>
           </div>
         </div>
@@ -527,3 +528,4 @@
   </script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

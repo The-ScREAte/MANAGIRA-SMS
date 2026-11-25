@@ -43,6 +43,7 @@
     .ann-audience { font-size: 0.78rem; color: var(--text-secondary); }
     .ann-stats { font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="manage-announcements-page">
   <div class="ann-page">
@@ -78,7 +79,7 @@
 
   <%- include('../partials/adminDrawer') %>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const annComposerDrawer = ManagiraDrawer.create({
       id: 'annComposer',
       icon: '📢',
@@ -175,8 +176,8 @@
       delBtn.type = 'button';
       delBtn.className = 'danger';
       delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', function () {
-        if (!confirm('Delete "' + row.title + '"? This cannot be undone.')) return;
+      delBtn.addEventListener('click', async function () {
+        if (!await window.appConfirm('Delete "' + row.title + '"? This cannot be undone.')) return;
         fetch('/announcements/' + row.id, { method: 'DELETE', credentials: 'same-origin' })
           .then(() => loadAnnouncements());
       });

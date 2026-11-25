@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Feedback</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <%
@@ -625,6 +625,7 @@
       }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="feedback-admin-page">
@@ -781,7 +782,7 @@
     </div>
   </aside>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       const feedbackItems = <%- JSON.stringify(feedbackItems || []) %>;
       const statusOptions = <%- JSON.stringify(feedbackStatusOptions || []) %>;

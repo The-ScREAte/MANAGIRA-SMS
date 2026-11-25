@@ -82,7 +82,7 @@ A current list is available to schools on request. Bus maps use OpenStreetMap ti
   it on; the school can require it for managers and supervisors, for all staff, or for one person
   (Settings, Tenant configuration; Edit user). Ten single-use recovery codes; a manager resets a
   lost phone with their own password; every change is in the activity log.
-- Passwords: at least 8 characters (NIST SP 800-63B), never one found in a known data breach
+- Passwords: at least 10 characters (NIST SP 800-63B), never a commonly used one, their own name or email, or one found in a known data breach
   (checked by k-anonymity, so the password never leaves Managira), stored only as salted bcrypt
   hashes; reset links are single-use and expire in 15 minutes; a password change signs the
   person out everywhere.

@@ -91,7 +91,7 @@
   </div>
 </div>
 
-<script type="application/json" id="drv-config"><%- safeJson({
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="drv-config"><%- safeJson({
   bus: driverBus || null,
   students: students || [],
   reportTypes: typeof reportTypes !== 'undefined' ? reportTypes : {},

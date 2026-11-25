@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title><%= title %></title>
     <style>
       :root {
@@ -869,6 +869,7 @@
         }
         
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
 
   <body>
@@ -901,7 +902,7 @@
 
         <form
           id="meritSheetForm"
-          onsubmit="return validateMeritSheetForm()"
+          data-onsubmit="print-meritSheetPage.1"
           action="/print/generateMeritSheet"
           method="POST"
         >
@@ -1087,7 +1088,7 @@
                 </td>
                     <% if (cols.grade) { %><td><%= assessment.grade || '-' %></td><% } %>
                   <% }); %>
-                  <% if (cols.subjectTotal && subject.assessments.length) { %><td class="subject-total-cell"><%= Number(subject.totalScore || 0).toFixed(2) %></td><% } %>
+                  <% if (cols.subjectTotal && subject.assessments.length) { %><td class="subject-total-cell"><%= subject.entered === 0 ? '-' : Number(subject.totalScore || 0).toFixed(2) %></td><% } %>
                 <% }); %>
                 <% if (cols.total) { %><td><%= student.totalScore %></td><% } %>
                 <% if (cols.average) { %><td><%= student.averageScore %></td><% } %>
@@ -1119,7 +1120,7 @@
       <% } %>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       window.addEventListener("beforeprint", function () {
         const logo = "<%= effectiveLogo || '' %>";
         if (!logo) return;
@@ -1337,3 +1338,4 @@
     </script>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

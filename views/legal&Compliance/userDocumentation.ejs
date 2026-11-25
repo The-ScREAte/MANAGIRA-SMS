@@ -655,7 +655,7 @@
 </style>
 
 <!-- JSON-LD -->
-<script type="application/ld+json">
+<script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "TechArticle",
@@ -789,7 +789,7 @@
               <div class="udoc-card__ico">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <div class="udoc-card__acts" onclick="event.preventDefault();event.stopPropagation();">
+              <div class="udoc-card__acts" data-onclick="legal-Compliance-userDocumentation.1">
                 <button
                   type="button"
                   class="udoc-ico-btn"
@@ -1009,7 +1009,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const overlay   = document.getElementById('docOverlay');
   const fTitle    = document.getElementById('fieldTitle');
@@ -1298,7 +1298,7 @@
     btn.addEventListener('click', async function(e) {
       e.preventDefault(); e.stopPropagation();
       const next = btn.dataset.status === 'draft' ? 'active' : 'draft';
-      if (!confirm('Change to "' + (next === 'active' ? 'Published' : 'Draft') + '"?')) return;
+      if (!await window.appConfirm('Change to "' + (next === 'active' ? 'Published' : 'Draft') + '"?')) return;
       btn.disabled = true;
       try {
         const res  = await fetch('/legal/user-documentation/api/articles/' + btn.dataset.id + '/status', {
@@ -1316,7 +1316,7 @@
   document.querySelectorAll('[data-action="delete-article"]').forEach(function(btn) {
     btn.addEventListener('click', async function(e) {
       e.preventDefault(); e.stopPropagation();
-      if (!confirm('Permanently delete "' + btn.dataset.title + '"?\nThis cannot be undone.')) return;
+      if (!await window.appConfirm('Permanently delete "' + btn.dataset.title + '"?\nThis cannot be undone.')) return;
       btn.disabled = true;
       try {
         const res  = await fetch('/legal/user-documentation/api/articles/' + btn.dataset.id + '/delete', {
@@ -1333,3 +1333,4 @@
 </script>
 
 <% } %> <%# end docAdmin %>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -109,8 +109,8 @@
     <iframe id="uxEditFrame" title="Parent details"></iframe>
   </div>
 </aside>
-<script type="application/json" id="uxPeople"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
-<script>window.UX_PLACEHOLDER = <%- JSON.stringify(_placeholder) %>;</script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="uxPeople"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>">window.UX_PLACEHOLDER = <%- JSON.stringify(_placeholder) %>;</script>
 
 <style>
   .ws-guardians .ws-person img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
@@ -131,7 +131,7 @@
   .ux-note { margin: 10px 0 0; padding: 9px 11px; border-radius: 8px; font-size: 13px; background: color-mix(in srgb, #16a34a 12%, transparent); }
   .ux-note.is-error { background: color-mix(in srgb, #ef4444 12%, transparent); }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   var get = function (id) { return document.getElementById(id); };
   var people = [];
@@ -237,9 +237,9 @@
   function notice(text, isError) {
     get('uxNotice').innerHTML = '<p class="ux-note' + (isError ? ' is-error' : '') + '">' + esc(text) + '</p>';
   }
-  function sendSetup(p, btn) {
+  async function sendSetup(p, btn) {
     var to = p.loginEmail || p.email || 'this parent';
-    if (!window.confirm('Send a password ' + (p.status === 'Active' ? 'reset' : 'setup') + ' email to ' + to + '?')) return;
+    if (!await window.appConfirm('Send a password ' + (p.status === 'Active' ? 'reset' : 'setup') + ' email to ' + to + '?')) return;
     btn.disabled = true;
     fetch('/common/guardianRequestPasswordReset', {
       method: 'POST', credentials: 'same-origin',
@@ -325,8 +325,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('tr.ux-row'), function (r) { r.classList.toggle('is-selected', r.dataset.key === key); });
     get('uxClose').focus();
   }
-  function close() {
-    if (card && card.isOpen() && card.isDirty() && !window.confirm('Discard the changes to this contact?')) return;
+  async function close() {
+    if (card && card.isOpen() && card.isDirty() && !await window.appConfirm('Discard the changes to this contact?')) return;
     get('uxPanel').classList.remove('is-open', 'is-editing', 'is-card');
     get('uxCardBox').hidden = true;
     get('uxPanel').setAttribute('aria-hidden', 'true');

@@ -7,8 +7,35 @@ function lockSql(key, fn) {
   return typeof key === "number" ? `SELECT ${fn}($1) AS ok` : `SELECT ${fn}(hashtext($1)) AS ok`;
 }
 
+// Behind PgBouncer in transaction mode, a lock that belongs to a connection can't be trusted to
+// stay on one. DB_DIRECT_CONNECTION_STRING is the database's own address (no PgBouncer): locks and
+// the job-lock connection use it. Without it they use the pool's address, as before.
+function directConnection() {
+  const url = process.env.DB_DIRECT_CONNECTION_STRING;
+  if (!url) return null;
+  const { options } = require("../config/db");
+  return { connectionString: url, ssl: options.ssl, connectionTimeoutMillis: 6000, application_name: "managira-locks" };
+}
+
 // Returns a release function, or null when another process holds the lock.
 async function tryAdvisoryLock(key, database) {
+  const direct = (!database || database === require("../config/db")) && directConnection();
+  if (direct) {
+    const { Client } = require("pg");
+    const own = new Client(direct);
+    own.on("error", () => {});
+    await own.connect();
+    try {
+      const { rows } = await own.query(lockSql(key, "pg_try_advisory_lock"), [key]);
+      if (!rows[0] || rows[0].ok !== true) { await own.end().catch(() => {}); return null; }
+    } catch (error) {
+      await own.end().catch(() => {});
+      throw error;
+    }
+    let done = false;
+    // Closing the connection frees the lock, so release is just closing it.
+    return async function release() { if (done) return; done = true; await own.end().catch(() => {}); };
+  }
   const db = database || require("../config/db"); // looked up per call so tests can swap it
   const client = await db.connect();
   try {
@@ -75,7 +102,7 @@ function getJobLockClient() {
   const { Client } = require("pg");
   const { options } = require("../config/db");
   const client = new Client({
-    connectionString: options.connectionString,
+    connectionString: process.env.DB_DIRECT_CONNECTION_STRING || options.connectionString,
     ssl: options.ssl,
     connectionTimeoutMillis: 6000,
     keepAlive: true,

@@ -10,7 +10,7 @@
     <p class="mg-hint">Your authenticator is set up. If you lose your phone, each of these codes works once in its place. Keep them somewhere safe: they won't be shown again.</p>
     <ol class="mg-codes"><% recovery.forEach((code) => { %><li><code><%= code %></code></li><% }) %></ol>
     <div class="mg-actions">
-      <button class="mg-btn" type="button" onclick="window.print()">Print them</button>
+      <button class="mg-btn" type="button" data-onclick="migration-verify.1">Print them</button>
       <a class="mg-btn mg-btn--primary" href="<%= next %>" data-no-spa>I've saved them, continue</a>
     </div>
   <% } else { %>
@@ -41,3 +41,4 @@
   <% } %>
   </section>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

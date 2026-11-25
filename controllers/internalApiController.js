@@ -84,7 +84,7 @@ function getSessionRecord(sid) {
 // value (format "s:<sid>.<signature>") and verifies its HMAC signature
 // against SESSION_SECRET, exactly as express-session's cookie parser does.
 function unsignSessionCookie(rawCookieValue) {
-  const secret = process.env.SESSION_SECRET || "YourSecret";
+  const secret = require("../utils/sessionSecret").sessionSecret();
   if (!rawCookieValue || !rawCookieValue.startsWith("s:")) return null;
   const signed = rawCookieValue.slice(2);
   const sid = cookieSignature.unsign(signed, secret);
@@ -9062,7 +9062,7 @@ async function mintPuppeteerSession(identity) {
   await new Promise((resolve, reject) => {
     store.set(sid, sessionData, (err) => (err ? reject(err) : resolve()));
   });
-  const signed = cookieSignature.sign(sid, process.env.SESSION_SECRET || "YourSecret");
+  const signed = cookieSignature.sign(sid, require("../utils/sessionSecret").sessionSecret());
   return { sid, cookieValue: `s:${signed}` };
 }
 

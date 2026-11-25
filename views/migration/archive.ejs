@@ -13,8 +13,9 @@
 <body>
   <h1><%= archive.module %></h1>
   <p><%= student ? student.first_name + ' ' + student.last_name + ' · ' : '' %>From the old system, read-only<%= archive.sensitive ? ' · Restricted' : '' %> · <%= rows.length %> <%= rows.length === 1 ? 'row' : 'rows' %></p>
-  <div class="bar"><a href="?format=csv">Download (CSV)</a><button type="button" onclick="window.print()">Print</button></div>
+  <div class="bar"><a href="?format=csv">Download (CSV)</a><button type="button" data-onclick="migration-archive.1">Print</button></div>
   <div class="wrap"><table><thead><tr><% columns.forEach((c) => { %><th><%= c %></th><% }) %></tr></thead><tbody>
     <% rows.forEach((row) => { %><tr><% columns.forEach((c) => { %><td><%= row[c] == null ? '' : row[c] %></td><% }) %></tr><% }) %>
   </tbody></table></div>
 </body></html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

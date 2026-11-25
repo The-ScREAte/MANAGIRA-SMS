@@ -1,5 +1,5 @@
-function confirmEndTerm(termId) {
-    if (confirm("Are you sure you want to end this term? This action cannot be undone.")) {
+async function confirmEndTerm(termId) {
+    if (await window.appConfirm("Are you sure you want to end this term? This action cannot be undone.")) {
         fetch('/common/deleteTerm', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},

@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Modify Assessment</title>
     <style>
       :root {
@@ -583,6 +583,7 @@
     .ma-sec + .ma-sec .ma-grid { grid-template-columns: 1fr; }
   }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <main class="ma-clean">
@@ -650,17 +651,17 @@
 
         <section class="ma-sec">
           <h3 class="ma-sec__title">Classes <span class="ma-count"><%= _chosenClasses %></span></h3>
-          <button type="button" class="ma-toggle" onclick="toggleClassesCollapse()">
+          <button type="button" class="ma-toggle" data-onclick="common-modifyAssessment.1">
             <span class="arrow" id="arrow-classes">&#9654;</span> Choose
           </button>
           <div class="ma-classes" id="collapse-classes" style="display:none;">
-            <label class="ma-check ma-check--all"><input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()"> Select all</label>
+            <label class="ma-check ma-check--all"><input type="checkbox" id="selectAllClasses" data-onclick="common-modifyAssessment.2"> Select all</label>
             <div class="ma-class-grid">
               <% (classes || []).forEach(cls => { %>
                 <div class="ma-class">
-                  <label class="ma-check ma-class__name"><input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> onchange="toggleSubjects('<%= cls.class_id %>')"> <%= cls.class_name %></label>
+                  <label class="ma-check ma-class__name"><input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> data-onchange="common-modifyAssessment.3" data-mga0="<%= cls.class_id %>"> <%= cls.class_name %></label>
                   <div id="subjects_<%= cls.class_id %>" class="subject-container <%= cls.selected ? 'visible' : '' %>">
-                    <label class="ma-check ma-check--small"><input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" onclick="selectAllSubjects('<%= cls.class_id %>')"> All subjects</label>
+                    <label class="ma-check ma-check--small"><input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" data-onclick="common-modifyAssessment.4" data-mga0="<%= cls.class_id %>"> All subjects</label>
                     <% (_byClass[cls.class_id] || []).forEach(subject => { %>
                       <label class="ma-check ma-check--small"><input type="checkbox" id="subject_<%= subject.subject_id %>" name="subjects[]" value="<%= cls.class_id %>-<%= subject.subject_id %>" <%= subject.selected ? 'checked' : '' %>> <%= subject.subject_name %></label>
                     <% }); %>
@@ -680,7 +681,7 @@
       <span class="submit-spinner" aria-hidden="true"></span>
       <span class="submit-btn-text">Save</span>
     </button>
-    <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()" aria-label="Delete assessment" title="Delete assessment">
+    <button type="button" class="delete-button" id="deleteAssessmentBtn" data-onclick="common-modifyAssessment.5" aria-label="Delete assessment" title="Delete assessment">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="3 6 5 6 21 6"></polyline>
         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -692,7 +693,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function setModifyAssessmentSavingState(isSaving) {
     const saveButton = document.getElementById('saveAssessmentBtn');
     const deleteButton = document.getElementById('deleteAssessmentBtn');
@@ -794,7 +795,7 @@
 
     async function deleteAssessment() {
         const groupId = '<%= groupId %>';
-        if (confirm('Delete this assessment permanently?\n\nIf scores were already entered it can\'t be deleted; you can make it obsolete instead.')) {
+        if (await window.appConfirm('Delete this assessment permanently?\n\nIf scores were already entered it can\'t be deleted; you can make it obsolete instead.', { ok: 'Delete', danger: true })) {
             try {
                 const response = await fetch('/common/deleteAssessment', {
                     method: 'POST',
@@ -810,7 +811,7 @@
                 if (response.ok) {
                     alert(result.message);
                     backToList();
-                } else if (result.canObsolete && confirm(result.error + '\n\nMake it obsolete now?')) {
+                } else if (result.canObsolete && await window.appConfirm(result.error + '\n\nMake it obsolete now?', { ok: 'Make obsolete' })) {
                     // Kept with its scores; closed to new scores.
                     const ob = await fetch('/common/obsolete/assessment', {
                         method: 'POST',
@@ -859,7 +860,7 @@
       }
 </script>
 <script src="<%= assetUrl('/js/assessmentEntryMode.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var host = document.getElementById('maEntryModeHost');
     if (!host || !window.AssessmentEntryMode) return;
@@ -876,3 +877,4 @@
 </script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

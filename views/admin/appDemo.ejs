@@ -142,7 +142,7 @@
 
   .ade-switch { position: relative; display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--a-ink); }
   .ade-switch input { position: absolute; opacity: 0; pointer-events: none; }
-  .ade-switch__track { position: relative; width: 26px; height: 15px; border-radius: 999px; background: #cfd6de; transition: background-color .15s; }
+  .ade-switch__track { position: relative; width: 26px; height: 15px; border-radius: 999px; background: #7890b2; transition: background-color .15s; }
   .ade-switch__track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
   .ade-switch input:checked + .ade-switch__track { background: var(--a-brand); }
   .ade-switch input:checked + .ade-switch__track::after { transform: translateX(11px); }
@@ -327,9 +327,9 @@
   <div class="ade-toast" data-ade-toast role="status"></div>
 </div>
 
-<script type="application/json" id="adeData"><%- JSON.stringify(sections).replace(/</g, '\\u003c') %></script>
-<script type="application/json" id="adeCapture"><%- JSON.stringify({ window: captureWindow, minutes: captureMinutes, schools }).replace(/</g, '\\u003c') %></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="adeData"><%- JSON.stringify(sections).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="adeCapture"><%- JSON.stringify({ window: captureWindow, minutes: captureMinutes, schools }).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const root = document.getElementById('adeRoot');
   if (!root) return;
@@ -472,8 +472,8 @@
     if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); show({ type: 'feature', id: Number(row.dataset.id) }); }
   });
 
-  function show(next) {
-    if (!confirmLeave()) return;
+  async function show(next) {
+    if (!(await confirmLeave())) return;
     view = next;
     renderList();
     renderEditor();
@@ -604,7 +604,7 @@
     }));
     editorEl.querySelector('[data-section-add]').addEventListener('click', () => show({ type: 'new-feature', sectionId: s.id }));
     editorEl.querySelector('[data-ade-delete]').addEventListener('click', async () => {
-      if (!window.confirm('Delete the section "' + s.name + '"?')) return;
+      if (!await window.appConfirm('Delete the section "' + s.name + '"?')) return;
       try {
         await post('/admin/app-demo/sections/' + s.id + '/delete');
         view = { type: 'feature', id: null };
@@ -668,9 +668,9 @@
     }
   }
 
-  function confirmLeave() {
+  async function confirmLeave() {
     const form = editorEl.querySelector('[data-ade-details]');
-    return !(form && form.dataset.dirty) || window.confirm('Discard your unsaved changes?');
+    return !(form && form.dataset.dirty) || await window.appConfirm('Discard your unsaved changes?');
   }
 
   // ----- Feature editor -----
@@ -828,7 +828,7 @@
     });
 
     editorEl.querySelector('[data-ade-delete]').addEventListener('click', async () => {
-      if (!window.confirm('Delete "' + f.title + '" and its ' + plural(f.screens.length, 'step') + '? This cannot be undone.')) return;
+      if (!await window.appConfirm('Delete "' + f.title + '" and its ' + plural(f.screens.length, 'step') + '? This cannot be undone.')) return;
       try {
         await post('/admin/app-demo/features/' + f.id + '/delete');
         view = { type: 'feature', id: null };
@@ -860,7 +860,7 @@
     if (!list) return;
     sortable(list, '.ade-step', (ids) => saveStepOrder(featureId, ids));
 
-    list.addEventListener('click', (e) => {
+    list.addEventListener('click', async (e) => {
       const stepEl = e.target.closest('.ade-step');
       if (!stepEl) return;
       const stepId = Number(stepEl.dataset.id);
@@ -876,7 +876,7 @@
       }
       if (e.target.closest('[data-step-to]')) return moveStepTo(stepId, featureId);
       if (e.target.closest('[data-step-delete]')) {
-        if (!window.confirm('Delete this step and all of its versions?')) return;
+        if (!await window.appConfirm('Delete this step and all of its versions?')) return;
         return post('/admin/app-demo/screens/' + stepId + '/delete')
           .then(() => { renderList(); renderEditor(); toast('Step deleted'); })
           .catch((err) => toast(err.message, true));
@@ -899,7 +899,7 @@
         return replaceInput.click();
       }
       if (e.target.closest('[data-version-delete]')) {
-        if (!window.confirm('Delete this version?')) return;
+        if (!await window.appConfirm('Delete this version?')) return;
         post('/admin/app-demo/media/' + versionId + '/delete')
           .then(() => { renderList(); renderEditor(); toast('Version deleted'); })
           .catch((err) => toast(err.message, true));

@@ -1,3 +1,21 @@
+/* Shared sizes: one control height, one card padding. Pages use these instead of their own numbers. */
+:root { --control-h: 38px; --card-pad: 18px; --control-radius: 8px; }
+/* ONE type scale for the whole app (every page, frame, drawer and portal). Sizes only: the family is the school's own choice
+   (Appearance), so a school's font stays. Change a size here, never per page. Opt a block out with data-keep-type. */
+:root {
+  --fs-body: 14px; --fs-small: 12.5px; --fs-head: 16px; --fs-title: 22px; --fs-th: 12px; --fs-btn: 13.5px;
+  --fw-text: 400; --fw-label: 500; --fw-head: 600; --fw-title: 700;
+}
+html body { font-size: var(--fs-body) !important; }
+body :is(label):not([data-keep-type] *):not(.fc *):not(.student-report *):not(.report-card *):not(.rc-doc *) { font-weight: var(--fw-label) !important; }
+body :is(p, li, dd, dt, td, label, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea, summary, address):not([data-keep-type] *):not(.fc *):not(.student-report *):not(.report-card *):not(.rc-doc *) { font-size: var(--fs-body) !important; }
+body :is(small, figcaption, caption, .muted, .helper-text, .hint, .text-muted):not([data-keep-type] *):not(.fc *):not(.student-report *) { font-size: var(--fs-small) !important; }
+body :is(input:not([type=checkbox]):not([type=radio]), select, textarea):not([data-keep-type] *):not(.fc *) { font-weight: var(--fw-text) !important; }
+body :is(h1):not([data-keep-type] *):not(.student-report *):not(.report-card *):not(.rc-doc *) { font-size: var(--fs-title) !important; font-weight: var(--fw-title) !important; line-height: 1.25; }
+body :is(h2, h3):not([data-keep-type] *):not(.student-report *):not(.report-card *):not(.rc-doc *):not(.fc *) { font-size: var(--fs-head) !important; font-weight: var(--fw-head) !important; line-height: 1.3; }
+body :is(h4, h5, h6):not([data-keep-type] *):not(.student-report *):not(.report-card *):not(.rc-doc *):not(.fc *) { font-size: var(--fs-body) !important; font-weight: var(--fw-head) !important; line-height: 1.3; }
+body :is(th):not([data-keep-type] *):not(.student-report *):not(.report-card *):not(.rc-doc *):not(.fc *) { font-size: var(--fs-th) !important; font-weight: var(--fw-head) !important; }
+body :is(button, .btn, a.btn, input[type=button], input[type=submit], input[type=reset]):not([data-keep-type] *):not(.fc *):not(.student-report *):not(.report-card *):not(.rc-doc *):not(.dr-icon-btn):not([aria-label="Close"]):not(.menu-button) { font-size: var(--fs-btn) !important; font-weight: var(--fw-head) !important; }
 /* Each person's look: Light (white), Classic (gray) or Dark, on <html data-appearance>
    (set by views/layout.ejs). This file sets the page planes, the header and a few
    widgets the theme script can't read (other-site stylesheets); public/js/appearance.js
@@ -121,7 +139,8 @@
 .ap-choice--dark .ap-choice__preview { background: #16181c !important; border-color: #16181c; }
 .ap-choice--dark .ap-choice__preview i { background: #25282e !important; box-shadow: 0 0 0 1px #33373e; }
 .ap-choice__name { display: grid; gap: 1px; }
-.ap-choice__name small { font-size: .74rem; font-weight: 500; color: #64748b; }
+.ap-choice__name small { font-size: .74rem; font-weight: 500; color: #475569; }
+html[data-appearance="dark"] .ap-choice__name small { color: #b4bfce; }
 .ap-choice__check { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; background: var(--org-primary-color, #01535b); color: #fff; font-size: 10px; }
 .ap-choice:has(input:checked) .ap-choice__check { display: grid; }
 .ap-status:empty { display: none; }

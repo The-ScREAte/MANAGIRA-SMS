@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Manage Assessments</title>
     <style>
       :root {
@@ -381,6 +381,7 @@
         td > * { max-width: 58%; }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <link rel="stylesheet" href="/css/manage.css" />
@@ -415,7 +416,7 @@
         </select>
       </label>
       <% } %>
-      <button type="button" class="ws-btn ws-btn--primary" onclick="openCreateTestModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New test</button>
+      <button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageAssessment.1"><i class="fa-solid fa-plus" aria-hidden="true"></i> New test</button>
     </div>
   </header>
 
@@ -511,11 +512,11 @@
   </aside>
   <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
   <script src="<%= assetUrl('/js/listPager.js') %>"></script>
-  <script type="application/json" id="uxAssessments"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="uxAssessments"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   /* ---- Term picker: show another term's assessments ---- */
   (function () {
     var pick = document.getElementById('maTermPick');
@@ -615,16 +616,19 @@
         var msg = a.obsolete
           ? 'Restore "' + a.title + '"?'
           : 'Make "' + a.title + '" obsolete? Saved scores stay on report cards.';
-        if (!window.confirm(msg)) return;
+        window.appConfirm(msg, { ok: a.obsolete ? 'Restore' : 'Make obsolete' }).then(function (yes) { if (yes) doObsolete(); });
+        function doObsolete() {
         var btn = get('uxObsolete'); btn.disabled = true;
         fetch('/common/obsolete/assessment', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ kind: 'assessment', groupId: a.id, action: a.obsolete ? 'restore' : 'obsolete' }) })
           .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, b: b }; }); })
           .then(function (x) { if (!x.ok) { btn.disabled = false; window.alert(x.b.message || 'That could not be saved.'); return; } window.location.reload(); })
           .catch(function () { btn.disabled = false; window.alert('That could not be saved. Please try again.'); });
+        }
       });
       get('uxLock').addEventListener('click', function () {
-        if (!window.confirm((a.locked ? 'Unlock' : 'Lock') + ' "' + a.title + '" for every class?')) return;
-        updateControl(a.id, ctOrganizationId, ctTermId, a.locked ? 'unlock' : 'lock');
+        window.appConfirm((a.locked ? 'Unlock' : 'Lock') + ' "' + a.title + '" for every class?', { ok: a.locked ? 'Unlock' : 'Lock' }).then(function (yes) {
+          if (yes) updateControl(a.id, ctOrganizationId, ctTermId, a.locked ? 'unlock' : 'lock');
+        });
       });
     }
     // The panel starts under the app header when this page has one (inside a class tab the frame is lifted instead).
@@ -770,4 +774,4 @@
 </script>
 </body>
 </html>
-
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title><%= title %></title>
     <style>
       :root {
@@ -753,6 +753,7 @@
         }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
 
@@ -893,7 +894,7 @@
     <div class="tx-app">
       <div class="tx-bar" role="toolbar" aria-label="Transcript">
         <div class="tx-bar__lead">
-          <button type="button" class="tx-iconbtn" aria-label="Back" title="Back" onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '<%= _isPreview ? '/common/reports?panel=report-settings' : '/common/reports?panel=transcripts' %>'; }"><%- _svg(_icons.back) %></button>
+          <button type="button" class="tx-iconbtn" aria-label="Back" title="Back" data-onclick="print-transcript.1" data-mga0="<%= _isPreview ? '/common/reports?panel=report-settings' : '/common/reports?panel=transcripts' %>"><%- _svg(_icons.back) %></button>
           <nav class="tx-crumbs" aria-label="Breadcrumb">
             <a href="<%= _isPreview ? '/common/reports?panel=report-settings' : '/common/reports?panel=transcripts' %>" data-no-spa><%= _isPreview ? 'Report Settings' : 'Transcripts' %></a>
             <span class="tx-crumbs__sep" aria-hidden="true">/</span>
@@ -906,9 +907,9 @@
             <% if (canBroadcastToGuardians) { %>
               <button type="button" class="tx-btn tx-btn--ghost notify-guardians-btn" data-context="transcript" data-context-id="<%= student.student_id %>" title="Notify guardians"><%- _svg(_icons.bell) %><span>Notify guardians</span></button>
             <% } %>
-            <button type="button" class="tx-btn tx-btn--secondary" onclick="openEmailModal()" title="Email the official copy"><%- _svg(_icons.mail) %><span>Email official copy</span></button>
+            <button type="button" class="tx-btn tx-btn--secondary" data-onclick="print-transcript.2" title="Email the official copy"><%- _svg(_icons.mail) %><span>Email official copy</span></button>
           <% } %>
-          <button type="button" class="tx-btn tx-btn--primary" onclick="trackTranscriptPrintAndPrint()" title="Print"><%- _svg(_icons.print) %><span>Print</span></button>
+          <button type="button" class="tx-btn tx-btn--primary" data-onclick="print-transcript.3" title="Print"><%- _svg(_icons.print) %><span>Print</span></button>
         </div>
       </div>
 
@@ -987,7 +988,7 @@
       <div class="rp-panel" role="dialog" aria-modal="true" aria-labelledby="emailStepTitle">
         <div class="rp-head">
           <h3 class="rp-title" id="emailStepTitle">Email transcript</h3>
-          <button type="button" class="rp-x" onclick="closeEmailStepModal()" aria-label="Close">&times;</button>
+          <button type="button" class="rp-x" data-onclick="print-transcript.4" aria-label="Close">&times;</button>
         </div>
         <div class="rp-body">
           <div>
@@ -997,8 +998,8 @@
           <div id="emailStepStatus" style="font-size:12.5px;color:#e11d48;min-height:18px;"></div>
         </div>
         <div class="rp-foot">
-          <button type="button" class="rp-btn rp-btn--primary" onclick="proceedToPasswordStep()">Continue</button>
-          <button type="button" class="rp-btn" onclick="closeEmailStepModal()">Cancel</button>
+          <button type="button" class="rp-btn rp-btn--primary" data-onclick="print-transcript.5">Continue</button>
+          <button type="button" class="rp-btn" data-onclick="print-transcript.4">Cancel</button>
         </div>
       </div>
     </div>
@@ -1008,7 +1009,7 @@
       <div class="rp-panel" role="dialog" aria-modal="true" aria-labelledby="passwordStepTitle">
         <div class="rp-head">
           <h3 class="rp-title" id="passwordStepTitle">Confirm password</h3>
-          <button type="button" class="rp-x" onclick="backToEmailStep()" aria-label="Back">&times;</button>
+          <button type="button" class="rp-x" data-onclick="print-transcript.6" aria-label="Back">&times;</button>
         </div>
         <div class="rp-body">
           <div>
@@ -1018,13 +1019,13 @@
           <div id="passwordStatus" class="rp-status" style="min-height:18px;"></div>
         </div>
         <div class="rp-foot">
-          <button type="button" class="rp-btn rp-btn--primary" onclick="sendTranscriptEmail()">Send</button>
-          <button type="button" class="rp-btn" onclick="backToEmailStep()">Back</button>
+          <button type="button" class="rp-btn rp-btn--primary" data-onclick="print-transcript.7">Send</button>
+          <button type="button" class="rp-btn" data-onclick="print-transcript.6">Back</button>
         </div>
       </div>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       let emailRecipient = '';
 
       function trackTranscriptPrintAndPrint() {
@@ -1325,7 +1326,7 @@
     </div>
 
     <script src="<%= assetUrl('/js/guardianBroadcast.js') %>"></script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       document.addEventListener('click', function (e) {
         var btn = e.target.closest('.notify-guardians-btn');
         if (!btn) return;
@@ -1338,3 +1339,4 @@
     </script>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

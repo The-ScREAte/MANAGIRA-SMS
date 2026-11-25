@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Report Settings</title>
   <style>
     :root {
@@ -19,9 +19,6 @@
 
     * { box-sizing: border-box; }
 
-    /* Bumps every rem-based font size on this page up a notch — most of
-       the labels/badges/helper text here were sized quite small. */
-    html { font-size: 112.5%; }
 
     body {
       margin: 0;
@@ -2273,6 +2270,7 @@
     }
       textarea { font-family: inherit; }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="loading-overlay" id="loadingOverlay">
@@ -2603,7 +2601,7 @@
                   <div class="status-overview-note">Where this class's students go next, the pass mark and when school reopens.</div>
                 </div>
                 <div class="status-overview-actions rs-action-links">
-                  <a href="javascript:void(0)" id="bulkStatusSettingsBtn" class="rs-action-link">Edit</a>
+                  <a href="#" data-noop id="bulkStatusSettingsBtn" class="rs-action-link">Edit</a>
                 </div>
               </div>
               <div id="currentSettingsDisplay" class="status-overview-grid"></div>
@@ -2622,7 +2620,7 @@
                 <div class="rs-score-header-row">
                   <div style="font-weight:700;color:var(--primary);">Grade scale</div>
                   <div class="rs-action-links">
-                    <a href="javascript:void(0)" id="openGradeBulkPicker" class="rs-action-link">+ Add grades</a>
+                    <a href="#" data-noop id="openGradeBulkPicker" class="rs-action-link">+ Add grades</a>
                   </div>
                 </div>
 
@@ -2689,7 +2687,7 @@
                       </select>
                     </label>
                     <div id="gradeNumericConfigTriggerWrap" class="rs-grade-config-trigger" style="display:none;">
-                      <a href="javascript:void(0)" id="openGradeNumericConfigBtn" class="rs-action-link">Configure Numbers</a>
+                      <a href="#" data-noop id="openGradeNumericConfigBtn" class="rs-action-link">Configure Numbers</a>
                     </div>
                   </div>
 
@@ -2782,7 +2780,7 @@
           </div>
           <!-- ── Advanced Display Settings Accordion ── -->
           <div id="advancedDsAccordion" class="rs-adv">
-            <button type="button" id="advancedDsToggleBtn" class="rs-adv-toggle" onclick="toggleAdvancedDsPanel()" aria-controls="advancedDsPanel">
+            <button type="button" id="advancedDsToggleBtn" class="rs-adv-toggle" data-onclick="print-reportSettings.1" aria-controls="advancedDsPanel">
               <span class="rs-adv-toggle__text">
                 <span class="rs-adv-toggle__title">What prints on report cards</span>
                 <span class="rs-adv-toggle__sub">Scores, promotion, attendance &amp; lunch, remarks, fees and GPA for this class</span>
@@ -2833,7 +2831,7 @@
         #reportLayoutCard .rl-save { width: auto; margin: 0; padding: 10px 20px; border: 0; border-radius: 8px; background: var(--primary, #0f5a66); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
         .rl-note { color: #64748b; font-size: .88rem; }
       </style>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
           var save = document.getElementById('rlSave');
           if (!save) return;
@@ -2865,7 +2863,7 @@
         <div class="gr-toolbar">
           <div class="gr-toolbar-item">
             <div class="rs-action-links">
-              <a href="javascript:void(0)" id="openCustomRemarkTypeModalBtn" class="rs-action-link">Custom Remarks</a>
+              <a href="#" data-noop id="openCustomRemarkTypeModalBtn" class="rs-action-link">Custom Remarks</a>
             </div>
           </div>
           <div class="gr-toolbar-item">
@@ -2896,13 +2894,13 @@
           <div class="gr-remark-head">
             <div class="gr-remark-title">Remark Entries</div>
             <div class="rs-action-links">
-              <a href="javascript:void(0)" id="add-remark-btn" class="rs-action-link gr-remark-add-link">+ Add remark</a>
+              <a href="#" data-noop id="add-remark-btn" class="rs-action-link gr-remark-add-link">+ Add remark</a>
             </div>
           </div>
           <div id="remarks-container">
             <div class="form-group remark-item">
               <div class="remark-item-head">
-                <a href="javascript:void(0)" class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
+                <a href="#" data-noop class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
               </div>
               <textarea class="global-remark-textarea" name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
               <div class="form-group">
@@ -3025,9 +3023,9 @@
                       <% sig.classes.slice().sort((a,b)=> (classOrderIndexMap[String(a.class_id)] ?? 2147483647) - (classOrderIndexMap[String(b.class_id)] ?? 2147483647)).forEach(classInfo=>{ %>
                         <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
                           <%= classInfo.class_name %>
-                          <a href="javascript:void(0)" 
+                          <a href="#" data-noop 
                              style="color:#e11d48;text-decoration:none;font-weight:700;line-height:1;"
-                             onclick="deleteSignatureForClass(<%= classInfo.class_id %>, '<%= classInfo.class_name %>', '<%= termId %>')">×</a>
+                             data-onclick="print-reportSettings.2" data-mga0="<%= classInfo.class_id %>" data-mga1="<%= classInfo.class_name %>" data-mga2="<%= termId %>">×</a>
                         </span>
                       <% }); %>
                     </div>
@@ -3035,16 +3033,16 @@
                       <% if (sig.obsolete) { %>
                       <span class="obs-tag" title="Stays on these classes; can't be added to more">Obsolete</span>
                       <% } else { %>
-                      <a href="javascript:void(0)" 
+                      <a href="#" data-noop 
                          class="add-classes-link" 
                          data-signature-path="<%= signaturePath %>"
                          style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
                       <% } %>
                       <a href="#" data-signature-obsolete data-kind="report" data-signature-path="<%= signaturePath %>" data-action="<%= sig.obsolete ? 'restore' : 'obsolete' %>"
                          style="color:var(--muted);font-weight:600;text-decoration:none;font-size:0.9rem;"><%= sig.obsolete ? 'Restore' : 'Make obsolete' %></a>
-                      <a href="javascript:void(0)" 
+                      <a href="#" data-noop 
                          style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
-                         onclick="deleteEntireSignature('<%= encodeURIComponent(signaturePath) %>', '<%= termId %>')">Delete</a>
+                         data-onclick="print-reportSettings.3" data-mga0="<%= encodeURIComponent(signaturePath) %>" data-mga1="<%= termId %>">Delete</a>
                     </div>
                   </div>
                 </div>
@@ -3058,15 +3056,15 @@
         <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
           <div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">New report signature</h3>
-            <a href="javascript:void(0)" id="toggleSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
+            <a href="#" data-noop id="toggleSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
           </div>
           
           <div id="signatureFormContainer" style="display:none;">
             <div class="sig-canvas-wrapper"><canvas id="signatureCanvas" class="sig-canvas"></canvas></div>
             <div class="sig-helper-text">Draw slowly for the cleanest signature. The pad smooths your stroke automatically and saves a tightly trimmed PNG.</div>
             <div class="sig-canvas-actions">
-              <button type="button" class="btn btn-danger" onclick="clearCanvas()">Clear</button>
-              <button type="button" class="btn" onclick="saveDigitalSignature()">Save Signature</button>
+              <button type="button" class="btn btn-danger" data-onclick="print-reportSettings.4">Clear</button>
+              <button type="button" class="btn" data-onclick="print-reportSettings.5">Save Signature</button>
             </div>
             <div id="sigStatus" class="sig-status"></div>
             <div class="form-row-2" style="margin:12px 0 4px;">
@@ -3115,9 +3113,9 @@
                         <% sig.classes.slice().sort((a,b)=> (classOrderIndexMap[String(a.class_id)] ?? 2147483647) - (classOrderIndexMap[String(b.class_id)] ?? 2147483647)).forEach(classInfo=>{ %>
                           <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
                             <%= classInfo.class_name %>
-                            <a href="javascript:void(0)" 
+                            <a href="#" data-noop 
                                style="color:#e11d48;text-decoration:none;font-weight:700;line-height:1;"
-                               onclick="deleteTranscriptSignatureForClass(<%= classInfo.class_id %>, '<%= classInfo.class_name %>')">×</a>
+                               data-onclick="print-reportSettings.6" data-mga0="<%= classInfo.class_id %>" data-mga1="<%= classInfo.class_name %>">×</a>
                           </span>
                         <% }); %>
                       </div>
@@ -3125,16 +3123,16 @@
                         <% if (sig.obsolete) { %>
                         <span class="obs-tag" title="Stays on these classes; can't be added to more">Obsolete</span>
                         <% } else { %>
-                        <a href="javascript:void(0)" 
+                        <a href="#" data-noop 
                            class="add-transcript-classes-link" 
                            data-signature-path="<%= signaturePath %>"
                            style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
                         <% } %>
                         <a href="#" data-signature-obsolete data-kind="transcript" data-signature-path="<%= signaturePath %>" data-action="<%= sig.obsolete ? 'restore' : 'obsolete' %>"
                            style="color:var(--muted);font-weight:600;text-decoration:none;font-size:0.9rem;"><%= sig.obsolete ? 'Restore' : 'Make obsolete' %></a>
-                        <a href="javascript:void(0)" 
+                        <a href="#" data-noop 
                            style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
-                           onclick="deleteEntireTranscriptSignature('<%= encodeURIComponent(signaturePath) %>')">Delete</a>
+                           data-onclick="print-reportSettings.7" data-mga0="<%= encodeURIComponent(signaturePath) %>">Delete</a>
                       </div>
                     </div>
                   </div>
@@ -3148,15 +3146,15 @@
           <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
             <div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">New transcript signature</h3>
-              <a href="javascript:void(0)" id="toggleTranscriptSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
+              <a href="#" data-noop id="toggleTranscriptSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
             </div>
             
             <div id="transcriptSignatureFormContainer" style="display:none;">
               <div class="sig-canvas-wrapper"><canvas id="transcriptSignatureCanvas" class="sig-canvas"></canvas></div>
               <div class="sig-helper-text">Draw slowly for the cleanest signature. The pad smooths your stroke automatically and saves a tightly trimmed PNG.</div>
               <div class="sig-canvas-actions">
-                <button type="button" class="btn btn-danger" onclick="clearTranscriptCanvas()">Clear</button>
-                <button type="button" class="btn" onclick="saveTranscriptSignature()">Save Transcript Signature</button>
+                <button type="button" class="btn btn-danger" data-onclick="print-reportSettings.8">Clear</button>
+                <button type="button" class="btn" data-onclick="print-reportSettings.9">Save Transcript Signature</button>
               </div>
               <div id="transcriptSigStatus" class="sig-status"></div>
               <div class="form-row-2" style="margin:12px 0 4px;">
@@ -3200,7 +3198,7 @@
           <span id="transcriptDesignNote" class="rs-td-note" role="status"></span>
         </div>
       </div>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
           var card = document.getElementById('transcriptDesignCard');
           if (!card) return;
@@ -3230,7 +3228,7 @@
   </main>
 
   <% if (!setupRequired) { %>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // Obsolete / restore (kept on every report card that already uses it).
     async function setObsoleteState(url, payload) {
       try {
@@ -3249,12 +3247,12 @@
         return false;
       }
     }
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', async (event) => {
       const remarkLink = event.target.closest('a[data-obsolete-kind="remark"]');
       if (remarkLink) {
         event.preventDefault();
         const restore = remarkLink.dataset.obsoleteAction === 'restore';
-        if (!confirm(restore
+        if (!await window.appConfirm(restore
           ? 'Restore this remark? Teachers can choose it again.'
           : 'Make this remark obsolete?\n\nIt stays on every report card that already uses it. Teachers no longer see it in their remark lists. You can restore it any time.')) return;
         setObsoleteState('/print/obsolete', { kind: 'remark', id: remarkLink.dataset.obsoleteId, action: remarkLink.dataset.obsoleteAction });
@@ -3263,7 +3261,7 @@
       const typeBtn = event.target.closest('.gr-type-obsolete-btn');
       if (typeBtn) {
         const restore = typeBtn.dataset.action === 'restore';
-        if (!confirm(restore
+        if (!await window.appConfirm(restore
           ? 'Restore this remark type? It can be used for new remarks again.'
           : 'Make this remark type obsolete?\n\nRemarks already saved with it stay on report cards. It is no longer offered when adding new remarks. You can restore it any time.')) return;
         typeBtn.disabled = true;
@@ -3274,7 +3272,7 @@
       if (sigLink) {
         event.preventDefault();
         const restore = sigLink.dataset.action === 'restore';
-        if (!confirm(restore
+        if (!await window.appConfirm(restore
           ? 'Restore this signature? It can be added to more classes again.'
           : 'Make this signature obsolete?\n\nIt stays on the classes and report cards that already use it, and can\'t be added to more classes. You can restore it any time.')) return;
         setObsoleteState('/print/obsoleteSignature', { kind: sigLink.dataset.kind, signaturePath: sigLink.dataset.signaturePath, action: sigLink.dataset.action });
@@ -3548,7 +3546,7 @@
     function buildRemarkItemHtml() {
       return `
         <div class="remark-item-head">
-          <a href="javascript:void(0)" class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
+          <a href="#" data-noop class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
         </div>
         <textarea class="global-remark-textarea" name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
         <div class="form-group">
@@ -3592,7 +3590,7 @@
       const typeLabel = rowEl?.querySelector('.gr-type-row-label')?.textContent?.trim() || 'this custom type';
       const msgEl = document.getElementById('customRemarkTypeMsg');
 
-      if (!window.confirm(`Delete "${typeLabel}" custom type?`)) {
+      if (!await window.appConfirm(`Delete "${typeLabel}" custom type?`)) {
         return;
       }
 
@@ -3616,7 +3614,7 @@
           deleteBtn.disabled = false;
           deleteBtn.textContent = originalBtnText;
           if (msgEl) { msgEl.style.color = '#b45309'; msgEl.textContent = result.message; }
-          if (window.confirm(result.message + '\n\nMake it obsolete now?')) {
+          if (await window.appConfirm(result.message + '\n\nMake it obsolete now?')) {
             await setObsoleteState('/print/obsolete', { kind: 'remarkType', id: typeKey, action: 'obsolete' });
           }
           return;
@@ -3785,7 +3783,7 @@
     const gradeNumericTotalConfigHint = document.getElementById('gradeNumericTotalConfigHint');
 
     function confirmDestructiveAction(message) {
-      return window.confirm(message || 'Are you sure you want to continue?');
+      return window.appConfirm(message || 'Are you sure you want to continue?');
     }
 
     function logGradeNumericTotal(eventName, payload = {}) {
@@ -4865,13 +4863,13 @@
     }
 
     // Confirm hard deletes for score/remark entries before navigating.
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', async (event) => {
       const deleteLink = event.target.closest('a[href*="/print/deleteScoreRemark/"], a[href*="/print/deleteRemark/"]');
       if (!deleteLink) return;
       const confirmMessage = String(deleteLink.getAttribute('data-confirm-message') || 'Delete this item? This action cannot be undone.');
       event.preventDefault();
       event.stopPropagation();
-      if (!confirmDestructiveAction(confirmMessage)) return;
+      if (!await confirmDestructiveAction(confirmMessage)) return;
       // Deleting is a POST (never a GET), to the same address.
       const form = document.createElement('form');
       form.method = 'post';
@@ -4945,7 +4943,7 @@
                   <button type="button" class="kebab" aria-label="More actions" aria-expanded="false">⋮</button>
                   <ul>
                     <li>
-                      <a href="javascript:void(0)"
+                      <a href="#" data-noop
                          class="edit-grade-rule"
                          data-id="${row.id}"
                          data-class-id="${classId}"
@@ -5455,7 +5453,7 @@
       }
 
       if (normalizedNextShow && requireConfirm) {
-        const ok = confirmDestructiveAction('Enable number total on report? This will display Total Grade Score on each student report for this class.');
+        const ok = await confirmDestructiveAction('Enable number total on report? This will display Total Grade Score on each student report for this class.');
         logGradeNumericTotal('toggle:confirm', {
           classId: classIdField?.value,
           confirmed: ok,
@@ -5527,7 +5525,7 @@
         : 'letters';
       if (nextMode === prev.mode) return;
 
-      const ok = confirmDestructiveAction('Change Format? This will update how grades display on report for this class.');
+      const ok = await confirmDestructiveAction('Change Format? This will update how grades display on report for this class.');
       if (!ok) {
         applyGradePresentationStateToControls(prev);
         return;
@@ -7133,7 +7131,7 @@
 
     // AJAX delete functions
     async function deleteSignatureForClass(classId, className, termId) {
-      if (!confirm(`Remove signature from ${className}?`)) return;
+      if (!await window.appConfirm(`Remove signature from ${className}?`)) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteSignatureForClass?classId=${classId}&termId=${termId}`, {
@@ -7153,14 +7151,14 @@
       if (res.status !== 409) return false;
       const result = await res.json().catch(() => ({}));
       hideLoading();
-      if (result.canObsolete && confirm((result.message || 'This signature is in use.') + '\n\nMake it obsolete now?')) {
+      if (result.canObsolete && await window.appConfirm((result.message || 'This signature is in use.') + '\n\nMake it obsolete now?')) {
         await setObsoleteState('/print/obsoleteSignature', { kind, signaturePath: decodeURIComponent(signaturePath), action: 'obsolete' });
       }
       return true;
     }
 
     async function deleteEntireSignature(signaturePath, termId) {
-      if (!confirm('Delete this signature completely? It will be removed from all classes.\n\nA signature already on report cards can\'t be deleted; you can make it obsolete instead.')) return;
+      if (!await window.appConfirm('Delete this signature completely? It will be removed from all classes.\n\nA signature already on report cards can\'t be deleted; you can make it obsolete instead.')) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireSignature?signaturePath=${signaturePath}&termId=${termId}`, {
@@ -7179,7 +7177,7 @@
 
     <% if (hasTranscriptFeature) { %>
     async function deleteTranscriptSignatureForClass(classId, className) {
-      if (!confirm(`Remove transcript signature from ${className}?`)) return;
+      if (!await window.appConfirm(`Remove transcript signature from ${className}?`)) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteTranscriptSignatureForClass?classId=${classId}`, {
@@ -7197,7 +7195,7 @@
 
     <% if (hasTranscriptFeature) { %>
     async function deleteEntireTranscriptSignature(signaturePath) {
-      if (!confirm('Delete this transcript signature completely? It will be removed from all classes.\n\nA signature already on transcripts can\'t be deleted; you can make it obsolete instead.')) return;
+      if (!await window.appConfirm('Delete this transcript signature completely? It will be removed from all classes.\n\nA signature already on transcripts can\'t be deleted; you can make it obsolete instead.')) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireTranscriptSignature?signaturePath=${signaturePath}`, {
@@ -7328,7 +7326,7 @@
     function buildMasterGroupHtml(cat, label, items, masterOn, itemsState) {
       if (items.length === 0) {
         return `<div class="ds-adv-group"><div class="ds-adv-masterrow" style="border-radius:7px;cursor:default;">
-          <label class="ds-adv-lbl" onclick="event.stopPropagation()">
+          <label class="ds-adv-lbl" data-onclick="print-reportSettings.10">
             <input type="checkbox" class="ds-adv-master" data-cat="${cat}" style="accent-color:var(--primary);cursor:pointer;" ${masterOn ? 'checked' : ''}>
             <span>${dsEsc(label)}</span>
           </label>
@@ -7346,8 +7344,8 @@
         </label>`;
       }).join('');
       return `<div class="ds-adv-group" data-cat="${cat}">
-        <div class="ds-adv-masterrow" onclick="dsAdvToggleSub(this.closest('.ds-adv-group'))" style="border-radius:${subOpen ? '7px 7px 0 0' : '7px'};">
-          <label class="ds-adv-lbl" onclick="event.stopPropagation()">
+        <div class="ds-adv-masterrow" data-onclick="print-reportSettings.11" style="border-radius:${subOpen ? '7px 7px 0 0' : '7px'};">
+          <label class="ds-adv-lbl" data-onclick="print-reportSettings.10">
             <input type="checkbox" class="ds-adv-master" data-cat="${cat}" style="accent-color:var(--primary);cursor:pointer;" ${masterOn ? 'checked' : ''}>
             <span>${dsEsc(label)}</span>
           </label>
@@ -8036,9 +8034,9 @@
         });
         syncAllClassesToggle();
 
-        row.querySelector('.ds-paygira-remove-field')?.addEventListener('click', () => {
+        row.querySelector('.ds-paygira-remove-field')?.addEventListener('click', async () => {
           const fieldName = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || 'this field';
-          if (!confirmDestructiveAction(`Remove ${fieldName}?`)) {
+          if (!await confirmDestructiveAction(`Remove ${fieldName}?`)) {
             return;
           }
           row.remove();
@@ -8081,9 +8079,9 @@
         // Start collapsed; user can expand when needed.
         setExpanded(false);
 
-        totalRow.querySelector('.ds-paygira-remove-total')?.addEventListener('click', () => {
+        totalRow.querySelector('.ds-paygira-remove-total')?.addEventListener('click', async () => {
           const totalName = totalRow.querySelector('.ds-paygira-total-label')?.value?.trim() || 'this total';
-          if (!confirmDestructiveAction(`Remove ${totalName}?`)) {
+          if (!await confirmDestructiveAction(`Remove ${totalName}?`)) {
             return;
           }
           totalRow.remove();
@@ -8751,7 +8749,7 @@
 
       const dirtyRows = getDirtyStatusRows();
       if (!dirtyRows.length) {
-        const proceedWithoutRowChanges = window.confirm('No row changes detected. Save advanced settings only?');
+        const proceedWithoutRowChanges = await window.appConfirm('No row changes detected. Save advanced settings only?');
         if (!proceedWithoutRowChanges) {
           return;
         }
@@ -8768,7 +8766,7 @@
       }
 
       const rowCountLabel = dirtyRows.length === 1 ? 'row' : 'rows';
-      const confirmed = window.confirm(`Save ${dirtyRows.length} edited ${rowCountLabel}? Unedited rows will remain unchanged.`);
+      const confirmed = await window.appConfirm(`Save ${dirtyRows.length} edited ${rowCountLabel}? Unedited rows will remain unchanged.`);
       if (!confirmed) {
         return;
       }
@@ -8864,7 +8862,7 @@
 
   </script>
   <% } %>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 // 80 classes x 2 pickers x 80 options was most of this page. Each picker holds only its chosen class until it's
 // opened; the shared list below fills the rest then.
 window.__rsClassList = <%- JSON.stringify((enrolledClasses || []).map(function (c) { return { id: String(c.class_id), name: c.class_name }; })) %>;
@@ -8888,3 +8886,4 @@ window.__rsClassList = <%- JSON.stringify((enrolledClasses || []).map(function (
 </script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

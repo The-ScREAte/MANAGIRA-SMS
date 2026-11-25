@@ -43,7 +43,7 @@
     </nav>
   <% } %>
 </main>
-<script type="application/json" id="docs-index"><%- searchIndexJson %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="docs-index"><%- searchIndexJson %></script>
 <%- include('../home/partials/footer') %>
 </body>
 </html>

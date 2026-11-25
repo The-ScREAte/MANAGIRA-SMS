@@ -130,7 +130,7 @@
     const role = chosen(select);
     if (!role) return;
     const name = role.dataset.roleName;
-    if (!window.confirm(`Remove the role "${name}"? Everyone with it keeps their access and shows as ${role.value}.`)) return;
+    if (!await window.appConfirm(`Remove the role "${name}"? Everyone with it keeps their access and shows as ${role.value}.`)) return;
     const { line } = parts(select);
     const result = await post(`/common/school-roles/${role.dataset.roleId}/remove`, {});
     if (!result.ok) { say(line, result.error || "That didn't remove."); return; }

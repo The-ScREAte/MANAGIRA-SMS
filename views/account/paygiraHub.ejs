@@ -567,13 +567,13 @@
     }
   }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Inside a panel (a section's form or link landing back here), show that
   // section on its own instead of opening PayGira inside itself again.
   if (window.self !== window.top) { var _u = new URL(location.href); _u.searchParams.set('embed', 'workspace'); location.replace(_u.href); }
 </script>
 <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // A workspace never opens inside another workspace's panel: a link that lands here from inside a frame takes the whole window.
   if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { /* a different origin: stay */ } }
 </script>
@@ -613,7 +613,7 @@
         </li>
         <% }) %>
       </ul>
-      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="paygira"]'));</script>
+      <script nonce="<%= locals.cspNonce || '' %>">window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="paygira"]'));</script>
     </nav>
     </div>
 
@@ -633,7 +633,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Old links (?section=bills) and a kept copy of this page open the panel the
   // address names, whatever was marked active when the page was drawn.
   (function pickPaygiraSection() {
@@ -646,7 +646,7 @@
     document.querySelectorAll('.hub-section').forEach((s) => s.classList.toggle('active', s.id === wanted));
   })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function initHubMenu() {
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('.hub-section');

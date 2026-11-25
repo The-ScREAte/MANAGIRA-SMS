@@ -57,6 +57,6 @@
     .sr-box[hidden], .sr-line[hidden], .sr-line [hidden], .sr-error[hidden] { display: none !important; }
   </style>
   <script src="/js/schoolRoles.js" defer></script>
-  <script>window.ManagiraSchoolRoles && window.ManagiraSchoolRoles.scan();</script>
+  <script nonce="<%= locals.cspNonce || '' %>">window.ManagiraSchoolRoles && window.ManagiraSchoolRoles.scan();</script>
 <% } %>
 <% } %>

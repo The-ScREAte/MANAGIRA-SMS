@@ -4,7 +4,7 @@
   <link rel="stylesheet" href="/css/globalScale.css">
   <link rel="stylesheet" href="<%= assetUrl('/css/assessmentEntryMode.css') %>">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Add New Test</title>
   <style>
       :root {
@@ -804,6 +804,7 @@
   .ct-dialog__ok { display: block; margin-left: auto; min-width: 84px; min-height: 40px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--primary, #01535b); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
   html[data-appearance="dark"] .ct-dialog__card { background: #1e293b; color: #f1f5f9; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
     <main>
@@ -830,11 +831,11 @@
                   <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required />
                 </div>
                 <div class="test-menu-container">
-                  <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
+                  <button type="button" class="test-menu-button" data-onclick="common-createTest.1">
                     ⋮
                   </button>
                   <div class="test-menu-dropdown">
-                    <button type="button" class="test-menu-item delete" onclick="removeTestForm(this)">
+                    <button type="button" class="test-menu-item delete" data-onclick="common-createTest.2">
                       Remove
                     </button>
                   </div>
@@ -905,20 +906,20 @@
                 <% } %>
               </div>
               <h4 class="section-divider">Classes</h4>
-              <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
+              <button type="button" class="collapsible-btn" data-onclick="common-createTest.3">
                 Show/Hide Classes
                 <span class="arrow" id="arrow-class-list-1">&#9654;</span>
               </button>
               <div class="collapsible-content" id="class-list-1" style="display:none;">
                 <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
-                  <input type="checkbox" id="selectAllClassesAndSubjects-1" onchange="toggleSelectAllClassesAndSubjects(1)" />
+                  <input type="checkbox" id="selectAllClassesAndSubjects-1" data-onchange="common-createTest.4" />
                   <label for="selectAllClassesAndSubjects-1" style="font-weight:700;">Select all</label>
                 </div>
                 <div class="class-container">
                   <% classes.forEach((cls) => { %>
                     <div class="class-checkbox">
                       <input type="checkbox" name="classes-1[]" value="<%= cls.class_id %>"
-                        onchange="toggleSubjects('subjects-container-<%= cls.class_id %>-1', this)">
+                        data-onchange="common-createTest.5" data-mga0="<%= cls.class_id %>">
                       <label><%= cls.class_name %></label>
                     </div>
                     <div id="subjects-container-<%= cls.class_id %>-1" class="subject-container" style="display: none;">
@@ -939,7 +940,7 @@
       </div>
 
       <div class="test-footer-bar">
-        <button type="button" class="add-form-btn" onclick="addTestForm()">
+        <button type="button" class="add-form-btn" data-onclick="common-createTest.6">
           <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 5v14"></path>
             <path d="M5 12h14"></path>
@@ -958,7 +959,7 @@
       </div>
     </main>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const CT_FLOW = <%= locals.flow ? 'true' : 'false' %>;
     let testFormCount = 1;
     const canUseQuestionSetIntegration = <%= canUseQuestionSetIntegration ? 'true' : 'false' %>;
@@ -976,11 +977,11 @@
             <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required>
           </div>
           <div class="test-menu-container">
-            <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
+            <button type="button" class="test-menu-button" data-onclick="common-createTest.1">
               ⋮
             </button>
             <div class="test-menu-dropdown">
-              <button type="button" class="test-menu-item delete" onclick="removeTestForm(this)">
+              <button type="button" class="test-menu-item delete" data-onclick="common-createTest.2">
                 Remove
               </button>
             </div>
@@ -1051,20 +1052,20 @@
         ` : ''}
         </div>
         <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Classes</h4>
-        <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
+        <button type="button" class="collapsible-btn" data-onclick="common-createTest.classList" data-mga0="${testFormCount}">
           Show/Hide Classes
           <span class="arrow" id="arrow-class-list-${testFormCount}">&#9654;</span>
         </button>
         <div class="collapsible-content" id="class-list-${testFormCount}" style="display:none;">
           <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
-            <input type="checkbox" id="selectAllClassesAndSubjects-${testFormCount}" onchange="toggleSelectAllClassesAndSubjects(${testFormCount})">
+            <input type="checkbox" id="selectAllClassesAndSubjects-${testFormCount}" data-onchange="common-createTest.selectAll" data-mga0="${testFormCount}">
             <label style="font-weight:700;">Select all</label>
           </div>
           <div class="class-container">
             <% classes.forEach((cls) => { %>
               <div class="class-checkbox">
                 <input type="checkbox" name="classes-${testFormCount}[]" value="<%= cls.class_id %>"
-                  onchange="toggleSubjects('subjects-container-<%= cls.class_id %>-${testFormCount}', this)">
+                  data-onchange="common-createTest.subjects" data-mga0="<%= cls.class_id %>" data-mga1="${testFormCount}">
                 <label><%= cls.class_name %></label>
               </div>
               <div id="subjects-container-<%= cls.class_id %>-${testFormCount}" class="subject-container" style="display: none;">
@@ -1274,7 +1275,7 @@
     }
   </script>
 <% if (locals.flow && locals.prefillClassId) { %>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // From a class's gradebook or the questions page: that class and subject come ticked.
     (function () {
       var classBox = document.querySelector('input[name="classes-1[]"][value="<%= Number(prefillClassId) %>"]');
@@ -1348,7 +1349,7 @@
     .test-form .subject-container[style*="block"] { grid-template-columns: 1fr; }
   }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Tidies each test form as it appears (the first one and every "Add Form"), without changing a field name.
   (function () {
     function groupOf(card, selector) { var el = card.querySelector(selector); return el ? el.closest('.form-group') : null; }
@@ -1413,10 +1414,10 @@
 <% const _assessLib = Array.isArray(locals.assessmentLibrary) ? assessmentLibrary : []; %>
 <%# This term's assessments show straight away; earlier ones appear when typed. %>
 <datalist id="assessment-library"><% _assessLib.forEach((a) => { %><option value="<%= a.title %>"<%= a.this_term ? ' data-recent' : '' %>></option><% }) %></datalist>
-<script type="application/json" id="assessmentLibraryData"><%- JSON.stringify(_assessLib).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="assessmentLibraryData"><%- JSON.stringify(_assessLib).replace(/</g, '\\u003c') %></script>
 <script src="/js/libraryPicker.js" defer></script>
 <script src="<%= assetUrl('/js/assessmentEntryMode.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Every test card gets "How are results recorded?" (score or choices),
   // including cards added with "Add another test".
   (function () {
@@ -1431,7 +1432,7 @@
     if (list) new MutationObserver(attachAll).observe(list, { childList: true });
   })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Picking an existing assessment name fills in its usual settings (only
   // fields still empty), so a regular test is reused rather than set up again.
   (function () {
@@ -1454,3 +1455,4 @@
     document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('input[name="testName[]"]')) fill(e.target); });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

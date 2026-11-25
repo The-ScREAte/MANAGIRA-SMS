@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Create Promo Code</title>
     <link rel="stylesheet" href="/css/admin.css" />
     <style>
@@ -150,6 +150,7 @@
         }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <div class="content-container">
@@ -190,7 +191,7 @@
                   (Expires: <%= new Date(promo.expiration_date).toISOString().split('T')[0] %>)
                 </span>
               </span>
-              <form action="/admin/delete-promo/<%= promo.id %>" method="POST" onsubmit="return confirm('Delete this promo code?');">
+              <form action="/admin/delete-promo/<%= promo.id %>" method="POST" data-onsubmit="admin-createPromo.1">
                 <button type="submit" class="admin-btn admin-btn-sm admin-btn-delete">🗑 Delete</button>
               </form>
             </div>
@@ -204,3 +205,4 @@
     </div>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

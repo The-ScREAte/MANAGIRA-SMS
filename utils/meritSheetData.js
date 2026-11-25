@@ -3,6 +3,7 @@
 // and positions.
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("./studentIdDisplay");
 const { formatDisplayName } = require("./organizationDisplayPreferences");
+const termTotals = require("./termTotals");
 
 // Optional merit sheet columns staff can show or hide. S/N, student name and
 // the assessment scores are always shown. The defaults are the original
@@ -220,41 +221,31 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
     if (!scoreByKey.has(key)) scoreByKey.set(key, score);
   });
 
-  // Highest possible total across the selected assessments (for Percentage).
-  const maxPossibleTotal = selectedSubjectsData.reduce(
-    (sum, subject) =>
-      sum + subject.assessments.reduce((subjectSum, assessment) => subjectSum + (Number(assessment.max_score) || 0), 0),
-    0
-  );
-
   // Process students and attach scores, grades, and positions
   const meritSheetData = students.map((student) => {
     const studentScores = selectedSubjectsData.map((subject) => {
       const subjectAssessments = subject.assessments.map((assessment) => {
         const scoreData = scoreByKey.get(`${student.student_id}|${subject.subject_id}|${assessment.title}`);
 
+        // A score that was never entered shows "-" and isn't counted (utils/termTotals.js), as in the gradebook.
+        const entered = scoreData && !termTotals.isBlank(scoreData.score);
         return {
           title: assessment.title,
-          score: scoreData ? scoreData.score : "-",
+          score: entered ? scoreData.score : "-",
           grade: scoreData ? scoreData.grade : "-",
           weight: assessment.weight,
+          max: Number(assessment.max_score) || 0,
         };
       });
 
-      const totalSubjectScore = subjectAssessments.reduce(
-        (total, assessment) => {
-          return (
-            total +
-            (assessment.score !== "-" ? parseFloat(assessment.score) : 0)
-          );
-        },
-        0
-      );
+      const counted = termTotals.subjectTotals(subjectAssessments.map((assessment) => ({ score: assessment.score === "-" ? null : assessment.score, max: assessment.max })));
 
       return {
         subjectName: subject.subject_name,
         assessments: subjectAssessments,
-        totalScore: totalSubjectScore,
+        totalScore: counted.total,
+        maxScore: counted.max,
+        entered: counted.entered,
       };
     });
 
@@ -262,7 +253,10 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
       (total, subject) => total + subject.totalScore,
       0
     );
-    const averageScore = totalScore / studentScores.length;
+    // Out of what this student was scored on, and the average over the subjects they have scores in.
+    const maxPossibleTotal = studentScores.reduce((total, subject) => total + subject.maxScore, 0);
+    const scoredSubjects = studentScores.filter((subject) => subject.entered > 0).length;
+    const averageScore = scoredSubjects > 0 ? totalScore / scoredSubjects : 0;
     const percentageValue = maxPossibleTotal > 0 ? (totalScore / maxPossibleTotal) * 100 : null;
     const hasRecordedScore = studentScores.some((subject) =>
       subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)

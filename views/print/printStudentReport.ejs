@@ -2679,12 +2679,12 @@
     <br>
         <div class="actions-no-print collapsed" id="actionsBar">
                 <div class="actions-mobile-controls">
-                <button class="actions-menu-toggle" id="actionsMenuToggle" aria-expanded="false" aria-controls="actionsBar" onclick="toggleActionsMenu()">☰</button>
+                <button class="actions-menu-toggle" id="actionsMenuToggle" aria-expanded="false" aria-controls="actionsBar" data-onclick="print-printStudentReport.1">☰</button>
                     <div class="search-box">
                         <input type="text" id="studentSearch" name="student-report-search" placeholder="Search student..." value="" readonly autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true">
                     </div>
                     <div class="select-all-checkbox">
-                        <input type="checkbox" id="selectAllStudents" onchange="toggleSelectAll()">
+                        <input type="checkbox" id="selectAllStudents" data-onchange="print-printStudentReport.2">
                         <label for="selectAllStudents">Select All</label>
                     </div>
                 </div>
@@ -2695,12 +2695,12 @@
                             Quick Actions
                         </button>
                         <div class="desktop-actions-menu" id="desktopActionsMenu" role="menu">
-                            <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
-                            <a href="#" class="btn btn-primary" id="downloadReportsLink" onclick="downloadSelectedReports(); return false;">
+                            <a href="#" class="btn btn-primary" data-onclick="print-printStudentReport.3">Print Selected</a>
+                            <a href="#" class="btn btn-primary" id="downloadReportsLink" data-onclick="print-printStudentReport.4">
                                 <span class="download-btn-spinner" aria-hidden="true"></span>
                                 <span class="download-btn-label">Download PDF</span>
                             </a>
-                            <a href="#" class="btn btn-primary email-btn" onclick="openSendReportModal(); return false;"><span class="icon">📤</span>Send Report</a>
+                            <a href="#" class="btn btn-primary email-btn" data-onclick="print-printStudentReport.5"><span class="icon">📤</span>Send Report</a>
                             <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
                             <% if (activatePromotion) { %>
                             <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
@@ -2728,7 +2728,7 @@
             <% const reportStudentDisplayName = student.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
             <div class="student-report-grid">
             <div class="student-report <%= studentIndex === students.length - 1 ? 'last-report' : '' %>" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= reportStudentDisplayName %>">
-                <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
+                <input type="checkbox" class="student-checkbox" data-onchange="print-printStudentReport.6" data-student-id="<%= student.student_id %>">
             <% const _tplCard = (typeof templateCards !== 'undefined' && templateCards) ? templateCards[student.student_id] : null; %>
             <% if (_tplCard) { %>
             <div class="student-report-background rt-template">
@@ -2917,7 +2917,7 @@
                                     <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
                                     <td>
                                         <span class="promotion-select-wrapper">
-                                            <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
+                                            <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" data-onchange="print-printStudentReport.7" data-mga0="<%= student.student_id %>">
                                                 <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
                                                 <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
                                             </select>
@@ -2939,7 +2939,7 @@
                                     <tr>
                                         <td>
                                             <span class="promotion-select-wrapper">
-                                                <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
+                                                <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" data-onchange="print-printStudentReport.7" data-mga0="<%= student.student_id %>">
                                                     <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
                                                     <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
                                                 </select>
@@ -3056,7 +3056,7 @@
                                                                                         <%= remarkRow.label %>
 
                                                                                         <span class="remark-arrow" id="arrow-<%= remarkRow.rowKey %>-<%= student.student_id %>" 
-                                                                                                onclick="toggleDropdown('<%= remarkRow.rowKey %>', <%= student.student_id %>)">
+                                                                                                data-onclick="print-printStudentReport.8" data-mga0="<%= remarkRow.rowKey %>" data-mga1="<%= student.student_id %>">
                                               ▼
                                           </span>
                                         </label>
@@ -3065,13 +3065,13 @@
                                                                                                     name="<%= remarkRow.rowKey %>-<%= student.student_id %>"
                                                                                                     data-custom-remark-type="<%= remarkRow.customTypeKey || '' %>"
                                                   maxlength="150"
-                                                                                                    onfocus="this.select();"><%= remarkRow.value || '' %></textarea>
+                                                                                                    data-onfocus="print-printStudentReport.9"><%= remarkRow.value || '' %></textarea>
                                                                          
                                         
                                                                                 <div class="remark-dropdown" id="dropdown-<%= remarkRow.rowKey %>-<%= student.student_id %>">
                                                                                         <% (remarkRow.options || []).forEach(function (remark) { %>
                                                 <div class="remark-dropdown-option" 
-                                                                                                         onclick="selectRemark('<%= remarkRow.rowKey %>', <%= student.student_id %>, '<%= remark.remark %>')">
+                                                                                                         data-onclick="print-printStudentReport.10" data-mga0="<%= remarkRow.rowKey %>" data-mga1="<%= student.student_id %>" data-mga2="<%= remark.remark %>">
                                                     <%= remark.remark %>
                                                 </div>
                                             <% }); %>
@@ -3264,7 +3264,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         let isPrintSelectionInProgress = false;
         let reportVisibilityMode = 'default'; // default | search | selected | print
         let hasUserAppliedSearchFilter = false;
@@ -3734,7 +3734,7 @@
                 .filter((id) => Number.isFinite(id) && id > 0);
 
             if (!selectedStudentIds.length) {
-                const shouldDownloadAll = confirm('No students selected. Download report cards for all students in this class and term?');
+                const shouldDownloadAll = await window.appConfirm('No students selected. Download report cards for all students in this class and term?');
                 if (!shouldDownloadAll) return;
             }
 
@@ -4238,7 +4238,7 @@ function updateClass(studentId) {
             };
 
             if (checkForUnsavedChanges()) {
-                const proceed = confirm('You have unsaved report changes. Click OK to continue posting as-is, or Cancel to save changes first.');
+                const proceed = await window.appConfirm('You have unsaved report changes. Post as they are?', { ok: 'Post as is', cancel: 'Go back' });
                 if (!proceed) return;
             }
 
@@ -4248,7 +4248,7 @@ function updateClass(studentId) {
 
             let studentIds = selected;
             if (!studentIds.length) {
-                const postAll = confirm('No students selected. Post report cards for all students in this class and term?');
+                const postAll = await window.appConfirm('No students selected. Post report cards for all students in this class and term?');
                 if (!postAll) return;
                 studentIds = Array.from(document.querySelectorAll('.student-report'))
                     .map((report) => parseInt(report.getAttribute('data-student-id'), 10))
@@ -4296,11 +4296,11 @@ function updateClass(studentId) {
             }
         }
     // ===== EMAIL MODAL =====
-    function openEmailModal() {
+    async function openEmailModal() {
         // Unsaved changes warning
         const hasUnsavedChanges = checkForUnsavedChanges();
         if (hasUnsavedChanges) {
-            const proceed = confirm('⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease ensure all score changes and remarks have been saved before sending emails.\n\nClick OK to continue with email, or Cancel to go back and save.');
+            const proceed = await window.appConfirm('⚠️ WARNING: You may have unsaved changes to the report cards.\n\nSave score changes and remarks before sending emails.', { ok: 'Send anyway', cancel: 'Go back' });
             if (!proceed) return;
         }
 
@@ -4659,7 +4659,7 @@ function updateClass(studentId) {
                         <div class="email-student-name">${s.display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim()}</div>
                         <div class="email-student-meta">${s.class_name || ''}</div>
                     </div>
-                    <button type="button" class="email-add-btn" onclick="addEmailField(${s.student_id})">Add Email</button>
+                    <button type="button" class="email-add-btn" data-onclick="print-printStudentReport.addEmail" data-mga0="${s.student_id}">Add Email</button>
                 </div>
                 <div class="email-fields" id="emailFields-${s.student_id}">`;
 
@@ -4669,7 +4669,7 @@ function updateClass(studentId) {
                 html += `<div class="email-field-row">
                         <input type="email" ${valueAttr} class="email-input" data-student-id="${s.student_id}">
                         <span class="email-pill">${badge}</span>
-                        <button type="button" class="email-remove-btn" onclick="this.parentElement.remove()">✕</button>
+                        <button type="button" class="email-remove-btn" data-onclick="print-printStudentReport.11">✕</button>
                     </div>`;
             });
 
@@ -4693,7 +4693,7 @@ function updateClass(studentId) {
         row.innerHTML = `
             <input type="email" placeholder="Enter email address" class="email-input" data-student-id="${studentId}">
             <span class="email-pill">Manual</span>
-            <button type="button" class="email-remove-btn" onclick="this.parentElement.remove(); saveEmailsToStorage();">✕</button>
+            <button type="button" class="email-remove-btn" data-onclick="print-printStudentReport.12">✕</button>
         `;
         container.appendChild(row);
         
@@ -4760,7 +4760,7 @@ function updateClass(studentId) {
 
         if (missingEmails.length > 0) {
             const msg = `The following students have no emails: ${missingEmails.join(', ')}. Continue anyway?`;
-            const proceed = window.confirm(msg);
+            const proceed = await window.appConfirm(msg);
             if (!proceed) {
                 statusEl.textContent = 'Send cancelled. Please add emails or deselect those students.';
                 statusEl.style.color = '#d97706';
@@ -5047,7 +5047,7 @@ function updateClass(studentId) {
         const recipientSummary = recipientLines.length
             ? `\n\nWill be used for:\n${recipientLines.slice(0, 8).join('\n')}${recipientLines.length > 8 ? `\n...and ${recipientLines.length - 8} more` : ''}`
             : '';
-        const proceed = confirm(`${label} changes: ${parts.join(', ')}.${recipientSummary}\n\nSave these named contacts under the student? Existing guardian contact details will not be replaced.`);
+        const proceed = await window.appConfirm(`${label} changes: ${parts.join(', ')}.${recipientSummary}\n\nSave these named contacts under the student? Existing guardian contact details will not be replaced.`);
         if (!proceed) {
             closeSendReportDrawer();
             return;
@@ -5098,19 +5098,19 @@ function updateClass(studentId) {
                 statusEl.style.background = '#fef2f2';
                 statusEl.style.color = '#b91c1c';
                 statusEl.style.border = '1px solid #fecaca';
-                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Unable to save changes.')}<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Unable to save changes.')}<br><button type="button" data-onclick="print-printStudentReport.13" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
             } else {
                 statusEl.style.background = '#f0fdf4';
                 statusEl.style.color = '#166534';
                 statusEl.style.border = '1px solid #bbf7d0';
-                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Saved.')}<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #bbf7d0;color:#166534;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Saved.')}<br><button type="button" data-onclick="print-printStudentReport.13" style="margin-top:8px;background:#fff;border:1px solid #bbf7d0;color:#166534;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
             }
         } catch (error) {
             statusEl.style.display = 'block';
             statusEl.style.background = '#fef2f2';
             statusEl.style.color = '#b91c1c';
             statusEl.style.border = '1px solid #fecaca';
-            statusEl.innerHTML = `Network error — changes were not saved.<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+            statusEl.innerHTML = `Network error — changes were not saved.<br><button type="button" data-onclick="print-printStudentReport.13" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
         } finally {
             doneBtn.disabled = false;
             doneBtn.textContent = 'Done';
@@ -5298,8 +5298,8 @@ function updateClass(studentId) {
         input.addEventListener('blur', validate);
         input.addEventListener('input', () => { if (row.classList.contains('sr-row-invalid')) validate(); });
 
-        deleteBtn.addEventListener('click', () => {
-            if (input.value.trim() && !confirm('Remove this number/address from the send?')) return;
+        deleteBtn.addEventListener('click', async () => {
+            if (input.value.trim() && !await window.appConfirm('Remove this number/address from the send?')) return;
             rowWrapper.remove();
             filterSendReportContacts();
         });
@@ -5413,7 +5413,7 @@ function updateClass(studentId) {
             html += `<div class="sr-contact-card sr-${type}-student-row" data-student-id="${Number(s.student_id)}">
                 <div class="sr-contact-card-head">
                     <span class="sr-contact-card-name">${escapeHtmlClient(name)}</span>
-                    <button type="button" class="sr-add-link" title="Add ${type === 'email' ? 'email' : 'phone'}" aria-label="Add another ${type === 'email' ? 'email address' : 'phone number'} for ${escapeHtmlClient(name)}" onclick="addSendReportContactField(${Number(s.student_id)}, '${type}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                    <button type="button" class="sr-add-link" title="Add ${type === 'email' ? 'email' : 'phone'}" aria-label="Add another ${type === 'email' ? 'email address' : 'phone number'} for ${escapeHtmlClient(name)}" data-onclick="print-printStudentReport.addContact" data-mga0="${Number(s.student_id)}" data-mga1="${type}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                 </div>
                 <div id="sr-${type}-fields-${s.student_id}">`;
             if (unique.length) {
@@ -5688,7 +5688,7 @@ function updateClass(studentId) {
         if (channels.length) actionParts.push(`send via ${channels.join(', ')}`);
         if (post) actionParts.push('post to the portal');
         const confirmMsg = `Confirm: ${actionParts.join(' and ')} to ${scopeText}${editedNote}?`;
-        if (!confirm(confirmMsg)) return;
+        if (!await window.appConfirm(confirmMsg)) return;
 
         sendBtn.disabled = true;
         const previousLabel = sendBtn.textContent;
@@ -5723,13 +5723,13 @@ function updateClass(studentId) {
     // ===== WHATSAPP MODAL (legacy, unused now that Send Report replaces it) =====
     let currentSendChannel = 'whatsapp';
 
-    function openWhatsappModal(channel) {
+    async function openWhatsappModal(channel) {
         currentSendChannel = channel === 'sms' ? 'sms' : 'whatsapp';
         const channelLabel = currentSendChannel === 'sms' ? 'SMS' : 'WhatsApp';
 
         const hasUnsavedChanges = checkForUnsavedChanges();
         if (hasUnsavedChanges) {
-            const proceed = confirm(`⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease save report changes before sending by ${channelLabel}.\n\nClick OK to continue, or Cancel to return.`);
+            const proceed = await window.appConfirm(`⚠️ WARNING: You may have unsaved changes to the report cards.\n\nSave report changes before sending by ${channelLabel}.`, { ok: 'Send anyway', cancel: 'Go back' });
             if (!proceed) return;
         }
 
@@ -5883,7 +5883,7 @@ function updateClass(studentId) {
                         <div class="email-student-name">${s.display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim()}</div>
                         <div class="email-student-meta">${s.class_name || ''}</div>
                     </div>
-                    <button type="button" class="email-add-btn whatsapp-add-btn" onclick="addWhatsappField(${s.student_id})">Add Number</button>
+                    <button type="button" class="email-add-btn whatsapp-add-btn" data-onclick="print-printStudentReport.addWhatsapp" data-mga0="${s.student_id}">Add Number</button>
                 </div>
                 <div class="email-fields whatsapp-fields" id="whatsappFields-${s.student_id}"></div>
             </div>`;
@@ -5971,7 +5971,7 @@ function updateClass(studentId) {
         }
 
         if (missingNumbers.length > 0) {
-            const proceed = window.confirm(`The following students have no phone numbers: ${missingNumbers.join(', ')}. Continue anyway?`);
+            const proceed = await window.appConfirm(`The following students have no phone numbers: ${missingNumbers.join(', ')}. Continue anyway?`);
             if (!proceed) {
                 statusEl.textContent = 'Send cancelled. Please add numbers or deselect those students.';
                 statusEl.style.color = '#d97706';
@@ -6025,7 +6025,7 @@ function updateClass(studentId) {
     }
     </script>
 
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
             document.addEventListener('DOMContentLoaded', () => {
                 const reports = document.querySelectorAll('.student-report');
                 if (reports.length) {
@@ -6048,7 +6048,7 @@ function updateClass(studentId) {
                     <p id="emailRecipientCount" class="email-modal-subtitle">Preparing recipients...</p>
                     <h3 class="email-modal-title">Send Reports by Email</h3>
                 </div>
-                <button class="email-close-btn" onclick="closeEmailModal()">✕</button>
+                <button class="email-close-btn" data-onclick="print-printStudentReport.14">✕</button>
             </div>
             <div class="email-modal-body">
                 <div class="email-hint"><strong>Guardian emails auto-filled.</strong> Review or edit before sending.</div>
@@ -6059,7 +6059,7 @@ function updateClass(studentId) {
                         <label>🔒 Confirm Password</label>
                         <input type="password" id="emailPassword" placeholder="Enter your password">
                     </div>
-                    <button id="emailSendBtn" class="email-send-btn" onclick="sendReportEmails()">Send Reports</button>
+                    <button id="emailSendBtn" class="email-send-btn" data-onclick="print-printStudentReport.15">Send Reports</button>
                 </div>
 
                 <div class="email-footer">
@@ -6082,7 +6082,7 @@ function updateClass(studentId) {
                     <p id="whatsappRecipientCount" class="email-modal-subtitle">Preparing recipients...</p>
                     <h3 class="email-modal-title" id="whatsappModalTitle">Send Reports by WhatsApp</h3>
                 </div>
-                <button class="email-close-btn" onclick="closeWhatsappModal()">✕</button>
+                <button class="email-close-btn" data-onclick="print-printStudentReport.16">✕</button>
             </div>
             <div class="email-modal-body">
                 <div class="email-hint"><strong>Guardian numbers auto-filled.</strong> Review or edit before sending.</div>
@@ -6093,7 +6093,7 @@ function updateClass(studentId) {
                         <label>🔒 Confirm Password</label>
                         <input type="password" id="whatsappPassword" placeholder="Enter your password">
                     </div>
-                    <button id="whatsappSendBtn" class="email-send-btn whatsapp-send-btn" onclick="sendReportWhatsApp()">Send Reports</button>
+                    <button id="whatsappSendBtn" class="email-send-btn whatsapp-send-btn" data-onclick="print-printStudentReport.17">Send Reports</button>
                 </div>
 
                 <div class="email-footer">
@@ -6102,3 +6102,4 @@ function updateClass(studentId) {
             </div>
         </div>
     </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

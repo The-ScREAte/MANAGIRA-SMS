@@ -153,7 +153,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var id = <%- JSON.stringify(request.id) %>;
     var saved = new URLSearchParams(location.search).get('saved');
@@ -168,14 +168,14 @@
     document.querySelectorAll('[data-status]').forEach(function (button) {
       button.addEventListener('click', async function () {
         var status = button.dataset.status;
-        if (status === 'closed' && !confirm('Close this request? People will no longer be asked.')) return;
+        if (status === 'closed' && !await window.appConfirm('Close this request? People will no longer be asked.')) return;
         button.disabled = true;
         var res = await fetch('/admin/feedback-requests/' + id + '/status', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status }) });
         if (res.ok) location.reload(); else { button.disabled = false; alert('Could not update the request.'); }
       });
     });
     document.getElementById('frrDelete').addEventListener('click', async function () {
-      if (!confirm('Delete this feedback request and all its responses? This cannot be undone.')) return;
+      if (!await window.appConfirm('Delete this feedback request and all its responses? This cannot be undone.')) return;
       var res = await fetch('/admin/feedback-requests/' + id + '/delete', { method: 'POST', credentials: 'same-origin' });
       if (res.ok) location.href = '/admin/announcements'; else alert('Could not delete the request.');
     });

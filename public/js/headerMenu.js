@@ -571,7 +571,7 @@ function initHeaderMenu() {
         const hasPhoto = item.image_url && item.image_url !== "profilePlaceholder.png" && ["student", "guardian", "employee", "organization_profile"].includes(item.type);
         const initials = String(title).split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
         const avatar = hasPhoto
-          ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;sr-avatar&quot;>${escapeHtml(initials)}</span>'">`
+          ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" data-onerror="hdr.avatar" data-mga0="${escapeHtml(initials)}">`
           : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
         return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}"${personOf(item) ? ` data-person="${personOf(item)}"` : ""}>${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query_)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
       };

@@ -392,7 +392,9 @@ function customRemarkTypes(db, organizationId) {
 // the subject. $1 is always the school; class and term narrow it early.
 // Uniform subject scaling (as on the report card, utils/uniformSubjectScaling):
 // each subject is scored out of the same base, every assessment counting by its
-// weight (or its max score when the subject has no weights), missing scores as 0.
+// weight (or its max score when the subject has no weights). A score that was never
+// entered is not counted, as in the gradebook: it leaves the total, the maximum and the
+// weights alike (utils/termTotals.js); a teacher who wants a zero enters 0.
 // The school chooses: "settings" (each class's Report Settings), or any
 // number each subject is scored out of (1-1000). Not chosen = raw scores.
 const scaleValue = (value) => {
@@ -463,46 +465,51 @@ function subjectTotals(bind, criteria) {
       SELECT r.organization_id, r.student_id, r.class_id, r.term_id, r.subject_id, r.categories,
              CASE WHEN b.base IS NULL THEN r.raw_total
                   ELSE LEAST(b.base, r.scaled_sum / NULLIF(r.total_weight, 0) * b.base) END AS total,
-             COALESCE(b.base, mx.max_total) AS max_total, sub.subject_name,
+             COALESCE(b.base, r.present_max) AS max_total, sub.subject_name,
              RANK() OVER (PARTITION BY r.class_id, r.term_id, r.subject_id
                           ORDER BY ROUND(CASE WHEN b.base IS NULL THEN r.raw_total
                                               ELSE r.scaled_sum / NULLIF(r.total_weight, 0) * b.base END, 2) DESC NULLS LAST) AS subject_rank
         FROM (
           SELECT k.organization_id, k.student_id, k.class_id, k.term_id, k.subject_id,
                  SUM(k.cat_total) AS raw_total, SUM(k.cat_scaled) AS scaled_sum, MAX(k.total_weight) AS total_weight,
+                 MAX(k.present_max) AS present_max,
                  JSONB_OBJECT_AGG(k.category, k.cat_total) AS categories
             FROM (
-              SELECT ar.organization_id, ar.student_id, ar.class_id, ar.term_id, a.subject_id,
-                     COALESCE(NULLIF(TRIM(a.category), ''), 'Other') AS category, SUM(ar.score) AS cat_total,
-                     SUM(LEAST(1, GREATEST(0, ar.score / NULLIF(a.max_score, 0)))
-                         * CASE WHEN sw.weighted THEN COALESCE(a.weight, 0) ELSE a.max_score END) AS cat_scaled,
-                     MAX(CASE WHEN sw.weighted THEN sw.weight_sum ELSE sw.max_sum END) AS total_weight
-                FROM assessment_results ar
-                JOIN assessments a ON a.assessment_id = ar.assessment_id AND a.organization_id = ar.organization_id
-                LEFT JOIN (
-                  SELECT class_id, term_id, subject_id,
-                         BOOL_OR(COALESCE(weight, 0) > 0) AS weighted,
-                         SUM(GREATEST(COALESCE(weight, 0), 0)) AS weight_sum,
-                         SUM(max_score) AS max_sum
-                    FROM assessments a2
-                   WHERE a2.organization_id = $1 AND a2.obsolete_at IS NULL AND COALESCE(a2.entry_mode, 'score') = 'score' AND a2.max_score > 0
-                     ${counted("a2")}
-                   GROUP BY 1, 2, 3
-                ) sw ON sw.class_id = ar.class_id AND sw.term_id = ar.term_id AND sw.subject_id = a.subject_id
-               WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
-                 ${scope("ar")} ${counted("a")}
+              -- One row per score entered. The maximum and the weights it is measured against are
+              -- the student's own: only the assessments they were scored on (window "w").
+              SELECT p.organization_id, p.student_id, p.class_id, p.term_id, p.subject_id, p.category,
+                     SUM(p.score) AS cat_total,
+                     SUM(LEAST(1, GREATEST(0, p.score / NULLIF(p.max_score, 0)))
+                         * CASE WHEN p.weighted THEN COALESCE(p.weight, 0) ELSE p.max_score END) AS cat_scaled,
+                     MAX(CASE WHEN p.weighted THEN p.present_weight ELSE p.present_max END) AS total_weight,
+                     MAX(p.present_max) AS present_max
+                FROM (
+                  SELECT ar.organization_id, ar.student_id, ar.class_id, ar.term_id, a.subject_id,
+                         COALESCE(NULLIF(TRIM(a.category), ''), 'Other') AS category,
+                         ar.score, a.max_score, a.weight, sw.weighted,
+                         SUM(CASE WHEN a.max_score > 0 THEN GREATEST(COALESCE(a.weight, 0), 0) END)
+                           OVER (PARTITION BY ar.student_id, ar.class_id, ar.term_id, a.subject_id) AS present_weight,
+                         SUM(CASE WHEN a.max_score > 0 THEN a.max_score END)
+                           OVER (PARTITION BY ar.student_id, ar.class_id, ar.term_id, a.subject_id) AS present_max
+                    FROM assessment_results ar
+                    JOIN assessments a ON a.assessment_id = ar.assessment_id AND a.organization_id = ar.organization_id
+                    LEFT JOIN (
+                      -- Whether the subject is weighted at all is the subject's own, not the student's.
+                      SELECT class_id, term_id, subject_id, BOOL_OR(COALESCE(weight, 0) > 0) AS weighted
+                        FROM assessments a2
+                       WHERE a2.organization_id = $1 AND a2.obsolete_at IS NULL AND COALESCE(a2.entry_mode, 'score') = 'score' AND a2.max_score > 0
+                         ${counted("a2")}
+                       GROUP BY 1, 2, 3
+                    ) sw ON sw.class_id = ar.class_id AND sw.term_id = ar.term_id AND sw.subject_id = a.subject_id
+                   WHERE ar.organization_id = $1 AND a.obsolete_at IS NULL AND COALESCE(a.entry_mode, 'score') = 'score'
+                     AND ar.score IS NOT NULL
+                     ${scope("ar")} ${counted("a")}
+                ) p
                GROUP BY 1, 2, 3, 4, 5, 6
             ) k
            GROUP BY 1, 2, 3, 4, 5
         ) r
         LEFT JOIN LATERAL (SELECT ${base} AS base) b ON TRUE
-        LEFT JOIN (
-          SELECT a3.class_id, a3.term_id, a3.subject_id, SUM(a3.max_score) AS max_total
-            FROM assessments a3
-           WHERE a3.organization_id = $1 AND a3.obsolete_at IS NULL AND COALESCE(a3.entry_mode, 'score') = 'score'
-             ${counted("a3")}
-           GROUP BY 1, 2, 3
-        ) mx ON mx.class_id = r.class_id AND mx.term_id = r.term_id AND mx.subject_id = r.subject_id
         LEFT JOIN subjects sub ON sub.subject_id = r.subject_id AND sub.organization_id = r.organization_id
     ) ss`;
 }
@@ -2836,6 +2843,7 @@ Object.values(REPORTS).forEach((report) => {
 REPORTS.students.criteria = REPORTS.students.criteria.filter((criterion) => !["dob", "home_address"].includes(criterion.key));
 
 module.exports = {
+  subjectTotalsSql: subjectTotals,
   REPORTS,
   FAMILIES,
   FEATURES,

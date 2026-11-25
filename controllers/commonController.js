@@ -49,6 +49,7 @@ const assessmentEntry = require("../utils/assessmentEntry");
 const permissionBasics = require("../utils/permissionBasics");
 const assessmentSimple = require("../utils/assessmentSimple");
 const assessmentApproval = require("../utils/assessmentApproval");
+const termTotals = require("../utils/termTotals");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 
 const parseTruthyFlag = (value) => ["1", "true", "yes", "on"].includes(String(value === undefined || value === null ? "" : value).trim().toLowerCase());
@@ -3282,16 +3283,15 @@ async function extractTextFromExamFile(file) {
   }
 
   if (isXlsx) {
-    const ExcelJS = require("exceljs");
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(fileBuffer);
+    // Read on a worker thread (utils/cpuPool.js), so a big workbook doesn't hold up the server.
+    const sheets = await require("../utils/cpuPool").run("readSheetRows", { buffer: fileBuffer });
 
     const rows = [];
-    workbook.eachSheet((sheet) => {
+    sheets.forEach((sheet) => {
       rows.push("Sheet: " + sheet.name);
-      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-        const values = Array.isArray(row.values)
-          ? row.values.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
+      sheet.rows.forEach(({ values: rowValues, rowNumber }) => {
+        const values = Array.isArray(rowValues)
+          ? rowValues.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
           : [];
         if (values.length) {
           rows.push("Row " + rowNumber + ": " + values.join(" | "));
@@ -4158,6 +4158,10 @@ const commonController = {
         classes = (classes || []).filter((cls) =>
           enrolledClassIdSet.has(Number(cls.class_id))
         );
+
+        // A supervisor without a permission that gives them the classes sees their own classes only.
+        const supervisorClasses = await require("../utils/classScope").supervisorReach(db, req);
+        if (supervisorClasses) classes = classes.filter((cls) => supervisorClasses.has(Number(cls.class_id)));
 
         classes = (classes || []).map((cls) => ({
           ...cls,
@@ -5948,7 +5952,6 @@ const commonController = {
       const importReport = { matched: new Map(), unmatched: new Set(), skipped: 0 };
 
       // Import required libraries
-      const ExcelJS = require('exceljs');
       const mammoth = require('mammoth');
       const pdfParse = require('pdf-parse');
       const Tesseract = require('tesseract.js');
@@ -5976,19 +5979,14 @@ const commonController = {
             students = parsedStudents;
           } else {
             // Parse modern Excel workbook (.xlsx binary and compatible .xls variants)
-            const workbook = new ExcelJS.Workbook();
-            if (file.buffer) {
-              await workbook.xlsx.load(file.buffer);
-            } else if (file.path) {
-              await workbook.xlsx.readFile(file.path);
-            } else {
-              throw new Error('File data not accessible');
-            }
+            if (!file.buffer && !file.path) throw new Error('File data not accessible');
+            // Read on a worker thread (utils/cpuPool.js), so a big workbook doesn't hold up the server.
+            const sheetRows = await require('../utils/cpuPool').run('readSheetRows', file.buffer ? { buffer: file.buffer } : { path: file.path });
 
             const parsedStudents = [];
-            workbook.worksheets.forEach((worksheet) => {
+            sheetRows.forEach((worksheet) => {
               const rowsAsArrays = [];
-              worksheet.eachRow({ includeEmpty: false }, (row) => {
+              worksheet.rows.forEach((row) => {
                 rowsAsArrays.push(row.values.slice(1));
               });
 
@@ -9216,7 +9214,7 @@ const commonController = {
       const savedDrawerId = String(req.body.drawerId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
       if (savedDrawerId) {
         return res.type("html").send(
-          `<!doctype html><meta charset="utf-8"><script>parent.postMessage({ managiraDrawerSaved: true, managiraDrawerClose: true, drawerId: ${JSON.stringify(savedDrawerId)} }, location.origin);</script>`
+          `<!doctype html><meta charset="utf-8"><script nonce="${res.locals.cspNonce || ''}">parent.postMessage({ managiraDrawerSaved: true, managiraDrawerClose: true, drawerId: ${JSON.stringify(savedDrawerId)} }, location.origin);</script>`
         );
       }
       const effectiveReturnClassId = safeClassId || oldClassId || returnClassId || null;
@@ -10554,7 +10552,8 @@ const commonController = {
       return res.redirect(backToForm);
     }
 
-    const setPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    const setWho = await require("../utils/passwordIdentity").forSetPasswordToken(db, token);
+    const setPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password, setWho);
     if (setPasswordIssue) {
       req.flash("error", setPasswordIssue);
       return res.redirect(backToForm);
@@ -11728,6 +11727,7 @@ const commonController = {
 
       // Organize the scores by student and populate total scores and other details
       const studentScores = {};
+      const scoredItemsByStudent = new Map();
       results.forEach((result) => {
         if (!studentScores[result.student_id]) {
           studentScores[result.student_id] = {
@@ -11744,12 +11744,14 @@ const commonController = {
         studentScores[result.student_id].assessments[result.assessment_id] = result.score;
         studentScores[result.student_id].states[result.assessment_id] = assessmentApproval.cellState(result);
         if (result.choice_label) studentScores[result.student_id].choices[result.assessment_id] = result.choice_label;
-        if (result.score !== null && result.score !== undefined && result.score !== '') {
-          const numericScore = Number(result.score);
-          const numericMax = maxScoreByAssessmentId.get(Number(result.assessment_id)) || 0;
-          studentScores[result.student_id].total_subject_score += numericScore;
-          studentScores[result.student_id].max_total_score += numericMax;
-        }
+        if (!scoredItemsByStudent.has(result.student_id)) scoredItemsByStudent.set(result.student_id, []);
+        scoredItemsByStudent.get(result.student_id).push({ score: result.score, max: maxScoreByAssessmentId.get(Number(result.assessment_id)) || 0 });
+      });
+      // The total a student has so far: only scores that were entered count (utils/termTotals.js).
+      scoredItemsByStudent.forEach((items, studentKey) => {
+        const counted = termTotals.subjectTotals(items);
+        studentScores[studentKey].total_subject_score = counted.total;
+        studentScores[studentKey].max_total_score = counted.max;
       });
 
       const resolveGradeLabel = await loadGradeLabelResolver(
@@ -12299,16 +12301,11 @@ const commonController = {
           );
           const totalsByStudent = new Map();
           for (const studentId of changedStudentIds) {
-            let total = 0;
-            let max = 0;
-            const categories = new Map();
-            for (const cell of sheetByStudent.get(studentId).values()) {
-              if (cell.score === null) continue;
-              total += cell.score;
-              max += cell.maxScore;
-              categories.set(cell.category, (categories.get(cell.category) || 0) + cell.score);
-            }
-            const percentage = max > 0 ? (total / max) * 100 : null;
+            // Only scores that were entered count, in the total and in what it is out of (utils/termTotals.js):
+            // the report card, the merit sheet and the report builder count the same way.
+            const { total, max, categories, percentage } = termTotals.subjectTotals(
+              Array.from(sheetByStudent.get(studentId).values()).map((cell) => ({ score: cell.score, max: cell.maxScore, category: cell.category }))
+            );
             // Round like the NUMERIC(…,2) columns so unchanged totals compare
             // equal and are not rewritten.
             const round2 = (value) => Math.round(value * 100) / 100;
@@ -12850,7 +12847,7 @@ const commonController = {
       await client.query("BEGIN");
 
       const assessmentResult = await client.query(
-        `SELECT assessment_id, group_id, class_id, subject_id, term_id,
+        `SELECT assessment_id, group_id, class_id, subject_id, term_id, max_score,
                 COALESCE(open_book, FALSE) AS open_book,
                 time_limit_minutes,
                 GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts,
@@ -12913,6 +12910,19 @@ const commonController = {
       if (!Number.isInteger(classId) || classId <= 0 || !Number.isInteger(subjectId) || subjectId <= 0 || !Number.isInteger(termId) || termId <= 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({ success: false, error: "Assessment scope is incomplete." });
+      }
+
+      // Questions that don't add up to the test's "out of": the teacher is asked first (utils/questionMarks.js).
+      const marksVerdict = await require("../utils/questionMarks").judge(client, {
+        assessmentId,
+        organizationId,
+        total: questions.reduce((sum, item) => sum + Number(item.marks || 0), 0),
+        outOf: assessmentRow.max_score,
+        decision: String(req.body.marksCheck || ""),
+      });
+      if (!marksVerdict.go) {
+        await client.query("ROLLBACK");
+        return res.status(marksVerdict.status).json(marksVerdict.body);
       }
 
       if (hasOpenBookSetting || hasTimeLimitSetting || hasMaxAttemptsSetting) {
@@ -13186,6 +13196,7 @@ const commonController = {
           : "Questions saved.",
         questionSetId: resolvedQuestionSetId,
         reviewStatus: sentForReview ? "pending" : "approved",
+        marks: marksVerdict.marks,
       });
     } catch (error) {
       try {
@@ -13375,16 +13386,14 @@ NUMBERING:
           }
         } else if (isXlsx || isXls) {
           if (isXlsx) {
-            const ExcelJS = require("exceljs");
-            const workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(file.buffer);
+            const sheets = await require("../utils/cpuPool").run("readSheetRows", { buffer: file.buffer });
 
             const rows = [];
-            workbook.eachSheet((sheet) => {
+            sheets.forEach((sheet) => {
               rows.push("Sheet: " + sheet.name);
-              sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-                const values = Array.isArray(row.values)
-                  ? row.values.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
+              sheet.rows.forEach(({ values: rowValues, rowNumber }) => {
+                const values = Array.isArray(rowValues)
+                  ? rowValues.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
                   : [];
                 if (values.length) {
                   rows.push("Row " + rowNumber + ": " + values.join(" | "));
@@ -14512,6 +14521,7 @@ NUMBERING:
         subject_id: Number(row.subject_id),
         assessment_id: Number(row.assessment_id),
         to_mark: toMarkCounts.get(Number(row.question_set_id)) || 0,
+        parent_share: row.parent_share || "",
         completed_count: postStatus.completedCount,
         posted_count: postStatus.postedCount,
         pending_post_count: Math.max(postStatus.completedCount - postStatus.postedCount, 0),
@@ -14540,6 +14550,20 @@ NUMBERING:
       // "To mark" on the gradebook opens this list with only the tests that have written answers waiting.
       const toMarkOnly = String(req.query.toMark || "") === "1";
       const questionSets = toMarkOnly ? allQuestionSets.filter((item) => item.to_mark > 0) : allQuestionSets;
+      // Nothing waiting to be reviewed: one line of what was marked automatically (for the empty Review list).
+      let toMarkSummary = null;
+      if (toMarkOnly && !questionSets.length && allQuestionSets.length) {
+        try {
+          const sums = await db.query(
+            `SELECT COUNT(*)::int AS n, AVG(score)::float AS avg_score, AVG(max_score)::float AS avg_max
+               FROM student_assessment_attempts
+              WHERE organization_id = $1 AND question_set_id = ANY($2::int[]) AND status = 'submitted' AND score IS NOT NULL`,
+            [organizationId, allQuestionSets.map((item) => Number(item.question_set_id))]
+          );
+          const row = sums.rows[0] || {};
+          if (row.n > 0) toMarkSummary = { submitted: row.n, average: Math.round(row.avg_score * 10) / 10, outOf: Math.round(row.avg_max * 10) / 10 };
+        } catch (_) { toMarkSummary = null; }
+      }
 
       // Opened from the assessments flow (a gradebook column, + Assessment, the Assessments
       // page): straight to that assessment's questions, and the page that opened it is told
@@ -14592,6 +14616,7 @@ NUMBERING:
         assessmentsForTerm: enrichedAssessmentsForTerm,
         questionSets,
         toMarkOnly,
+        toMarkSummary,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
         canManageGoogleIntegration,
@@ -15894,6 +15919,20 @@ NUMBERING:
         await client.query("ROLLBACK");
         return res.status(409).json({ success: false, error: "That test already has questions. Open it to edit them, or choose a different test." });
       }
+      // The copied questions against the test's "out of" (utils/questionMarks.js): a new test takes the
+      // source's, a test that was already there keeps its own.
+      const reuseOutOf = (await client.query("SELECT max_score FROM assessments WHERE assessment_id = $1", [targetAssessmentId])).rows[0]?.max_score;
+      const reuseVerdict = await require("../utils/questionMarks").judge(client, {
+        assessmentId: targetAssessmentId,
+        organizationId,
+        total: sourceQuestionsResult.rows.reduce((sum, row) => sum + Number(row.marks || 0), 0),
+        outOf: reuseOutOf,
+        decision: String(req.body.marksCheck || ""),
+      });
+      if (!reuseVerdict.go) {
+        await client.query("ROLLBACK");
+        return res.status(reuseVerdict.status).json(reuseVerdict.body);
+      }
       const targetNames = (await client.query(
         `SELECT s.subject_name, a.title FROM assessments a LEFT JOIN subjects s ON s.subject_id = a.subject_id WHERE a.assessment_id = $1`,
         [targetAssessmentId]
@@ -16046,6 +16085,7 @@ NUMBERING:
         message: "Question set reused successfully.",
         questionSetId: targetQuestionSetId,
         assessmentId: targetAssessmentId,
+        marks: reuseVerdict.marks,
       });
     } catch (error) {
       try {
@@ -21033,11 +21073,23 @@ NUMBERING:
       await client.query("BEGIN");
 
       let updatedCount = 0;
+      const skippedNames = [];
       for (let i = 0; i < ids.length; i++) {
         const id = Number(ids[i]);
         const newName = String(names[i] || "").trim();
 
         if (!Number.isInteger(id) || id <= 0 || !newName) {
+          continue;
+        }
+
+        // A year group named for a year keeps being a year (2000 to 2100).
+        const current = await client.query(
+          "SELECT name FROM graduation_year_groups WHERE id = $1 AND organization_id = $2",
+          [id, req.session.organizationId]
+        );
+        const was = current.rows[0] ? String(current.rows[0].name).trim() : null;
+        if (was !== null && was !== newName && /^\d{4}$/.test(was) && !(/^\d{4}$/.test(newName) && Number(newName) >= 2000 && Number(newName) <= 2100)) {
+          skippedNames.push(newName.slice(0, 20));
           continue;
         }
 
@@ -21050,7 +21102,11 @@ NUMBERING:
 
       await client.query("COMMIT");
 
-      if (updatedCount === 0) {
+      if (skippedNames.length && updatedCount === 0) {
+        req.flash("error", `Not a year (2000 to 2100): ${skippedNames.join(", ")}.`);
+      } else if (skippedNames.length) {
+        req.flash("error", `Saved ${updatedCount}. Not a year, skipped: ${skippedNames.join(", ")}.`);
+      } else if (updatedCount === 0) {
         req.flash("error", "No valid graduation year group updates were submitted.");
       } else {
         req.flash(

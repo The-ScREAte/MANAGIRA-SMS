@@ -82,8 +82,31 @@
       });
       dots.forEach(function (dot, i) { dot.classList.toggle('is-active', i === current); });
     }
+    // Moving content can be paused (WCAG 2.2.2); people who asked their device for less motion start paused.
+    var userPaused = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var hasVideo = !!root.querySelector('video');
+    if (slides.length > 1 || hasVideo) {
+      var pauseBtn = document.createElement('button');
+      pauseBtn.type = 'button';
+      pauseBtn.className = 'login-ads__pause';
+      pauseBtn.setAttribute('aria-pressed', userPaused ? 'true' : 'false');
+      pauseBtn.textContent = userPaused ? 'Play' : 'Pause';
+      pauseBtn.setAttribute('aria-label', 'Pause moving ads');
+      pauseBtn.addEventListener('click', function () {
+        userPaused = !userPaused;
+        pauseBtn.setAttribute('aria-pressed', userPaused ? 'true' : 'false');
+        pauseBtn.textContent = userPaused ? 'Play' : 'Pause';
+        root.querySelectorAll('video').forEach(function (v) {
+          if (userPaused) v.pause();
+          else if (v.closest('.login-ad.is-active')) v.play().catch(function () {});
+        });
+        if (userPaused) stop(); else start();
+      });
+      root.appendChild(pauseBtn);
+      if (userPaused) root.querySelectorAll('video').forEach(function (v) { v.removeAttribute('autoplay'); v.pause(); });
+    }
     function start() {
-      if (slides.length < 2 || timer) return;
+      if (slides.length < 2 || timer || userPaused) return;
       timer = setInterval(function () { show(current + 1); }, ROTATE_MS);
     }
     function stop() { clearInterval(timer); timer = null; }

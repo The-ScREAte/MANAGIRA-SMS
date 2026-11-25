@@ -23,6 +23,7 @@ const elevatedRoles = new Set(["organization", "manager", "supervisor", "admin",
 const FREQUENCIES = new Set(["weekly", "monthly"]);
 const FORMATS = new Set(["xlsx", "csv", "docx"]);
 const reportTemplates = require("../utils/reportTemplates");
+const cpuPool = require("../utils/cpuPool");
 // Morning 3 AM–11 AM or evening 4 PM–10 PM, school time.
 const SEND_HOURS = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21, 22]);
 let reportSchemaPromise;
@@ -199,85 +200,16 @@ function toCsv(rows, columns, report) {
 // Excel file. With a header, the school's details sit above the table:
 // logo top-left, then name, address, phone and date beside it.
 async function toWorkbook(rows, columns, report, { title = report.title, header = null } = {}) {
-  const ExcelJS = require("exceljs");
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(report.title.slice(0, 31));
-  sheet.columns = columns.map((key) => ({
-    key,
-    width: Math.min(Math.max(report.columns[key].label.length + 4, 14), 48),
-  }));
-
-  let headerRow = 1;
-  if (header) {
-    const lines = [
-      header.orgName && { text: header.orgName, font: { bold: true, size: 15 } },
-      header.address && { text: header.address, font: { size: 10, color: { argb: "FF4B5563" } } },
-      header.phone && { text: header.phone, font: { size: 10, color: { argb: "FF4B5563" } } },
-      { text: title, font: { bold: true, size: 12 } },
-      header.date && { text: `Generated ${header.date}`, font: { size: 10, color: { argb: "FF6B7280" } } },
-    ].filter(Boolean);
-    const centered = header.align === "center";
-    const logoHeight = 56;
-    const logoWidth = header.logo ? Math.round((header.logo.width / header.logo.height) * logoHeight) : 0;
-    let firstTextRow = 1;
-    if (header.logo) {
-      const imageId = workbook.addImage({ buffer: header.logo.buffer, extension: header.logo.extension });
-      if (centered) {
-        // Logo above the text, in the middle of the table's width.
-        const widths = columns.map((_, index) => (sheet.getColumn(index + 1).width || 14) * 7);
-        let x = Math.max(widths.reduce((sum, width) => sum + width, 0) / 2 - logoWidth / 2, 0);
-        let col = 0;
-        while (col < widths.length - 1 && x > widths[col]) { x -= widths[col]; col += 1; }
-        sheet.addImage(imageId, { tl: { col: col + x / widths[col], row: 0.1 }, ext: { width: logoWidth, height: logoHeight }, editAs: "oneCell" });
-        sheet.getRow(1).height = 46;
-        firstTextRow = 2;
-      } else {
-        sheet.getColumn(1).width = Math.max(sheet.getColumn(1).width || 14, Math.ceil(logoWidth / 7) + 2);
-        sheet.addImage(imageId, { tl: { col: 0.15, row: 0.15 }, ext: { width: logoWidth, height: logoHeight }, editAs: "oneCell" });
-      }
-    }
-    const textColumn = header.logo && !centered ? 2 : 1;
-    lines.forEach((line, index) => {
-      const rowNumber = firstTextRow + index;
-      const row = sheet.getRow(rowNumber);
-      if (centered && columns.length > 1) sheet.mergeCells(rowNumber, 1, rowNumber, columns.length);
-      const cell = row.getCell(textColumn);
-      cell.value = line.text;
-      cell.font = line.font;
-      if (centered) cell.alignment = { horizontal: "center" };
-      row.height = index === 0 ? 22 : 16;
-    });
-    headerRow = centered
-      ? firstTextRow + lines.length + 1
-      : Math.max(lines.length, header.logo ? 4 : 0) + 2;
-  }
-
-  const head = sheet.getRow(headerRow);
-  columns.forEach((key, index) => { head.getCell(index + 1).value = report.columns[key].label; });
-  head.font = { bold: true };
-  head.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } }; });
-  rows.forEach((record, rowIndex) => {
-    const row = sheet.getRow(headerRow + 1 + rowIndex);
-    columns.forEach((key, index) => {
-      const value = exportValue(record[key], report.columns[key].type);
-      if (report.columns[key].type === "link") {
-        // A clickable "Open in Managira" in the sheet.
-        if (value) {
-          row.getCell(index + 1).value = { text: "Open in Managira", hyperlink: value };
-          row.getCell(index + 1).font = { color: { argb: "FF0F766E" }, underline: true };
-        }
-        return;
-      }
-      // Text that looks like a formula is stored as plain text.
-      row.getCell(index + 1).value = typeof value === "string" && /^[\s]*[=+\-@]/.test(value) ? `'${value}` : value;
-    });
-  });
-  columns.forEach((key, index) => {
-    if (report.columns[key].type === "money") sheet.getColumn(index + 1).numFmt = "#,##0.00";
-  });
-  sheet.views = [{ state: "frozen", ySplit: headerRow }];
-  sheet.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: headerRow, column: columns.length } };
-  return Buffer.from(await workbook.xlsx.writeBuffer());
+  // The values are formatted here; the file itself is built on a worker thread so a big export
+  // doesn't hold up everyone else (utils/cpuPool.js).
+  const spec = {
+    reportTitle: report.title,
+    title,
+    columns: columns.map((key) => ({ key, label: report.columns[key].label, type: report.columns[key].type })),
+    header,
+  };
+  const values = rows.map((record) => columns.map((key) => exportValue(record[key], report.columns[key].type)));
+  return cpuPool.run("buildReportWorkbook", { spec, values });
 }
 
 const xmlText = (value) => String(value ?? "")

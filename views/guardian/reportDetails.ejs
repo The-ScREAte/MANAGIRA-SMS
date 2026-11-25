@@ -496,7 +496,7 @@
     <div class="rd-meta-inline">
       <span>Parent: <%= report.filed_by_name || 'You' %></span>
       <span class="rd-meta-sep"></span>
-      <span class="rd-cc-hover" tabindex="0" onmouseenter="loadGuardianCcHover()" onfocus="loadGuardianCcHover()">CC: <%= Number(report.cc_count || 0) %> staff
+      <span class="rd-cc-hover" tabindex="0" data-onmouseenter="guardian-reportDetails.1" data-onfocus="guardian-reportDetails.2">CC: <%= Number(report.cc_count || 0) %> staff
         <span class="rd-cc-tooltip"><span class="rd-cc-tooltip-title">CC Staff</span><span class="rd-cc-tooltip-list" id="rdCcTooltipList"><span class="rd-cc-tooltip-state">Hover to load...</span></span></span>
       </span>
     </div>
@@ -510,10 +510,10 @@
       <div class="rd-thread-scroll <%= threadSeverityCls %>" id="rdThreadList">
         <div class="rd-reply is-guardian is-mine">
           <div class="rd-msg-menu-wrap" id="msgMenu-report-root">
-            <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('report-root')" aria-label="Message actions">⋯</button>
+            <button type="button" class="rd-msg-menu-btn" data-onclick="guardian-reportDetails.3" aria-label="Message actions">⋯</button>
             <div class="rd-msg-menu-dropdown">
-              <form id="deleteReportForm" action="/guardian/reports/<%= report.report_id %>/delete" method="POST" onsubmit="return confirm('Delete this conversation and all its replies? This cannot be undone.')">
-                <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReportForm')">Delete conversation</a>
+              <form id="deleteReportForm" action="/guardian/reports/<%= report.report_id %>/delete" method="POST" data-onsubmit="guardian-reportDetails.4">
+                <a href="#" class="rd-msg-menu-text" data-onclick="guardian-reportDetails.5">Delete conversation</a>
               </form>
             </div>
           </div>
@@ -534,10 +534,10 @@
             <div class="rd-reply <%= isGuardian ? 'is-guardian is-mine' : 'is-staff is-theirs' %>">
               <% if (isGuardian) { %>
                 <div class="rd-msg-menu-wrap" id="msgMenu-<%= reply.reply_id %>">
-                  <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('<%= reply.reply_id %>')" aria-label="Message actions">⋯</button>
+                  <button type="button" class="rd-msg-menu-btn" data-onclick="guardian-reportDetails.6" data-mga0="<%= reply.reply_id %>" aria-label="Message actions">⋯</button>
                   <div class="rd-msg-menu-dropdown">
-                    <form id="deleteReplyForm-<%= reply.reply_id %>" action="/guardian/reports/<%= report.report_id %>/replies/<%= reply.reply_id %>/delete" method="POST" onsubmit="return confirm('Delete this message?')">
-                      <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReplyForm-<%= reply.reply_id %>')">Delete message</a>
+                    <form id="deleteReplyForm-<%= reply.reply_id %>" action="/guardian/reports/<%= report.report_id %>/replies/<%= reply.reply_id %>/delete" method="POST" data-onsubmit="guardian-reportDetails.7">
+                      <a href="#" class="rd-msg-menu-text" data-onclick="guardian-reportDetails.8" data-mga0="<%= reply.reply_id %>">Delete message</a>
                     </form>
                   </div>
                 </div>
@@ -560,8 +560,8 @@
 
     <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="rd-reply-form" id="rdReplyForm">
       <div class="rd-reply-composer">
-        <textarea id="staffReplyMsg" name="message" rows="1" placeholder="Type a message..." oninput="autoResizeStaffReplyInput(this)" onkeydown="handleStaffReplyKeydown(event, <%= report.report_id %>)" style="height: 42px;" required></textarea>
-        <button id="staffReplyBtn" type="button" class="rd-reply-send-btn" onclick="submitStaffReply(<%= report.report_id %>)" aria-label="Send reply" title="Send">
+        <textarea id="staffReplyMsg" name="message" rows="1" placeholder="Type a message..." data-oninput="guardian-reportDetails.9" data-onkeydown="guardian-reportDetails.10" data-mga0="<%= report.report_id %>" style="height: 42px;" required></textarea>
+        <button id="staffReplyBtn" type="button" class="rd-reply-send-btn" data-onclick="guardian-reportDetails.11" data-mga0="<%= report.report_id %>" aria-label="Send reply" title="Send">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2L15 22L11 13L2 9L22 2Z"></path></svg>
         </button>
       </div>
@@ -569,7 +569,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var ccState = {
       loaded: false,
@@ -791,3 +791,4 @@
     });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -98,7 +98,7 @@
 </div>
 
 <script src="<%= assetUrl('/js/hub.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     document.querySelectorAll('[data-jump-tab]').forEach(function (b) {
       b.addEventListener('click', function () {

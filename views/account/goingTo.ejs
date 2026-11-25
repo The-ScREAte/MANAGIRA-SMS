@@ -17,6 +17,7 @@
     @keyframes shadow { 100% { transform: scale(0.55); opacity: 0.5; } }
     @media (prefers-reduced-motion: reduce) { img, .shadow { animation-duration: 1.6s; } }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="card" role="status">
@@ -24,6 +25,6 @@
     <span class="shadow" aria-hidden="true"></span>
     <p>Taking you to the <%= portal %></p>
   </div>
-  <script>location.replace(<%- JSON.stringify(target).replace(/</g, '\\u003c') %>);</script>
+  <script nonce="<%= locals.cspNonce || '' %>">location.replace(<%- JSON.stringify(target).replace(/</g, '\\u003c') %>);</script>
 </body>
 </html>

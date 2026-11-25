@@ -41,6 +41,7 @@
   body.is-pdf .page { margin: 0 auto; border: 0; }
   @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; padding: 0; border: 0; max-width: none; } }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="<%= locals.isPrintRender ? 'is-pdf' : '' %>">
 <% if (!locals.isPrintRender) { %>

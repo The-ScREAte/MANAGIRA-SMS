@@ -1,6 +1,6 @@
 <link rel="stylesheet" href="/css/adminDrawer.css">
 <script src="/js/adminDrawer.js"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Composer pages loaded inside a ManagiraDrawer iframe (?embed=workspace&drawerId=...)
   // call this on successful save instead of trying to detect navigation, matching
   // the createEmployee.ejs convention this pattern was generalized from.

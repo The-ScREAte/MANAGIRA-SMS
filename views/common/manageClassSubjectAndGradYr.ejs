@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Manage Class, Subject & Graduation Year</title>
     <style>
       :root {
@@ -277,7 +277,8 @@
         align-items: center;
         justify-content: space-between;
       }
-      .class-subject-page .form-container input[type="text"] {
+      .class-subject-page .form-container input[type="text"],
+      .class-subject-page .form-container input[type="number"] {
         flex-grow: 1;
         margin-right: 10px;
       }
@@ -319,7 +320,8 @@
         width: 100%;
       }
 
-      .class-subject-page .icon-form-vertical.rows-two-up .input-with-menu input[type="text"] {
+      .class-subject-page .icon-form-vertical.rows-two-up .input-with-menu input[type="text"],
+      .class-subject-page .icon-form-vertical.rows-two-up .input-with-menu input[type="number"] {
         font-size: 13px;
       }
 
@@ -330,7 +332,8 @@
       .class-subject-page fieldset.graduation-fieldset {
         grid-column: span 2;
       }
-      .class-subject-page .icon-form-vertical input[type="text"] {
+      .class-subject-page .icon-form-vertical input[type="text"],
+      .class-subject-page .icon-form-vertical input[type="number"] {
         margin-bottom: 8px;
         padding: 12px 16px;
         border: 1px solid var(--border);
@@ -604,7 +607,8 @@
         margin-bottom: 8px;
       }
 
-      .input-with-menu input[type="text"] {
+      .input-with-menu input[type="text"],
+      .input-with-menu input[type="number"] {
         flex: 1;
         margin-bottom: 0 !important;
       }
@@ -842,15 +846,17 @@
         .class-subject-page legend { font-size: 14px; }
         .class-subject-page .icon-btn { padding: 8px 14px; font-size: 13px; }
         .class-subject-page .collapsible-btn { font-size: 13px; padding: 9px 12px; }
-        .class-subject-page .icon-form-vertical input[type="text"] { font-size: 13px; }
+        .class-subject-page .icon-form-vertical input[type="text"],
+        .class-subject-page .icon-form-vertical input[type="number"] { font-size: 13px; }
         .class-subject-page .icon-form-vertical.rows-two-up { grid-template-columns: 1fr; }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body class="class-subject-page">
     <%- include('../partials/flash') %>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Ensure page styles always apply even when navigated via SPA
       document.body.classList.add('class-subject-page');
     </script>
@@ -863,7 +869,7 @@
         <p class="ws-head__sub">Rename classes, subjects and graduation groups, or add new ones.</p>
       </div>
       <div class="ws-head__actions">
-        <button type="button" class="ws-btn ws-btn--primary" onclick="openAddClassSubjectModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add new</button>
+        <button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageClassSubjectAndGradYr.1"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add new</button>
       </div>
     </header>
 
@@ -890,7 +896,7 @@
         <legend>Classes <span class="cs-count" data-cs-count="classes"><%= classes.length %></span></legend>
         <% if (classes.length > 8) { %><div class="cs-search"><input type="search" id="csClassSearch" placeholder="Search <%= classes.length %> classes" aria-label="Search classes" autocomplete="off"></div><div class="cs-none" id="csClassNone" hidden>No class matches.</div><% } %>
         <div class="collapsible-wrapper">
-          <button type="button" class="collapsible-btn" onclick="toggleAllClassesCollapse()">
+          <button type="button" class="collapsible-btn" data-onclick="common-manageClassSubjectAndGradYr.2">
             Show/Hide All Classes
             <span class="arrow" id="arrow-all-classes">&#9654;</span>
           </button>
@@ -910,14 +916,14 @@
                     value="<%= cls.class_name %>"
                   />
                   <div class="menu-container">
-                    <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                    <button type="button" class="menu-button" data-onclick="common-manageClassSubjectAndGradYr.3">
                       ⋮
                     </button>
                     <div class="menu-dropdown">
-                      <button type="button" class="menu-item" onclick="obsoleteItem('class', { id: '<%= cls.class_id %>' }, this)" data-name="<%= cls.class_name %>">
+                      <button type="button" class="menu-item" data-onclick="common-manageClassSubjectAndGradYr.4" data-mga0="<%= cls.class_id %>" data-name="<%= cls.class_name %>">
                         Make obsolete
                       </button>
-                      <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
+                      <button type="button" class="menu-item delete" data-onclick="common-manageClassSubjectAndGradYr.5" data-mga0="<%= cls.class_id %>">
                         Delete
                       </button>
                     </div>
@@ -946,17 +952,18 @@
                 <input
                   type="text"
                   name="newClassName[]"
+                  aria-label="Class name"
                   value="<%= cls.class_name %>"
                 />
                 <div class="menu-container">
-                  <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                  <button type="button" class="menu-button" data-onclick="common-manageClassSubjectAndGradYr.3" aria-label="More actions for <%= cls.class_name %>" aria-haspopup="true">
                     ⋮
                   </button>
                   <div class="menu-dropdown">
-                    <button type="button" class="menu-item" onclick="obsoleteItem('class', { id: '<%= cls.class_id %>' }, this)" data-name="<%= cls.class_name %>">
+                    <button type="button" class="menu-item" data-onclick="common-manageClassSubjectAndGradYr.4" data-mga0="<%= cls.class_id %>" data-name="<%= cls.class_name %>">
                       Make obsolete
                     </button>
-                    <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
+                    <button type="button" class="menu-item delete" data-onclick="common-manageClassSubjectAndGradYr.5" data-mga0="<%= cls.class_id %>">
                       Delete
                     </button>
                   </div>
@@ -1024,7 +1031,7 @@
                 type="button"
                 class="subject-group-toggle"
                 aria-expanded="false"
-                onclick="toggleSubjectGroup(this)"
+                data-onclick="common-manageClassSubjectAndGradYr.6"
               >
                 <span><%= group.subject_name %></span>
                 <span class="subject-meta"><%= group.assigned_classes.length %> assigned</span>
@@ -1040,17 +1047,17 @@
                     form="bulkSubjectUpdateForm"
                   />
                   <div class="menu-container">
-                    <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                    <button type="button" class="menu-button" data-onclick="common-manageClassSubjectAndGradYr.3">
                       ⋮
                     </button>
                     <div class="menu-dropdown">
-                      <button type="button" class="menu-item" onclick="obsoleteItem('subject', { subjectKey: this.dataset.key }, this)" data-key="<%= group.subject_key %>" data-name="<%= group.subject_name %>">
+                      <button type="button" class="menu-item" data-onclick="common-manageClassSubjectAndGradYr.7" data-key="<%= group.subject_key %>" data-name="<%= group.subject_name %>">
                         Make obsolete
                       </button>
                       <button
                         type="button"
                         class="menu-item delete"
-                        onclick="confirmDelete('/common/deleteSubject?subjectKey=<%- encodeURIComponent(group.subject_key) %>')"
+                        data-onclick="common-manageClassSubjectAndGradYr.8" data-mga0="<%= encodeURIComponent(group.subject_key) %>"
                       >
                         Delete
                       </button>
@@ -1128,16 +1135,20 @@
           <div class="form-container">
             <input type="hidden" name="id[]" value="<%= group.id %>" />
             <div class="input-with-menu">
-              <input type="text" name="newName[]" value="<%= group.name %>" />
+              <% if (/^\d{4}$/.test(String(group.name).trim())) { %>
+              <input type="number" name="newName[]" value="<%= String(group.name).trim() %>" min="2000" max="2100" step="1" inputmode="numeric" placeholder="2030" required aria-label="Graduation year" title="A year, such as 2030" />
+              <% } else { %>
+              <input type="text" name="newName[]" value="<%= group.name %>" aria-label="Graduation group name" />
+              <% } %>
               <div class="menu-container">
-                <button type="button" class="menu-button" onclick="toggleMenu(event, this)">
+                <button type="button" class="menu-button" data-onclick="common-manageClassSubjectAndGradYr.3">
                   ⋮
                 </button>
                 <div class="menu-dropdown">
-                  <button type="button" class="menu-item" onclick="obsoleteItem('gradGroup', { id: '<%= group.id %>' }, this)" data-name="<%= group.name %>">
+                  <button type="button" class="menu-item" data-onclick="common-manageClassSubjectAndGradYr.9" data-mga0="<%= group.id %>" data-name="<%= group.name %>">
                     Make obsolete
                   </button>
-                  <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteGraduationYearGroup?id=<%= group.id %>')">
+                  <button type="button" class="menu-item delete" data-onclick="common-manageClassSubjectAndGradYr.10" data-mga0="<%= group.id %>">
                     Delete
                   </button>
                 </div>
@@ -1188,9 +1199,9 @@
       </div>
     </div>
 
-    <script>
-      function confirmDelete(url) {
-        const confirmation = confirm(
+    <script nonce="<%= locals.cspNonce || '' %>">
+      async function confirmDelete(url) {
+        const confirmation = await window.appConfirm(
           "Delete this permanently?\n\nIf it already has records (students, scores, report cards, attendance) it can't be deleted. Make it obsolete instead: it stays on those records and is no longer offered for new work."
         );
         if (confirmation) {
@@ -1206,11 +1217,11 @@
       }
 
       // Retire without losing anything that already uses it.
-      function obsoleteItem(kind, target, button) {
+      async function obsoleteItem(kind, target, button) {
         const name = (button && button.dataset.name) || 'this item';
         const what = { class: 'class', subject: 'subject (in every class)', gradGroup: 'graduation year group' }[kind] || 'item';
         const extra = kind === 'class' ? '\n\nA class must have no current students to be made obsolete.' : '';
-        if (!confirm('Make the ' + what + ' "' + name + '" obsolete?\n\nIt stays on every record that already uses it (report cards, transcripts, scores) and is no longer offered for new work. You can restore it any time.' + extra)) return;
+        if (!await window.appConfirm('Make the ' + what + ' "' + name + '" obsolete?\n\nIt stays on every record that already uses it (report cards, transcripts, scores) and is no longer offered for new work. You can restore it any time.' + extra)) return;
         submitObsoleteForm(kind, target, 'obsolete');
       }
 
@@ -1223,12 +1234,12 @@
         form.submit();
       }
 
-      document.addEventListener('click', function (event) {
+      document.addEventListener('click', async function (event) {
         const btn = event.target.closest('.obs-row__restore');
         if (!btn) return;
         let target = {};
         try { target = JSON.parse(btn.dataset.target || '{}'); } catch (e) { target = {}; }
-        if (!confirm('Restore "' + (btn.dataset.name || 'this item') + '"? It will be offered for new work again.')) return;
+        if (!await window.appConfirm('Restore "' + (btn.dataset.name || 'this item') + '"? It will be offered for new work again.')) return;
         btn.disabled = true;
         submitObsoleteForm(btn.dataset.kind, target, 'restore');
       });
@@ -1566,7 +1577,7 @@
       .cs-none { padding: 14px; border: 1px dashed #cbd5e1; border-radius: 10px; color: #64748b; font-size: .88rem; text-align: center; }
       .cs-none[hidden], .regular-class-list .form-container[hidden], .subject-group-card[hidden] { display: none !important; }
     </style>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Search over a long list of classes or subjects: hides what doesn't match, keeps every row in the form.
       (function () {
         function wire(inputId, noneId, rowsSel, textOf) {
@@ -1595,3 +1606,4 @@
     <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

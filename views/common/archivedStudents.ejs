@@ -160,7 +160,7 @@
   .ga-agree { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-weight: 600; }
   .ga-agree input { margin: 3px 0 0; flex: 0 0 auto; }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     document.querySelectorAll('[data-ar-tab]').forEach(function (tab) {
       tab.addEventListener('click', function () {

@@ -95,7 +95,7 @@
               <% c.students.forEach((st) => { const nm = [st.first_name, st.last_name].filter(Boolean).join(' '); %>
                 <label class="ef-st" data-search="<%= (nm + ' ' + (st.custom_id || '')).toLowerCase() %>">
                   <input type="checkbox" value="<%= st.student_id %>"<%= st.enrolled ? ' checked' : '' %> />
-                  <span class="ef-av"><% if (st.image_url) { %><img src="<%= publicImageUrl(st.image_url) %>" alt="" loading="lazy" onerror="this.remove()" /><% } %><%= _initials(st) %></span>
+                  <span class="ef-av"><% if (st.image_url) { %><img src="<%= publicImageUrl(st.image_url) %>" alt="" loading="lazy" data-onerror="enrollment-form.1" /><% } %><%= _initials(st) %></span>
                   <span class="ef-st__name"><%= nm %><% if (st.custom_id) { %><small><%= st.custom_id %></small><% } %></span>
                 </label>
               <% }) %>
@@ -242,7 +242,7 @@
   }
 </style>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   var root = document.getElementById('ef');
   var MODE = root.getAttribute('data-mode');
@@ -392,7 +392,7 @@
     var row = document.createElement('label');
     row.className = 'ef-st is-added';
     row.setAttribute('data-search', String(name).toLowerCase());
-    row.innerHTML = '<input type="checkbox" value="' + esc(id) + '" checked /> <span class="ef-av">' + (img ? '<img src="' + esc(img) + '" alt="" onerror="this.remove()" />' : '') + esc(initials) + '</span><span class="ef-st__name">' + esc(name) + '</span>';
+    row.innerHTML = '<input type="checkbox" value="' + esc(id) + '" checked /> <span class="ef-av">' + (img ? '<img src="' + esc(img) + '" alt="" data-onerror="enrollment-form.1" />' : '') + esc(initials) + '</span><span class="ef-st__name">' + esc(name) + '</span>';
     var list = card.querySelector('[data-students]');
     var none = list.querySelector('[data-none]');
     if (none) none.remove();
@@ -482,8 +482,8 @@
   });
 
   var del = document.getElementById('efDelete');
-  if (del) del.addEventListener('click', function () {
-    if (!confirm('Delete this enrollment? Its classes and students are taken off this term.')) return;
+  if (del) del.addEventListener('click', async function () {
+    if (!await window.appConfirm('Delete this enrollment? Its classes and students are taken off this term.')) return;
     del.disabled = true;
     fetch('/enrollment/deleteEnrollment/' + ENROLLMENT, { method: 'POST' })
       .then(function () {
@@ -499,3 +499,4 @@
   refresh();
 })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

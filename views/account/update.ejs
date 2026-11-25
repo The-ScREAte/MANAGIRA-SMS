@@ -98,7 +98,7 @@
       <label for="password">New Password (optional):</label>
       <div class="password-input-wrapper">
         <input type="password" id="password" name="password" />
-        <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+        <button type="button" class="password-toggle-btn" data-onclick="account-update.1" aria-label="Show passwords">
           <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
         </button>
       </div>
@@ -180,7 +180,7 @@
     </ul>
   </div>
 
-  <button type="button" onclick="showDetachmentModal()" class="btn-danger" style="margin-top: 10px;">
+  <button type="button" data-onclick="account-update.2" class="btn-danger" style="margin-top: 10px;">
     Request Detachment from Hub
   </button>
 </div>
@@ -188,7 +188,7 @@
 
 <% } %>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function toggleMultiplePasswords(inputIds, button) {
     const icon = button.querySelector('i');
     const firstInput = document.getElementById(inputIds[0]);
@@ -456,7 +456,7 @@
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button type="button" onclick="closeDetachmentModal()" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Cancel</button>
+          <button type="button" data-onclick="account-update.3" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Cancel</button>
           <button type="submit" style="padding: 10px 20px; border: none; background: #ff6b00; color: white; border-radius: 4px; cursor: pointer; font-weight: 500;">Submit Request</button>
         </div>
       </div>
@@ -464,7 +464,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function showDetachmentModal() {
     document.getElementById('detachmentModal').style.display = 'block';
     document.getElementById('detachmentReason').value = '';
@@ -482,3 +482,4 @@
     }
   };
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

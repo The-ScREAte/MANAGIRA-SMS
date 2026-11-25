@@ -1008,9 +1008,9 @@
         </div>
         <div class="gd-actions">
           <% if (canEdit) { %>
-          <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">Edit</button>
+          <button data-onclick="common-guardianDetails.1" class="gd-btn gd-btn-primary">Edit</button>
           <% if (hasGuardianPortalFeature) { %>
-          <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">Send setup</button>
+          <button data-onclick="common-guardianDetails.2" class="gd-btn gd-btn-secondary">Send setup</button>
           <% } %>
           <% } %>
         </div>
@@ -1062,7 +1062,7 @@
             <span class="gd-btn-spinner" aria-hidden="true"></span>
             <span class="gd-btn-label">Save Changes</span>
           </button>
-          <button type="button" onclick="toggleEditForm()" class="gd-btn gd-btn-secondary">Cancel</button>
+          <button type="button" data-onclick="common-guardianDetails.1" class="gd-btn gd-btn-secondary">Cancel</button>
         </div>
       </form>
     </div>
@@ -1098,11 +1098,11 @@
             <div class="gd-student-actions">
               <a href="<%= _studentLink %>" class="gd-view-btn">View Student</a>
               <div class="gd-dots-menu-wrapper">
-                <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
+                <button type="button" class="gd-dots-btn" data-onclick="common-guardianDetails.3" title="More options">⋮</button>
                 <div class="gd-dots-dropdown">
-                  <button onclick="openReportModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">File a report</button>
+                  <button data-onclick="common-guardianDetails.4" data-mga0="<%= student.student_id %>" data-mga1="<%= linkedStudentDisplayName %>">File a report</button>
                   <% if (canEdit) { %>
-                  <button class="gd-dropdown-danger" onclick="openGuardianStudentActionModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">Remove from this parent</button>
+                  <button class="gd-dropdown-danger" data-onclick="common-guardianDetails.5" data-mga0="<%= student.student_id %>" data-mga1="<%= linkedStudentDisplayName %>">Remove from this parent</button>
                   <% } %>
                 </div>
               </div>
@@ -1145,7 +1145,7 @@
   <div class="gd-report-modal">
     <div class="gd-report-modal-header">
       <h3>File a report</h3>
-      <button class="gd-report-close" onclick="closeReportModal()">&times;</button>
+      <button class="gd-report-close" data-onclick="common-guardianDetails.6">&times;</button>
     </div>
     <div class="gd-report-modal-body">
       <div class="gd-report-student-label" id="reportStudentLabel"></div>
@@ -1170,8 +1170,8 @@
         Send report to parent's email
       </label>
       <div class="gd-report-actions">
-        <button class="gd-report-cancel" onclick="closeReportModal()">Cancel</button>
-        <button class="gd-report-submit" id="reportSubmitBtn" onclick="submitReport()">Submit Report</button>
+        <button class="gd-report-cancel" data-onclick="common-guardianDetails.6">Cancel</button>
+        <button class="gd-report-submit" id="reportSubmitBtn" data-onclick="common-guardianDetails.7">Submit Report</button>
       </div>
     </div>
   </div>
@@ -1181,14 +1181,14 @@
   <div class="gd-link-modal">
     <div class="gd-link-head">
       <h4 id="guardianActionTitle">Student guardian action</h4>
-      <button type="button" class="gd-link-close" onclick="closeGuardianActionModal()">&times;</button>
+      <button type="button" class="gd-link-close" data-onclick="common-guardianDetails.8">&times;</button>
     </div>
     <div class="gd-link-body" id="guardianActionBody"></div>
   </div>
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function() {
     const style = document.createElement('style');
     style.textContent = '.gd-sort-btn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:6px;padding:0;border:none;background:transparent;color:currentColor;cursor:pointer;opacity:.78}.gd-sort-btn:hover,.gd-sort-btn:focus,.gd-sort-btn:active,.gd-sort-btn:focus-visible{background:transparent !important;box-shadow:none !important;outline:none;color:currentColor}.gd-sort-btn svg{width:10px;height:10px}';
@@ -1709,7 +1709,7 @@
   }
 
   async function requestPasswordSetup() {
-    if (!confirm('Send a password setup/reset email to this guardian?')) return;
+    if (!await window.appConfirm('Send a password setup/reset email to this guardian?')) return;
     try {
       const response = await fetch('/common/guardianRequestPasswordReset', {
         method: 'POST',
@@ -1757,3 +1757,4 @@
     notifyParentDrawerSaved();
   }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

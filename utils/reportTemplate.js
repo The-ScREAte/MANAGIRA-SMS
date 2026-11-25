@@ -223,7 +223,7 @@ function resolveField(token, ctx, student, subject, subjectNo) {
 }
 
 const objHtml = (v) => (v.html !== undefined ? v.html : imgHtml(v));
-const imgHtml = (v) => '<img src="' + esc(v.img) + '" alt="" onerror="this.remove()" style="max-height:' + v.size + 'px;max-width:100%;object-fit:contain;vertical-align:middle">';
+const imgHtml = (v) => '<img src="' + esc(v.img) + '" alt="" data-onerror="misc.remove" style="max-height:' + v.size + 'px;max-width:100%;object-fit:contain;vertical-align:middle">';
 
 // Replace every {{field}} in plain text (sheet cells): returns HTML.
 function fillText(text, ctx, student, subject, no) {
@@ -384,65 +384,10 @@ async function templateById(db, orgId, documentId) {
 }
 
 // ---- Excel (.xlsx) import: values, merges, fonts, fills, borders, widths ----
-function argbToHex(argb) {
-  if (!argb || typeof argb !== 'string') return '';
-  const hex = argb.length === 8 ? argb.slice(2) : argb;
-  return /^[0-9a-f]{6}$/i.test(hex) ? '#' + hex.toLowerCase() : '';
-}
+// Read on a worker thread (utils/cpuPool.js; the work itself is utils/spreadsheetTasks.js), so a big
+// workbook doesn't hold up the server.
 async function importXlsx(buffer) {
-  const ExcelJS = require('exceljs');
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer);
-  const ws = wb.worksheets.find((w) => w.state !== 'hidden') || wb.worksheets[0];
-  if (!ws) throw Object.assign(new Error('This file has no sheets.'), { status: 400 });
-  const maxRows = Math.min(ws.rowCount || 0, 600), maxCols = Math.min(ws.columnCount || 0, 80);
-  const cells = {}, styles = {}, colWidths = {}, merges = [];
-  for (let r = 1; r <= maxRows; r++) {
-    const row = ws.getRow(r);
-    for (let c = 1; c <= maxCols; c++) {
-      const cell = row.getCell(c);
-      const id = colLabel(c - 1) + r;
-      let v = cell.value;
-      if (v && typeof v === 'object') {
-        if (v.richText) v = v.richText.map((t) => t.text).join('');
-        else if (v.formula || v.sharedFormula) v = v.result !== undefined && v.result !== null ? v.result : '';
-        else if (v.text) v = v.text;
-        else if (v instanceof Date) v = v.toISOString().slice(0, 10);
-        else if (v.hyperlink) v = v.text || v.hyperlink;
-        else v = '';
-      }
-      if (v !== null && v !== undefined && v !== '') cells[id] = String(v);
-      const st = {};
-      const f = cell.font || {};
-      if (f.bold) st.b = 1;
-      if (f.italic) st.i = 1;
-      if (f.underline) st.u = 1;
-      if (f.size && Math.round(f.size) !== 11) st.fs = Math.round(f.size * 1.33);
-      const color = argbToHex(f.color && f.color.argb);
-      if (color && color !== '#000000') st.color = color;
-      const fill = cell.fill || {};
-      const bg = fill.type === 'pattern' && fill.pattern !== 'none' ? argbToHex(fill.fgColor && fill.fgColor.argb) : '';
-      if (bg && bg !== '#ffffff') st.bg = bg;
-      const al = cell.alignment && cell.alignment.horizontal;
-      if (al === 'center' || al === 'centerContinuous') st.align = 'center';
-      else if (al === 'right') st.align = 'right';
-      const b = cell.border || {};
-      const bd = (b.top && b.top.style ? 't' : '') + (b.bottom && b.bottom.style ? 'b' : '') + (b.left && b.left.style ? 'l' : '') + (b.right && b.right.style ? 'r' : '');
-      if (bd) st.bd = bd;
-      if (Object.keys(st).length) styles[id] = st;
-    }
-  }
-  for (let c = 1; c <= maxCols; c++) {
-    const w = ws.getColumn(c).width;
-    if (w) colWidths[c - 1] = Math.max(30, Math.min(600, Math.round(w * 7 + 5)));
-  }
-  const rangeList = (ws.model && ws.model.merges) || [];
-  rangeList.forEach((ref) => {
-    const [a, b] = String(ref).split(':');
-    const p = parseCell(a), q = parseCell(b || a);
-    if (p && q && p.r < maxRows && p.c < maxCols) merges.push({ r: p.r, c: p.c, rs: q.r - p.r + 1, cs: q.c - p.c + 1 });
-  });
-  return { cells, styles, colWidths, merges, rowCount: Math.max(maxRows + 5, 20), colCount: Math.max(maxCols, 10), name: ws.name };
+  return require('./cpuPool').run('importSheet', { buffer });
 }
 
 module.exports = { ensureReportTemplateSchema, FIELD_GROUPS, fieldGroupsFor, renderTemplate, templateForClass, templateById, importXlsx };

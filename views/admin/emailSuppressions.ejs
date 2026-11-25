@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Email Suppression Manager</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <style>
@@ -285,6 +285,7 @@
       }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="sup-page">
@@ -360,7 +361,7 @@
                         class="sup-remove-form"
                         method="POST"
                         action="/admin/email-suppressions/remove"
-                        onsubmit="return confirm('Remove suppression for ' + '<%= String(row.email).replace(/'/g, "\\'") %>' + '?');"
+                        data-onsubmit="admin-emailSuppressions.remove" data-mga0="<%= String(row.email) %>"
                       >
                         <input type="hidden" name="email" value="<%= row.email %>" />
                         <button type="submit" class="sup-remove-btn">Remove</button>
@@ -375,5 +376,6 @@
       </section>
     </section>
   </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>
 </body>
 </html>

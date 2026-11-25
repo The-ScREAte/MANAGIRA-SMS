@@ -68,9 +68,10 @@ main { padding: 0 !important; max-width: none !important; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 18px;
+  padding: 0 18px;
+  height: var(--control-h, 38px);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--control-radius, 8px);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -386,7 +387,7 @@ main { padding: 0 !important; max-width: none !important; }
     </div><% } else { %><div></div><% } %>
     <div class="docs-actions">
       <% if (canCreate) { %>
-      <button class="btn btn-primary" onclick="openCreateModal()">
+      <button class="btn btn-primary" data-onclick="common-documents.1">
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         New Doc/Sheet
       </button>
@@ -412,7 +413,7 @@ main { padding: 0 !important; max-width: none !important; }
   <% } else { %>
     <div class="docs-grid">
       <% documents.forEach(doc => { %>
-        <div class="doc-card" onclick="if(event.target.closest('.doc-card-actions'))return; window.open('/documents/edit/<%= doc.id %>?returnUrl='+encodeURIComponent(window.location.href),'_blank','noopener');">
+        <div class="doc-card" data-onclick="common-documents.open" data-mga0="<%= doc.id %>">
           <div class="doc-card-actions">
             <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete" aria-label="Delete <%= doc.title %>"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
           </div>
@@ -447,12 +448,12 @@ main { padding: 0 !important; max-width: none !important; }
   <div class="modal-box">
     <h2>New doc or sheet</h2>
     <div class="type-selector">
-      <div class="type-option selected" data-type="document" onclick="selectType('document')">
+      <div class="type-option selected" data-type="document" data-onclick="common-documents.2">
         <div class="icon"><i class="fa-solid fa-file-lines" style="color:#2563eb" aria-hidden="true"></i></div>
         <h4>Doc</h4>
         <p>Letters, notes, report cards</p>
       </div>
-      <div class="type-option" data-type="spreadsheet" onclick="selectType('spreadsheet')">
+      <div class="type-option" data-type="spreadsheet" data-onclick="common-documents.3">
         <div class="icon"><i class="fa-solid fa-table" style="color:#16a34a" aria-hidden="true"></i></div>
         <h4>Sheet</h4>
         <p>Tables, lists, report cards</p>
@@ -463,13 +464,13 @@ main { padding: 0 !important; max-width: none !important; }
       <input type="text" id="docTitle" placeholder="Enter document title..." />
     </div>
     <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeCreateModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="createDocument()">Create</button>
+      <button class="btn btn-outline" data-onclick="common-documents.4">Cancel</button>
+      <button class="btn btn-primary" data-onclick="common-documents.5">Create</button>
     </div>
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
 let selectedType = 'document';
 const docsWrapper = document.querySelector('.docs-wrapper');
@@ -549,7 +550,7 @@ async function createDocument() {
 window.createDocument = createDocument;
 
 async function deleteDoc(id, title) {
-  if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  if (!await window.appConfirm('Delete "' + title + '"? This cannot be undone.')) return;
   
   try {
     const res = await fetch('/documents/delete/' + id, {
@@ -600,7 +601,7 @@ if (document.readyState === 'loading') {
 }
 })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Docs & Sheets lists a page at a time; asking for another page or size loads it (the server cuts the page).
   (function () {
     var host = document.getElementById('docsPager'); if (!host || !window.ManagiraPager) return;
@@ -613,3 +614,4 @@ if (document.readyState === 'loading') {
     pager.goTo(page);
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

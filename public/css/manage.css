@@ -74,7 +74,7 @@ body .ws-btn.ws-btn[disabled] { opacity: .55; cursor: not-allowed; }
 
 /* Cards, tables, empty states */
 body .ws-card { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-radius); box-shadow: none; }
-.ws-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--ws-line); }
+.ws-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px var(--card-pad, 18px); border-bottom: 1px solid var(--ws-line); }
 .ws-card__title { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ws-ink); }
 .ws-empty { padding: 40px 20px; text-align: center; color: var(--ws-muted); font-size: .9rem; }
 .ws-empty strong { display: block; margin-bottom: 4px; color: var(--ws-ink); font-size: 1rem; }
@@ -100,7 +100,6 @@ body .ws-table td strong { color: var(--ws-ink); }
 @media (max-width: 640px) {
   body .ws-root { padding: 16px 16px 32px !important; }
   .ws-head { margin-bottom: 16px; }
-  .ws-head .ws-head__title { font-size: 1.2rem; }
   .ws-head__actions { width: 100%; justify-content: stretch; }
   .ws-head__actions .ws-btn { flex: 1 1 auto; }
 }

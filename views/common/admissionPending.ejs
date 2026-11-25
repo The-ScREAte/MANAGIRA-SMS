@@ -432,7 +432,7 @@
           </td>
           <% } else { %>
           <td data-label="Action">
-            <button type="button" class="view-btn" onclick="loadStudentDetails(<%= student.pending_id %>)">Review <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+            <button type="button" class="view-btn" data-onclick="common-admissionPending.1" data-mga0="<%= student.pending_id %>">Review <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </td>
           <% } %>
         </tr>
@@ -472,7 +472,7 @@
   
   @media (max-width: 640px) { .pa-tools { width: 100%; } .pa-search { flex: 1; } .pa-search input { width: 100%; } }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   var search = document.getElementById('paSearch'), cls = document.getElementById('paClass'), gender = document.getElementById('paGender');
   function filter() {
@@ -499,7 +499,7 @@
 </script>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 let hasChanges = false;
 
 (function() {
@@ -691,7 +691,7 @@ async function loadStudentDetails(id) {
             <h1 id="studentDetailsTitle">${paEsc(fullName)}</h1>
             <p>${meta.map(paEsc).join(' · ')}</p>
           </div>
-          <button type="button" class="rv-close" onclick="closeStudentForm()" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          <button type="button" class="rv-close" data-onclick="common-admissionPending.2" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </header>
 
         <form id="pendingReviewForm" method="POST" enctype="multipart/form-data" class="rv-body">
@@ -710,7 +710,7 @@ async function loadStudentDetails(id) {
               <label class="rv-field"><span>Hometown</span><input type="text" name="hometown" value="${paEsc(student.hometown)}"></label>
               <div class="rv-field"><span>Photo</span>
                 ${hasPhoto
-                  ? `<div class="rv-photo"><img src="${paEsc(student.image_url)}" alt="Student photo"><button type="button" class="rv-link is-danger" onclick="deleteStudentImage(${Number(student.pending_id)})">Remove photo</button></div>`
+                  ? `<div class="rv-photo"><img src="${paEsc(student.image_url)}" alt="Student photo"><button type="button" class="rv-link is-danger" data-onclick="admissionPending.delImg" data-mga0="${Number(student.pending_id)}">Remove photo</button></div>`
                   : `<input type="file" name="studentImage" accept="image/*">`}
               </div>
             </div>
@@ -739,7 +739,7 @@ async function loadStudentDetails(id) {
             </div>
             <div class="rv-grid future-enrollment-section">
               <label class="rv-field"><span>School year</span>
-                <select name="schoolYearId" id="schoolYearSelect" onchange="updateTermOptions(this)">
+                <select name="schoolYearId" id="schoolYearSelect" data-onchange="common-admissionPending.3">
                   <option value="">Select school year</option>
                   ${schoolYears.map(year => `<option value="${year.school_year_id}" data-terms='${paEsc(JSON.stringify(year.terms))}' ${year.school_year_id === student.school_year_id ? 'selected' : ''}>${paEsc(year.year_label)}</option>`).join('')}
                 </select>
@@ -773,15 +773,15 @@ async function loadStudentDetails(id) {
             <div id="guardiansContainer" class="rv-guardians">
               ${guardians.length ? guardians.map((g, i) => guardianCardHtml(g, i)).join('') : ''}
             </div>
-            <button type="button" class="rv-add" onclick="addGuardian()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add parent</button>
+            <button type="button" class="rv-add" data-onclick="common-admissionPending.4"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add parent</button>
           </section>
         </form>
 
         <footer class="rv-foot">
-          <button type="button" class="rv-btn is-reject" onclick="rejectStudent(${Number(student.pending_id)})">Reject</button>
+          <button type="button" class="rv-btn is-reject" data-onclick="admissionPending.reject" data-mga0="${Number(student.pending_id)}">Reject</button>
           <span class="rv-status" id="rvStatus" role="status"></span>
-          <button type="button" class="rv-btn" onclick="saveChanges(${Number(student.pending_id)})">Save</button>
-          <button type="submit" class="rv-btn is-primary" form="pendingReviewForm" onclick="return confirmApprove(event, ${Number(student.pending_id)})">Approve</button>
+          <button type="button" class="rv-btn" data-onclick="admissionPending.save" data-mga0="${Number(student.pending_id)}">Save</button>
+          <button type="submit" class="rv-btn is-primary" form="pendingReviewForm" data-onclick="admissionPending.approve" data-mga0="${Number(student.pending_id)}">Approve</button>
         </footer>
       </main>
     `;
@@ -840,15 +840,18 @@ function confirmApprove(e, id) {
     setReviewStatus('Save your changes before approving.', 'error');
     return false;
   }
-  const confirmed = confirm("Approve this application? The student is added and the parents are notified.");
-  if (confirmed) {
-    const form = document.getElementById('pendingReviewForm');
+  const form = document.getElementById('pendingReviewForm');
+  if (form.__approveOk) { form.__approveOk = false; return true; }
+  e.preventDefault();
+  const sender = e.submitter || null;
+  window.appConfirm("Approve this application? The student is added and the parents are notified.", { ok: 'Approve' }).then(function (yes) {
+    if (!yes) return;
     renumberGuardians(form);
     if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
     form.action = `/common/admissionPending/approve/${id}`;
-    return true;
-  }
-  e.preventDefault();
+    form.__approveOk = true;
+    if (form.requestSubmit) form.requestSubmit(sender || undefined); else form.submit();
+  });
   return false;
 }
 
@@ -856,26 +859,31 @@ function confirmApprove(e, id) {
 document.addEventListener('click', function (event) {
   const btn = event.target.closest('[data-reverse]');
   if (!btn) return;
-  if (!confirm('Move ' + btn.dataset.name + "'s application back to Pending?")) return;
-  btn.disabled = true;
-  fetch('/common/admissionPending/reverse/' + btn.dataset.reverse, { method: 'POST' })
-    .then(function (res) { if (!res.ok) throw new Error(); location.reload(); })
-    .catch(function () { btn.disabled = false; alert('Could not reverse the decision. Please try again.'); });
+  window.appConfirm('Move ' + btn.dataset.name + "'s application back to Pending?", { ok: 'Move back' }).then(function (yes) {
+    if (!yes) return;
+    btn.disabled = true;
+    fetch('/common/admissionPending/reverse/' + btn.dataset.reverse, { method: 'POST' })
+      .then(function (res) { if (!res.ok) throw new Error(); location.reload(); })
+      .catch(function () { btn.disabled = false; alert('Could not reverse the decision. Please try again.'); });
+  });
 });
 
 function rejectStudent(id) {
-  if (confirm("Reject this application? It moves to Rejected, where you can reverse the decision for 60 days.")) {
+  window.appConfirm("Reject this application? It moves to Rejected, where you can reverse the decision for 60 days.", { ok: 'Reject', danger: true }).then(function (yes) {
+    if (!yes) return;
     fetch(`/common/admissionPending/reject/${id}`, { method: 'POST' })
       .then(() => location.reload())
       .catch(() => setReviewStatus('Could not reject. Please try again.', 'error'));
-  }
+  });
 }
 
 function deleteStudentImage(pendingId) {
-  if (!confirm("Remove this student's photo?")) return;
-  fetch(`/common/deletePendingStudentImage/${pendingId}`, { method: 'POST' })
-    .then(res => { if (res.ok) loadStudentDetails(pendingId); else setReviewStatus('Could not remove the photo.', 'error'); })
-    .catch(() => setReviewStatus('Could not remove the photo.', 'error'));
+  window.appConfirm("Remove this student's photo?", { ok: 'Remove' }).then(function (yes) {
+    if (!yes) return;
+    fetch(`/common/deletePendingStudentImage/${pendingId}`, { method: 'POST' })
+      .then(res => { if (res.ok) loadStudentDetails(pendingId); else setReviewStatus('Could not remove the photo.', 'error'); })
+      .catch(() => setReviewStatus('Could not remove the photo.', 'error'));
+  });
 }
 
 function saveChanges(id) {
@@ -898,8 +906,8 @@ function saveChanges(id) {
     .catch(() => setReviewStatus('Could not save. Please try again.', 'error'));
 }
 
-function closeStudentForm() {
-  if (hasChanges && !confirm("Close without saving your changes?")) return;
+async function closeStudentForm() {
+  if (hasChanges && !await window.appConfirm("Close without saving your changes?")) return;
   const overlay = document.getElementById("studentDetailsOverlay");
   const container = document.getElementById("studentDetailsContainer");
   overlay.classList.remove('is-open');
@@ -925,3 +933,4 @@ function addGuardian() {
   card.querySelector('input').focus();
 }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

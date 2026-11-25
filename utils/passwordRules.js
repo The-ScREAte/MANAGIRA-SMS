@@ -1,17 +1,52 @@
 "use strict";
 
 // The rule for every new password (staff, school accounts, parents, students, hubs, Managira
-// admins): at least 8 characters, as NIST SP 800-63B asks, and at most 72 bytes, the most bcrypt
-// reads (anything after would be silently ignored). Forms that also ask for a mix of characters
-// keep that on top. Existing passwords are never re-checked: this applies when one is set.
-const MIN_LENGTH = 8;
+// admins): at least 10 characters, at most 72 bytes (the most bcrypt reads; anything after would
+// be silently ignored), not one of the passwords everyone tries first (utils/commonPasswords.js),
+// and not the person's own email or name. Forms that also ask for a mix of characters keep that
+// on top. Existing passwords are never re-checked: this applies when one is set.
+const MIN_LENGTH = 10;
 const MAX_BYTES = 72;
 
+const COMMON = new Set(require("./commonPasswords"));
+// The plain words of that list, for catching a common word with only digits or symbols after it.
+const COMMON_WORDS = new Set([...COMMON].filter((word) => /^[a-z]{5,}$/.test(word)));
+const LOOKALIKES = { "@": "a", "0": "o", "$": "s", "3": "e", "1": "i", "!": "i", "5": "s", "4": "a" };
+
+function isCommonPassword(password) {
+  const text = String(password || "").trim().toLowerCase();
+  if (COMMON.has(text)) return true;
+  const head = text.replace(/[^a-z]+$/g, ""); // what comes before any closing digits and symbols
+  const unlooked = head.replace(/[@$!013-5]/g, (c) => LOOKALIKES[c] || c);
+  return [head, unlooked].some((word) => COMMON_WORDS.has(word) && text.length <= word.length + 6);
+}
+
+// The person's own details as lower-case words: what their password may not simply be.
+function ownWords(who) {
+  const list = [];
+  const add = (value) => { const v = String(value || "").trim().toLowerCase(); if (v.length >= 3) list.push(v); };
+  const w = who || {};
+  const email = String(w.email || "").trim().toLowerCase();
+  add(email);
+  add(email.split("@")[0]);
+  const first = String(w.firstName || "").trim().toLowerCase();
+  const last = String(w.lastName || "").trim().toLowerCase();
+  add(first); add(last); add(first + last); add(last + first); add(first + "." + last);
+  add(String(w.name || "").replace(/\s+/g, "").toLowerCase());
+  add(String(w.organizationName || "").replace(/\s+/g, "").toLowerCase());
+  return list;
+}
+
 // What's wrong with a new password, in words for the person, or null when it's fine.
-function passwordProblem(password) {
+// `who` ({ email, firstName, lastName, name, organizationName }) is optional.
+function passwordProblem(password, who) {
   const text = String(password || "");
   if ([...text].length < MIN_LENGTH) return `Use at least ${MIN_LENGTH} characters for the password.`;
   if (Buffer.byteLength(text, "utf8") > MAX_BYTES) return `Use at most ${MAX_BYTES} characters for the password.`;
+  if (isCommonPassword(text)) return "That password is too common. Choose a different one.";
+  const lower = text.trim().toLowerCase();
+  const stripped = lower.replace(/[^a-z]+$/g, "");
+  if (ownWords(who).some((word) => lower === word || stripped === word)) return "The password can't be your name or email. Choose a different one.";
   return null;
 }
 
@@ -63,8 +98,8 @@ async function breachCount(password) {
 }
 
 // passwordProblem plus the breach check: use it wherever a new password is set.
-async function passwordProblemAsync(password) {
-  const basic = passwordProblem(password);
+async function passwordProblemAsync(password, who) {
+  const basic = passwordProblem(password, who);
   if (basic) return basic;
   if (process.env.PASSWORD_BREACH_CHECK === "off") return null;
   return (await breachCount(password)) > 0
@@ -72,4 +107,4 @@ async function passwordProblemAsync(password) {
     : null;
 }
 
-module.exports = { MIN_LENGTH, MAX_BYTES, passwordProblem, passwordProblemAsync, breachCount, passwordMatches, legacyForm };
+module.exports = { MIN_LENGTH, MAX_BYTES, isCommonPassword, passwordProblem, passwordProblemAsync, breachCount, passwordMatches, legacyForm };

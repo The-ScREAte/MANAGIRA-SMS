@@ -3,8 +3,9 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Data Export</title>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <h1>Data Export</h1>

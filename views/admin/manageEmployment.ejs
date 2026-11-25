@@ -1113,7 +1113,7 @@
                           <p style="margin: 0;"><a href="/admin/employment/applications/<%= application.id %>/resume" target="_blank" rel="noopener noreferrer" data-no-spa>Download Resume</a></p>
 
                           <div style="display: grid; gap: 8px; margin-top: 12px;">
-                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/approve" onsubmit="return confirm('Send approval email for this applicant?');" style="margin: 0;">
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/approve" data-onsubmit="admin-manageEmployment.1" style="margin: 0;">
                               <button
                                 type="submit"
                                 class="admin-btn admin-btn-sm"
@@ -1124,7 +1124,7 @@
                               </button>
                             </form>
 
-                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/reject" onsubmit="return confirm('Send rejection email for this applicant?');" style="margin: 0;">
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/reject" data-onsubmit="admin-manageEmployment.2" style="margin: 0;">
                               <textarea
                                 name="rejection_reason"
                                 placeholder="Optional rejection reason to include in email"
@@ -1141,25 +1141,25 @@
                             </form>
 
                             <% if (application.status === 'approved' && (application.interview_stage === 'first')) { %>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/second-interview" onsubmit="return confirm('Send second interview invitation?');" style="margin: 0; display: grid; gap: 6px; padding: 8px; border: 1px dashed #0f766e; border-radius: 8px;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/second-interview" data-onsubmit="admin-manageEmployment.3" style="margin: 0; display: grid; gap: 6px; padding: 8px; border: 1px dashed #0f766e; border-radius: 8px;">
                                 <label style="font-size: 0.8rem; font-weight: 600; color: #0f766e;">2nd Interview Message (leave empty or check Use Template)</label>
                                 <textarea name="custom_message" placeholder="Optional custom message" style="width:100%; min-height:60px; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box;"></textarea>
                                 <label style="display:flex; gap:6px; align-items:center; font-size:0.8rem;"><input type="checkbox" name="use_template" value="true" checked /> Use template (proposal request to <%= careersEmail %>)</label>
                                 <button type="submit" class="admin-btn admin-btn-sm" style="justify-self:start; background:#0f766e; color:#fff; border:1px solid #115e59;">Send 2nd Interview Invite</button>
                               </form>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after first interview?');" style="margin: 0;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" data-onsubmit="admin-manageEmployment.4" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
                                 <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 1st Interview</button>
                               </form>
                             <% } %>
 
                             <% if (application.status === 'approved' && application.interview_stage === 'second') { %>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/final-interview" onsubmit="return confirm('Send final interview invitation?');" style="margin: 0; display:grid; gap:6px; padding:8px; border:1px dashed #1d4ed8; border-radius:8px;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/final-interview" data-onsubmit="admin-manageEmployment.5" style="margin: 0; display:grid; gap:6px; padding:8px; border:1px dashed #1d4ed8; border-radius:8px;">
                                 <label style="font-size:0.8rem; font-weight:600; color:#1d4ed8;">Last Interview With Team (optional message)</label>
                                 <textarea name="custom_message" placeholder="Optional custom message" style="width:100%; min-height:60px; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box;"></textarea>
                                 <button type="submit" class="admin-btn admin-btn-sm" style="justify-self:start; background:#1d4ed8; color:#fff; border:1px solid #1e40af;">Send Last Interview Invite</button>
                               </form>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after second interview?');" style="margin: 0;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" data-onsubmit="admin-manageEmployment.6" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
                                 <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 2nd Interview</button>
                               </form>
@@ -1167,14 +1167,14 @@
 
                             <% if (application.status === 'approved' && application.interview_stage === 'final') { %>
                               <p style="margin:6px 0; padding:8px; background:#ecfeff; border-left:3px solid #0891b2; font-size:0.82rem; color:#0e7490;">Final interview invitation has been sent. Awaiting completion.</p>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after final interview?');" style="margin: 0;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" data-onsubmit="admin-manageEmployment.7" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
                                 <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After Final Interview</button>
                               </form>
                             <% } %>
 
                             <% if (application.status === 'rejected') { %>
-                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/reverse-rejection" onsubmit="return confirm('Reverse rejection and notify applicant to disregard previous rejection email?');" style="margin: 0;">
+                              <form method="POST" action="/admin/employment/applications/<%= application.id %>/reverse-rejection" data-onsubmit="admin-manageEmployment.8" style="margin: 0;">
                                 <button
                                   type="submit"
                                   class="admin-btn admin-btn-sm"
@@ -1185,7 +1185,7 @@
                               </form>
                             <% } %>
 
-                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/delete" onsubmit="return confirm('Delete this application permanently?');" style="margin: 0;">
+                            <form method="POST" action="/admin/employment/applications/<%= application.id %>/delete" data-onsubmit="admin-manageEmployment.9" style="margin: 0;">
                               <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm">
                                 Delete Application
                               </button>
@@ -1200,7 +1200,7 @@
             <% } %>
 
             <form action="/admin/employment/delete/<%= job.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this job posting?')">
+              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" data-onclick="admin-manageEmployment.10">
                 Delete Job
               </button>
             </form>
@@ -1213,7 +1213,7 @@
   </details>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const modeSelect = document.getElementById('application_mode');
     const externalLinkWrapper = document.getElementById('externalLinkWrapper');
@@ -1737,7 +1737,7 @@
       });
     }
 
-    function onApplicantsActionClick(event) {
+    async function onApplicantsActionClick(event) {
       const button = event.target.closest('button[data-action]');
       if (!button) return;
 
@@ -1749,7 +1749,7 @@
 
       if (action === 'approve') {
         if (status !== 'pending') return;
-        if (!window.confirm('Send approval email for this applicant?')) return;
+        if (!await window.appConfirm('Send approval email for this applicant?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/approve`);
         return;
       }
@@ -1758,7 +1758,7 @@
         if (status !== 'pending') return;
         const rejectionReason = window.prompt('Optional rejection reason to include in email:', '');
         if (rejectionReason === null) return;
-        if (!window.confirm('Send rejection email for this applicant?')) return;
+        if (!await window.appConfirm('Send rejection email for this applicant?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/reject`, {
           rejection_reason: rejectionReason,
         });
@@ -1767,7 +1767,7 @@
 
       if (action === 'reverse') {
         if (status !== 'rejected') return;
-        if (!window.confirm('Reverse rejection and notify applicant to disregard previous rejection email?')) return;
+        if (!await window.appConfirm('Reverse rejection and notify applicant to disregard previous rejection email?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/reverse-rejection`);
         return;
       }
@@ -1777,7 +1777,7 @@
         const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
         const applicantEmail = row ? (row.cells[6] && row.cells[6].textContent.trim()) : '';
         const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
-        if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their first interview?\n\nSending the second interview email will move them to the next stage.`)) return;
+        if (!await window.appConfirm(`Are you sure ${applicantName || 'this applicant'} has completed their first interview?\n\nSending the second interview email will move them to the next stage.`)) return;
         openEmailEditor({
           step: 'Step 2 of 3',
           title: 'Send 2nd Interview Invitation',
@@ -1798,7 +1798,7 @@
         const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
         const applicantEmail = row ? (row.cells[6] && row.cells[6].textContent.trim()) : '';
         const jobTitle = row ? (row.cells[1] && row.cells[1].textContent.trim()) : '';
-        if (!window.confirm(`Are you sure ${applicantName || 'this applicant'} has completed their second interview?\n\nSending the final interview email will move them to the final stage.`)) return;
+        if (!await window.appConfirm(`Are you sure ${applicantName || 'this applicant'} has completed their second interview?\n\nSending the final interview email will move them to the final stage.`)) return;
         openEmailEditor({
           step: 'Step 3 of 3',
           title: 'Send Last Interview With Team',
@@ -1816,7 +1816,7 @@
       if (action === 'hire') {
         const row = button.closest('tr');
         const applicantName = row ? (row.cells[0] && row.cells[0].textContent.trim()) : '';
-        if (!window.confirm(`Mark ${applicantName || 'this applicant'} as hired?`)) return;
+        if (!await window.appConfirm(`Mark ${applicantName || 'this applicant'} as hired?`)) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/hire`);
         return;
       }
@@ -1828,7 +1828,7 @@
           ''
         );
         if (rejectionReason === null) return;
-        if (!window.confirm('Send stage rejection email to this applicant?')) return;
+        if (!await window.appConfirm('Send stage rejection email to this applicant?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/stage-reject`, {
           rejection_reason: rejectionReason,
         });
@@ -1836,7 +1836,7 @@
       }
 
       if (action === 'delete') {
-        if (!window.confirm('Delete this application permanently?')) return;
+        if (!await window.appConfirm('Delete this application permanently?')) return;
         submitPostAction(`/admin/employment/applications/${applicationId}/delete`);
         return;
       }
@@ -2041,7 +2041,7 @@
     const analyzeAllBtn = document.getElementById('analyzeAllBtn');
     if (analyzeAllBtn) {
       analyzeAllBtn.addEventListener('click', async () => {
-        const force = window.confirm(
+        const force = await window.appConfirm(
           'Auto-check fit for all applicants now?\n\n' +
           'OK = Re-analyze EVERY applicant (slower)\n' +
           'Cancel = Only analyze ones that have not been checked yet'
@@ -2208,3 +2208,4 @@
     });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

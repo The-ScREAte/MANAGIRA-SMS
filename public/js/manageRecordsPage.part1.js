@@ -314,12 +314,17 @@
       }
 
       // Validation to ensure the current term belongs to the selected current school year
+      // The form's own submit is held; once the checks and the in-app question are answered it is sent with the bypass.
       function validateAndConfirmChanges(form) {
         if (form.dataset.submitBypass === '1') {
           form.dataset.submitBypass = '0';
           return true;
         }
+        runValidateAndConfirmChanges(form).then(function (ok) { if (ok) submitFormWithBypass(form); });
+        return false;
+      }
 
+      async function runValidateAndConfirmChanges(form) {
         syncCurrentSelectionForForm(form);
 
         const yearInput = form.querySelector('input[name="year_label"]');
@@ -442,7 +447,7 @@
             });
 
             if (suggestedTermName && selectedTermName && suggestedTermName !== selectedTermName) {
-              const proceed = confirm(
+              const proceed = await window.appConfirm(
                 `⚠️ Based on today's date, it looks like you should be in "${suggestedTermName}", but you are selecting "${selectedTermName}" as the current term under school year "${yearLabel}".\n\nDo you want to proceed?`
               );
               if (!proceed) return false;
@@ -472,9 +477,7 @@
           }
         }
 
-        return confirm(
-          `You are about to save changes to the school year. Do you want to proceed?`
-        );
+        return await window.appConfirm(`Save the changes to this school year?`, { ok: 'Save' });
       }
 
       document.addEventListener('click', function (event) {
@@ -650,7 +653,7 @@
           'If linked records exist, deletion will be blocked.\n\n' +
           'Do you want to continue?';
 
-        if (!confirm(firstWarning)) {
+        if (!await window.appConfirm(firstWarning)) {
           return;
         }
 
@@ -1131,8 +1134,8 @@
         if (!host || host.dataset.planInit === '1') return;
         host.dataset.planInit = '1';
         document.querySelectorAll('input[name="rsyStructure"]').forEach((input) => {
-          input.addEventListener('change', () => {
-            if (rsyPlanEdited && input.value !== 'custom' && !window.confirm('Replace the terms below with ' + input.closest('label').querySelector('strong').textContent.toLowerCase() + '?')) {
+          input.addEventListener('change', async () => {
+            if (rsyPlanEdited && input.value !== 'custom' && !await window.appConfirm('Replace the terms below with ' + input.closest('label').querySelector('strong').textContent.toLowerCase() + '?')) {
               setRsyStructure('custom');
               return;
             }
@@ -1168,9 +1171,9 @@
           <div class="rsy-term-card-header">
             <h3>Term ${termIndex + 1}</h3>
             <div style="position: relative;">
-              <button type="button" class="rsy-term-menu-btn" onclick="toggleRsyTermDeleteMenu(event, this)">⋮</button>
+              <button type="button" class="rsy-term-menu-btn" data-onclick="rsy.termMenu">⋮</button>
               <div class="rsy-term-menu-dropdown">
-                <button type="button" class="rsy-term-menu-item" onclick="removeRsyField(this)">🗑️ Remove</button>
+                <button type="button" class="rsy-term-menu-item" data-onclick="rsy.removeField">🗑️ Remove</button>
               </div>
             </div>
           </div>

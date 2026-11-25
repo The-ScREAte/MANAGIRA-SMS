@@ -20,7 +20,7 @@ const MAX_AGE_MS = 2 * 60 * 60 * 1000;
 const FORMS = ["help", "demo", "job", "school-contact", "admission", "register"];
 const TRAPS = ["company_website", "website_url"]; // hidden fields: a person never fills them
 
-const secret = () => process.env.HUMAN_CHECK_SECRET || process.env.SESSION_SECRET || "managira-human-check";
+const secret = () => require("./sessionSecret").sessionSecret(process.env.HUMAN_CHECK_SECRET);
 const sign = (parts) => crypto.createHmac("sha256", secret()).update(parts.join("|")).digest("hex");
 const sha256 = (text) => crypto.createHash("sha256").update(text).digest("hex");
 

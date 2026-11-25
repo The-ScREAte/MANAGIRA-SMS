@@ -182,7 +182,7 @@
           <p><%= d.description %></p>
           <a href="<%= d.external_link %>" class="donation-link" target="_blank">🔗 View Donation Link</a>
           <form action="/admin/donations/delete/<%= d.id %>?imageKey=<%= d.s3_key %>" method="POST">
-            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this donation campaign and its image?')">
+            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" data-onclick="admin-manageDonations.1">
               🗑 Delete Campaign
             </button>
           </form>
@@ -191,3 +191,4 @@
     <% } %>
   </div>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

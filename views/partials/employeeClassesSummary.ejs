@@ -52,7 +52,7 @@
     .emp-cell::before { display: inline; }
   }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var name = <%- JSON.stringify(classCheckboxName) %>;
     var toggle = document.getElementById('empClassToggle');

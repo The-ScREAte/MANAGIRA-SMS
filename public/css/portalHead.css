@@ -6,13 +6,13 @@
 .pt-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); color: var(--org-primary-color, #0f766e); }
 .pt-icon svg { width: 22px; height: 22px; }
 .pt-text { min-width: 0; flex: 1; }
-.pt-head h1 { margin: 0; color: #0f172a; font-size: 1.4rem; font-weight: 750; line-height: 1.2; text-align: left; }
+.pt-head .pt-text h1 { margin: 0; color: #0f172a; font-size: 1.375rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; text-align: left; }
 .pt-head p { margin: 2px 0 0; color: #64748b; font-size: .9rem; }
 .pt-head .pt-action { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px; border: 1px solid #d5dce4; border-radius: 10px; background: #fff; color: #0f172a; font-size: .88rem; font-weight: 650; text-decoration: none; }
 .pt-head .pt-action:hover { border-color: var(--org-primary-color, #0f766e); color: var(--org-primary-color, #0f766e); }
 .pt-head .pt-action svg { width: 16px; height: 16px; }
-@media (max-width: 560px) { .pt-icon { width: 38px; height: 38px; } .pt-head h1 { font-size: 1.2rem; } }
+@media (max-width: 560px) { .pt-icon { width: 38px; height: 38px; } }
 .pt-extra { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pt-head .pt-primary { display: inline-flex; align-items: center; gap: 6px; width: auto; height: 36px; margin: 0; padding: 0 14px; border: 0; border-radius: 10px; background: var(--org-primary-color, #0f766e); box-shadow: none; color: #fff; font: inherit; font-size: .88rem; font-weight: 650; cursor: pointer; text-decoration: none; }
 .pt-head .pt-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: .78rem; font-weight: 700; }
-@media (max-width: 560px) { .pt-row { flex-wrap: wrap; } .pt-extra, .pt-head .pt-action { margin-left: 58px; } }
+@media (max-width: 560px) { .pt-row { flex-wrap: wrap; } .pt-text { flex: 1 1 14rem; } .pt-extra, .pt-head .pt-action { margin-left: 52px; } }

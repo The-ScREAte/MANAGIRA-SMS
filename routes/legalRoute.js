@@ -17,7 +17,7 @@ const upload = multer({
 			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		];
 
-		if (allowedMimeTypes.includes(file.mimetype)) {
+		if (allowedMimeTypes.includes(file.mimetype) && /\.(pdf|docx?)$/i.test(String(file.originalname || ''))) {
 			return cb(null, true);
 		}
 

@@ -186,7 +186,7 @@
   </form>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var form = document.getElementById('frqForm');
     var steps = Array.prototype.slice.call(document.querySelectorAll('.frq-step'));

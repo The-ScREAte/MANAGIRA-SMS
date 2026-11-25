@@ -47,7 +47,7 @@ async function studentOf(req, id = req.params.studentId) {
 // Opened in the student page's drawer: a saved form closes the drawer and the page reloads.
 const drawerOf = (req) => String((req.body && req.body.drawerId) || req.query.drawerId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
 const closeDrawer = (res, drawerId) => res.type("html").send(
-  `<!doctype html><meta charset="utf-8"><script>parent.postMessage({ managiraDrawerSaved: true, managiraDrawerClose: true, drawerId: ${JSON.stringify(drawerId)} }, location.origin);</script>`
+  `<!doctype html><meta charset="utf-8"><script nonce="${res.locals.cspNonce || ''}">parent.postMessage({ managiraDrawerSaved: true, managiraDrawerClose: true, drawerId: ${JSON.stringify(drawerId)} }, location.origin);</script>`
 );
 // After a save: close the drawer, or go back to the page; after a refusal, back to the drawer's form.
 function done(req, res, studentId, { ok, formPath }) {

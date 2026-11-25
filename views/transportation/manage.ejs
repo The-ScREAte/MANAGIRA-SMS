@@ -1007,7 +1007,7 @@
   .tm-check input { width: 16px; height: 16px; margin: 0; }
   .tm-switch { display: flex; align-items: center; justify-content: space-between; margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; cursor: pointer; }
   .tm-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-  .tm-switch i { position: relative; width: 26px; height: 15px; border-radius: 999px; background: #cbd5e1; transition: background .15s ease; }
+  .tm-switch i { position: relative; width: 26px; height: 15px; border-radius: 999px; background: #7890b2; transition: background .15s ease; }
   .tm-switch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .15s ease; }
   .tm-switch input:checked + i { background: var(--tm-accent); }
   .tm-switch input:checked + i::after { transform: translateX(11px); }
@@ -1879,7 +1879,7 @@
   </div>
   <div class="ux-panel__body" id="tm-panel-body"></div>
 </aside>
-<script type="application/json" id="tm-people-data"><%- safeJson({
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="tm-people-data"><%- safeJson({
   unit: distanceUnit === 'mi' ? 'mi' : 'km',
   canRiderList: !!transportAccess.riderList,
   canStudentRoutes: !!transportAccess.studentRoutes,
@@ -1897,7 +1897,7 @@
 
 <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const navButtons = Array.from(document.querySelectorAll('.tm-nav-btn'));
     const panes = Array.from(document.querySelectorAll('.tm-pane'));
@@ -2392,13 +2392,13 @@
     }
 
     async function deleteWithConfirm(url, label) {
-      if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+      if (!await window.appConfirm(`Delete ${label}? This cannot be undone.`)) return;
       const formData = new FormData();
       await postForm(url, formData, { defaultError: `Unable to delete ${label}.` });
       window.location.reload();
     }
 
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', async (event) => {
       const actionBtn = event.target.closest('.tm-actions-item');
       if (!actionBtn) return;
 
@@ -2493,7 +2493,7 @@
       if (action === 'delete-schedule-group') {
         const scheduleIds = String(actionBtn.dataset.scheduleIds || '').split(',').filter(Boolean);
         if (!scheduleIds.length) return;
-        if (!window.confirm(`Delete this bus's schedule for all ${scheduleIds.length} day(s)? This cannot be undone.`)) return;
+        if (!await window.appConfirm(`Delete this bus's schedule for all ${scheduleIds.length} day(s)? This cannot be undone.`)) return;
         (async () => {
           try {
             for (const id of scheduleIds) {
@@ -3453,7 +3453,7 @@
     });
   })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const targets = {
       driver: { field: 'driver-user-id-field', path: 'drivers', question: 'Remove this driver from transportation? Their bus and weekly days are cleared. Their login stays in Manage Employees.' },
@@ -3471,12 +3471,12 @@
       });
     }
 
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', async (event) => {
       const deleteButton = event.target.closest('[data-modal-delete]');
       if (deleteButton) {
         const target = targets[deleteButton.dataset.modalDelete];
         const field = target && document.getElementById(target.field);
-        if (!target || !field || !field.value || !window.confirm(target.question)) return;
+        if (!target || !field || !field.value || !await window.appConfirm(target.question)) return;
 
         deleteButton.disabled = true;
         fetch(`/transportation/manage/${target.path}/${encodeURIComponent(field.value)}/delete`, {
@@ -3530,7 +3530,7 @@
   })();
 </script>
 <script src="<%= assetUrl('/js/guardianBroadcast.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.notify-guardians-btn');
     if (!btn) return;
@@ -3542,7 +3542,7 @@
     });
   });
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Overview buttons: go to the section, then open its Add form.
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-tm-pane]');

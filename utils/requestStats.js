@@ -41,4 +41,18 @@ function requestMemo() {
   return stats.memo;
 }
 
-module.exports = { requestStats, countQuery, requestMemo };
+// Once the session says which school this request is for, its lookups can be kept per school.
+function setSchool(schoolId) {
+  const stats = current.getStore();
+  if (stats && schoolId) stats.schoolId = Number(schoolId) || null;
+  return stats || null;
+}
+// This request's own store (utils/stableReads.js reads it); null outside a request.
+const store = () => current.getStore() || null;
+// A transaction was opened: whatever this request saved isn't seen by the kept answers, so it reads fresh from here on.
+function openedTransaction() {
+  const stats = current.getStore();
+  if (stats) { stats.openedTransaction = true; stats.noShared = true; }
+}
+
+module.exports = { requestStats, countQuery, requestMemo, setSchool, store, openedTransaction };

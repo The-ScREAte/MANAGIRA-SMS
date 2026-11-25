@@ -56,7 +56,7 @@
   @keyframes gpSpin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .gp-btn.is-loading::before { animation-duration: 2s; } }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var undo = [];
     function reset() { undo.forEach(function (fn) { fn(); }); undo = []; }

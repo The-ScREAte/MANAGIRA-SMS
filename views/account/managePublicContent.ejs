@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Manage Public Content</title>
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
@@ -2226,6 +2226,7 @@
   }
 
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="manage-public-page">
     <div class="mpc-page-header">
@@ -2395,7 +2396,7 @@
       <% }) %>
       <div class="mpc-save-row"><button type="submit" class="theme-save-btn">Save design</button></div>
     </form>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Design groups: one tab at a time; "Choose it in Emblem" opens the Emblem tab.
       (function () {
         var panel = document.getElementById('mpcLayout');
@@ -2629,16 +2630,16 @@
       <img id="imageLightboxImg" alt="Expanded preview" />
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         // Deleting a photo or article is a POST (never a GET), after a confirm. Bound once.
         if (!window.__mgPostDeleteBound) {
           window.__mgPostDeleteBound = true;
-          document.addEventListener("click", function (event) {
+          document.addEventListener("click", async function (event) {
             const link = event.target.closest && event.target.closest("a[data-post-delete]");
             if (!link) return;
             event.preventDefault();
             event.stopPropagation();
-            if (!confirm(link.getAttribute("data-post-delete"))) return;
+            if (!await window.appConfirm(link.getAttribute("data-post-delete"))) return;
             const form = document.createElement("form");
             form.method = "post";
             form.action = link.getAttribute("href");
@@ -2831,7 +2832,7 @@
                 <div class="file-upload-field">
                     <label>Choose File:</label>
               <input type="file" name="slideshowImages" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm">
-                    <button type="button" class="removeFileBtn" onclick="removeFileField(this)">Remove</button>
+                    <button type="button" class="removeFileBtn" data-onclick="account-managePublicContent.1">Remove</button>
                     <label>Caption:</label>
               <input type="text" name="fileTexts" placeholder="Caption (optional)">
                 </div>`;
@@ -3426,3 +3427,4 @@
 
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

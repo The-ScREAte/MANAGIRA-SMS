@@ -75,7 +75,7 @@
         <div class="side-nav">
           <ul class="nav-list" id="ctNavList" data-arrange-menu="classroom" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>" data-arrange-order="<%= JSON.stringify(typeof classToolsOrder !== 'undefined' ? classToolsOrder : []) %>">
             <li>
-              <button class="nav-link" type="button" data-nav-key="overview" onclick="openWorkspaceTabByKey('overview')">
+              <button class="nav-link" type="button" data-nav-key="overview" data-onclick="common-classDashboard.1">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('classroom') %></span>
                 <span class="nav-link-label">Class Room</span>
               </button>
@@ -83,7 +83,7 @@
 
             <li class="nav-section-label">Communication</li>
             <li>
-              <button class="nav-link" type="button" id="reports-nav-link" data-nav-key="reports" onclick="toggleReportsPanel(event)">
+              <button class="nav-link" type="button" id="reports-nav-link" data-nav-key="reports" data-onclick="common-classDashboard.2">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('messages') %></span>
                 <span class="nav-link-label">Parent Messages</span>
                 <% if ((classReportsCount || 0) > 0) { %>
@@ -94,7 +94,7 @@
 
             <% if (_briefingAllowed && !_classSettingsShown) { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="briefing" onclick="openWorkspaceTabByKey('briefing')">
+              <button class="nav-link" type="button" data-nav-key="briefing" data-onclick="common-classDashboard.3">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('mailroom') %></span>
                 <span class="nav-link-label">Weekly briefing</span>
               </button>
@@ -103,14 +103,14 @@
 
             <li class="nav-section-label">Tools</li>
             <li>
-              <button class="nav-link" type="button" id="class-schedule-nav-link" data-nav-key="schedule" onclick="toggleClassScheduleModal(event)">
+              <button class="nav-link" type="button" id="class-schedule-nav-link" data-nav-key="schedule" data-onclick="common-classDashboard.4">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('schedule') %></span>
                 <span class="nav-link-label">Class Schedule</span>
               </button>
             </li>
             <% if (locals.classPickup) { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="pickup" onclick="openWorkspaceTabByKey('pickup')">
+              <button class="nav-link" type="button" data-nav-key="pickup" data-onclick="common-classDashboard.5">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="m16 11 2 2 4-4"/></svg></span>
                 <span class="nav-link-label">Pickup list</span>
               </button>
@@ -118,7 +118,7 @@
             <% } %>
             <% if (transportActive) { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="transportation" onclick="openWorkspaceTabByKey('transportation')">
+              <button class="nav-link" type="button" data-nav-key="transportation" data-onclick="common-classDashboard.6">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('transportation') %></span>
                 <span class="nav-link-label">Transportation</span>
                 <span class="nav-count-pill"><%= classTransportRows.filter(function(row) { return row.busNumber || row.routeName || row.stopName; }).length %></span>
@@ -126,14 +126,14 @@
             </li>
             <% } %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="activities" onclick="openWorkspaceTabByKey('activities')">
+              <button class="nav-link" type="button" data-nav-key="activities" data-onclick="common-classDashboard.7">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('activities') %></span>
                 <span class="nav-link-label">Activities</span>
               </button>
             </li>
             <% if (locals.customFormsReady && customFormsReady()) { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="forms" onclick="openWorkspaceTabByKey('forms')">
+              <button class="nav-link" type="button" data-nav-key="forms" data-onclick="common-classDashboard.8">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('forms') %></span>
                 <span class="nav-link-label">Forms</span>
               </button>
@@ -141,7 +141,7 @@
             <%# Forms the school gave a menu item of their own (Custom editor, "Its own tile"). %>
             <% (locals.classFormTiles || []).forEach((form) => { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="form-<%= form.id %>" onclick="openWorkspaceFormTab(<%= form.id %>)">
+              <button class="nav-link" type="button" data-nav-key="form-<%= form.id %>" data-onclick="common-classDashboard.9" data-mga0="<%= form.id %>">
                 <span class="nav-icon" aria-hidden="true"><%- formIcon(form.icon) %></span>
                 <span class="nav-link-label"><%= form.name %></span>
               </button>
@@ -150,7 +150,7 @@
             <% } %>
             <% if (_canOpenPaygiraWorkspace) { %>
             <li>
-              <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
+              <button class="nav-link" type="button" data-nav-key="paygira" data-onclick="common-classDashboard.10">
                 <span class="nav-icon" aria-hidden="true"><%- navIcon('paygira') %></span>
                 <span class="nav-link-label">My PayGira</span>
               </button>
@@ -159,7 +159,7 @@
 
             <% if (_offerAttendance) { %>
               <li>
-                <button class="nav-link" type="button" data-nav-key="attendance" onclick="openWorkspaceTabByKey('attendance')">
+                <button class="nav-link" type="button" data-nav-key="attendance" data-onclick="common-classDashboard.11">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('attendance') %></span>
                   <span class="nav-link-label">Attendance</span>
                 </button>
@@ -169,7 +169,7 @@
             <% if (hasAssessmentFeature) { %>
               <% if (canAccessAssessmentQuestions) { %>
               <li>
-                <button class="nav-link" type="button" data-nav-key="assessment-questions" onclick="openWorkspaceTabByKey('assessment-questions')">
+                <button class="nav-link" type="button" data-nav-key="assessment-questions" data-onclick="common-classDashboard.12">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('questions') %></span>
                   <span class="nav-link-label">Assessment Questions</span>
                 </button>
@@ -177,14 +177,14 @@
               <% } else if (locals.assessmentQuestionsLocked && Array.isArray(typeof userPermissions !== 'undefined' ? userPermissions : null) && userPermissions.includes('manage_assessments')) { %>
               <%# Not given Set Assessment Questions: shown greyed, opens nothing, says who to ask. %>
               <li>
-                <button class="nav-link is-locked" type="button" data-nav-key="assessment-questions-locked" aria-disabled="true" title="Ask your admin for access" onclick="window.AssessmentFlow && window.AssessmentFlow.toast('Ask your admin for access to Assessment Questions.')">
+                <button class="nav-link is-locked" type="button" data-nav-key="assessment-questions-locked" aria-disabled="true" title="Ask your admin for access" aria-describedby="aq-lock-hint" data-onclick="common-classDashboard.13">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('questions') %></span>
-                  <span class="nav-link-label">Assessment Questions</span>
+                  <span class="nav-link-label">Assessment Questions<small class="nav-lock-hint" id="aq-lock-hint">Ask your admin for access</small></span>
                 </button>
               </li>
               <% } %>
               <li class="nav-section-collapsible">
-                <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" onclick="toggleSubjectsNavSection(event)">
+                <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" data-onclick="common-classDashboard.14">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('grading') %></span>
                   <span class="nav-link-label">Gradebook</span>
                   <span class="nav-count-pill"><%= subjects.length %></span>
@@ -194,11 +194,11 @@
               <li class="nav-section-children" id="subjects-section-list" hidden>
                 <ul class="nav-sublist">
                   <% if (canAccessAssessmentQuestions) { %>
-                    <li><button class="nav-sublink" type="button" data-nav-key="to-review" onclick="openToReviewDrawer()">Review<% if ((locals.toReviewTotal || 0) > 0) { %> <span class="nav-count-pill"><%= locals.toReviewTotal %></span><% } %></button></li>
+                    <li><button class="nav-sublink" type="button" data-nav-key="to-review" data-onclick="common-classDashboard.15">Review<% if ((locals.toReviewTotal || 0) > 0) { %> <span class="nav-count-pill"><%= locals.toReviewTotal %></span><% } %></button></li>
                   <% } %>
                   <% if (subjects.length > 0) { %>
                     <% subjects.forEach(function(subject) { %>
-                      <li><button class="nav-sublink" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)"><%= subject.subject_name %></button></li>
+                      <li><button class="nav-sublink" type="button" data-onclick="common-classDashboard.16" data-mga0="<%= subject.subject_id %>"><%= subject.subject_name %></button></li>
                     <% }); %>
                   <% } else { %>
                     <li class="nav-sub-empty">No subjects assigned.</li>
@@ -209,7 +209,7 @@
 
             <% if (hasFilesFeature) { %>
               <li>
-                <button class="nav-link" type="button" data-nav-key="docs" title="Docs/Sheets" onclick="openWorkspaceTabByKey('docs')">
+                <button class="nav-link" type="button" data-nav-key="docs" title="Docs/Sheets" data-onclick="common-classDashboard.17">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('docs') %></span>
                   <span class="nav-link-label">Docs &amp; Sheets</span>
                   <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
@@ -222,7 +222,7 @@
             <%# Class settings (feature class_settings): only for someone who may manage this class. %>
             <% if (locals.classSettingsPanel && locals.featureOn && featureOn('class_settings')) { %>
               <li>
-                <button class="nav-link" type="button" data-nav-key="settings" onclick="openWorkspaceTabByKey('settings')">
+                <button class="nav-link" type="button" data-nav-key="settings" data-onclick="common-classDashboard.18">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('settings') %></span>
                   <span class="nav-link-label">Class &amp; notif. settings</span>
                 </button>
@@ -235,7 +235,7 @@
       <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
       <script src="<%= assetUrl('/js/menuArrange.js') %>"></script>
       <script src="/js/busTracker.js?v=<%= assetVersion %>" defer></script>
-      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.getElementById('ctNavList'));</script>
+      <script nonce="<%= locals.cspNonce || '' %>">window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.getElementById('ctNavList'));</script>
 
       <div class="nav-overlay" id="class-tools-overlay"></div>
 
@@ -261,7 +261,7 @@
                 <% if (graduationYearGroup) { %>
                   <span class="workspace-cohort"><%= graduationYearGroup %></span>
                 <% } %>
-                <button type="button" class="workspace-meta-toggle" aria-expanded="false" aria-controls="workspace-meta-inline" aria-label="Show class details" title="Show class details" onclick="toggleWorkspaceMeta(this)">
+                <button type="button" class="workspace-meta-toggle" aria-expanded="false" aria-controls="workspace-meta-inline" aria-label="Show class details" title="Show class details" data-onclick="common-classDashboard.19">
                   <svg class="workspace-meta-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="14" y2="6"/><circle cx="18" cy="6" r="2"/><line x1="4" y1="12" x2="10" y2="12"/><circle cx="14" cy="12" r="2"/><line x1="4" y1="18" x2="14" y2="18"/><circle cx="18" cy="18" r="2"/></svg>
                 </button>
               </span>
@@ -317,12 +317,12 @@
             <button type="button" class="term-view-banner__btn" data-term-view-reset>Back to current</button>
             <% } %>
           </div>
-          <script type="application/json" id="termViewOptions"><%- JSON.stringify(_termYears).replace(/</g, '\\u003c') %></script>
+          <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="termViewOptions"><%- JSON.stringify(_termYears).replace(/</g, '\\u003c') %></script>
           <% } %>
         </section>
 
         <section class="card workspace-tabbar-shell">
-          <div class="workspace-tabbar" id="workspaceTabBar" role="tablist" aria-label="Open class workspace tabs"></div>
+          <div class="workspace-tabbar" id="workspaceTabBar" role="group" aria-label="Open class workspace tabs"></div>
         </section>
 
         <section class="card workspace-stage">
@@ -338,7 +338,7 @@
               <div class="workspace-overview-grid">
                 <div class="overview-counts-wrap">
                 <div class="overview-counts-row">
-                  <button type="button" class="overview-count-chip overview-count-toggle" id="teachersChipToggle" aria-expanded="false" aria-controls="teachers-section" onclick="toggleTeachersDropdown(this)">
+                  <button type="button" class="overview-count-chip overview-count-toggle" id="teachersChipToggle" aria-expanded="false" aria-controls="teachers-section" data-onclick="common-classDashboard.20">
                     <span class="count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5a6 6 0 0 0 12 0v-5"/></svg></span>
                     <span class="count-text">
                       <span class="count-label">Teachers</span>
@@ -437,7 +437,7 @@
                           <% const transportSummary = transportRow ? [transportRow.busNumber, transportRow.routeName, transportRow.stopName].filter(Boolean).join(' | ') : ''; %>
                           <% const transportSchedule = transportRow ? [transportRow.scheduleDayOfWeek, transportRow.scheduleStartTime, transportRow.scheduleEndTime].filter(Boolean).join(' ') : ''; %>
                           <li data-student-name="<%= studentFullName.toLowerCase() %>" data-student-id="<%= student.student_id %>">
-                            <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
+                            <button class="student-row" type="button" data-onclick="common-classDashboard.21" data-mga0="<%= student.student_id %>">
                               <span class="student-index"><%= i + 1 %></span>
                               <span class="student-name"><%= studentFullName %></span>
                               <span class="student-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span>
@@ -448,7 +448,7 @@
                               type="button"
                               title="Has bus access"
                               aria-label="Bus details for <%= studentFullName %>"
-                              onclick="openStudentTransportModal(<%= student.student_id %>, '<%= studentFullName.replace(/'/g, "\\'") %>', event)">
+                              data-onclick="common-classDashboard.22" data-mga0="<%= student.student_id %>" data-mga1="<%= studentFullName %>">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
                             </button>
                             <% } else if (transportActive) { %>
@@ -482,7 +482,7 @@
                               aria-label="Teacher remark for <%= studentFullName %>"
                               data-student-id="<%= student.student_id %>"
                               data-student-name="<%= studentFullName %>"
-                              onclick="openStudentTeacherRemarkModal(this, event)">
+                              data-onclick="common-classDashboard.23">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                             </button>
                             <% } %>
@@ -493,7 +493,7 @@
                       <% } %>
                     </ul>
                     <% if (_beside.sections.length) { %>
-                    <script>
+                    <script nonce="<%= locals.cspNonce || '' %>">
                       // A form beside a student opens that student's form in the drawer under the header
                       // (public/js/customFormsFill.js); saving colours its icon.
                       (function () {
@@ -547,14 +547,14 @@
                     <div class="subjects-card-grid" id="classDashboardSubjectsList">
                       <% if (subjects.length > 0) { %>
                         <% sortedOverviewSubjects.forEach(function(subject) { %>
-                          <button class="subject-card" type="button" data-subject-id="<%= subject.subject_id %>" data-subject-name="<%= String(subject.subject_name || '').toLowerCase() %>" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                          <button class="subject-card" type="button" data-subject-id="<%= subject.subject_id %>" data-subject-name="<%= String(subject.subject_name || '').toLowerCase() %>" data-onclick="common-classDashboard.16" data-mga0="<%= subject.subject_id %>">
                             <span class="subject-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
                             <span class="subject-text">
                               <strong><%= subject.subject_name %></strong>
                             </span>
                             <% const _toReview = Number((locals.toReviewBySubject || {})[subject.subject_id] || 0); %>
                             <% if (_toReview > 0) { %>
-                              <span class="subject-review" role="link" tabindex="0" title="Written answers waiting for review" onclick="event.stopPropagation(); openToReviewDrawer();" onkeydown="if (event.key === 'Enter') { event.stopPropagation(); openToReviewDrawer(); }">Review <b><%= _toReview %></b></span>
+                              <span class="subject-review" role="link" tabindex="0" title="Written answers waiting for review" data-onclick="common-classDashboard.24" data-onkeydown="common-classDashboard.25">Review <b><%= _toReview %></b></span>
                             <% } %>
                             <span class="subject-arrow" aria-hidden="true">›</span>
                           </button>
@@ -581,7 +581,7 @@
                     Message all parents
                   </a>
                   <% } %>
-                  <button class="nav-link" type="button" onclick="loadClassReports()">Refresh</button>
+                  <button class="nav-link" type="button" data-onclick="common-classDashboard.26">Refresh</button>
                 </div>
               </div>
               <div id="reports-list-content">
@@ -591,7 +591,7 @@
 
             <section class="workspace-panel" id="panel-schedule" data-panel-key="schedule" data-mobile-collapsed="true">
               <div class="workspace-panel-head">
-                <button type="button" class="schedule-mobile-toggle" aria-expanded="false" aria-controls="schedule-panel-body" onclick="toggleScheduleMobile(this)">
+                <button type="button" class="schedule-mobile-toggle" aria-expanded="false" aria-controls="schedule-panel-body" data-onclick="common-classDashboard.27">
                   <span class="section-title">Class Schedule</span>
                   <span class="schedule-mobile-meta">
                     <span>Open</span>
@@ -692,7 +692,7 @@
                 #panel-pickup .pk-empty { margin: 0; font-size: 12.5px; color: #94a3b8; }
                 @media (max-width: 600px) { #panel-pickup .pk-body { padding-left: 12px; } #panel-pickup .pk-tag:not(.pk-tag--bus) { display: none; } }
               </style>
-              <script>
+              <script nonce="<%= locals.cspNonce || '' %>">
                 (function () {
                   var box = document.getElementById('pkSearch');
                   if (!box) return;
@@ -799,8 +799,8 @@
                     <div class="tp-rider tp-rider--head tp-rider--today" aria-hidden="true"><span>Student</span><span>Stop</span><span>Pick-up</span><span>Drop-off</span><span>Today</span></div>
                     <% route.riders.forEach(function(row) { %>
                     <div class="tp-rider tp-rider--today" role="listitem" tabindex="0"
-                      onkeydown="if ((event.key === 'Enter' || event.key === ' ') && event.target === this) { event.preventDefault(); this.click(); }"
-                      onclick="if (!event.target.closest('.tp-coming')) openStudentTransportModal(<%= row.studentId %>, '<%= String(row.studentName || '').replace(/'/g, "\\'") %>', event)">
+                      data-onkeydown="common-classDashboard.28"
+                      data-onclick="common-classDashboard.29" data-mga0="<%= row.studentId %>" data-mga1="<%= String(row.studentName || '') %>">
                       <span class="tp-rider__name"><%= row.studentName %></span>
                       <span class="tp-rider__stop"><%= row.stopName || '—' %></span>
                       <span class="tp-rider__time"><%= tpTime(row.pickupTime) || '—' %></span>
@@ -828,7 +828,7 @@
                 <ul class="tp-reports__list" id="classBusReportsList"></ul>
               </div>
               <% } %>
-              <script>
+              <script nonce="<%= locals.cspNonce || '' %>">
                 (function () {
                   var search = document.getElementById('tpRiderSearch');
                   if (!search) return;
@@ -848,7 +848,7 @@
                 })();
               </script>
               <% if (canSeeBusReports) { %>
-              <script>
+              <script nonce="<%= locals.cspNonce || '' %>">
                 (function () {
                   var box = document.getElementById('classBusReports');
                   if (!box || !window.IntersectionObserver) return;
@@ -890,7 +890,7 @@
                 <% if (students.length > 0) { %>
                   <% students.forEach(function(student) { %>
                     <% const workspaceStudentName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
-                    <button class="workspace-resource-button" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
+                    <button class="workspace-resource-button" type="button" data-onclick="common-classDashboard.21" data-mga0="<%= student.student_id %>">
                       <span class="workspace-resource-text">
                         <strong><%= workspaceStudentName %></strong>
                         <span>Open student record</span>
@@ -908,16 +908,15 @@
               <div class="workspace-panel-head">
                 <div>
                   <h2 class="card-title">Subjects</h2>
-                  <p class="card-subtext">Open a subject workspace to review assessments and records.</p>
+                  <p class="card-subtext">Open a subject for its assessments and grades.</p>
                 </div>
               </div>
               <div class="workspace-resource-grid">
                 <% if (hasAssessmentFeature && subjects.length > 0) { %>
                   <% subjects.forEach(function(subject) { %>
-                    <button class="workspace-resource-button" type="button" onclick="openSubjectWorkspaceTab(<%= subject.subject_id %>)">
+                    <button class="workspace-resource-button" type="button" data-onclick="common-classDashboard.16" data-mga0="<%= subject.subject_id %>">
                       <span class="workspace-resource-text">
                         <strong><%= subject.subject_name %></strong>
-                        <span>Open subject workspace</span>
                       </span>
                       <span class="workspace-resource-arrow">›</span>
                     </button>
@@ -935,35 +934,35 @@
 
         <div class="report-modal-overlay" id="reportDetailModal">
           <div class="report-modal-box">
-            <button class="report-modal-close" onclick="closeReportModal()">×</button>
+            <button class="report-modal-close" data-onclick="common-classDashboard.30">×</button>
             <div id="reportDetailContent">
               <p style="color:#6b7280;">Loading...</p>
             </div>
           </div>
         </div>
 
-        <div class="student-remark-modal-overlay" id="studentTeacherRemarkModal" onclick="handleStudentTeacherRemarkOverlayClick(event)">
+        <div class="student-remark-modal-overlay" id="studentTeacherRemarkModal" data-onclick="common-classDashboard.31">
           <div class="student-remark-modal-box" role="dialog" aria-modal="true" aria-labelledby="studentTeacherRemarkModalTitle">
             <div class="student-remark-modal-head">
               <h3 class="student-remark-modal-title" id="studentTeacherRemarkModalTitle">Student Remark</h3>
-              <button type="button" class="student-remark-modal-close" onclick="closeStudentTeacherRemarkModal()" aria-label="Close">×</button>
+              <button type="button" class="student-remark-modal-close" data-onclick="common-classDashboard.32" aria-label="Close">×</button>
             </div>
             <div class="student-remark-modal-body">
               <div id="studentRemarkEditorsContainer"></div>
             </div>
             <div class="student-remark-modal-actions">
-              <button type="button" class="btn btn-secondary" onclick="closeStudentTeacherRemarkModal()">Cancel</button>
-              <button type="button" class="btn" id="studentTeacherRemarkSaveBtn" onclick="saveStudentTeacherRemark()">Save Remark</button>
+              <button type="button" class="btn btn-secondary" data-onclick="common-classDashboard.32">Cancel</button>
+              <button type="button" class="btn" id="studentTeacherRemarkSaveBtn" data-onclick="common-classDashboard.33">Save Remark</button>
             </div>
           </div>
         </div>
 
         <% if (transportActive) { %><script src="<%= assetUrl('/js/busRequest.js') %>" defer></script><% } %>
-        <div class="transport-modal-overlay" id="studentTransportModal" onclick="handleStudentTransportModalOverlayClick(event)">
+        <div class="transport-modal-overlay" id="studentTransportModal" data-onclick="common-classDashboard.34">
           <div class="transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="studentTransportModalTitle">
             <div class="transport-modal-head">
               <h3 class="transport-modal-title" id="studentTransportModalTitle">Transportation Details</h3>
-              <button type="button" class="transport-modal-close" onclick="closeStudentTransportModal()" aria-label="Close">×</button>
+              <button type="button" class="transport-modal-close" data-onclick="common-classDashboard.35" aria-label="Close">×</button>
             </div>
             <div class="transport-modal-body">
               <div id="studentTransportModalStatus" class="card-subtext">Loading transportation details...</div>
@@ -978,7 +977,7 @@
   </div>
 
   <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     var classScheduleContext;
     var classScheduleState;
     var workspaceContext;
@@ -1162,11 +1161,11 @@
         var tabsMarkup = workspaceState.tabs.map(function(tab) {
           var isActive = tab.id === workspaceState.activeTabId;
           return '' +
-            '<div class="workspace-tab' + (isActive ? ' is-active' : '') + '" role="presentation">' +
-              '<button type="button" class="workspace-tab-activate" data-tab-id="' + esc(tab.id) + '" onclick="activateWorkspaceTab(this.getAttribute(\'data-tab-id\'))" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '">' +
+            '<div class="workspace-tab' + (isActive ? ' is-active' : '') + '">' +
+              '<button type="button" class="workspace-tab-activate" data-tab-id="' + esc(tab.id) + '" data-onclick="common-classDashboard.activateTab"' + (isActive ? ' aria-current="true"' : '') + '>' +
                 '<span class="workspace-tab-label">' + esc(tab.title) + '</span>' +
               '</button>' +
-              '<button type="button" class="workspace-tab-close" data-tab-id="' + esc(tab.id) + '" aria-label="Close ' + esc(tab.title) + '" onclick="closeWorkspaceTab(this.getAttribute(\'data-tab-id\'))">×</button>' +
+              '<button type="button" class="workspace-tab-close" data-tab-id="' + esc(tab.id) + '" aria-label="Close ' + esc(tab.title) + '" data-onclick="common-classDashboard.closeTab">×</button>' +
             '</div>';
         }).join('');
         tabBar.innerHTML = tabsMarkup;
@@ -3163,7 +3162,7 @@
           var html = '';
           d.reports.forEach(function(r) {
             var replyLabel = (r.reply_count == 1) ? '1 reply' : (r.reply_count || 0) + ' replies';
-            html += '<div class="rp-card" onclick="openReportDetail(' + r.report_id + ')">' +
+            html += '<div class="rp-card" data-onclick="common-classDashboard.reportDetail" data-mga0="' + r.report_id + '">' +
               '<div class="rp-left">' +
                 '<div class="rp-subject">' + esc(r.subject) + '</div>' +
                 '<div class="rp-meta">' +
@@ -3219,3 +3218,4 @@
 <script src="<%= assetUrl('/js/classDashboard.part1.js') %>"></script>
 <script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script>
 </body>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -23,7 +23,7 @@
 </div>
 <% if (feedback && (!existing || canEdit)) { %>
 <script src="/js/feedbackPrompt.js"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   window.ManagiraFeedback.render(document.getElementById('mfbPage'), <%- JSON.stringify(feedback).replace(/</g, '\\u003c') %>, {
     existing: <%- JSON.stringify(existing ? { rating: existing.rating, comment: existing.comment || '' } : null).replace(/</g, '\\u003c') %>,
   });

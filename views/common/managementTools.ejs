@@ -469,13 +469,13 @@
   }
 
   /* Features not turned on yet: shown so schools know they exist. */
-  .nav-link.nav-link--off { opacity: .6; }
+  .nav-link.nav-link--off { opacity: .78; }
   .nav-link.nav-link--off:hover { opacity: 1; }
   .nav-link--off .nav-link-icon img { filter: grayscale(1); }
   .nav-turn-on { display: inline-block; margin-left: 4px; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 1.5; vertical-align: middle; }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // A workspace never opens inside another workspace's panel: a link that lands here from inside a frame takes the whole window.
   if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { /* a different origin: stay */ } }
 </script>
@@ -687,7 +687,7 @@
         </li>
         <% } %>
       </ul>
-      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="management"]'));</script>
+      <script nonce="<%= locals.cspNonce || '' %>">window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="management"]'));</script>
       </nav>
     </div>
 
@@ -903,7 +903,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function initManagementMenu() {
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('.management-section');

@@ -10,7 +10,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Settings</title>
     <style>
       :root {
@@ -2963,7 +2963,7 @@
         #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { width: 18px; }
         #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::before { top: -6px; }
         #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { top: 6px; }
-        #settings-layout-root .settings-nav h3 { font-size: 13px !important; font-weight: 600 !important; color: var(--primary, #01535b) !important; letter-spacing: 0 !important; }
+        #settings-layout-root .settings-nav h3 { font-size: var(--fs-head, 16px) !important; font-weight: 600 !important; color: var(--primary, #01535b) !important; letter-spacing: 0 !important; }
         #settings-layout-root .settings-nav-country-flag { min-width: 0; font-size: 18px; }
         #settings-layout-root .settings-nav .nav-list { margin-top: 0 !important; }
       }
@@ -3146,6 +3146,7 @@
         #profile .form-input { font-size: 16px !important; min-height: 44px !important; }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <%- include('../partials/flash') %>
@@ -3306,7 +3307,7 @@
           </button></li>
         </ul>
       </aside>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         // This page is fine to cache/serve fast (client-side SPA nav can reuse
         // a previous response for this exact URL), but whether the sidebar
         // should be hidden depends on whether THIS load is genuinely running
@@ -3682,9 +3683,9 @@
                     <label class="cz-switch">
                       <input type="checkbox" id="useCustomStudentId" name="useCustomStudentId"
                         <%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'checked' : '' %>
-                        onchange="toggleSidPanel(this.checked)"
+                        data-onchange="account-settings.1"
                         style="position:absolute; opacity:0; width:0; height:0;" />
-                      <span id="sidToggleTrack" style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:999px; transition:background 0.2s; position:relative;">
+                      <span id="sidToggleTrack" style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#7890b2' %>; border-radius:999px; transition:background 0.2s; position:relative;">
                         <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '13px' : '2px' %>; width:11px; height:11px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
                       </span>
                     </label>
@@ -3697,7 +3698,7 @@
                         <input type="text" id="studentIdPrefix" name="studentIdPrefix" maxlength="10"
                           placeholder="e.g. MGT"
                           value="<%= (studentIdSettings && studentIdSettings.student_id_prefix) || '' %>"
-                          oninput="updateSidPreview()"
+                          data-oninput="account-settings.2"
                           class="form-input cz-input--short" style="text-transform:uppercase; letter-spacing:0.05em;" />
                         <span class="cz-preview" id="sidPreview"><%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>001</span>
                       </div>
@@ -3711,9 +3712,9 @@
                       <label class="cz-switch">
                         <input type="checkbox" name="studentIdAutoGenerate"
                           <%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'checked' : '' %>
-                          onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'13px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
+                          data-onchange="account-settings.3"
                           style="position:absolute; opacity:0; width:0; height:0;" />
-                        <span style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:999px; transition:background 0.2s; position:relative;">
+                        <span style="display:inline-block; width:26px; height:15px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#7890b2' %>; border-radius:999px; transition:background 0.2s; position:relative;">
                           <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '13px' : '2px' %>; width:11px; height:11px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
                         </span>
                       </label>
@@ -3731,7 +3732,7 @@
                       <div class="cz-inline">
                         <input type="number" id="startingNumber" name="startingNumber" min="1" max="999999"
                           value="<%= savedStudentIdStartNumber %>"
-                          oninput="updateSidNextPreview()"
+                          data-oninput="account-settings.4"
                           class="form-input cz-input--short" />
                         <span class="cz-preview" id="sidNextPreview"><%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(savedStudentIdStartNumber).padStart(3, '0') %></span>
                       </div>
@@ -3742,7 +3743,7 @@
                   <button class="btn-primary btn-link" type="submit">Save</button>
                 </form>
 
-                <script>
+                <script nonce="<%= locals.cspNonce || '' %>">
                   (function () {
                     function toggleSidPanel(on) {
                       var p = document.getElementById('sidOptionsPanel');
@@ -3827,7 +3828,7 @@
                   <label class="btn-link me-card__pick" for="profile-image">Change photo</label>
                   <input type="file" id="profile-image" name="profileImage" accept="image/*" class="me-card__file" />
                   <% if (_hasPhoto) { %>
-                    <button class="me-card__remove" type="submit" data-own-submit formaction="/account/settings/profile-image/delete" formmethod="POST" onclick="return confirm('Remove your profile photo?');">Remove</button>
+                    <button class="me-card__remove" type="submit" data-own-submit formaction="/account/settings/profile-image/delete" formmethod="POST" data-onclick="account-settings.5">Remove</button>
                   <% } %>
                 </div>
                 <p class="text-muted-sm me-card__role"><%= user?.account_type || '' %></p>
@@ -3873,7 +3874,7 @@
           </style>
           <div class="card">
             <div class="hubinfo-head">
-              <span class="hubinfo-logo"><% if (_hp.logo) { %><img src="<%= publicImageUrl(_hp.logo, { public: true }) %>" alt="<%= _hp.name %> logo" onerror="this.remove()" /><% } else { %><%= String(_hp.name || 'H').charAt(0).toUpperCase() %><% } %></span>
+              <span class="hubinfo-logo"><% if (_hp.logo) { %><img src="<%= publicImageUrl(_hp.logo, { public: true }) %>" alt="<%= _hp.name %> logo" data-onerror="account-settings.6" /><% } else { %><%= String(_hp.name || 'H').charAt(0).toUpperCase() %><% } %></span>
               <div style="min-width:0">
                 <h2 class="hubinfo-name"><%= _hp.name %></h2>
                 <p class="hubinfo-meta">
@@ -3985,7 +3986,7 @@
               A <strong><%= Number(platformFeePercentage || 0).toFixed(2) %>%</strong> service fee applies to every payment parents make online (card, Apple Pay, Cash App Pay and the others).
               Choose who covers it.
             </small>
-            <form action="/account/settings/platform-fee-bearer" method="POST" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;" onsubmit="return confirm('Change who covers the service fee? This applies to every online payment from now on.');">
+            <form action="/account/settings/platform-fee-bearer" method="POST" style="margin-top:14px; display:flex; flex-direction:column; gap:12px;" data-onsubmit="account-settings.7">
               <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
                 <input
                   type="radio"
@@ -4113,7 +4114,7 @@
                     <% if (apiAddonMonthly > 0) { %>
                     <div class="current-plan-price-row">
                       <div class="current-plan-price-label">API allowance</div>
-                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(apiAddonMonthly) %> a month, included above · <a href="#" data-target-link="access-tokens" onclick="var b=document.querySelector('.nav-link[data-target=&quot;access-tokens&quot;]'); if (b) { b.click(); } return false;">See details</a></div>
+                      <div class="current-plan-price-value-sub"><%= formatCurrentPlanAmount(apiAddonMonthly) %> a month, included above · <a href="#" data-target-link="access-tokens" data-onclick="account-settings.8">See details</a></div>
                     </div>
                     <% } %>
                     <div class="current-plan-price-row">
@@ -4705,7 +4706,7 @@
 
             <% if (giReady && gi.lastSyncAt) { %>
             <small style="display:block;margin-top:10px;">Last sync: <time class="gc-when" datetime="<%= new Date(gi.lastSyncAt).toISOString() %>"><%= new Date(gi.lastSyncAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }) %> UTC</time></small>
-            <script>(function () { document.querySelectorAll('time.gc-when').forEach(function (t) { var d = new Date(t.getAttribute('datetime')); if (!isNaN(d)) t.textContent = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }); })();</script>
+            <script nonce="<%= locals.cspNonce || '' %>">(function () { document.querySelectorAll('time.gc-when').forEach(function (t) { var d = new Date(t.getAttribute('datetime')); if (!isNaN(d)) t.textContent = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }); })();</script>
             <% } %>
             <% if (giReady && gi.lastSyncNote) { %>
             <small style="display:block;margin-top:4px;"><%= gi.lastSyncNote %></small>
@@ -5232,7 +5233,7 @@
           .settings-section--frame { padding: 0; }
           .settings-access-frame { display: block; width: 100%; height: calc(100vh - 150px); min-height: 560px; border: 0; border-radius: 12px; background: transparent; }
         </style>
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           // The Access Tokens page loads the first time its section is opened.
           (function () {
             var frame = document.querySelector('.settings-access-frame');
@@ -5718,7 +5719,7 @@
             <p id="payout-pref-feedback" style="margin:10px 0 0;font-size:.75rem;color:var(--muted,#64748b);min-height:1em;"></p>
           </div>
 
-          <script>
+          <script nonce="<%= locals.cspNonce || '' %>">
             (function(){
               const toggles = document.querySelectorAll('.payout-pref-toggle');
               const fb = document.getElementById('payout-pref-feedback');
@@ -5736,7 +5737,7 @@
                 if (saving) return;
                 const pref = currentPref();
                 const labelMap = { stripe: 'Stripe Connect', paystack: 'Paystack' };
-                const ok = window.confirm('Route all parent payments through ' + (labelMap[pref] || pref || 'this provider') + '? This applies to Paygira and Public Registration.');
+                const ok = await window.appConfirm('Route all parent payments through ' + (labelMap[pref] || pref || 'this provider') + '? This applies to Paygira and Public Registration.');
                 if (!ok) { restorePref(); return; }
                 saving = true;
                 fb.textContent = 'Saving…';
@@ -6035,7 +6036,7 @@
     </div>
     <div class="settings-nav-overlay"></div>
     <% const resolvedStripePublishableKey = typeof stripePublishableKey !== 'undefined' ? stripePublishableKey : ''; %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Stripe.js (~270KB) is only needed once a card form opens, so it loads
       // then instead of with every Settings visit.
       window.loadStripeJs = window.loadStripeJs || (function () {
@@ -6056,7 +6057,7 @@
         };
       })();
     </script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
@@ -7919,7 +7920,7 @@
         if (whatsappDisconnectLink && whatsappDisconnectForm) {
           whatsappDisconnectLink.addEventListener("click", async (event) => {
             event.preventDefault();
-            const confirmed = window.confirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
+            const confirmed = await window.appConfirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
             if (!confirmed) return;
 
             try {
@@ -7946,7 +7947,7 @@
         if (whatsappDisconnectCta && whatsappDisconnectForm) {
           whatsappDisconnectCta.addEventListener("click", async (event) => {
             event.preventDefault();
-            const confirmed = window.confirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
+            const confirmed = await window.appConfirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
             if (!confirmed) return;
 
             try {
@@ -8415,7 +8416,7 @@
                 }
 
                 const authorizationCode = button.dataset.id;
-                if (!confirm("Remove this card?")) {
+                if (!await window.appConfirm("Remove this card?")) {
                   return;
                 }
                 try {
@@ -8829,7 +8830,7 @@
             requestPassword(null, async () => {
               const id = schoolAccountId ? schoolAccountId.value : "";
               if (!id) return;
-              if (!confirm("Delete this account?")) return;
+              if (!await window.appConfirm("Delete this account?")) return;
               try {
                 const res = await fetch(`/account/paystack/${id}`, { method: "DELETE" });
                 const data = await res.json();
@@ -9184,8 +9185,8 @@
 
               closeModal(planModal);
 
-              requestPassword(null, () => {
-                if (confirm(confirmMsg)) {
+              requestPassword(null, async () => {
+                if (await window.appConfirm(confirmMsg)) {
                   planForm.submit();
                 }
               });
@@ -9242,7 +9243,7 @@
       });
     })();
     </script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
         // CSS calc(100vh - ...) can't reliably account for the global
         // layout's header height + its conditional 0.9 zoom on <main>, so
@@ -9286,7 +9287,7 @@
         setTimeout(fitSettingsLayoutToViewport, 300);
       })();
     </script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
         function openModal(modal) { if (modal) modal.classList.add("show"); }
         function closeModal(modal) { if (modal) modal.classList.remove("show"); }
@@ -9772,3 +9773,4 @@
     </script>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

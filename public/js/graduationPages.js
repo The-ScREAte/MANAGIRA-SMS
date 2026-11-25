@@ -148,7 +148,7 @@
       if (!n) return;
       if (dialogTitle) dialogTitle.textContent = dialogTitle.dataset.template.replace('{n}', n).replace('{s}', n === 1 ? '' : 's');
       if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
-      else if (window.confirm(dialogTitle ? dialogTitle.textContent : 'Continue?')) form.submit();
+      else window.appConfirm(dialogTitle ? dialogTitle.textContent : 'Continue?').then((yes) => { if (yes) form.submit(); });
     }));
     document.querySelectorAll('[data-gp-cancel]').forEach((btn) => btn.addEventListener('click', () => dialog && dialog.close()));
     document.querySelectorAll('[data-gp-confirm]').forEach((btn) => btn.addEventListener('click', () => {

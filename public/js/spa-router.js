@@ -789,48 +789,8 @@
     // ── Reinitialize Event Handlers ───────────────────────────────────
 
     _reinitializeHandlers(container) {
-      // Re-attach inline onclick handlers as proper listeners
-      container.querySelectorAll('[onclick]').forEach(el => {
-        const handler = el.getAttribute('onclick');
-        if (handler && !el.hasAttribute('data-spa-bound')) {
-          el.setAttribute('data-spa-bound', '1');
-          el.removeAttribute('onclick');
-          el.addEventListener('click', function (event) {
-            try {
-              new Function('event', handler).call(this, event);
-            } catch (e) { /* ignore */ }
-          });
-        }
-      });
-
-      // Re-attach inline onchange handlers
-      container.querySelectorAll('[onchange]').forEach(el => {
-        const handler = el.getAttribute('onchange');
-        if (handler && !el.hasAttribute('data-spa-bound-change')) {
-          el.setAttribute('data-spa-bound-change', '1');
-          el.removeAttribute('onchange');
-          el.addEventListener('change', function (event) {
-            try {
-              new Function('event', handler).call(this, event);
-            } catch (e) { /* ignore */ }
-          });
-        }
-      });
-
-      // Re-attach inline onsubmit handlers
-      container.querySelectorAll('form[onsubmit]').forEach(form => {
-        const handler = form.getAttribute('onsubmit');
-        if (handler && !form.hasAttribute('data-spa-bound-submit')) {
-          form.setAttribute('data-spa-bound-submit', '1');
-          form.removeAttribute('onsubmit');
-          form.addEventListener('submit', function (event) {
-            try {
-              const result = new Function('event', handler).call(this, event);
-              if (result === false) event.preventDefault();
-            } catch (e) { /* ignore */ }
-          });
-        }
-      });
+      // Click, change and submit handlers are delegated (public/js/mgActions.js, data-on<event>), so
+      // content swapped in here needs nothing re-attached.
 
       // Re-attach password toggle buttons
       container.querySelectorAll('.password-toggle-btn').forEach(btn => {
@@ -855,7 +815,8 @@
         if (!el.hasAttribute('data-spa-bound-confirm')) {
           el.setAttribute('data-spa-bound-confirm', '1');
           el.addEventListener('click', function (e) {
-            if (!confirm(this.dataset.confirm)) {
+            // appAlert.js asks first with the app's own dialog; this only runs where it isn't loaded.
+            if (!window.appConfirm && !confirm(this.dataset.confirm)) {
               e.preventDefault();
               e.stopPropagation();
             }

@@ -291,12 +291,12 @@
           <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
             <img src="<%= publicImageUrl(student.image_url) %>" alt="Current photo" class="current-image">
           <% } %>
-          <input type="file" name="studentImage" accept="image/*" onchange="previewImage(this)">
+          <input type="file" name="studentImage" accept="image/*" data-onchange="guardian-editPendingStudent.1">
         </div>
       </div>
       
       <div class="actions">
-        <button type="button" class="btn-secondary" onclick="window.location.href='/guardian/dashboard'">
+        <button type="button" class="btn-secondary" data-onclick="guardian-editPendingStudent.2">
           ✕ Cancel
         </button>
         <button type="submit" class="btn-primary">
@@ -308,7 +308,7 @@
 </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function previewImage(input) {
     const preview = document.getElementById('imagePreview');
     if (input.files && input.files[0]) {
@@ -321,3 +321,4 @@
     }
   }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

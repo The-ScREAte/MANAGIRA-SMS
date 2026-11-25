@@ -369,7 +369,7 @@
 
   <section class="mira-showcase-section">
     <div class="mira-showcase-desktop">
-      <img src="/images/mira%20uigigscreen.png" alt="Mira chat interface" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
+      <img src="/images/mira%20uigigscreen.png" alt="Mira chat interface" loading="lazy" decoding="async" data-onerror="legal-Compliance-MiraAiAssistant.1" />
     </div>
   </section>
 
@@ -523,7 +523,7 @@
   </div>
 </main>
 
-<script type="application/ld+json">
+<script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -542,3 +542,4 @@
     }
 }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

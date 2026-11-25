@@ -2918,12 +2918,12 @@ const accountController = {
       // Password security check
 
       const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{10,}$/;
 
-      const passwordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+      const passwordIssue = await require("../utils/passwordRules").passwordProblemAsync(password, { email, firstName: req.body.firstName, lastName: req.body.lastName, organizationName: orgName });
       if (passwordIssue) return stickyError(passwordIssue);
       if (!passwordRegex.test(password)) {
-        return stickyError("Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *.");
+        return stickyError("Use at least 10 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *.");
       }
 
       const hashedPassword = await bcryptjs.hash(password, 10);
@@ -6179,7 +6179,7 @@ const accountController = {
 
       return res.redirect("/account/update");
     }
-    const newPasswordIssue = password ? await require("../utils/passwordRules").passwordProblemAsync(password) : null;
+    const newPasswordIssue = password ? await require("../utils/passwordRules").passwordProblemAsync(password, { email, firstName, lastName }) : null;
     if (newPasswordIssue) {
       req.flash("error", newPasswordIssue);
       return res.redirect("/account/update");
@@ -6748,7 +6748,7 @@ const accountController = {
       req.flash("error", "Passwords do not match.");
       return res.redirect(localPath(redirectTo, "/account/settings"));
     }
-    const securityPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    const securityPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password, { email: req.session.user.email || req.session.userEmail, firstName: req.session.user.first_name, lastName: req.session.user.last_name });
     if (securityPasswordIssue) {
       req.flash("error", securityPasswordIssue);
       return res.redirect(localPath(redirectTo, "/account/settings"));
@@ -7841,12 +7841,14 @@ const accountController = {
       ? `/common/admissionSettings?tab=online${req.body.embed === "workspace" ? "&embed=workspace" : ""}`
       : "/account/managePublicContent";
 
-    const isOn = enabled === "on" || enabled === true || enabled === "true";
+    const wantsOn = enabled === "on" || enabled === true || enabled === "true";
+    // Without both dates the rest is still saved; applications just stay closed until the dates are set.
+    const isOn = wantsOn && Boolean(startDate) && Boolean(endDate);
+    const missingDates = wantsOn && !isOn;
     const fee = price === undefined || price === null || price === "" ? 0 : Number(price);
     const validDate = (value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(String(value));
     let problem = "";
     if (!validDate(startDate) || !validDate(endDate)) problem = "Use valid dates for registration.";
-    else if (isOn && (!startDate || !endDate)) problem = "Set the dates registration opens and closes.";
     else if (startDate && endDate && String(endDate) < String(startDate)) problem = "The closing date must be on or after the opening date.";
     else if (!Number.isFinite(fee) || fee < 0) problem = "The application fee must be 0 or more.";
     if (problem) {
@@ -7885,7 +7887,8 @@ const accountController = {
         ]
       );
 
-      req.flash("success", "Online registration settings saved.");
+      if (missingDates) req.flash("error", "Saved, but applications stay closed until you set when they open and close.");
+      else req.flash("success", "Online registration settings saved.");
 
       // ✅ Instead of manually rendering with empty data, redirect:
 
@@ -8232,13 +8235,14 @@ const accountController = {
     }
 
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{10,}$/;
 
-    const resetPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password);
+    const resetWho = await require("../utils/passwordIdentity").forResetToken(db, crypto.createHash("sha256").update(String(token || "")).digest("hex"));
+    const resetPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(password, resetWho);
     if (resetPasswordIssue || !passwordRegex.test(password)) {
       req.flash(
         "error",
-        resetPasswordIssue || "Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."
+        resetPasswordIssue || "Use at least 10 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."
       );
       return res.render("account/resetPassword", {
         title: "Reset Password",
@@ -9368,6 +9372,7 @@ const accountController = {
         messages: req.flash(),
       });
     } catch (error) {
+      console.error("[settings page]", error && error.stack ? error.stack.split("\n").slice(0, 4).join(" | ") : error);
             req.flash("error", "Unable to load settings page.");
       res.redirect("/common/orgDashboard");
     }
@@ -11820,6 +11825,13 @@ const accountController = {
       const provider = String(req.params.provider || "").trim().toLowerCase();
       if (!["arkesel", "africastalking", "twilio"].includes(provider)) {
         return res.status(404).json({ success: false, message: "Unknown provider." });
+      }
+
+      const { webhookIsGenuine } = require("../utils/smsWebhookAuth");
+      const genuine = await webhookIsGenuine(req, provider, async (orgId) => (await getProviderCredentials(db, orgId, "twilio")).authToken);
+      if (!genuine) {
+        console.warn(`[SMS webhook] Refused an unsigned ${provider} callback from ${req.ip}.`);
+        return res.status(403).json({ success: false, message: "Not allowed." });
       }
 
       const body = req.body || {};

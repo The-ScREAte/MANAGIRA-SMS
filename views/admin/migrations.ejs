@@ -31,7 +31,7 @@
           </dl>
           <% if (_isOpen) { %>
           <div class="mg-req__do">
-            <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/approve" onsubmit="return confirm('Open <%= String(r.organization_name).replace(/[^A-Za-z0-9 .,()&-]/g, '') %>\'s migration? Their managers are emailed and find Sandbox in their menu; while they have it on, their live account takes no new data.');"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve and open</button></form>
+            <form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/approve" data-onsubmit="admin-migrations.1" data-mga0="<%= String(r.organization_name).replace(/[^A-Za-z0-9 .,()&-]/g, '') %>"><button class="mg-btn mg-btn--primary mg-btn--sm" type="submit">Approve and open</button></form>
             <% if (r.status === 'new') { %><form method="POST" action="/admin/migrations/requests/<%= r.request_id %>/contacted"><button class="mg-btn mg-btn--sm">Mark in touch</button></form><% } %>
             <details>
               <summary class="mg-btn mg-btn--sm">Decline…</summary>
@@ -73,8 +73,8 @@
       <p><%= waiting.length %> <%= waiting.length === 1 ? 'column needs' : 'columns need' %> an action. Once each has one, run the import again so the new fields are filled in.</p></header>
     <div class="mg-actions" style="margin:14px 0">
       <% if (['sandbox', 'review'].includes(job.status)) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/import"><button class="mg-btn mg-btn--primary" type="submit">Run the import again</button></form>
-      <form method="POST" action="/admin/migrations/<%= job.organization_id %>/cancel" onsubmit="return confirm('Cancel this migration? Its sandbox and files are deleted.')"><button class="mg-btn" type="submit">Cancel migration</button></form><% } %>
-      <% if (_openNow && _given) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/stop" onsubmit="return confirm('<%= job.status === 'live' ? 'Turn the sandbox off? This school is live, so its migration closes.' : 'Turn the sandbox off? The school loses its Sandbox switch and can save again. What it uploaded is kept.' %>')"><button class="mg-btn" type="submit">Turn the sandbox off</button></form><% } %>
+      <form method="POST" action="/admin/migrations/<%= job.organization_id %>/cancel" data-onsubmit="admin-migrations.2"><button class="mg-btn" type="submit">Cancel migration</button></form><% } %>
+      <% if (_openNow && _given) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/stop" data-onsubmit="admin-migrations.3" data-mga0="<%= job.status === 'live' ? 'Turn the sandbox off? This school is live, so its migration closes.' : 'Turn the sandbox off? The school loses its Sandbox switch and can save again. What it uploaded is kept.' %>"><button class="mg-btn" type="submit">Turn the sandbox off</button></form><% } %>
       <% if (_openNow && !_given) { %><form method="POST" action="/admin/migrations/<%= job.organization_id %>/start"><button class="mg-btn mg-btn--primary" type="submit">Turn the sandbox on</button></form><% } %>
     </div>
     <% if (job.rolled_back_at && job.status === 'sandbox') { %><p class="mg-notice">Go-live rolled back on <%= _when(job.rolled_back_at) %> by <%= job.rolled_back_by %>. The sandbox is open again and locked.</p><% } %>
@@ -91,7 +91,7 @@
         </tbody></table>
         <% if (_since.length) { %><p class="mg-notice">Since go-live the school has added, on imported records: <%= _since.map(([words, n]) => n + ' ' + words).join(', ') %>. These go too.</p><% } %>
         <% if (preview.blocked) { %><p class="mg-notice"><%= preview.blocked %></p><% } else { %>
-          <form method="POST" action="/admin/migrations/<%= job.organization_id %>/rollback" onsubmit="return confirm('Roll back this go-live? What it loaded is removed from the school\'s live account.')">
+          <form method="POST" action="/admin/migrations/<%= job.organization_id %>/rollback" data-onsubmit="admin-migrations.4">
             <div class="mg-actions" style="align-items:flex-end">
               <label class="mg-field">Type the school's name to confirm<input name="confirm" required autocomplete="off" placeholder="<%= org.organization_name %>" /></label>
               <button class="mg-btn mg-btn--danger" type="submit">Roll back go-live</button>
@@ -104,7 +104,7 @@
       <section class="mg-card mg-danger" id="start-over" style="margin-bottom:16px">
         <h2>Start over</h2>
         <p class="mg-hint">Empties this sandbox: every upload, list, record, document, column match, staff role and answer. The sandbox stays open for the school to upload again. Nothing in the school's live account is touched, and the activity log stays.</p>
-        <form method="POST" action="/admin/migrations/<%= job.organization_id %>/start-over" onsubmit="return confirm('Empty this sandbox? Every upload and answer in it is removed.')">
+        <form method="POST" action="/admin/migrations/<%= job.organization_id %>/start-over" data-onsubmit="admin-migrations.5">
           <div class="mg-actions" style="align-items:flex-end">
             <label class="mg-field">Type the school's name to confirm<input name="confirm" required autocomplete="off" placeholder="<%= org.organization_name %>" /></label>
             <button class="mg-btn mg-btn--danger" type="submit">Start over</button>
@@ -176,10 +176,11 @@
       <% if (!(locals.codes || []).length) { %><p class="mg-empty">Nobody yet.</p><% } else { %>
       <table class="mg-table"><thead><tr><th>Who</th><th>Set up</th><th class="num">Recovery codes left</th><th></th></tr></thead><tbody>
         <% codes.forEach((c) => { %><tr><td><%= c.name %></td><td><%= _when(c.confirmed_at) %></td><td class="num"><%= c.recovery_left %></td>
-          <td class="num"><form method="POST" action="/admin/migrations/<%= job.organization_id %>/codes/<%= c.account_kind %>/<%= c.account_id %>/reset" onsubmit="return confirm('Reset this authenticator?')"><button class="mg-btn mg-btn--sm" type="submit">Reset</button></form></td></tr><% }) %>
+          <td class="num"><form method="POST" action="/admin/migrations/<%= job.organization_id %>/codes/<%= c.account_kind %>/<%= c.account_id %>/reset" data-onsubmit="admin-migrations.6"><button class="mg-btn mg-btn--sm" type="submit">Reset</button></form></td></tr><% }) %>
       </tbody></table>
       <% } %>
     </section>
     <details class="mg-more mg-log"><summary>Activity</summary><ul><% events.forEach((e) => { %><li><span><%= _when(e.at) %></span> <%= e.actor %> (<%= e.actor_kind %>): <%= e.action.replace(/_/g, ' ') %></li><% }) %></ul></details>
   <% } %>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

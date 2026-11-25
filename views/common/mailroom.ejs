@@ -479,7 +479,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const state = {
     contacts: [],
@@ -530,7 +530,9 @@
     $('mrContactCount').textContent = `${filtered.length} contact${filtered.length === 1 ? '' : 's'}`;
 
     if (!filtered.length) {
-      list.innerHTML = `<div class="mr-empty">${state.contacts.length ? 'No contacts match.' : 'No guardian contacts on file yet.'}</div>`;
+      list.innerHTML = state.contacts.length
+        ? '<div class="mr-empty">No contacts match.</div>'
+        : '<div class="mr-empty"><strong style="display:block;margin-bottom:4px;color:var(--mr-text);font-size:14px">No contacts yet</strong>Parents and guardians show here once added to a student.</div>';
       updateSelectAllLabel(filtered);
       return;
     }
@@ -609,7 +611,7 @@
   });
 
   async function deleteStudentContact(contact, contactMethodIds, button) {
-    const confirmed = confirm(`Permanently delete the saved contact "${contact.guardianName}"? This cannot be undone.`);
+    const confirmed = await window.appConfirm(`Permanently delete the saved contact "${contact.guardianName}"? This cannot be undone.`);
     if (!confirmed) return;
 
     button.disabled = true;
@@ -871,7 +873,7 @@
     try {
       const res = await fetch('/account/messaging/mailroomDirectory');
       const data = await res.json();
-      if (!data.success) { $('mrContactList').innerHTML = '<div class="mr-empty">Failed to load contacts.</div>'; return; }
+      if (!data.success) { $('mrContactList').innerHTML = '<div class="mr-empty">Contacts did not load. Refresh the page.</div>'; return; }
       state.contacts = data.contacts || [];
       populateClassFilter();
       // Opened from a student's page ("Message parent"): that student's families are selected and shown.
@@ -884,7 +886,7 @@
       }
       renderContacts();
     } catch (_) {
-      $('mrContactList').innerHTML = '<div class="mr-empty">Error loading contacts.</div>';
+      $('mrContactList').innerHTML = '<div class="mr-empty">Contacts did not load. Refresh the page.</div>';
     }
   }
 
@@ -1256,7 +1258,7 @@
   loadHistory();
 })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 // Mailroom Inbox: the messages parents send (parent portal "Messages"), school-wide.
 (function () {
   const root = document.getElementById('mailroomRoot');

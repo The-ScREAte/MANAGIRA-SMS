@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+<meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
 <title>Public Student Registration</title>
 <%
   // The school's brand color from the app palette (theme_color is a name such
@@ -202,7 +202,7 @@
     cursor: pointer; transition: background .2s, transform .1s, box-shadow .2s;
   }
   .guardian-check-buttons button:active { transform: scale(.97); }
-  .btn-yes { background: var(--pr-green); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,.2); }
+  .btn-yes { background: #047857; color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,.2); }
   
   .btn-no  { background: var(--pr-blue);  color: var(--pr-on); box-shadow: 0 2px 8px var(--pr-shadow); }
   
@@ -214,7 +214,7 @@
     position: relative;
   }
   .guardian-search-container h4 {
-    margin: 0 0 4px; font-size: .88rem; font-weight: 700; color: var(--pr-green);
+    margin: 0 0 4px; font-size: .88rem; font-weight: 700; color: #047857;
   }
   .guardian-search-container > p { margin: 0 0 12px; font-size: .8rem; color: #64748b; }
   .guardian-search-input {
@@ -339,7 +339,7 @@
   }
   .progress-step.done .ps-circle { background: var(--pr-blue); border-color: var(--pr-blue); color: var(--pr-on); }
   .progress-step.active .ps-circle { background: #fff; border-color: var(--pr-blue); color: var(--pr-ink); box-shadow: 0 0 0 4px var(--pr-soft); }
-  .ps-label { font-size: .68rem; color: #94a3b8; margin-top: 5px; font-weight: 500; text-align: center; }
+  .ps-label { font-size: .68rem; color: #64748b; margin-top: 5px; font-weight: 500; text-align: center; }
   .progress-step.done .ps-label, .progress-step.active .ps-label { color: var(--pr-ink); font-weight: 600; }
 
   /* ── Accordion cards ─────────────────────────────────────────── */
@@ -436,7 +436,7 @@
     display: flex;
     gap: 16px;
     font-size: .8rem;
-    color: #64748b;
+    color: #475569;
     background: #f1f5f9;
     border-radius: 6px;
     padding: 8px 12px;
@@ -523,6 +523,9 @@
     .registration-container { margin: 16px; }
   }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <%- include('../partials/flash') %>
@@ -596,7 +599,7 @@
         </div>
       </div>
       <div class="form-actions centered">
-          <button class="btn-primary" style="max-width:300px;width:100%;" onclick="startRegistration()">Start Application &rarr;</button>
+          <button class="btn-primary" style="max-width:300px;width:100%;" data-onclick="common-publicRegisterStudent.1">Start Application &rarr;</button>
         </div>
       </div>
     </div>
@@ -626,8 +629,8 @@
         <h3>Guardian Information</h3>
         <p>Do you already have a child enrolled in this school?</p>
         <div class="guardian-check-buttons">
-          <button class="btn-yes" onclick="guardianExists(true)">Yes</button>
-          <button class="btn-no" onclick="guardianExists(false)">No</button>
+          <button class="btn-yes" data-onclick="common-publicRegisterStudent.2">Yes</button>
+          <button class="btn-no" data-onclick="common-publicRegisterStudent.3">No</button>
         </div>
       </div>
 
@@ -653,7 +656,7 @@
               <div class="sg-name" id="selectedGuardianName"></div>
               <div class="sg-details" id="selectedGuardianDetails"></div>
             </div>
-            <button type="button" class="btn-change-guardian" onclick="clearGuardianSelection()" title="Change guardian">
+            <button type="button" class="btn-change-guardian" data-onclick="common-publicRegisterStudent.4" title="Change guardian">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -668,7 +671,7 @@
 
           <!-- Student Information accordion card -->
           <div class="acc-card" id="accStudent">
-            <div class="acc-header" id="accStudentHeader" onclick="toggleAcc('accStudent')">
+            <div class="acc-header" id="accStudentHeader" data-onclick="common-publicRegisterStudent.5">
               <div class="acc-header-left">
                 <div class="acc-icon-wrap">&#127891;</div>
                 <div>
@@ -731,7 +734,7 @@
           <!-- Guardian Details accordion card (new guardian only) -->
           <div id="guardiansContainer" style="display: none;">
             <div class="acc-card" id="accGuardian">
-              <div class="acc-header" id="accGuardianHeader" onclick="toggleAcc('accGuardian')">
+              <div class="acc-header" id="accGuardianHeader" data-onclick="common-publicRegisterStudent.6">
                 <div class="acc-header-left">
                   <div class="acc-icon-wrap green">&#128100;</div>
                   <div>
@@ -771,7 +774,7 @@
               </div>
                 <div class="form-group full-width">
                     <label>Guardian Photo <span style="color:#94a3b8;font-weight:400;">(Optional)</span></label>
-                    <input type="file" id="guardianImage0" name="guardianImage0" accept="image/*" onchange="previewGuardianImage(this, 0)" />
+                    <input type="file" id="guardianImage0" name="guardianImage0" accept="image/*" data-onchange="common-publicRegisterStudent.7" />
                     <div class="guardian-image-preview-wrap" id="guardianPreviewWrap0" style="display:none;">
                       <img id="guardianImagePreview0" src="" alt="Preview" />
                       <span style="font-size:.82rem;color:#64748b;">Preview</span>
@@ -784,15 +787,15 @@
   
           <!-- Add another guardian -->
           <div id="addGuardianBtn" style="display:none; margin-top:4px;">
-            <button type="button" class="btn-secondary" onclick="addGuardian()">+ Add Another Guardian</button>
+            <button type="button" class="btn-secondary" data-onclick="common-publicRegisterStudent.8">+ Add Another Guardian</button>
           </div>
 
           <div class="form-actions">
-            <button type="button" class="btn-secondary" onclick="backToWelcome()">&#8592; Back</button>
+            <button type="button" class="btn-secondary" data-onclick="common-publicRegisterStudent.9">&#8592; Back</button>
             <% if (!orgDetails.public_registration_price || Number(orgDetails.public_registration_price) === 0) { %>
-            <button type="button" class="btn-primary" onclick="submitFreeApplication()">Submit Application</button>
+            <button type="button" class="btn-primary" data-onclick="common-publicRegisterStudent.10">Submit Application</button>
             <% } else { %>
-            <button type="button" class="btn-primary" onclick="continueToPayment()">Continue to Payment &#8594;</button>
+            <button type="button" class="btn-primary" data-onclick="common-publicRegisterStudent.11">Continue to Payment &#8594;</button>
             <% } %>
           </div>
         </form>
@@ -817,7 +820,7 @@
         <div class="ps-label">Payment</div>
       </div>
     </div>
-    <button class="back-button" onclick="backToRegistration()">&#8592; Back</button>
+    <button class="back-button" data-onclick="common-publicRegisterStudent.12">&#8592; Back</button>
 
     <div class="payment-outer">
       <h2 class="payment-section-title">&#128179; Complete Your Payment</h2>
@@ -856,7 +859,7 @@
                 : ((acct.bank_name || '') + (acct.account_number ? ' · ···' + String(acct.account_number).slice(-4) : ''));
             %>
             <label id="pr-acct-lbl-<%= acct.id %>" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid <%= (!_prStripe && (i===0||acct.is_primary))?'#0d9488':'#e2e8f0' %>;border-radius:8px;cursor:pointer;font-size:.82rem;background:<%= (!_prStripe && (i===0||acct.is_primary))?'#f0fdfa':'' %>;">
-              <input type="radio" name="prPayoutAccount" value="<%= acct.id %>" <%= (!_prStripe && (i===0||acct.is_primary))?'checked':'' %> onchange="prSyncPayoutCards()" style="accent-color:#0d9488;">
+              <input type="radio" name="prPayoutAccount" value="<%= acct.id %>" <%= (!_prStripe && (i===0||acct.is_primary))?'checked':'' %> data-onchange="common-publicRegisterStudent.13" style="accent-color:#0d9488;">
               <span style="display:flex;flex-direction:column;gap:2px;">
                 <span><%= pIcon %> <%= pName %></span>
                 <% if (pSub) { %><small style="color:#64748b;font-size:.72rem;"><%= pSub %></small><% } %>
@@ -865,7 +868,7 @@
             <% }); %>
             <% if (_prStripe) { %>
             <label id="pr-acct-lbl-stripe" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:.82rem;">
-              <input type="radio" name="prPayoutAccount" value="stripe" onchange="prSyncPayoutCards()" style="accent-color:#635bff;">
+              <input type="radio" name="prPayoutAccount" value="stripe" data-onchange="common-publicRegisterStudent.13" style="accent-color:#635bff;">
               <span>💳 Pay with Card / Wallet (Stripe)</span>
             </label>
             <% } %>
@@ -884,7 +887,7 @@
         <div id="express-checkout-divider" style="display:none;text-align:center;margin:10px 0;color:#94a3b8;font-size:.82rem;">&mdash;&mdash; or pay with card &mdash;&mdash;</div>
         <div id="payment-element" style="margin-bottom:18px;"></div>
         <div id="stripeError" style="color:#dc2626;font-size:.88rem;margin-bottom:14px;display:none;padding:10px 14px;background:#fff1f2;border-radius:8px;border:1px solid #fca5a5;"></div>
-        <button type="button" id="payNowBtn" onclick="payNow()">
+        <button type="button" id="payNowBtn" data-onclick="common-publicRegisterStudent.14">
           Pay <%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %>
         </button>
         <div id="feeBreakdown" style="display:none;margin:10px 0 0;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc;font-size:.84rem;color:#334155;">
@@ -917,7 +920,7 @@
     <h2 style="margin:0 0 10px;font-size:1.4rem;color:#14532d;">Application Submitted!</h2>
     <p style="color:#374151;margin:0 0 6px;font-size:1rem;">Thank you — your application has been received successfully.</p>
     <p style="color:#6b7280;font-size:.9rem;margin:0 0 28px;">No payment is required for this school. The admissions team will review and be in touch.</p>
-    <button type="button" onclick="window.location.reload()"
+    <button type="button" data-onclick="common-publicRegisterStudent.15"
        style="display:inline-block;background:var(--pr-blue);color:var(--pr-on);padding:12px 28px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:.95rem;font-family:inherit;">
       Submit Another Application
     </button>
@@ -930,7 +933,7 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
 <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const STRIPE_PUBLISHABLE_KEY = '<%= stripePublishableKey || "" %>';
     const ORG_ID                 = '<%= organizationId %>';
     const REGISTRATION_AMOUNT    = '<%= orgDetails.public_registration_price %>';
@@ -1051,7 +1054,7 @@
     async function submitFreeApplication() {
       const form = document.getElementById('registrationForm');
       if (!form.checkValidity()) { form.reportValidity(); return; }
-      if (!confirm('Ready to submit your application? Click OK to confirm.')) return;
+      if (!await window.appConfirm('Ready to submit your application?', { ok: 'Submit' })) return;
       await continueToPayment();
     }
 
@@ -1296,7 +1299,7 @@
       newCard.className = 'acc-card';
       newCard.id = 'accGuardian' + idx;
       newCard.innerHTML = `
-        <div class="acc-header open" id="accGuardian${idx}Header" onclick="toggleAcc('accGuardian${idx}')">
+        <div class="acc-header open" id="accGuardian${idx}Header" data-onclick="common-publicRegisterStudent.acc" data-mga0="${idx}">
           <div class="acc-header-left">
             <div class="acc-icon-wrap green">&#128100;</div>
             <div>
@@ -1315,14 +1318,14 @@
             <div class="form-group full-width"><label>Hometown</label><input type="text" name="guardianHometown${idx}" /></div>
             <div class="form-group full-width">
               <label>Photo <span style="color:#94a3b8;font-weight:400;">(Optional)</span></label>
-              <input type="file" name="guardianImage${idx}" accept="image/*" onchange="previewGuardianImage(this, ${idx})" />
+              <input type="file" name="guardianImage${idx}" accept="image/*" data-onchange="common-publicRegisterStudent.preview" data-mga0="${idx}" />
               <div class="guardian-image-preview-wrap" id="guardianPreviewWrap${idx}" style="display:none;">
                 <img id="guardianImagePreview${idx}" src="" alt="Preview" />
                 <span style="font-size:.82rem;color:#64748b;">Preview</span>
               </div>
             </div>
           </div>
-          <button type="button" class="remove-guardian" onclick="this.closest('.acc-card').remove()">&times; Remove Guardian</button>
+          <button type="button" class="remove-guardian" data-onclick="common-publicRegisterStudent.16">&times; Remove Guardian</button>
         </div>`;
       container.appendChild(newCard);
       if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(newCard);
@@ -1414,3 +1417,4 @@
   </script>
 <% } %>
     
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

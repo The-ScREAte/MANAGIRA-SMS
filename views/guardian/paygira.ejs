@@ -23,7 +23,7 @@
     --pg-text:      #111827;
     --pg-muted:     #6b7280;
     --pg-teal:      var(--org-primary-color, #01535b);
-    --pg-gold:      #b45309;
+    --pg-gold:      #92400e;
     --pg-red:       #dc2626;
     --pg-org:       var(--org-primary-color, #01535b);
     --pg-org-hover: var(--org-primary-hover, #014a51);
@@ -1422,7 +1422,7 @@
             const canPay = bal > 0;
           %>
             <div class="pg-bill-row"
-                 <% if (canPay) { %>onclick="openPgPay('<%= a.assignment_id %>')"<% } %>>
+                 <% if (canPay) { %>data-onclick="guardian-paygira.1" data-mga0="<%= a.assignment_id %>"<% } %>>
               <div>
                 <div class="pg-bill-title"><%= a.bill_title %></div>
                 <div class="pg-bill-sub">
@@ -1437,9 +1437,9 @@
                 <div class="pg-bill-sub">of <%= money(billedTotal(a)) %> · <%= money(a.amount_paid) %> paid</div>
                 <span class="pg-status <%= statusClass(a.status) %>"><%= a.status %></span>
               </div>
-              <div class="pg-bill-actions" onclick="event.stopPropagation()">
+              <div class="pg-bill-actions" data-onclick="guardian-paygira.2">
                 <% if (canPay) { %>
-                  <button type="button" class="pg-btn primary" onclick="openPgPay('<%= a.assignment_id %>')"><%= recurring ? 'Pay dates' : 'Pay' %></button>
+                  <button type="button" class="pg-btn primary" data-onclick="guardian-paygira.1" data-mga0="<%= a.assignment_id %>"><%= recurring ? 'Pay dates' : 'Pay' %></button>
                 <% } %>
                 <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-icon-link" title="Invoice" aria-label="Invoice for <%= a.bill_title %>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></a>
               </div>
@@ -1479,7 +1479,7 @@
   </div>
 </div>
 
-<script id="pgAssignmentsData" type="application/json"><%- JSON.stringify(assignments.map(a => ({
+<script nonce="<%= locals.cspNonce || '' %>" id="pgAssignmentsData" type="application/json"><%- JSON.stringify(assignments.map(a => ({
   assignment_id: a.assignment_id,
   bill_title: a.bill_title,
   student_name: a.display_student_name || _guardianNameFormat(a),
@@ -1505,7 +1505,7 @@
   <div class="pg-modal" data-ap-skip role="dialog" aria-modal="true" aria-labelledby="pgPayTitle" aria-hidden="true">
     <div class="pg-modal-header">
       <h3 id="pgPayTitle">Pay Bill</h3>
-      <button type="button" class="pg-modal-close" aria-label="Close payment panel" onclick="closePgPay()">×</button>
+      <button type="button" class="pg-modal-close" aria-label="Close payment panel" data-onclick="guardian-paygira.3">×</button>
     </div>
     <form action="/guardian/paygira/pay" method="POST" id="pgPayForm">
       <input type="hidden" name="assignment_id" id="pgPayAssignment">
@@ -1577,7 +1577,7 @@
           <div style="margin-top:8px;">
             <button type="button" id="pgUseNewCardBtn" class="pg-btn ghost"
                     style="font-size:.78rem;padding:5px 12px;display:none;"
-                    onclick="clearSavedCardSelection()">+ Use another card</button>
+                    data-onclick="guardian-paygira.4">+ Use another card</button>
           </div>
         </div>
         <div id="pgNewCardSection">
@@ -1609,14 +1609,14 @@
       </p>
       <% } %>
       <div class="pg-modal-actions" style="margin-top:20px;">
-        <button type="button" class="pg-btn ghost" onclick="closePgPay()">Cancel</button>
+        <button type="button" class="pg-btn ghost" data-onclick="guardian-paygira.3">Cancel</button>
         <button type="submit" class="pg-btn primary" id="pgSubmitBtn">Submit Payment</button>
       </div>
     </form>
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function() {
     var payAssignments = {};
     try {
@@ -2642,3 +2642,4 @@
     });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

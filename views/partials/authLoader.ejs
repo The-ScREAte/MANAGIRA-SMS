@@ -19,7 +19,7 @@
   @keyframes auth-loader-in { from { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .auth-loader__logo, .auth-loader__shadow { animation-duration: 1.6s; } }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var loader = document.getElementById('authLoader');
     if (!loader) return;

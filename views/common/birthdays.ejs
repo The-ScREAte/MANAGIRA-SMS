@@ -330,7 +330,7 @@
     </section>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       const todayBirthdayCards = Array.from(document.querySelectorAll('.birthday-person-card.is-celebrating'));
       const todayKey = new Date().toISOString().slice(0, 10);

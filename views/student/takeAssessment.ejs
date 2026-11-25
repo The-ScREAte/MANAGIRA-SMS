@@ -442,7 +442,7 @@
     </ul>
   </section>
   <% } %>
-  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return window.taConfirmSubmit ? window.taConfirmSubmit() : true;" data-final="<%= Number(maxAttempts || 1) > 1 ? '' : '1' %>">
+  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" data-onsubmit="student-takeAssessment.1" data-final="<%= Number(maxAttempts || 1) > 1 ? '' : '1' %>">
     <input type="hidden" name="attemptId" value="<%= attemptId %>" />
 
     <% questions.forEach((question, index) => { %>
@@ -544,7 +544,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Answered count, and a clear warning before submitting with blanks.
   (function () {
     var form = document.getElementById('ta-assessment-form');
@@ -571,11 +571,18 @@
       var once = form.getAttribute('data-final') === '1';
       var msg = (left ? left + ' question' + (left === 1 ? ' is' : 's are') + ' not answered. ' : 'All questions answered. ') +
         (once ? 'Submit now? You can\'t change your answers after this.' : 'Submit now?');
-      return window.confirm(msg);
+      if (form.__submitOk) { form.__submitOk = false; return true; }
+      if (!window.appConfirm) return window.confirm(msg);
+      window.appConfirm(msg, { ok: 'Submit', cancel: 'Keep going', danger: false }).then(function (yes) {
+        if (!yes) return;
+        form.__submitOk = true;
+        if (form.requestSubmit) form.requestSubmit(); else form.submit();
+      });
+      return false;
     };
   })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var overlay = document.getElementById('ta-entry-overlay');
     var consent = document.getElementById('ta-consent');
@@ -1010,3 +1017,4 @@
     }
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

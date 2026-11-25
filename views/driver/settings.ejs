@@ -40,7 +40,7 @@
 
   <section class="drv-card" aria-labelledby="drvDetails">
     <h2 id="drvDetails">Your details</h2>
-    <form action="/driver/settings" method="post" enctype="multipart/form-data" id="driverSettingsForm" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+    <form action="/driver/settings" method="post" enctype="multipart/form-data" id="driverSettingsForm" data-onsubmit="driver-settings.1">
       <div class="drv-who">
         <img class="drv-avatar" src="<%= publicImageUrl(user.profile_image_url || '/images/profilePlaceholder.png') %>" alt="Your photo" />
         <div class="drv-who__name">
@@ -56,7 +56,7 @@
         <div class="drv-field">
           <label for="phone">Phone</label>
           <div class="phone-combo" data-default-iso2="US">
-            <select class="phone-dial-select"></select>
+            <select class="phone-dial-select" aria-label="Country code"></select>
             <input type="tel" id="phone" class="phone-local-input" name="phone" value="<%= driverProfile && driverProfile.phone ? driverProfile.phone : '' %>" />
           </div>
         </div>
@@ -73,3 +73,4 @@
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

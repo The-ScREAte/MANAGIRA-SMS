@@ -203,7 +203,7 @@ module.exports = {
         const raw = String(req.body.password || "");
         const hubUserPasswordIssue = await require("../utils/passwordRules").passwordProblemAsync(raw);
         if (hubUserPasswordIssue || !/[A-Za-z]/.test(raw) || !/\d/.test(raw)) {
-          req.flash("error", hubUserPasswordIssue || "The password needs at least 8 characters with letters and numbers.");
+          req.flash("error", hubUserPasswordIssue || "The password needs at least 10 characters with letters and numbers.");
           return res.redirect(back);
         }
         password = await bcrypt.hash(raw, 10);

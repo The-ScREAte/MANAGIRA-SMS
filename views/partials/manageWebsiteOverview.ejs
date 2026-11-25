@@ -68,7 +68,7 @@
     <% }) %>
   </div>
 </section>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     document.querySelectorAll('[data-mwo-target]').forEach(function (button) {
       button.addEventListener('click', function () {

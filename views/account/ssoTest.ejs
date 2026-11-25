@@ -15,6 +15,7 @@
     p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
     small { color: var(--muted); font-size: 13px; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main>
@@ -36,6 +37,6 @@
       <small>Close this tab and test again.</small>
     <% } %>
   </main>
-  <script>try { if (window.opener) window.opener.postMessage({ ssoTest: true }, window.location.origin); } catch (_) {}</script>
+  <script nonce="<%= locals.cspNonce || '' %>">try { if (window.opener) window.opener.postMessage({ ssoTest: true }, window.location.origin); } catch (_) {}</script>
 </body>
 </html>

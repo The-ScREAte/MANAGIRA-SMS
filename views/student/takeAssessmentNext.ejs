@@ -185,7 +185,7 @@
   </div>
 </div>
 
-<script type="application/json" id="ex-config"><%- JSON.stringify({
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="ex-config"><%- JSON.stringify({
   assessmentId: Number(assessment.assessment_id),
   attemptId: Number(attemptId),
   secure: !assessment.open_book,

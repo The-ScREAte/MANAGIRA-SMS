@@ -151,7 +151,7 @@
   </dialog>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var page = document.getElementById('shardPage');
     if (!page || page.dataset.bound) return;
@@ -251,8 +251,8 @@
         .catch(function () { setTimeout(function () { watch(moveId); }, 2000); });
     }
 
-    function start(isRehearsal) {
-      if (!isRehearsal && !window.confirm(oneDatabase() ? 'Move now? Nobody is signed out and nothing is copied.' : 'Move now? The school pauses and everyone signs in again.')) return;
+    async function start(isRehearsal) {
+      if (!isRehearsal && !await window.appConfirm(oneDatabase() ? 'Move now? Nobody is signed out and nothing is copied.' : 'Move now? The school pauses and everyone signs in again.')) return;
       setBusy(true);
       result.hidden = true;
       fetch('/admin/shards/moves', {

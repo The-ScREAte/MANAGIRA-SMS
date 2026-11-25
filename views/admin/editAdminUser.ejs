@@ -105,9 +105,10 @@
         </form>
 
         <!-- Resend password setup email -->
-        <form action="/admin/resendAdminInvite/<%= admin.user_id %>" method="POST" class="resend-form" onsubmit="return confirm('Send a new password setup email to this admin? The previous link will be invalidated.');">
+        <form action="/admin/resendAdminInvite/<%= admin.user_id %>" method="POST" class="resend-form" data-onsubmit="admin-editAdminUser.1">
             <button type="submit" class="btn btn-secondary btn-block">📧 Resend password setup email</button>
             <p class="resend-note">Use this if their original invite link expired or never arrived. A new 24-hour link will be generated and emailed.</p>
         </form>
     </div>
 </main>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

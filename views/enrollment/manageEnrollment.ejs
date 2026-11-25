@@ -82,7 +82,7 @@
     <iframe id="uxEditFrame" title="Edit enrollment"></iframe>
   </div>
 </aside>
-<script type="application/json" id="meData"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="meData"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
 <style>
   .me-tools { display: flex; gap: 10px; margin: 0 0 14px; }
@@ -141,7 +141,7 @@
   }
 </style>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   var data = JSON.parse(document.getElementById('meData').textContent || '[]');
   var EMBED = '?embed=workspace'; // the panel always shows the form without the site frame

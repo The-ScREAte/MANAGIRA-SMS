@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PayGira Invoice — <%= assignment.bill_title %></title>
 <style>
   * { box-sizing:border-box; }
@@ -38,12 +39,21 @@
   .note { margin:22px 0 0; color:#1a1f2e; font-size:.86rem; text-align:center; white-space:pre-line; }
   .foot { margin-top:30px; padding-top:14px; border-top:1px solid #e6e9f0; font-size:.74rem; color:#5a6378; text-align:center; }
   .badge { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,170,.12); color:#00845f; padding:4px 10px; border-radius:999px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-top:6px; }
+  @media (max-width: 600px) {
+    .doc { margin:0; padding:20px 16px; border-radius:0; box-shadow:none; }
+    .head .doc-title { text-align:left; }
+    .grid { grid-template-columns:1fr; }
+    table { display:block; max-width:100%; overflow-x:auto; }
+    .totals .row { min-width:0; width:100%; }
+    .actions { flex-wrap:wrap; }
+  }
   @media print {
     body { background:#fff; }
     .doc { box-shadow:none; margin:0; padding:18px; max-width:none; }
     .actions { display:none; }
   }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <%
@@ -178,8 +188,8 @@
   </div>
 
   <div class="actions">
-    <button class="btn ghost" onclick="window.print()">🖨️ Print</button>
-    <button class="btn primary" onclick="window.close()">Close</button>
+    <button class="btn ghost" data-onclick="finance-invoice.1">🖨️ Print</button>
+    <button class="btn primary" data-onclick="finance-invoice.2">Close</button>
   </div>
 
   <% if (typeof invoiceNote !== 'undefined' && invoiceNote) { %><p class="note"><%= invoiceNote %></p><% } %>
@@ -187,3 +197,4 @@
 </div>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

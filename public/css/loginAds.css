@@ -281,3 +281,7 @@ a.ad-stage:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .app-ad { animation: none; }
 }
+
+.login-ads { position: relative; }
+.login-ads__pause { position: absolute; right: 8px; bottom: 8px; z-index: 3; min-height: 26px; padding: 2px 10px; border: 0; border-radius: 999px; background: rgba(15, 23, 42, .72); color: #fff; font: 600 12px/1.2 Inter, system-ui, sans-serif; cursor: pointer; }
+.login-ads__pause:hover { background: rgba(15, 23, 42, .9); }

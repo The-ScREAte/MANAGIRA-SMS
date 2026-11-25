@@ -9,7 +9,7 @@
   </div>
   <div class="cf-sections" id="cf-sections"></div>
 </div>
-<script type="application/json" id="cf-boot"><%- JSON.stringify(boot) %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="cf-boot"><%- JSON.stringify(boot) %></script>
 <script src="<%= assetUrl('/js/customFormRender.js') %>"></script>
 <script src="<%= assetUrl('/js/customFormsFill.js') %>"></script>
 <script src="<%= assetUrl('/js/customFormsEditor.js') %>"></script>

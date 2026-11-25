@@ -297,7 +297,7 @@
 
   .no-jobs {
     text-align: center;
-    color: #777;
+    color: #595959;
     font-size: 1.1rem;
     padding: 30px 10px;
   }
@@ -314,7 +314,7 @@
   }
 </style>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const jobPanels = Array.from(document.querySelectorAll('.job-posting'));
     const applyPanels = Array.from(document.querySelectorAll('.apply-panel'));

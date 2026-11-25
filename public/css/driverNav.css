@@ -1,6 +1,6 @@
 /* Driver: a plain trip page, and a large navigation map under the app's header. */
 .drv, .drvn, .drvf, .drv button, .drv select, .drv input {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .drv {
   --drv-accent: var(--org-primary-color, #01535b); --drv-line: #e5e9ef; --drv-text: #0f172a; --drv-muted: #64748b; --drv-surface: #fff; --drv-soft: #f4f6f9;
@@ -310,7 +310,7 @@ html.drv-navigating .chatbot-toggle, html.drv-navigating .chatbot-container { di
 }
 
 /* The page never zooms, only the map does. A tap answers at once, with no wait for a second one. */
-html.drv-nozoom, html.drv-nozoom body, html.drv-nozoom body * { touch-action: pan-x pan-y; }
+html.drv-nozoom, html.drv-nozoom body, html.drv-nozoom body * { touch-action: manipulation; }
 html.drv-nozoom .maplibregl-canvas-container, html.drv-nozoom .maplibregl-canvas { touch-action: none; }
 html.drv-nozoom { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Ending from the plain page: no map behind the question, so none of its tools either. */

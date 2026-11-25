@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Help Tickets</title>
     <link rel="stylesheet" href="/css/admin.css" />
     <%
@@ -278,7 +278,7 @@
         }
       }
     </style>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       function toggleDetails(ticketId) {
         const details = document.getElementById(`details-${ticketId}`);
         const arrow = document.getElementById(`arrow-${ticketId}`);
@@ -292,11 +292,18 @@
       }
 
       function confirmAction(event, message) {
-        if (!confirm(message)) {
-          event.preventDefault();
-        }
+        const el = event.submitter || event.target;
+        const f = el && el.closest ? el.closest('form') : null;
+        if (f && f.__ok) { f.__ok = false; return; }
+        event.preventDefault();
+        window.appConfirm(message).then((yes) => {
+          if (!yes || !f) return;
+          f.__ok = true;
+          if (f.requestSubmit) f.requestSubmit(el.tagName === 'BUTTON' ? el : undefined); else f.submit();
+        });
       }
     </script>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="content-container">
@@ -320,10 +327,10 @@
     
     <%- include('../partials/flash') %>
 
-    <form id="bulkForm" action="/admin/bulkDeleteMessages" method="POST" onsubmit="return confirmBulk(event)">
+    <form id="bulkForm" action="/admin/bulkDeleteMessages" method="POST" data-onsubmit="admin-helpMessages.1">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;">
-          <input type="checkbox" id="selectAll" onclick="toggleAll(this)"> Select all
+          <input type="checkbox" id="selectAll" data-onclick="admin-helpMessages.2"> Select all
         </label>
         <button type="submit" class="admin-btn admin-btn-delete" id="bulkDelBtn" disabled>🗑 Delete Selected</button>
       </div>
@@ -349,20 +356,20 @@
               const typeBg = isDemo ? '#fef3c7' : '#dbeafe';
           %>
             <tr class="ticket-summary">
-              <td onclick="event.stopPropagation()">
-                <input type="checkbox" name="threadIds" value="<%= thread.thread_id %>" class="row-check" form="bulkForm" onclick="updateBulkBtn()">
+              <td data-onclick="admin-helpMessages.3">
+                <input type="checkbox" name="threadIds" value="<%= thread.thread_id %>" class="row-check" form="bulkForm" data-onclick="admin-helpMessages.4">
               </td>
-              <td onclick="toggleDetails('<%= thread.thread_id %>')">#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
-              <td onclick="toggleDetails('<%= thread.thread_id %>')">
+              <td data-onclick="admin-helpMessages.5" data-mga0="<%= thread.thread_id %>">#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
+              <td data-onclick="admin-helpMessages.5" data-mga0="<%= thread.thread_id %>">
                 <span style="display:inline-block;padding:3px 9px;border-radius:999px;background:<%= typeBg %>;color:<%= typeColor %>;font-size:0.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
                   <%= typeLabel %>
                 </span>
               </td>
-              <td onclick="toggleDetails('<%= thread.thread_id %>')" class="<%= thread.is_resolved ? 'status-closed' : 'status-open' %>">
+              <td data-onclick="admin-helpMessages.5" data-mga0="<%= thread.thread_id %>" class="<%= thread.is_resolved ? 'status-closed' : 'status-open' %>">
                 <%= thread.is_resolved ? '✓ Closed' : '● Open' %>
               </td>
-              <td onclick="toggleDetails('<%= thread.thread_id %>')"><%= thread.name %></td>
-              <td onclick="toggleDetails('<%= thread.thread_id %>')"><%= thread.organization || 'N/A' %></td>
+              <td data-onclick="admin-helpMessages.5" data-mga0="<%= thread.thread_id %>"><%= thread.name %></td>
+              <td data-onclick="admin-helpMessages.5" data-mga0="<%= thread.thread_id %>"><%= thread.organization || 'N/A' %></td>
             </tr>
             <tr>
               <td colspan="6" style="padding: 0; border: none;">
@@ -387,7 +394,7 @@
                     </div>
                     <div class="form-container">
                       <%# Each row has its own form to keep response & close/delete independent %>
-                      <form action="/admin/respondMessage" method="POST" onsubmit="return validateRespond(this)">
+                      <form action="/admin/respondMessage" method="POST" data-onsubmit="admin-helpMessages.6">
                         <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
                         <% if (isDemo) { %>
                           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
@@ -398,8 +405,8 @@
                         <textarea name="response" id="response-<%= thread.thread_id %>" placeholder="Write your response here (required only for Respond)..."></textarea>
                         <div class="ticket-actions">
                           <button type="submit" class="admin-btn admin-btn-primary">✉️ Respond</button>
-                          <button type="button" class="admin-btn admin-btn-success" onclick="submitNoMsg(this, '/admin/resolveMessage', '<%= thread.thread_id %>', 'Mark this ticket as closed?')">✓ Close Ticket</button>
-                          <button type="button" class="admin-btn admin-btn-delete" onclick="submitNoMsg(this, '/admin/tempDeleteMessage', '<%= thread.thread_id %>', 'Delete this ticket?')">🗑 Delete</button>
+                          <button type="button" class="admin-btn admin-btn-success" data-onclick="admin-helpMessages.7" data-mga0="<%= thread.thread_id %>">✓ Close Ticket</button>
+                          <button type="button" class="admin-btn admin-btn-delete" data-onclick="admin-helpMessages.8" data-mga0="<%= thread.thread_id %>">🗑 Delete</button>
                         </div>
                       </form>
                     </div>
@@ -412,7 +419,7 @@
       </table>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     function toggleAll(cb) {
       document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
       updateBulkBtn();
@@ -424,8 +431,15 @@
     function confirmBulk(e) {
       const n = document.querySelectorAll('.row-check:checked').length;
       if (n === 0) { e.preventDefault(); return false; }
-      if (!confirm(`Delete ${n} selected ticket${n === 1 ? '' : 's'}?`)) { e.preventDefault(); return false; }
-      return true;
+      const f = e.target && e.target.closest ? e.target.closest('form') : null;
+      if (f && f.__bulkOk) { f.__bulkOk = false; return true; }
+      e.preventDefault();
+      window.appConfirm(`Delete ${n} selected ticket${n === 1 ? '' : 's'}?`, { ok: 'Delete', danger: true }).then((yes) => {
+        if (!yes || !f) return;
+        f.__bulkOk = true;
+        if (f.requestSubmit) f.requestSubmit(e.submitter || undefined); else f.submit();
+      });
+      return false;
     }
     function validateRespond(form) {
       const t = form.querySelector('textarea[name="response"]');
@@ -434,14 +448,22 @@
         t.focus();
         return false;
       }
-      return confirm('Send this response?');
+      const ev = window.event;
+      if (!ev || !window.appConfirm) return confirm('Send this response?');
+      if (form.__askOk) { form.__askOk = false; return true; }
+      window.appConfirm('Send this response?', { ok: 'Send' }).then(function (yes) {
+        if (!yes) return;
+        form.__askOk = true;
+        if (form.requestSubmit) form.requestSubmit(ev.submitter || undefined); else form.submit();
+      });
+      return false;
     }
-    function applyDemoTemplate(btn, threadId, name) {
+    async function applyDemoTemplate(btn, threadId, name) {
       const ta = document.getElementById('response-' + threadId);
       if (!ta) return;
       const firstName = (name || '').toString().trim().split(/\s+/)[0] || 'there';
       const tpl = `Hi ${firstName},\n\nThank you for reaching out and for your interest in Managira. We are delighted to hear from you and would be pleased to introduce you to Managira, our all-in-one school management system designed to support more efficient, organized, and productive school administration.\n\nPlease use the link below to choose a time that works best for you. During the session, we will walk you through the platform, highlight the features most relevant to your needs, and answer any questions you may have.\n\n<%= bookingUrl %>\n\nIf none of the available times are convenient, please reply with a few options that suit your schedule, and we will do our best to accommodate you.\n\nWe look forward to speaking with you and showing you how Managira can support your institution.\n\nBest regards,\nThe Managira Team`;
-      if (ta.value.trim() && !confirm('Replace the current draft with the demo template?')) return;
+      if (ta.value.trim() && !await window.appConfirm('Replace the current draft with the demo template?')) return;
       ta.value = tpl;
       ta.focus();
     }
@@ -451,8 +473,8 @@
       e.preventDefault();
       applyDemoTemplate(btn, btn.dataset.threadId, btn.dataset.name || '');
     });
-    function submitNoMsg(btn, action, threadId, msg) {
-      if (!confirm(msg)) return;
+    async function submitNoMsg(btn, action, threadId, msg) {
+      if (!await window.appConfirm(msg)) return;
       const f = document.createElement('form');
       f.method = 'POST';
       f.action = action;
@@ -465,3 +487,4 @@
   </script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

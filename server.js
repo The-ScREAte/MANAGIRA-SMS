@@ -6,6 +6,8 @@ const multer = require("multer");
 const flash = require("connect-flash");
 const path = require("path");
 require("dotenv").config();
+// WEB_CONCURRENCY=N (default 1) runs this server on N cores: this process only supervises them (utils/clusterPrimary.js).
+if (require("./utils/clusterPrimary").start()) return;
 // A failed background promise or a stray error must not take the whole site down.
 // Node's default is to exit with status 1, which is what the host reports as a crash.
 require("./utils/processGuards").install("Server");
@@ -39,10 +41,12 @@ const passport = require("passport");
 const db = require("./config/db");
 require("./config/passport")(passport);
 require("./config/passportHub")(passport); // Hub authentication
-// Scheduled jobs run here unless RUN_SCHEDULED_JOBS=false (then worker.js runs them).
-if (process.env.RUN_SCHEDULED_JOBS !== "false") require("./jobs/scheduler");
-if (process.env.NODE_ENV === "production" && (process.env.RUN_SCHEDULED_JOBS !== "false" || process.env.SHARD_SYNC === "on")) require("./jobs/shardSync");
-require("./jobs/keepAlive"); // Start the keep-alive scheduler
+// Scheduled jobs run here unless RUN_SCHEDULED_JOBS=false or RUN_JOBS=false (then worker.js runs them).
+require("./utils/clusterPrimary").installWorker(); // a save here clears the school's kept answers in the other workers
+const runJobsHere = require("./utils/jobsSwitch").jobsEnabled();
+if (runJobsHere) require("./jobs/scheduler");
+if (process.env.NODE_ENV === "production" && (runJobsHere || process.env.SHARD_SYNC === "on")) require("./jobs/shardSync");
+if (require("./utils/clusterPrimary").isLeader()) require("./jobs/keepAlive"); // Start the keep-alive scheduler
 
 const setCurrentTerm = require("./middleware/setCurrentTerm"); // Middleware to set the current term
 const {
@@ -78,16 +82,17 @@ app.use("/internal/shard", require("./routes/shardInternalRoute"));
 const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
 app.use(require("./middleware/botProbes"));
 app.use(securityHeaders);
+require("./utils/uploadSafety"); // also makes every upload check its first bytes
+app.use(require("./utils/errorScrub")); // no database error text in any JSON answer (production)
 // Only a few large uploads are read into memory at the same time.
 app.use(require("./middleware/uploadGate").createUploadGate());
 app.use(crossSiteRequestGuard);
+// Browsers report what the Content-Security-Policy refused (utils/contentSecurityPolicy.js).
+app.post("/csp-report", express.json({ type: ["application/json", "application/csp-report", "application/reports+json"], limit: "20kb" }), require("./utils/contentSecurityPolicy").reportHandler);
 
 // Session signing key. Never fall back to a known value: without SESSION_SECRET,
 // use a random key (everyone is signed out on restart, but cookies can't be forged).
-const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
-  console.warn("[Security] SESSION_SECRET is not set. Using a random key; set it in the environment.");
-  return require("crypto").randomBytes(48).toString("hex");
-})();
+const SESSION_SECRET = require("./utils/sessionSecret").sessionSecret(); // the same key everything signed from the session uses
 const BASE_PORT = Number(process.env.PORT) || 4000;
 
 const expressLayouts = require("./utils/expressLayouts"); // express-ejs-layouts, with a fast path for pages without contentFor
@@ -705,6 +710,16 @@ app.get("/health", (req, res) => {
   });
 });
 
+// How busy this server is: pool use, event-loop lag, memory, file workers. Answers only to the
+// server's own computer or a caller sending the HEALTH_DETAIL_TOKEN header; everyone else sees a 404.
+const serverHealth = require("./utils/serverHealth");
+serverHealth.startMonitoring();
+app.get("/health/detail", (req, res) => {
+  if (!serverHealth.mayReadDetail(req)) return res.sendStatus(404);
+  res.set("Cache-Control", "no-store");
+  return res.json(serverHealth.detail(db, require("./utils/cpuPool")));
+});
+
 // Static files with long-term caching should bypass session middleware.
 // A URL from assetUrl() carries the file's content hash (?v=...): it changes
 // whenever the file does, so that copy can be kept for a year. Anything else,
@@ -895,6 +910,15 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// "Stay signed in" on the warning shown a couple of minutes before a quiet sign-in ends
+// (public/js/sessionWatch.js): counts as activity. The school's own sign-in time is not extended.
+app.post("/account/session-extend", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!signedInSession(req.session)) return res.status(401).json({ signedIn: false });
+  req.session.lastActivity = Date.now();
+  return res.json({ signedIn: true });
+});
+
 // Prevent browsers (and back-forward cache) from serving a stale authenticated
 // page after logout — always revalidate logged-in HTML requests so the header
 // never shows a previous user's info once the session has ended.
@@ -915,6 +939,7 @@ app.use(require("./utils/privateByDefault").privateByDefault);
 
 // Flash messages middleware
 app.use(flash());
+app.use(require("./utils/errorScrub").flashScrub); // no raw database error text in a flashed message (production)
 // A school being moved to another shard waits on a short page; everyone else is untouched.
 app.use(shardRouting.pauseWhileMoving);
 
@@ -1060,11 +1085,10 @@ app.locals.formIcon = (name, size) => require("./public/js/customFormRender.js")
 // Stamped on changing scripts/styles (?v=) so browsers and the offline cache load new versions at once.
 app.locals.assetVersion = String(process.env.RENDER_GIT_COMMIT || Date.now()).slice(0, 12);
 app.locals.cssBundleUrl = cssBundleUrl;
-// Phone browsers zoom the page into a form field (sign-in, search, any form)
-// when it is tapped. maximum-scale=1 stops that on every browser; on iPhone and
-// iPad people can still pinch to zoom. Every page reads it as
-// <%= locals.viewportContent %>.
-app.locals.viewportContent = "width=device-width, initial-scale=1.0, maximum-scale=1.0";
+// Zooming is never blocked (WCAG 1.4.4): no maximum-scale and no user-scalable=no. Phone browsers
+// that zoom into a small field when it is tapped are handled by 16px fields on touch screens
+// (views/partials/head.ejs). Every page reads this as <%= locals.viewportContent %>.
+app.locals.viewportContent = "width=device-width, initial-scale=1.0";
 app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
@@ -1663,7 +1687,7 @@ app.get("/", async (req, res) => {
   }
 
   // 🛑 Fallback
-  return res.status(404).send("Page not found");
+  return res.status(404).send('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | Managira</title></head><body><main><h1>Page not found</h1></main></body></html>');
 });
 
 // Handle 404 errors
@@ -1725,6 +1749,7 @@ const startServer = (port) => {
   const server = app.listen(port, () => {
     logServerHostInfo(port);
     logStartupDbStatus();
+    require("./utils/smsWebhookAuth").logIfSecretNeeded(db);
   });
 
   server.on("error", (error) => {
@@ -1780,6 +1805,7 @@ const startServer = (port) => {
 // same reason, if Mira is ever deployed as its own separate service there
 // instead of co-located with the main app.
 const shouldCoStartMira =
+  require("./utils/clusterPrimary").isLeader() &&
   process.env.NODE_ENV === "production" &&
   String(process.env.MIRA_STANDALONE_SERVICE || "").toLowerCase() !== "true";
 if (shouldCoStartMira) {

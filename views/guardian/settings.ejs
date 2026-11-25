@@ -803,7 +803,7 @@
         </summary>
 
         <div class="accordion-body">
-        <form action="/guardian/settings" method="POST" enctype="multipart/form-data" class="settings-form" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+        <form action="/guardian/settings" method="POST" enctype="multipart/form-data" class="settings-form" data-onsubmit="guardian-settings.1">
           <details class="settings-accordion">
             <summary class="accordion-summary">
               <span class="accordion-badge">👤</span>
@@ -849,7 +849,7 @@
               <div class="media-panel">
                 <div class="form-field">
                   <label class="form-label">Select Student</label>
-                  <select name="studentId" id="studentSelect" class="form-input" onchange="updateStudentPreview()">
+                  <select name="studentId" id="studentSelect" class="form-input" data-onchange="guardian-settings.2">
                     <option value="">-- Select a student to update their image --</option>
                     <% students.forEach(student => { %>
                       <option
@@ -1005,7 +1005,7 @@
                       </form>
                     <% } %>
 
-                    <form action="/guardian/cards/<%= c.card_id %>/delete" method="POST" onsubmit="return confirm('Remove this card?');">
+                    <form action="/guardian/cards/<%= c.card_id %>/delete" method="POST" data-onsubmit="guardian-settings.3">
                       <button type="submit" class="wallet-action-btn wallet-action-btn--danger">Remove</button>
                     </form>
                   </div>
@@ -1056,7 +1056,7 @@
           </form>
 
           <script src="https://js.stripe.com/v3/"></script>
-          <script>
+          <script nonce="<%= locals.cspNonce || '' %>">
             (function () {
               var stripe = window.Stripe('<%= stripePublishableKey %>');
               var elements = stripe.elements();
@@ -1108,7 +1108,7 @@
 </div>
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 function updateStudentPreview() {
   const select = document.getElementById('studentSelect');
   const uploadSection = document.getElementById('studentImageUpload');
@@ -1179,3 +1179,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

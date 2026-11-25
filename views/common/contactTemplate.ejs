@@ -161,8 +161,8 @@
 
 <div id="ctDialog" data-popup-lift role="dialog" aria-modal="true" aria-labelledby="ctDialogTitle"><div class="ct-dlg" id="ctDlg"></div></div>
 
-<script type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: true }).replace(/</g, '\\u003c') %></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="ctData"><%- JSON.stringify({ template, types: fieldTypes, sharing: true }).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const root = document.getElementById('ctRoot');
   if (!root || root.dataset.ready) return;
@@ -401,14 +401,14 @@
         return render();
       }
       if (f && e.target.closest('[data-delete]')) {
-        if (!confirm(`Delete "${f.label}"? It hasn't been filled in for anyone yet.`)) return;
+        if (!await window.appConfirm(`Delete "${f.label}"? It hasn't been filled in for anyone yet.`)) return;
         await call(`/common/contact-template/fields/${f.id}/delete`);
         toast('Field deleted');
         return render();
       }
       if (sec && !f && e.target.closest('[data-delete-section]')) {
         const n = fields.filter((x) => x.sectionId === sec.id).length;
-        if (!confirm(n ? `Delete the "${sec.name}" section? Its ${n} field${n === 1 ? '' : 's'} will move to More details.` : `Delete the "${sec.name}" section?`)) return;
+        if (!await window.appConfirm(n ? `Delete the "${sec.name}" section? Its ${n} field${n === 1 ? '' : 's'} will move to More details.` : `Delete the "${sec.name}" section?`)) return;
         await call(`/common/contact-template/sections/${sec.id}/delete`);
         toast('Section deleted');
         return render();

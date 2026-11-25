@@ -31,7 +31,7 @@
   const INTERACTIVE = [
     "a[href]", "button", "summary", "label", "select", "input", "textarea",
     "[role='button']", "[role='tab']", "[role='switch']", "[role='menuitem']", "[role='option']", "[role='checkbox']",
-    "[aria-expanded]", "[aria-controls]", "[data-toggle]", "[data-bs-toggle]", "[onclick]", "[tabindex]:not([tabindex='-1'])",
+    "[aria-expanded]", "[aria-controls]", "[data-toggle]", "[data-bs-toggle]", "[onclick]", "[data-onclick]", "[tabindex]:not([tabindex='-1'])",
   ].join(",");
   // A click on empty space (to close a menu or panel): replayed by a click anywhere
   // outside. Recorded elements are numbered from 1, so 0 never names one.
@@ -247,13 +247,13 @@
     bar.addEventListener("pointercancel", end, { once: true });
   });
 
-  bar.addEventListener("click", (e) => {
+  bar.addEventListener("click", async (e) => {
     const act = e.target.closest("[data-act]");
     if (!act) return;
     const a = act.dataset.act;
     if (a === "start") start();
     else if (a === "cancel") {
-      if (window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) stop(false);
+      if (await window.appConfirm("Discard this capture? Your recorded views and clicks will be lost.")) stop(false);
     }
     else if (a === "finish") stop(true);
     else if (a === "minimize") { minimized = true; renderBar(); }
@@ -865,9 +865,9 @@
     const saveBtn = modal.querySelector('[data-act="save"]');
     const statusEl = modal.querySelector(".status");
     let uploading = false;
-    const discard = () => {
+    const discard = async () => {
       if (uploading) return;
-      if (!window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) return;
+      if (!await window.appConfirm("Discard this capture? Your recorded views and clicks will be lost.")) return;
       closeDialog();
     };
     modal.querySelector('[data-act="discard"]').addEventListener("click", discard);
@@ -1012,7 +1012,7 @@
     if (e.key !== "Escape") return;
     if (mode === "recording") {
       e.preventDefault();
-      if (window.confirm("Discard this capture? Your recorded views and clicks will be lost.")) stop(false);
+      window.appConfirm("Discard this capture? Your recorded views and clicks will be lost.", { ok: "Discard", danger: true }).then((yes) => { if (yes) stop(false); });
     } else if (layer.querySelector('[data-act="close-dialog"]:not(:disabled)')) {
       e.preventDefault();
       layer.querySelector('[data-act="close-dialog"]:not(:disabled)').click();

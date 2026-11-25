@@ -1,8 +1,9 @@
 // Background worker: runs the scheduled jobs (billing, payouts, emails, digests,
 // Google Classroom sync) without serving web pages.
 // On Render: a Background Worker with start command `node worker.js`, and
-// RUN_SCHEDULED_JOBS=false on the web service so jobs run in one place.
+// RUN_JOBS=false (or RUN_SCHEDULED_JOBS=false) on the web service so jobs run in one place.
 require("dotenv").config();
+process.env.DB_APP_NAME = process.env.DB_APP_NAME || "managira-worker"; // shows in pg_stat_activity
 require("./utils/processGuards").install("Worker");
 require("./utils/memoryRelief").install();
 const scheduler = require("./jobs/scheduler");

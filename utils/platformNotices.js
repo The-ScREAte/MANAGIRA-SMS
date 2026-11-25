@@ -116,7 +116,7 @@ async function respondentIdentity(db, who) {
 // Stable per-request key: stops duplicate answers without storing who
 // answered when the request is anonymous.
 function respondentKey(requestId, who) {
-  const secret = process.env.SESSION_SECRET || "managira-feedback";
+  const secret = require("./sessionSecret").sessionSecret();
   return crypto.createHash("sha256").update(`${secret}|${requestId}|${who.type}|${who.id}|${who.orgId}`).digest("hex").slice(0, 48);
 }
 

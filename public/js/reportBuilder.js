@@ -1131,7 +1131,7 @@
   }
 
   async function deleteSaved(reportId, button) {
-    if (!window.confirm("Delete this saved report? People it is shared with will lose it too.")) return;
+    if (!await window.appConfirm("Delete this saved report? People it is shared with will lose it too.")) return;
     button.disabled = true;
     try {
       await responseJson(await fetch(`/common/report-builder/saved/${encodeURIComponent(reportId)}`, {

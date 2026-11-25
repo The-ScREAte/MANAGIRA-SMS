@@ -49,7 +49,8 @@
 %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" data-async-css>
+<script nonce="<%= locals.cspNonce || '' %>">(function(){document.querySelectorAll('link[data-async-css]').forEach(function(l){if(l.sheet)l.media='all';else l.addEventListener('load',function(){l.media='all';});});})();</script>
 <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"></noscript>
 
 <style>
@@ -257,7 +258,7 @@
   /* ── Cards ────────────────────────────────────────────────────── */
   .fin-card {
     background:linear-gradient(160deg,var(--fin-card) 0%,var(--fin-card-2) 100%);
-    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:20px;
+    border:1px solid var(--fin-border); border-radius:var(--fin-r); padding:var(--card-pad, 18px);
     box-shadow:none;
     position:relative; overflow:hidden;
   }
@@ -555,7 +556,7 @@
     -webkit-appearance:none; appearance:none;
   }
   .fin-field input:not([type=checkbox]):not([type=radio]), .fin-field select {
-    min-height:38px;
+    min-height:var(--control-h, 38px); box-sizing:border-box;
   }
   .fin-field select {
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a849a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -1672,7 +1673,7 @@
   /* End alignment fix */
 </style>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     try {
       if (window.parent !== window && window.parent.location.pathname.replace(/\/$/, '') === '/account/settings/finance') {
@@ -1771,9 +1772,9 @@
           <span class="paygira-secure-text">Secure</span>
         </span>
         <%# This page's own action: a small button that opens its form from the right. %>
-        <% if (sec === 'bills') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-bill')">+ New bill</button><% } %>
-        <% if (sec === 'payments' && paygiraAccess.canRecordPayments) { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-record-payment')">+ Record a payment</button><% } %>
-        <% if (sec === 'payouts') { %><button type="button" class="fin-btn sm fin-head-action" onclick="finToggleAcc('acc-create-payout')">+ Pay someone</button><% } %>
+        <% if (sec === 'bills') { %><button type="button" class="fin-btn sm fin-head-action" data-onclick="account-finance.2">+ New bill</button><% } %>
+        <% if (sec === 'payments' && paygiraAccess.canRecordPayments) { %><button type="button" class="fin-btn sm fin-head-action" data-onclick="account-finance.3">+ Record a payment</button><% } %>
+        <% if (sec === 'payouts') { %><button type="button" class="fin-btn sm fin-head-action" data-onclick="account-finance.4">+ Pay someone</button><% } %>
         </div>
       </div>
 
@@ -1804,7 +1805,7 @@
             <div>
               <h2 class="fin-sheet__title" id="acc-create-bill-title">New bill</h2>
                           </div>
-            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-create-bill')">&times;</button>
+            <button type="button" class="fin-sheet__close" aria-label="Close" data-onclick="account-finance.2">&times;</button>
           </div>
           <div class="fin-acc-body">
           <%
@@ -1819,7 +1820,7 @@
               (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? resolveAvatar(s.image_url) : '',
             ]);
           %>
-          <script>
+          <script nonce="<%= locals.cspNonce || '' %>">
             // Students for the "Chosen students" pickers (this form and the edit window), drawn on first use.
             (function () {
               var rows = <%- JSON.stringify(_finStudentRows) %>;
@@ -1911,15 +1912,15 @@
             <div class="fin-field" id="classPicker" style="display:none;">
               <label for="classSearchBox">Classes</label>
               <div class="fin-picker-actions">
-                <input type="text" id="classSearchBox" class="fin-search-input" placeholder="Find a class…" oninput="window.syncBillTargetClasses && window.syncBillTargetClasses()">
-                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('classChips', true, true)">Tick all shown</button>
-                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('classChips', false)">Clear</button>
+                <input type="text" id="classSearchBox" class="fin-search-input" placeholder="Find a class…" data-oninput="account-finance.5">
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.6">Tick all shown</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.7">Clear</button>
                 <span class="fin-picker-count" id="classCount">0 chosen</span>
               </div>
               <div class="fin-chip-grid scroll" id="classChips">
                 <% refs.classes.forEach(c => { %>
                   <label class="fin-chip" data-class-id="<%= c.class_id %>" data-school-year-ids="<%= (c.school_year_ids || []).join(',') %>" data-term-ids="<%= (c.term_ids || []).join(',') %>">
-                    <input type="checkbox" name="target_class_ids" value="<%= c.class_id %>" onchange="finChipChanged(this,'classCount')">
+                    <input type="checkbox" name="target_class_ids" value="<%= c.class_id %>" data-onchange="account-finance.8">
                     <span class="fin-chip-text"><%= c.class_name %></span>
                   </label>
                 <% }) %>
@@ -1933,9 +1934,9 @@
             <div class="fin-field" id="studentPicker" style="display:none;">
               <label for="studentSearchBox">Students</label>
               <div class="fin-picker-actions">
-                <input type="text" id="studentSearchBox" class="fin-search-input" placeholder="Find a student or class…" oninput="finFilterStudents(this.value)">
-                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('studentChips', true, true)">Tick all shown</button>
-                <button type="button" class="fin-btn sm quiet" onclick="finSelectAllChips('studentChips', false)">Clear</button>
+                <input type="text" id="studentSearchBox" class="fin-search-input" placeholder="Find a student or class…" data-oninput="account-finance.9">
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.10">Tick all shown</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.11">Clear</button>
                 <span class="fin-picker-count" id="studentCount">0 chosen</span>
               </div>
               <div class="fin-chip-grid scroll" id="studentChips">
@@ -2049,7 +2050,7 @@
                  const createCardLabel = createIsPaystack ? 'Card (Paystack)' : 'Card (Stripe)';
                  const createTransferLabel = createIsPaystack ? 'Mobile money / Bank' : 'Bank / Mobile money'; %>
               <div class="fin-checks">
-                <label class="fin-check fin-check-all"><input type="checkbox" id="payAll" onchange="finTogglePayAll(this)" checked> <strong>All methods</strong></label>
+                <label class="fin-check fin-check-all"><input type="checkbox" id="payAll" data-onchange="account-finance.12" checked> <strong>All methods</strong></label>
                 <% if (createCardOn) { %>
                 <label class="fin-check"><input type="checkbox" class="pay-method" name="accepts_card" checked> <%= createCardLabel %></label>
                 <% } %>
@@ -2074,7 +2075,7 @@
               <button type="submit" name="status" value="active" class="fin-btn sm primary">Create and send</button>
               <button type="submit" name="status" value="draft" class="fin-btn sm quiet">Save as draft</button>
             </div>
-            <script>
+            <script nonce="<%= locals.cspNonce || '' %>">
               // "More options" opens itself when something inside it still needs an answer (no
               // current term to bill for, or a repeating bill being filled in), so nothing that
               // stops the bill is ever hidden.
@@ -2151,7 +2152,7 @@
                       if (b.assignee_first_name) _billNotes.push('Collected by ' + (typeof formatDisplayName === 'function' ? formatDisplayName({ first_name: b.assignee_first_name, last_name: b.assignee_last_name }) : [b.assignee_first_name, b.assignee_last_name].filter(Boolean).join(' ').trim()));
                       const _billStatusWords = { active: 'Sent', draft: 'Draft', cancelled: 'Cancelled', paid: 'Paid' };
                     %>
-                    <tr class="fin-click-row" onclick='openEditBill(<%- JSON.stringify(_bpayload) %>)' title="Open this bill">
+                    <tr class="fin-click-row" data-onclick='account-finance.13' data-mga0='<%= JSON.stringify(_bpayload) %>' title="Open this bill">
                       <td>
                         <div class="fin-bill-copy">
                           <strong class="fin-bill-title"><%= b.title %></strong>
@@ -2166,15 +2167,15 @@
                       <td><span class="badge <%= b.status %>"><%= _billStatusWords[b.status] || b.status %></span></td>
                       <td class="fin-actions-cell">
                         <% if (b.status === 'active') { %>
-                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" onclick="event.stopPropagation();" onsubmit="return confirm('Email every parent who still owes this bill, with what they owe and a link to pay?');">
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/reminder" style="display:inline;" data-onclick="account-finance.14" data-onsubmit="account-finance.15">
                           <button class="fin-btn sm quiet" title="Email every parent who still owes this bill a link to pay">Request payment</button>
                         </form>
                         <% } %>
-                        <button type="button" class="fin-btn fin-icon-btn" title="Edit bill" aria-label="Edit bill" onclick='event.stopPropagation(); openEditBill(<%- JSON.stringify(_bpayload) %>)'>
+                        <button type="button" class="fin-btn fin-icon-btn" title="Edit bill" aria-label="Edit bill" data-onclick='account-finance.16' data-mga0='<%= JSON.stringify(_bpayload) %>'>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
                         </button>
                         <% if (paygiraAccess.canDeleteBills) { %>
-                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" onsubmit="return confirm('Delete this bill for every student it was sent to?');" style="display:inline;" onclick="event.stopPropagation();">
+                        <form method="POST" action="/account/settings/finance/bills/<%= b.bill_id %>/delete" data-onsubmit="account-finance.17" style="display:inline;" data-onclick="account-finance.14">
                           <button class="fin-btn fin-icon-btn danger" title="Delete bill" aria-label="Delete bill">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
                           </button>
@@ -2322,7 +2323,7 @@
               </div>
             </div>
             <p class="fin-ledger-hint">Select a student to see their bills and payments, print an invoice or record a payment.</p>
-            <script>
+            <script nonce="<%= locals.cspNonce || '' %>">
               // Draws the ledger from the rows above: 25 at a time, the biggest balances first.
               (function () {
                 var rows = <%- JSON.stringify(_ledgerRows) %>;
@@ -2452,7 +2453,7 @@
             <div>
               <h2 class="fin-sheet__title" id="acc-record-payment-title">Record a payment</h2>
                           </div>
-            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-record-payment')">&times;</button>
+            <button type="button" class="fin-sheet__close" aria-label="Close" data-onclick="account-finance.3">&times;</button>
           </div>
           <div class="fin-acc-body">
           <%
@@ -2496,7 +2497,7 @@
             </div>
             <div class="fin-form-actions">
               <button type="submit" class="fin-btn sm primary">Record payment</button>
-              <button type="button" class="fin-btn sm quiet" onclick="finToggleAcc('acc-record-payment')">Cancel</button>
+              <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.3">Cancel</button>
             </div>
           </form>
           </div>
@@ -2540,7 +2541,7 @@
                       <td>
                         <div class="fin-actions-cell">
                           <a class="fin-btn sm quiet" href="/account/settings/my-paygira/receipt/<%= r.payment_id %>" target="_blank" rel="noopener">Receipt</a>
-                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" onsubmit="return confirm('Remove this payment? The student\'s balance goes back up, and the change is kept in the activity log.');">
+                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" data-onsubmit="account-finance.18">
                             <button class="fin-btn fin-icon-btn danger" title="Remove this payment (recorded by mistake)" aria-label="Remove this payment">
                               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
                             </button>
@@ -2574,7 +2575,7 @@
             <div class="fin-report-filters" style="margin-bottom:16px;">
               <div class="fin-field">
                 <label>Search</label>
-                <input type="text" id="signoffSearch" oninput="finRunSignoffFilter()" placeholder="Bill, class, signer, date...">
+                <input type="text" id="signoffSearch" data-oninput="account-finance.19" placeholder="Bill, class, signer, date...">
               </div>
             </div>
             <div class="fin-table-wrap">
@@ -2605,7 +2606,7 @@
                       <td>
                         <div class="fin-actions-cell" style="justify-content:flex-start;">
                           <a class="fin-btn sm" style="min-width:108px; text-decoration:none;" href="/account/settings/finance/signoffs/<%= row.signoff_id %>/report" target="_blank" rel="noopener">View Report</a>
-                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" onsubmit="return confirm('Reopen this sign-off for correction? Audit logs will be saved, the history lock will be removed, and the collection will return to class PayGira so it can be signed off again after corrections.');">
+                          <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/signoffs/<%= row.signoff_id %>/unsign" style="margin:0;" data-onsubmit="account-finance.20">
                             <button type="submit" class="fin-btn danger sm" style="min-width:120px;">Reopen Sign-Off</button>
                           </form><% } %>
                         </div>
@@ -2624,7 +2625,7 @@
 
       <% if (sec === 'templates') { %>
         <div class="fin-card fin-accordion" id="acc-create-template" style="margin-bottom:20px;">
-          <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-template', this)" aria-expanded="false">
+          <button type="button" class="fin-acc-head" data-onclick="account-finance.21" aria-expanded="false">
             <span><strong>Create Fee Template</strong></span>
             <span class="fin-acc-hint">Reusable fee setup for repeated bill creation</span>
             <span class="fin-acc-chev">▾</span>
@@ -2673,7 +2674,7 @@
                       <td><span style="color:var(--fin-muted); text-transform:capitalize;"><%= (t.bill_type||'').replace('_',' ') %><%= t.recurrence ? ' · '+t.recurrence : '' %></span></td>
                       <td class="num"><%= fmt(t.amount) %></td>
                       <td>
-                        <form method="POST" action="/account/settings/finance/templates/<%= t.template_id %>/delete" onsubmit="return confirm('Delete template?')" style="display:inline;">
+                        <form method="POST" action="/account/settings/finance/templates/<%= t.template_id %>/delete" data-onsubmit="account-finance.22" style="display:inline;">
                           <button class="fin-btn danger" style="padding:6px 10px; font-size:.78rem;">Delete</button>
                         </form>
                       </td>
@@ -2692,7 +2693,7 @@
             <div>
               <h2 class="fin-sheet__title" id="acc-create-payout-title">Pay someone</h2>
                           </div>
-            <button type="button" class="fin-sheet__close" aria-label="Close" onclick="finToggleAcc('acc-create-payout')">&times;</button>
+            <button type="button" class="fin-sheet__close" aria-label="Close" data-onclick="account-finance.4">&times;</button>
           </div>
           <div class="fin-acc-body">
             <form class="fin-form" id="finPayoutForm">
@@ -2766,7 +2767,7 @@
               <p class="error-text" id="finPayoutError" style="color:var(--fin-red); font-size:.82rem;"></p>
               <div class="fin-form-actions">
                 <button type="submit" class="fin-btn sm primary" id="finPayoutSubmit">Save</button>
-                <button type="button" class="fin-btn sm quiet" onclick="finToggleAcc('acc-create-payout')">Cancel</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.4">Cancel</button>
               </div>
             </form>
           </div>
@@ -2792,7 +2793,7 @@
         <div class="fin-card" id="finPayoutHistoryCard" style="display:none;">
           <div class="section-head">
             <h2 id="finPayoutHistoryTitle">What was sent</h2>
-            <button type="button" class="fin-btn ghost sm" onclick="document.getElementById('finPayoutHistoryCard').style.display='none';">Close</button>
+            <button type="button" class="fin-btn ghost sm" data-onclick="account-finance.23">Close</button>
           </div>
           <div class="fin-table-wrap">
             <table class="fin-table">
@@ -2818,7 +2819,7 @@
           .fin-payout-search-results .fin-payout-result:last-child { border-bottom:0; }
         </style>
 
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           (function initFinPayouts() {
             var listEmpty = document.getElementById('finPayoutsEmpty');
             var listWrap = document.getElementById('finPayoutsTableWrap');
@@ -3036,13 +3037,13 @@
                 });
             });
 
-            listBody.addEventListener('click', function (evt) {
+            listBody.addEventListener('click', async function (evt) {
               var btn = evt.target.closest('button[data-id]');
               if (!btn) return;
               var payoutId = btn.dataset.id;
 
               if (btn.classList.contains('finPayoutPayNow')) {
-                if (!confirm('Pay this now from the saved card?')) return;
+                if (!await window.appConfirm('Pay this now from the saved card?')) return;
                 btn.disabled = true;
                 btn.textContent = 'Processing…';
                 fetch('/account/settings/payouts/' + payoutId + '/pay-now', { method: 'POST' })
@@ -3067,7 +3068,7 @@
               }
 
               if (btn.classList.contains('finPayoutDelete')) {
-                if (!confirm('Remove this? It can\'t be undone.')) return;
+                if (!await window.appConfirm('Remove this? It can\'t be undone.')) return;
                 fetch('/account/settings/payouts/' + payoutId + '/delete', { method: 'POST' })
                   .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
                   .then(function (res) { if (!res.ok || !res.data.success) throw new Error(res.data.message); loadPayouts(); })
@@ -3389,8 +3390,8 @@
                 </div>
               </div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn sm quiet" onclick="openArrearsReportModal()">Save a report</button>
-                <button type="button" class="fin-btn sm" onclick="openArrearsEmailAll()">Email all parents</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.24">Save a report</button>
+                <button type="button" class="fin-btn sm" data-onclick="account-finance.25">Email all parents</button>
               </div>
             </div>
 
@@ -3399,7 +3400,7 @@
                 <table class="fin-table arrears-report-table" id="arrearsTable">
                   <thead>
                     <tr>
-                      <th style="width:44px;"><input type="checkbox" id="arrearsSelectAll" onclick="toggleAllArrears(this)"></th>
+                      <th style="width:44px;"><input type="checkbox" id="arrearsSelectAll" data-onclick="account-finance.26"></th>
                       <th>Student <button type="button" class="fin-sort-btn" data-fin-sort-index="1" data-fin-default="true" aria-label="Sort students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                       <th>Parent <button type="button" class="fin-sort-btn" data-fin-sort-index="2" aria-label="Sort parents Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
                       <th>Owes</th>
@@ -3415,7 +3416,7 @@
                         <td>
                           <div class="arrears-student-cell">
                             <div class="arrears-avatar">
-                              <img src="<%= resolveAvatar(student.image_url) %>" alt="<%= student.student_name %>" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.src='<%= profilePlaceholder %>';">
+                              <img src="<%= resolveAvatar(student.image_url) %>" alt="<%= student.student_name %>" style="width:100%;height:100%;object-fit:cover;" data-onerror="account-finance.27" data-mga0="<%= profilePlaceholder %>">
                             </div>
                             <div class="arrears-meta">
                               <strong><%= student.student_name %></strong>
@@ -3437,9 +3438,9 @@
                         <td><span class="arrears-status <%= student.primary_status %>"><%= _owedWords[student.primary_status] || student.primary_status %></span><% if (student.has_saved_card) { %><div class="arrears-note">Card on file</div><% } %></td>
                         <td>
                           <div class="arrears-toolbar-right">
-                            <button type="button" class="fin-btn sm quiet" onclick="toggleArrearsDetails('<%= student.student_id %>')">Bills</button>
-                            <button type="button" class="fin-btn sm quiet" onclick="openArrearsEmailDrawer('<%= student.student_id %>', true)">Email</button>
-                            <button type="button" class="fin-btn sm quiet" data-name="<%= student.student_name %>" onclick="openArrearsNoteModal('<%= student.student_id %>', this.getAttribute('data-name'))">Note</button>
+                            <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.28" data-mga0="<%= student.student_id %>">Bills</button>
+                            <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.29" data-mga0="<%= student.student_id %>">Email</button>
+                            <button type="button" class="fin-btn sm quiet" data-name="<%= student.student_name %>" data-onclick="account-finance.30" data-mga0="<%= student.student_id %>">Note</button>
                           </div>
                         </td>
                       </tr>
@@ -3511,9 +3512,9 @@
             <div class="fin-actions arrears-sticky-bar" id="arrearsBulkBar">
               <div class="arrears-toolbar-left"><strong id="arrearsSelectedCount">0 selected</strong><span class="arrears-note">Tick students to email their parents or save a report of them.</span></div>
               <div class="arrears-toolbar-right">
-                <button type="button" class="fin-btn sm primary" onclick="openArrearsEmailDrawer()">Email their parents</button>
-                <button type="button" class="fin-btn sm quiet" onclick="openArrearsReportModal()">Save a report</button>
-                <button type="button" class="fin-btn sm quiet" onclick="clearArrearsSelection()">Clear</button>
+                <button type="button" class="fin-btn sm primary" data-onclick="account-finance.31">Email their parents</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.24">Save a report</button>
+                <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.32">Clear</button>
               </div>
             </div>
           </div>
@@ -3541,7 +3542,7 @@
                           <div class="arrears-toolbar-right" style="justify-content:flex-end;">
                             <a href="/account/settings/finance/arrears/reports/<%= report.report_id %>/view" target="_blank" rel="noopener" class="fin-btn sm">View</a>
                             <a href="/account/settings/finance/arrears/reports/<%= report.report_id %>/download?format=<%= (report.format || 'pdf').toLowerCase() === 'csv' ? 'csv' : 'pdf' %>" class="fin-btn sm">Download</a>
-                            <form method="POST" action="/account/settings/finance/arrears/reports/<%= report.report_id %>/delete" onsubmit="return confirm('Delete this saved report?');">
+                            <form method="POST" action="/account/settings/finance/arrears/reports/<%= report.report_id %>/delete" data-onsubmit="account-finance.33">
                               <button type="submit" class="fin-btn sm danger">Delete</button>
                             </form>
                           </div>
@@ -3563,7 +3564,7 @@
 
         <div class="fin-modal" id="arrearsReportModal" data-below-header="open" data-popup-lift>
           <div class="fin-modal-content" style="max-width:1040px;">
-            <div class="fin-modal-head"><h3>Save report</h3><button class="fin-modal-close" type="button" onclick="closeArrearsReportModal()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Save report</h3><button class="fin-modal-close" type="button" data-onclick="account-finance.34">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/reports" class="fin-form" id="arrearsReportForm">
               <div class="fin-row">
                 <div class="fin-field"><label>Report name</label><input type="text" name="report_title" value="Overdue balances" required></div>
@@ -3587,7 +3588,7 @@
 
         <div class="fin-modal" id="arrearsEmailModal" data-below-header="open" data-popup-lift>
           <div class="fin-modal-content" style="max-width:1040px;">
-            <div class="fin-modal-head"><h3>Email parents</h3><button class="fin-modal-close" type="button" onclick="closeArrearsEmailDrawer()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Email parents</h3><button class="fin-modal-close" type="button" data-onclick="account-finance.35">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/email" class="fin-form" id="arrearsEmailForm">
               <div class="fin-row">
                 <div class="fin-field"><label>Subject</label><input type="text" name="subject" value="Balance due for {Student Name}" required></div>
@@ -3617,7 +3618,7 @@ If you've already paid, thank you, and please disregard this message.
 
         <div class="fin-modal" id="arrearsNoteModal" data-below-header="open" data-popup-lift>
           <div class="fin-modal-content" style="max-width:1040px;">
-            <div class="fin-modal-head"><h3>Add a note</h3><button class="fin-modal-close" type="button" onclick="closeArrearsNoteModal()">&times;</button></div>
+            <div class="fin-modal-head"><h3>Add a note</h3><button class="fin-modal-close" type="button" data-onclick="account-finance.36">&times;</button></div>
             <form method="POST" action="/account/settings/finance/arrears/notes" class="fin-form">
               <input type="hidden" name="student_id" id="arrearsNoteStudentId">
               <div class="fin-field"><label>Student</label><input type="text" id="arrearsNoteStudentName" readonly></div>
@@ -3633,7 +3634,7 @@ If you've already paid, thank you, and please disregard this message.
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     /* ── Mobile hamburger nav toggle ───────────────────────── */
     var _finHamburger = document.getElementById('finHamburger');
@@ -4243,7 +4244,7 @@ If you've already paid, thank you, and please disregard this message.
       var outstanding  = bills.reduce((a,b) => a + Number(b.balance != null ? b.balance : Math.max(Number(b.amount||0) + Number(b.late_fee_applied||0) - Number(b.amount_paid||0), 0)), 0);
       var netDue       = Math.max(outstanding - credit, 0);
       var avatarSrc = (s.image_url && String(s.image_url).trim() && String(s.image_url).trim() !== 'profilePlaceholder.png') ? s.image_url : profilePlaceholderSrc;
-      var avatarHtml = '<img src="' + ledgerText(avatarSrc) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.src=\'' + profilePlaceholderSrc + '\';">';
+      var avatarHtml = '<img src="' + ledgerText(avatarSrc) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" data-onerror="account-finance.avatar" data-mga0="' + profilePlaceholderSrc + '">';
 
       // One line per bill: what it is and when it's due, the three amounts, where it stands,
       // and its invoice. Asking for payment is one button above, for everything owed.
@@ -4596,7 +4597,7 @@ If you've already paid, thank you, and please disregard this message.
   var arrearsRecipients = <%- JSON.stringify((arrearsData && arrearsData.recipientReview && arrearsData.recipientReview.recipients) || []) %>;
 </script>
 <script src="<%= assetUrl('/js/financePage.part1.js') %>"></script>
-<script>  var fmt = window.finFormatMoney || function (n) {
+<script nonce="<%= locals.cspNonce || '' %>">  var fmt = window.finFormatMoney || function (n) {
     var code = <%- JSON.stringify(currentCurrency) %>;
     try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(Number(n || 0)); }
     catch (_e) { return code + ' ' + Number(n || 0).toFixed(2); }
@@ -4604,7 +4605,7 @@ If you've already paid, thank you, and please disregard this message.
 </script>
 <script src="<%= assetUrl('/js/financePage.part2.js') %>"></script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   function isFinanceOverviewPage() {
     try {
@@ -4826,8 +4827,8 @@ If you've already paid, thank you, and please disregard this message.
       </details>
 
       <div class="fin-form-actions">
-        <button type="button" class="fin-btn sm primary" onclick="submitEditBillForm()">Save changes</button>
-        <button type="button" class="fin-btn sm quiet" onclick="submitEditBillForm('draft')">Save as draft</button>
+        <button type="button" class="fin-btn sm primary" data-onclick="account-finance.37">Save changes</button>
+        <button type="button" class="fin-btn sm quiet" data-onclick="account-finance.38">Save as draft</button>
         <button type="button" class="fin-btn sm quiet" id="editBillClose2">Cancel</button>
       </div>
     </form>
@@ -4845,7 +4846,7 @@ If you've already paid, thank you, and please disregard this message.
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function() {
     function splitPatchIds(value) {
       return String(value || '')
@@ -5146,7 +5147,7 @@ If you've already paid, thank you, and please disregard this message.
   })();
 </script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Edit bill's pick-several lists are tick boxes. Each <select multiple data-fin-ticks> stays
   // the form's value (the page's own code keeps reading and setting its options); the boxes are
   // drawn from it, write back to it, and are brought up to date after anything changes here.
@@ -5214,7 +5215,7 @@ If you've already paid, thank you, and please disregard this message.
   })();
 </script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 /* PayGira overview fragment loading — render shell fast, then hydrate overview cards/tables.
    Uses stale-while-revalidate caching: show last cached fragment instantly, then refresh in background. */
 (function(){
@@ -5342,7 +5343,7 @@ If you've already paid, thank you, and please disregard this message.
 })();
 </script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 /* PayGira live stats — background poll every 15s, updates DOM without full reload */
 (function(){
   function buildStatsUrl() {
@@ -5389,7 +5390,7 @@ If you've already paid, thank you, and please disregard this message.
 })();
 </script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 /* PayGira silent live-sync — polls a tiny version endpoint; when it changes
    (because somebody POSTed and cache was invalidated) we soft-reload the
    current SPA route in the background so the user always sees fresh data
@@ -5442,7 +5443,7 @@ If you've already paid, thank you, and please disregard this message.
 })();
 </script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 /* PayGira section warming — after the current page settles, warm the other
    finance sections in the background so tab switches reuse both browser and
    server cache instead of waiting for a cold load. */
@@ -5505,3 +5506,4 @@ If you've already paid, thank you, and please disregard this message.
   if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(function(){ clearInterval(timer); });
 })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

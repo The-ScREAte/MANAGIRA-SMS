@@ -23,7 +23,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title><%= title %></title>
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <style>
       /* Scrolling stays fully functional; the visual scrollbar is hidden. */
       html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
@@ -123,7 +123,7 @@
 
     <!-- Structured Data (School schema) -->
     <% if (typeof structuredData !== 'undefined' && structuredData) { %>
-      <script type="application/ld+json"><%- JSON.stringify(structuredData) %></script>
+      <script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json"><%- JSON.stringify(structuredData) %></script>
     <% } %>
 
     <!-- Favicons -->
@@ -180,6 +180,7 @@ body[data-page="publicDashboard"] #top-header #tools #loginbutton { min-height: 
 
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body data-page="publicDashboard" data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>" data-sw-layout="<%= site.layout %>">
     <%- include('../partials/header') %>

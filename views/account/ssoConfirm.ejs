@@ -15,6 +15,7 @@
     button { display: block; width: 100%; height: 46px; border: 0; border-radius: 10px; background: #01535b; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
     a { display: block; margin-top: 16px; color: #01535b; font-size: 14px; font-weight: 600; text-decoration: none; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main>

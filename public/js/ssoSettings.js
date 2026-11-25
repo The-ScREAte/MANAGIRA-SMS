@@ -179,7 +179,7 @@
       return saveWith({ samlEntityId: found.samlEntityId, samlSsoUrl: found.samlSsoUrl, samlCertificates: found.samlCertificates, samlCertificate: undefined }, 'save', 'Saved');
     }
 
-    root.addEventListener('click', function (event) {
+    root.addEventListener('click', async function (event) {
       var button = event.target.closest('button');
       if (!button) return;
       var copy = button.getAttribute('data-copy');
@@ -227,7 +227,7 @@
         return;
       }
       if (button.hasAttribute('data-turn-off')) {
-        if (!window.confirm('Turn off single sign-on? Everyone signs in with a Managira password.')) return;
+        if (!await window.appConfirm('Turn off single sign-on? Everyone signs in with a Managira password.')) return;
         call('/turn-off', { password: value('confirmPassword') }).then(function () { return load(); }).catch(function (error) { say('switch', error.message); });
         return;
       }

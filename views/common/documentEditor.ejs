@@ -19,7 +19,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title><%= document.title %> - Managira</title>
   <link rel="icon" href="/favicon.ico" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -250,7 +250,7 @@
     .ed-set select { flex: none; width: 150px; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 13px; }
     .ed-switch { position: relative; flex: none; width: 26px; height: 15px; }
     .ed-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-    .ed-switch span { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .15s; pointer-events: none; }
+    .ed-switch span { position: absolute; inset: 0; border-radius: 999px; background: #7890b2; transition: background .15s; pointer-events: none; }
     .ed-switch span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s; }
     .ed-switch input:checked + span { background: var(--primary); }
     .ed-switch input:checked + span::after { transform: translateX(11px); }
@@ -303,6 +303,7 @@
       .sheet-wrap { overflow: visible; }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="ed ed--<%= isDoc ? 'doc' : 'sheet' %><%= _tplOn ? ' is-report-layout' : '' %>">
   <header class="ed-top">
@@ -619,9 +620,9 @@
       <button type="button" class="btn btn--primary" id="insGo" disabled><i class="fa-solid fa-plus"></i> Insert</button>
     </div>
   </aside>
-  <script type="application/json" id="insSourcesData"><%- _json(_sources) %></script>
-  <script type="application/json" id="rtData"><%- _json({ on: _tplOn, mine: _tplClasses.filter((x) => x.document_id === document.id).map((x) => String(x.class_id)), others: _tplClasses.filter((x) => x.document_id !== document.id).map((x) => ({ classId: String(x.class_id), title: x.title })), termId: _currentTerm ? _currentTerm.term_id : null }) %></script>
-  <script type="application/json" id="insClassesData"><%- _json(classes.map((c) => ({ value: String(c.class_id), label: c.class_name }))) %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="insSourcesData"><%- _json(_sources) %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="rtData"><%- _json({ on: _tplOn, mine: _tplClasses.filter((x) => x.document_id === document.id).map((x) => String(x.class_id)), others: _tplClasses.filter((x) => x.document_id !== document.id).map((x) => ({ classId: String(x.class_id), title: x.title })), termId: _currentTerm ? _currentTerm.term_id : null }) %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="insClassesData"><%- _json(classes.map((c) => ({ value: String(c.class_id), label: c.class_name }))) %></script>
   <% } %>
 
   <div class="ed-toast" id="edToast" role="status" aria-live="polite"></div>
@@ -630,7 +631,7 @@
 
   <script src="<%= assetUrl('/js/embedPopupLift.js') %>" defer></script>
   <% if (isDoc) { %><script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script><% } %>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const DOC_ID = '<%= document.id %>';
     const CAN_EDIT = <%= canEdit %>;
     const IS_DOC = <%= isDoc %>;
@@ -1288,7 +1289,7 @@
     }
     function unhideAll() { snapshot(); hiddenRows = []; hiddenCols = []; renderSheet(); triggerAutoSave(); }
 
-    function act(name) {
+    async function act(name) {
       flushEdit();
       const r = curRange();
       const p = parseCellRef(selectedCell);
@@ -1309,7 +1310,7 @@
           if (!isMulti(r)) { undoStack.pop(); toast('Select two or more cells to merge.'); return; }
           let others = 0;
           eachCell(r, (id, i, j) => { if ((i !== r.sr || j !== r.sc) && sheetData[id]) others++; });
-          if (others && !confirm('Merging keeps only the top-left value. ' + others + ' other cell' + (others === 1 ? '' : 's') + ' will be cleared. Merge?')) { undoStack.pop(); return; }
+          if (others && !await window.appConfirm('Merging keeps only the top-left value. ' + others + ' other cell' + (others === 1 ? '' : 's') + ' will be cleared. Merge?')) { undoStack.pop(); return; }
           eachCell(r, (id, i, j) => { if (i !== r.sr || j !== r.sc) delete sheetData[id]; });
           merges.push({ r: r.sr, c: r.sc, rs: r.er - r.sr + 1, cs: r.ec - r.sc + 1 });
           toast('Cells merged');
@@ -1492,7 +1493,7 @@
       $('dlMenu').hidden = true;
       if (!file) return;
       const used = usedSize();
-      if (used.rows && !confirm('Replace this sheet with "' + file.name + '"? You can undo this.')) return;
+      if (used.rows && !await window.appConfirm('Replace this sheet with "' + file.name + '"? You can undo this.')) return;
       toast('Reading ' + file.name + '…');
       const form = new FormData();
       form.append('file', file);
@@ -1528,11 +1529,11 @@
     if (csvImport) csvImport.addEventListener('change', () => {
       const file = csvImport.files[0];
       if (!file) return;
-      file.text().then((text) => {
+      file.text().then(async (text) => {
         const rows = parseCsv(text.replace(/^﻿/, ''));
         const used = usedSize();
         const start = used.rows ? used.rows + 1 : 0;
-        if (used.rows && !confirm('Add the CSV below your data, starting at row ' + (start + 1) + '?')) return;
+        if (used.rows && !await window.appConfirm('Add the CSV below your data, starting at row ' + (start + 1) + '?')) return;
         placeBlock(rows, start, 0);
         toast('Imported ' + rows.length + ' rows');
       });
@@ -1762,7 +1763,7 @@
       } catch (e) { toast('Could not make a copy.'); this.disabled = false; }
     });
     $('setDelete').addEventListener('click', async function () {
-      if (!confirm('Delete "' + fileBase() + '"? People it was shared with lose access.')) return;
+      if (!await window.appConfirm('Delete "' + fileBase() + '"? People it was shared with lose access.')) return;
       this.disabled = true;
       this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting…';
       try {
@@ -1941,15 +1942,15 @@
       box('E21:G24');
       return { cells, styles: st, merges: mg, colWidths: { 0: 170, 1: 105, 2: 95, 3: 95, 4: 95, 5: 95, 6: 130 }, rowCount: 30, colCount: 10 };
     }
-    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', () => {
-      if (usedSize().rows && !confirm('Replace this sheet with the sample report card? You can undo this.')) return;
+    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => {
+      if (usedSize().rows && !await window.appConfirm('Replace this sheet with the sample report card? You can undo this.')) return;
       replaceSheet(sampleSheet(b.dataset.sample));
       closePanels();
       toast('Sample report card added — change anything you like');
     }));
     <% } else { %>
-    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', () => {
-      if (quill.getLength() > 1 && !confirm('Replace this page with the sample report card? Undo brings it back.')) return;
+    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => {
+      if (quill.getLength() > 1 && !await window.appConfirm('Replace this page with the sample report card? Undo brings it back.')) return;
       const ticks = b.dataset.sample === 'ticks';
       const subjectLine = ticks
         ? '<li><strong>{{subject.name}}</strong> — Excellent {{subject.mark:Excellent}} · Very good {{subject.mark:Very Good}} · Good {{subject.mark:Good}} · Pass {{subject.mark:Pass}}</li>'
@@ -1981,7 +1982,7 @@
     $('rtOn').addEventListener('change', function () { $('rtMore').hidden = !this.checked; $('rtNote').textContent = 'Unsaved'; });
     $('rtSave').addEventListener('click', async function () {
       const on = $('rtOn').checked, classIds = on ? rtClasses.values() : [];
-      if (on && !classIds.length && !confirm('No classes chosen yet. Save it as a template anyway?')) return;
+      if (on && !classIds.length && !await window.appConfirm('No classes chosen yet. Save it as a template anyway?')) return;
       this.disabled = true;
       $('rtNote').textContent = 'Saving…';
       try {
@@ -2079,7 +2080,7 @@
       if (!insData) setSource();
     });
 
-    $('insGo').addEventListener('click', () => {
+    $('insGo').addEventListener('click', async () => {
       if (!insData || !insData.rows.length) return;
       const withHeader = $('insHeader').checked;
       const block = (withHeader ? [insData.columns] : []).concat(insData.rows.map((r) => r.map((v) => (v === null || v === undefined ? '' : String(v)))));
@@ -2101,7 +2102,7 @@
       if (!p) { toast('Type a start cell like A1.'); return; }
       let filled = 0;
       block.forEach((row, i) => row.forEach((v, j) => { if (sheetData[cellId(p.r + i, p.c + j)]) filled++; }));
-      if (filled && !confirm(filled + ' cell' + (filled === 1 ? ' has' : 's have') + ' something in them and will be replaced. Continue?')) return;
+      if (filled && !await window.appConfirm(filled + ' cell' + (filled === 1 ? ' has' : 's have') + ' something in them and will be replaced. Continue?')) return;
       placeBlock(block, p.r, p.c, withHeader);
       <% } %>
       closePanels();

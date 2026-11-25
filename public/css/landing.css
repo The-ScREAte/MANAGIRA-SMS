@@ -163,6 +163,7 @@
 /* ---------- sections ---------- */
 .lp-section { position: relative; padding: 112px 0; }
 .lp-section--tight { padding-top: 40px; }
+.lp-split { overflow-x: clip; }
 .lp-split__inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 72px; }
 .lp-split--flip .lp-split__text { order: 2; }
 .lp-checks { display: grid; gap: 12px; margin: 28px 0 0; padding: 0; list-style: none; }

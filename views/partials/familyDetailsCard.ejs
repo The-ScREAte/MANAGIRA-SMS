@@ -56,7 +56,7 @@
   #familyDetails .fd-row dt { color: #64748b; }
   @media (max-width: 560px) { .fd-row { grid-template-columns: minmax(0, 1fr); gap: 2px; } .fd-head { flex-wrap: wrap; } }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var box = document.getElementById('familyDetails');
     if (!box || box.dataset.ready) return;

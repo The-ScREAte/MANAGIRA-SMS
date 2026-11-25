@@ -98,8 +98,9 @@ These controls form Managira's security foundation. A passing test confirms the 
 | Protection | What it does | Evidence |
 |---|---|---|
 | Cross-site request blocking (CSRF) | Forms and API calls sent from other websites are refused, so another site can't act for a signed-in user. Managira's own domain and school subdomains are allowed. | Tested |
+| Content-Security-Policy | Pages may load scripts, styles, pictures, frames and requests only from Managira and the named services it uses (payments, maps, fonts, storage); objects and base-address changes are refused. Violations are logged. | Tested |
 | Clickjacking protection | Only Managira can frame Managira pages (`frame-ancestors`, `X-Frame-Options`). | Tested |
-| HTTPS enforcement | Browsers are told to always use HTTPS (HSTS, 180 days). | Tested |
+| HTTPS enforcement | Browsers are told to always use HTTPS (HSTS, one year). | Tested |
 | No content sniffing | Browsers treat files strictly as their declared type (`nosniff`). | Tested |
 | Private referrers | Full page addresses aren't sent to other sites (`Referrer-Policy`). | Tested |
 | Device permissions | Camera, microphone, location and payment features are allowed only on Managira's own pages. | Tested |
@@ -138,7 +139,7 @@ These controls form Managira's security foundation. A passing test confirms the 
 
 | Protection | What it does | Evidence |
 |---|---|---|
-| Encrypted database connection | The app connects to Postgres over TLS. | Verified |
+| Encrypted database connection | The app connects to Postgres over TLS. `DB_SSL_CA` or `DB_SSL_VERIFY=true` makes it also check the database's certificate. | Verified |
 | Non-superuser database account | The app's database user isn't a superuser and can't bypass row security. | Verified |
 | Environment-held keys | Database, Stripe, Paystack, AWS, email and session keys live in the server environment, outside the code. | Verified |
 | Encrypted provider keys | SMS and WhatsApp credentials are encrypted with AES-256-GCM. | Verified |
@@ -194,3 +195,13 @@ npm audit --omit=dev
 | `RUN_SCHEDULED_JOBS` | `false` on web servers when the background worker runs |
 | `LOG_SLOW_REQUESTS` | `true` |
 | `REQUEST_LIMIT_SIGNED_IN` / `REQUEST_LIMIT_VISITOR` | Optional; default 600 and 1,200 per minute |
+
+## Hardening notes (2026-11-24)
+
+- **Cross-site posts:** a post that carries a sign-in cookie must have an `Origin` (or `Referer`) that is Managira's own host, a school subdomain or the host asked; whole host names, never a text suffix. Provider callbacks and the token-protected API are the only exceptions.
+- **SMS delivery callbacks** need `SMS_WEBHOOK_SECRET` (`?token=` or `X-Webhook-Token`), or Twilio's own signature. Without the secret only Twilio's signature passes.
+- **Uploads** take an allow-list of kinds (pictures, documents, sound, video; `.zip`/`.json`/`.xml` only where a route reads them). HTML, SVG, scripts and programs are refused by name and by declared type.
+- **No built-in secrets:** anything signed from the session uses `SESSION_SECRET`, or a random key per process when it is missing (never a known value).
+- **Database errors** never reach a browser in production: raw Postgres text in a JSON answer is replaced by a plain sentence and logged.
+
+**Writing page handlers.** Never write `onclick="..."` (or any `on<event>=`): the policy refuses it, and a unit test fails. Give the element `data-onclick="<file>.<n>"`, put `"<file>.<n>": function(event){ ... }` in `public/js/mgActions.js` (`this` is the element; a value from the server goes in `data-mga0`, `data-mga1` and is read with `this.getAttribute`), and inline `<script>` tags carry `nonce="<%= locals.cspNonce || '' %>"`. `CSP_STRICT=report-only` or `off` brings back the older policy (with `unsafe-inline`) as an emergency switch.

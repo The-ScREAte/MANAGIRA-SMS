@@ -155,7 +155,7 @@
       var parts = st.name.split(' ');
       var initials = (parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '')).toUpperCase();
       // The initials sit under the photo, so a photo that fails to load still leaves a face.
-      return '<span class="cf-avatar" aria-hidden="true">' + esc(initials) + (st.photo ? '<img src="' + esc(st.photo) + '" alt="" loading="lazy" onerror="this.remove()" />' : '') + '</span>';
+      return '<span class="cf-avatar" aria-hidden="true">' + esc(initials) + (st.photo ? '<img src="' + esc(st.photo) + '" alt="" loading="lazy" data-onerror="misc.remove" />' : '') + '</span>';
     }
     function answerHtml(f, v) {
       var name = R.answerIcon(f, v);
@@ -348,7 +348,7 @@
       values[f.id] = sel.value === '' ? null : f.type === 'rating' ? Number(sel.value) : sel.value;
       quickSave(st, values);
     });
-    pane.addEventListener('click', function (e) {
+    pane.addEventListener('click', async function (e) {
       if (e.target.closest('[data-more]')) { state.shown += 200; return renderTable(); }
       var view = e.target.closest('[data-view]');
       if (view) { state.view = view.getAttribute('data-view'); state.pick = 0; return renderTable(); }
@@ -381,7 +381,7 @@
       if (remind) {
         var waiting = state.students.filter(function (st) { return !st.entries; }).length;
         if (!waiting) { toast('Everyone has filled it in.'); return; }
-        if (!window.confirm('Remind the families of ' + waiting + (waiting === 1 ? ' student' : ' students') + ' who haven’t filled it in? They get a notification and an email.')) return;
+        if (!await window.appConfirm('Remind the families of ' + waiting + (waiting === 1 ? ' student' : ' students') + ' who haven’t filled it in? They get a notification and an email.')) return;
         remind.disabled = true;
         api(base + '/' + state.section.id + '/remind', { email: true }).then(function (res) {
           toast(res.sent ? 'Reminder sent to the families of ' + res.sent + (res.sent === 1 ? ' student.' : ' students.') : 'They were already reminded today.');
@@ -488,12 +488,12 @@
         var en = entries.filter(function (x) { return String(x.id) === v.getAttribute('data-view'); })[0];
         R.view(v, s, en.data);
       });
-      body.onclick = function (e) {
+      body.onclick = async function (e) {
         if (e.target.closest('[data-add]')) return editEntry(null);
         var ed = e.target.closest('[data-edit]');
         if (ed) return editEntry(entries.filter(function (x) { return String(x.id) === ed.getAttribute('data-edit'); })[0]);
         var del = e.target.closest('[data-delete]');
-        if (del && window.confirm('Delete this entry?')) {
+        if (del && await window.appConfirm('Delete this entry?')) {
           api(base + '/' + s.id + '/entry/' + del.getAttribute('data-delete') + '/delete', {}).then(function () {
             d.entries = d.entries.filter(function (x) { return String(x.id) !== del.getAttribute('data-delete'); });
             drawStudent();

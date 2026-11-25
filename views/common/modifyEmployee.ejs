@@ -409,6 +409,7 @@
     @media (max-width: 500px) { .modify-employee-card .employee-fields-grid { grid-template-columns: 1fr !important; } }
     </style>
   
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <div class="modify-employee-card">
@@ -448,7 +449,7 @@
                     <span><%= cls.class_name %></span>
                   </label>
                   <%- include('../partials/employeeMainTeacher', { cls, personId: user.user_id }) %>
-                  <button type="button" class="subject-toggle-btn" onclick="toggleClassCollapse('subjects-<%= cls.class_id %>')">
+                  <button type="button" class="subject-toggle-btn" data-onclick="common-modifyEmployee.1" data-mga0="<%= cls.class_id %>">
                     <span>Subjects</span>
                     <span class="arrow" id="arrow-subjects-<%= cls.class_id %>">&#9654;</span>
                   </button>
@@ -535,7 +536,7 @@
     <form class="employee-action-form" action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
       <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume Employee' : 'Hold Employee' %></button>
     </form>
-    <form class="employee-action-form" action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Remove this user from the school?\n\nThey won\'t be able to sign in and leave the staff lists. Everything they did (attendance, scores, payments, documents) is kept.\n\nTo bring them back: Users > Status: Removed > select them > Enable.');">
+    <form class="employee-action-form" action="/common/deleteEmployee/<%= user.user_id %>" method="post" data-onsubmit="common-modifyEmployee.2">
       <button type="submit" class="btn btn-danger btn-icon-only employee-delete-action" aria-label="Remove user" title="Remove user (records are kept)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="3 6 5 6 21 6"></polyline>
@@ -550,9 +551,9 @@
   </div>
 </div>
 
-<script id="current-saved-permissions-data" type="application/json"><%- JSON.stringify(selectedPermissions || []) %></script>
+<script nonce="<%= locals.cspNonce || '' %>" id="current-saved-permissions-data" type="application/json"><%- JSON.stringify(selectedPermissions || []) %></script>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
     function toggleClassCollapse(id) {
       const collapseDiv = document.getElementById('collapse-' + id);
       const arrow = document.getElementById('arrow-' + id);
@@ -761,3 +762,4 @@
       }
     });
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -313,7 +313,7 @@
     <form action="/account/accept-hub-invitation-existing/<%= token %>" method="POST" id="acceptForm">
       <div class="checkbox-group">
         <label>
-          <input type="checkbox" name="confirm" value="yes" id="confirmCheckbox" required onchange="toggleSubmitButton()">
+          <input type="checkbox" name="confirm" value="yes" id="confirmCheckbox" required data-onchange="account-acceptHubInvitationExisting.1">
           <span>I understand the changes above and want to join <strong><%= invitation.hub_name %></strong> hub</span>
         </label>
       </div>
@@ -334,7 +334,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function toggleSubmitButton() {
     const checkbox = document.getElementById('confirmCheckbox');
     const submitBtn = document.getElementById('submitBtn');
@@ -349,3 +349,4 @@
     }
   });
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -114,6 +114,7 @@
     @keyframes tip-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
     @media (prefers-reduced-motion: reduce) { .pl-ring, .pl-tip, .pl-end, .pl__controls { animation: none; transition: none; } }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="pl" id="pl" data-src="<%= dataUrl %>" data-w="<%= width %>" data-h="<%= height %>">
@@ -125,7 +126,7 @@
     <div class="pl__controls" hidden></div>
     <div class="pl__toast" role="status"></div>
   </div>
-  <script type="application/json" id="pl-config"><%- JSON.stringify({ accent, guided, texts: guideTexts, guideIndexes }).replace(/</g, '\\u003c') %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="pl-config"><%- JSON.stringify({ accent, guided, texts: guideTexts, guideIndexes }).replace(/</g, '\\u003c') %></script>
   <%# The app's light / dark engine, applied by the player to the captured page. %>
   <script src="<%= assetUrl('/js/appearance.js') %>"></script>
   <script src="<%= assetUrl('/js/appDemoPlayer.js') %>"></script>

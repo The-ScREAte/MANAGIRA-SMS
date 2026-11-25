@@ -184,8 +184,8 @@
       }
     }
 
-    function requestClose() {
-      if (isDirty() && !window.confirm('Discard the changes to this contact?')) return false;
+    async function requestClose() {
+      if (isDirty() && !(await window.appConfirm('Discard the changes to this contact?', { ok: 'Discard', danger: true }))) return false;
       state.contact = null;
       state.data = null;
       if (options.onClose) options.onClose();
@@ -226,7 +226,12 @@
 
     box.addEventListener('click', (e) => {
       if (e.target.closest('[data-card-close]')) { requestClose(); return; }
-      if (e.target.closest('[data-card-template]') && isDirty() && !window.confirm('Leave without saving the changes to this contact?')) { e.preventDefault(); return; }
+      const tpl = e.target.closest('[data-card-template]');
+      if (tpl && isDirty() && !tpl.__leaveOk) {
+        e.preventDefault();
+        window.appConfirm('Leave without saving the changes to this contact?', { ok: 'Leave', cancel: 'Stay' }).then((yes) => { if (yes) { tpl.__leaveOk = true; tpl.click(); } });
+        return;
+      }
       const tab = e.target.closest('[data-tab]');
       if (tab) { showTab(tab.dataset.tab); return; }
       if (e.target.closest('[data-card-save]')) save();

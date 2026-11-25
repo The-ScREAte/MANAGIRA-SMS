@@ -41,7 +41,7 @@
       element.setAttribute('data-spa-bound-confirm', '1');
       element.addEventListener('click', (e) => {
         const message = element.dataset.confirm;
-        if (!confirm(message)) {
+        if (!window.appConfirm && !confirm(message)) {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -97,8 +97,10 @@
           if (!field.value.trim()) {
             valid = false;
             field.classList.add('error');
+            if (window.a11yFieldError) window.a11yFieldError(field);
           } else {
             field.classList.remove('error');
+            if (window.a11yClearFieldError) window.a11yClearFieldError(field);
           }
         });
 

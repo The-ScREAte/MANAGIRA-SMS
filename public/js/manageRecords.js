@@ -1,4 +1,4 @@
-function deleteRecord(type, id) {
+async function deleteRecord(type, id) {
   const bodyData = {};
   if (type === "announcement") {
     bodyData.announcementId = id;
@@ -6,7 +6,7 @@ function deleteRecord(type, id) {
     bodyData.id = id;
   }
 
-  if (confirm("Are you sure you want to delete this " + type + "?")) {
+  if (await window.appConfirm("Are you sure you want to delete this " + type + "?")) {
     fetch(`/common/delete${type.charAt(0).toUpperCase() + type.slice(1)}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -28,8 +28,8 @@ function deleteRecord(type, id) {
   }
 }
 
-function deleteEvent(eventId) {
-  if (confirm("Are you sure you want to delete this event?")) {
+async function deleteEvent(eventId) {
+  if (await window.appConfirm("Are you sure you want to delete this event?")) {
     fetch(`/common/deleteEvent`, {
       method: "DELETE",
       headers: {
@@ -60,7 +60,7 @@ async function deleteSchoolYear(yearId) {
     "If linked records exist, deletion will be blocked.\n\n" +
     "Do you want to continue?";
 
-  if (!confirm(firstWarning)) {
+  if (!await window.appConfirm(firstWarning)) {
     return;
   }
 
@@ -125,7 +125,7 @@ async function deleteTerm(termId, button) {
     return;
   }
 
-  if (!confirm("Are you sure you want to delete this term?")) {
+  if (!await window.appConfirm("Are you sure you want to delete this term?")) {
     return;
   }
 

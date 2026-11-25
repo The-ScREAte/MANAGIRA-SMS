@@ -92,25 +92,25 @@
   <div class="fin-report-filters">
     <div class="fin-field">
       <label>Search</label>
-      <input type="text" id="rptStudent" oninput="finRunReportFilter()" placeholder="Bill...">
+      <input type="text" id="rptStudent" data-oninput="account-financeOverviewDetailSection.1" placeholder="Bill...">
     </div>
     <div class="fin-field">
       <label>Year</label>
-      <select id="rptYear" onchange="finRunReportFilter()">
+      <select id="rptYear" data-onchange="account-financeOverviewDetailSection.2">
         <option value="">Any year</option>
         <% (refs.years||[]).forEach(y => { %><option value="<%= y.school_year_id %>"><%= y.name %></option><% }) %>
       </select>
     </div>
     <div class="fin-field">
       <label>Term</label>
-      <select id="rptTerm" onchange="finRunReportFilter()">
+      <select id="rptTerm" data-onchange="account-financeOverviewDetailSection.2">
         <option value="">Any term</option>
         <% (refs.terms||[]).forEach(t => { %><option value="<%= t.term_id %>"><%= t.name %></option><% }) %>
       </select>
     </div>
     <div class="fin-field">
       <label>Status</label>
-      <select id="rptStatus" onchange="finRunReportFilter()">
+      <select id="rptStatus" data-onchange="account-financeOverviewDetailSection.2">
         <option value="">All</option>
         <option value="paid">Paid</option>
         <option value="partial">Part paid</option>
@@ -120,7 +120,7 @@
       </select>
     </div>
     <div class="fin-field" style="display:flex;align-items:flex-end;">
-      <button type="button" class="fin-btn" onclick="finResetReportFilter()">Reset</button>
+      <button type="button" class="fin-btn" data-onclick="account-financeOverviewDetailSection.3">Reset</button>
     </div>
   </div>
 
@@ -199,3 +199,4 @@
   </div>
   </div>
 </details>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

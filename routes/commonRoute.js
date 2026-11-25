@@ -45,9 +45,9 @@ function redirectToExternalSchoolWebsite(db) {
 
 // Separate multer config for bulk imports - uses memory storage for parsing
 const bulkUploadStorage = multer.memoryStorage();
-const bulkUpload = multer({ 
+const bulkUpload = multer({
   storage: bulkUploadStorage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  ...require("../utils/uploadSafety").safeUploadOptions({ maxMb: 10, maxFiles: 1, kinds: ["document"] }), // spreadsheets only
 });
 
 const SET_ASSESSMENT_QUESTION_FEATURE_NAMES = [
@@ -436,6 +436,7 @@ module.exports = (db) => {
     checkFeatureAccess,
     isAuthenticated,
     require("../utils/classScope").requireLeadsClass(db),
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.attendanceCollection(req, res, db)
   );
   router.get(
@@ -620,12 +621,14 @@ module.exports = (db) => {
     "/classDashboard",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.classDashboard(req, res, db)
   );
   router.get(
     "/classDashboard/:classId/:panel?/:itemId?",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.classDashboard(req, res, db)
   );
   router.post(
@@ -638,12 +641,14 @@ module.exports = (db) => {
     "/studentTeacherRemarkOptions",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.getStudentTeacherRemarkOptions(req, res, db)
   );
   router.get(
     "/classDashboardStudentTransport",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.getClassDashboardStudentTransportSnapshot(req, res, db)
   );
   router.post(
@@ -651,6 +656,7 @@ module.exports = (db) => {
     checkFeatureAccess,
     isAuthenticated,
     express.json(),
+    require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.saveStudentTeacherRemark(req, res, db)
   );
   router.get(
@@ -659,16 +665,16 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.birthdaysPageGet(req, res, db)
   );
-  router.get("/classSchedule", isAuthenticated, require("../utils/classScope").requireClassScope(db), (req, res) =>
+  router.get("/classSchedule", isAuthenticated, require("../utils/classScope").requireClassScope(db), require("../utils/classScope").requireClassDashboardAccess(db), (req, res) =>
     commonController.getClassSchedule(req, res, db)
   );
-  router.post("/classSchedule/save", isAuthenticated, (req, res) =>
+  router.post("/classSchedule/save", isAuthenticated, require("../utils/classScope").requireClassDashboardAccess(db), (req, res) =>
     commonController.saveClassSchedule(req, res, db)
   );
-  router.post("/classSchedule/delete", isAuthenticated, (req, res) =>
+  router.post("/classSchedule/delete", isAuthenticated, require("../utils/classScope").requireClassDashboardAccess(db), (req, res) =>
     commonController.deleteClassSchedule(req, res, db)
   );
-  router.post("/classSchedule/reuse", isAuthenticated, (req, res) =>
+  router.post("/classSchedule/reuse", isAuthenticated, require("../utils/classScope").requireClassDashboardAccess(db), (req, res) =>
     commonController.reuseClassSchedule(req, res, db)
   );
   router.post("/registerSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>

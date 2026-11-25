@@ -96,7 +96,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var list = document.getElementById('mpoList');
     if (!list) return;

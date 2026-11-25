@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Promotion Scheduler</title>
   <style>
       :root {
@@ -805,6 +805,7 @@
       }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main>
@@ -816,7 +817,7 @@
       <p class="ws-head__sub"><% if (currentSchoolYear || currentTerm) { %><%= currentSchoolYear?.label || '—' %> · <%= currentTerm?.term_name || '—' %><% } %></p>
     </div>
     <div class="ws-head__actions">
-      <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" onclick="showForm()">Plan a promotion</button>
+      <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" data-onclick="promotion-applyPromotion.1">Plan a promotion</button>
     </div>
   </header>
   <%- include('../partials/flash') %>
@@ -856,7 +857,7 @@
     .promo-sug__go { flex: none; white-space: nowrap; text-decoration: none; }
     @media (max-width: 640px) { .promo-sug__card { flex-direction: column; align-items: stretch; } .promo-sug__go { justify-content: center; } }
   </style>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // "Plan this" fills the form from a suggestion: from and target term, and a date (the target term's first day, or today).
     (function () {
       function setSelect(id, value) { var el = document.getElementById(id); if (!el || value == null || value === '') return; el.value = String(value); el.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -963,7 +964,7 @@
       <div class="form-group full-width">
         <label>Classes to Apply Promotion</label>
         <div class="classes-toolbar">
-          <button type="button" class="collapsible-btn" onclick="togglePromotionClassCollapsible()" style="margin-bottom: 0; max-width: 320px;">
+          <button type="button" class="collapsible-btn" data-onclick="promotion-applyPromotion.2" style="margin-bottom: 0; max-width: 320px;">
             <span>Show/Hide Class List</span>
             <span id="promotionClassArrow" class="arrow">&#9654;</span>
           </button>
@@ -1056,7 +1057,7 @@
                   <% if (schedule.status === 'scheduled') { %>
                     <form method="POST" action="/promotion/applyNow" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" data-busy-text="Applying..." onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
+                      <button type="submit" data-busy-text="Applying..." data-onclick="promotion-applyPromotion.3">Apply Now</button>
                     </form>
                     <form method="POST" action="/promotion/cancel" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
@@ -1066,7 +1067,7 @@
                   <% if (schedule.canReverseExact && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
                     <form method="POST" action="/promotion/reverse" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" class="btn-reverse" data-busy-text="Reversing..." onclick="return confirm('Reverse this promotion? This will undo the enrollments, classes, and subjects it created.');">Reverse</button>
+                      <button type="submit" class="btn-reverse" data-busy-text="Reversing..." data-onclick="promotion-applyPromotion.4">Reverse</button>
                     </form>
                   <% } %>
                   <% if (schedule.status === 'reversed') { %>
@@ -1121,7 +1122,7 @@
 
         <% if (schedules.length > 5) { %>
           <div style="text-align: center; margin-top: 10px;">
-            <button type="button" id="toggleMoreButton" onclick="toggleMoreSchedules()">Show More</button>
+            <button type="button" id="toggleMoreButton" data-onclick="promotion-applyPromotion.5">Show More</button>
           </div>
         <% } %>
       </div>
@@ -1132,7 +1133,7 @@
   <br>
   </div>
   
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
   // Wrapped in an IIFE so top-level declarations never leak to the global
   // scope. This makes the page safe to re-run on every SPA navigation
   // (re-declaring a top-level `const` in global scope would throw and break
@@ -1878,3 +1879,4 @@
   </main>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

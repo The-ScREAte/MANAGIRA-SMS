@@ -219,7 +219,7 @@
           <img class="dir-card-logo" 
             src="<%= publicImageUrl(org.logo_url || '/images/profilePlaceholder.png', { public: true }) %>"
                alt="<%= org.organization_name %>" 
-               onerror="this.src='/images/profilePlaceholder.png'" />
+               data-onerror="legal-Compliance-directory.1" />
           <div class="dir-card-info">
             <div class="dir-card-name"><%= org.organization_name %></div>
             <div class="dir-card-detail">
@@ -236,7 +236,7 @@
     <div class="dir-no-results" id="dirNoResults" style="display:none;">
       <h3>No organization found</h3>
       <p id="dirNoResultsText">We couldn't find an organization matching your search.</p>
-      <button class="dir-similar-btn" id="dirSimilarBtn" onclick="showSimilarOrgs()">See Similar Organizations</button>
+      <button class="dir-similar-btn" id="dirSimilarBtn" data-onclick="legal-Compliance-directory.2">See Similar Organizations</button>
       <div class="dir-similar-section" id="dirSimilarSection">
         <h4>You might be looking for:</h4>
         <div class="dir-grid" id="dirSimilarGrid"></div>
@@ -245,7 +245,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   const allCards = Array.from(document.querySelectorAll('#dirGrid .dir-card'));
   const dirGrid = document.getElementById('dirGrid');
   const dirNoResults = document.getElementById('dirNoResults');
@@ -313,3 +313,4 @@
     dirSimilarSection.classList.add('show');
   }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

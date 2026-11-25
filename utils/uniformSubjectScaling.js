@@ -1,3 +1,5 @@
+const { isBlank } = require("./termTotals");
+
 const UNIFORM_SUBJECT_SCALING_TERM_ID = -3;
 
 function normalizeUniformSubjectScaling(value = {}) {
@@ -17,11 +19,17 @@ function calculateUniformSubjectScores(assessments, scoreForAssessment, baseMaxS
   const eligible = (Array.isArray(assessments) ? assessments : [])
     .map((assessment) => {
       const maxScore = Number(assessment.max_score);
-      const earnedScore = Number(scoreForAssessment(assessment));
+      // A score that was never entered (null or empty) is left out, as the gradebook leaves it
+      // out: it drops from the weights too, so the rest is scaled to the base. A 0 that was
+      // entered counts as 0.
+      const rawScore = scoreForAssessment(assessment);
+      const blank = isBlank(rawScore);
+      const earnedScore = Number(rawScore);
       const assignedWeight = Number(assessment.weight);
       return {
         assessment,
         maxScore,
+        blank,
         earnedScore: Number.isFinite(earnedScore) ? earnedScore : 0,
         assignedWeight,
       };
@@ -32,8 +40,10 @@ function calculateUniformSubjectScores(assessments, scoreForAssessment, baseMaxS
     return { totalScore: 0, maxScore: 0, categoryScores: {} };
   }
 
+  // Whether the subject is weighted is the subject's own, whatever this student was scored on.
   const hasAssignedWeights = eligible.some((entry) => Number.isFinite(entry.assignedWeight) && entry.assignedWeight > 0);
   const weighted = eligible
+    .filter((entry) => !entry.blank)
     .map((entry) => ({
       ...entry,
       weight: hasAssignedWeights

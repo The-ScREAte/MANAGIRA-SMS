@@ -1084,7 +1084,7 @@
           <% } %>
         </div>
 
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           // Add file and Edit open in the right-side drawer; a save there reloads this page.
           (function () {
             var card = document.getElementById('student-documents');
@@ -1121,7 +1121,7 @@
         <div class="sd-card pf" id="sd-pane-portfolio" data-portfolio-src="/common/student-documents/<%= student.student_id %>/portfolio">
           <div data-portfolio-body><div class="pf-empty">Loading…</div></div>
         </div>
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           (function () {
             var pane = document.getElementById('sd-pane-portfolio');
             if (!pane || pane.dataset.bound) return;
@@ -1257,7 +1257,7 @@
         <% if (oldSystem.canUnlock) { %><p class="sd-old__note"><%= oldSystem.hidden %> restricted <%= oldSystem.hidden === 1 ? 'item' : 'items' %>. <a href="/common/migration/verify?next=<%= encodeURIComponent('/common/studentDetails?studentId=' + student.student_id) %>" data-no-spa>Show (asks for your authenticator code)</a></p><% } %>
         <p class="sd-old__none" data-old-none hidden>Nothing matches.</p>
       </section>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
           if (window.__sdOldFilter) return;
           window.__sdOldFilter = true;
@@ -1283,7 +1283,7 @@
       <% } %>
       </div>
       <% } %>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         // The student's sections are tabs: one clean page, hash-linked (#files, #portfolio, #transport).
         (function () {
           var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-sd-tab]'));
@@ -1317,7 +1317,7 @@
         })();
       </script>
       <% if (_hasAttendance || _hasBills) { %>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         // Attendance and Bills are read when their tab is first opened, never with the page.
         (function () {
           function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
@@ -1423,7 +1423,7 @@
       </script>
       <% } %>
       <% if (_hasMessages) { %>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         // Messages: the parents' conversations and what the school sent the family, in one list.
         (function () {
           var box = document.getElementById('sdMsgs');
@@ -1550,7 +1550,7 @@
     </div>
 
     <%- include('../partials/adminDrawer') %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
   // Edit student opens in the right-side drawer; saving reloads this page.
   (function () {
     const link = document.getElementById('studentEditLink');
@@ -1589,7 +1589,7 @@
     <script src="/js/managiraMaps.js?v=<%= assetVersion %>"></script>
     <script src="/js/busTracker.js?v=<%= assetVersion %>"></script>
     <% } %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
 
   function getOrdinalSuffix(i) {
     const j = i % 10,
@@ -1610,7 +1610,7 @@
       const portalAction = resetBtn.dataset.portalAction === 'reset' ? 'reset' : 'setup';
       if (!studentId) return;
       if (!resetBtn.dataset.hasEmail) {
-        if (window.confirm(studentName + " has no email address yet, and the portal invite is sent by email. Open Edit student to add one?") && resetBtn.dataset.editUrl) {
+        if (await window.appConfirm(studentName + " has no email address yet, and the portal invite is sent by email. Open Edit student to add one?") && resetBtn.dataset.editUrl) {
           (window.top || window).location.assign(resetBtn.dataset.editUrl);
         }
         return;
@@ -1619,7 +1619,7 @@
       const promptText = portalAction === 'reset'
         ? `Reset the portal password for ${studentName}? They will receive an email to choose a new one.`
         : `Invite ${studentName} to the student portal? They will receive an email to set up their sign-in.`;
-      const proceed = window.confirm(promptText);
+      const proceed = await window.appConfirm(promptText);
       if (!proceed) return;
 
       const labelEl = resetBtn.querySelector('span') || resetBtn;

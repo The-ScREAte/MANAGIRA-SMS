@@ -312,7 +312,7 @@
                   </div>
                   <% if (menu.heroImage) { %>
                     <div class="public-nav-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-nav-visual--mira' : '' %>">
-                      <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
+                      <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" data-onerror="partials-header.1" />
                     </div>
                     <div class="public-nav-capabilities">
                       <span class="public-nav-capabilities-title"><%= menu.capabilitiesTitle || 'Capabilities' %></span>
@@ -462,7 +462,7 @@
       </div>
       <%# ── Notification Bell ──────────────────────────────── %>
       <div class="notif-bell-wrapper" id="notif-bell-wrapper">
-        <button class="notif-bell-btn" id="notif-bell-btn" aria-label="Notifications" type="button">
+        <button class="notif-bell-btn" id="notif-bell-btn" type="button" aria-haspopup="dialog" aria-controls="notif-panel"><span class="sr-only">Notifications</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -778,7 +778,7 @@
             </div>
             <% if (menu.heroImage) { %>
               <div class="public-mobile-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-mobile-visual--mira' : '' %>">
-                <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
+                <img src="<%= publicImageUrl(menu.heroImage, { public: true }) %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" data-onerror="partials-header.1" />
               </div>
               <% if (menu.capabilities && menu.capabilities.length) { %>
                 <div class="public-mobile-capabilities">
@@ -898,7 +898,7 @@
       <% } %>
     </ul>
   </nav>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // Smooth scroll for sticky nav links
     document.addEventListener('DOMContentLoaded', function() {
       const stickyNavLinks = document.querySelectorAll('.sticky-nav a[href^="#"]');
@@ -931,13 +931,13 @@
   <% } %>
 </header>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   const CURRENT_TERM_ID =
     "<%= currentTerm?.term_id || session.currentTermId || '' %>";
 </script>
 
-<script>window.__mgDisplayPrefs = <%- JSON.stringify(typeof displayPreferences !== 'undefined' && displayPreferences ? displayPreferences : {}).replace(/</g, '\\u003c') %>;</script>
-<script>window.MG_ASSETS = Object.assign(window.MG_ASSETS || {}, <%- JSON.stringify({ deepSearchJs: assetUrl('/js/deepSearch.js'), deepSearchCss: assetUrl('/css/deepSearch.css'), pageFinderCss: assetUrl('/css/pageFinder.css') }) %>);</script>
+<script nonce="<%= locals.cspNonce || '' %>">window.__mgDisplayPrefs = <%- JSON.stringify(typeof displayPreferences !== 'undefined' && displayPreferences ? displayPreferences : {}).replace(/</g, '\\u003c') %>;</script>
+<script nonce="<%= locals.cspNonce || '' %>">window.MG_ASSETS = Object.assign(window.MG_ASSETS || {}, <%- JSON.stringify({ deepSearchJs: assetUrl('/js/deepSearch.js'), deepSearchCss: assetUrl('/css/deepSearch.css'), pageFinderCss: assetUrl('/css/pageFinder.css') }) %>);</script>
 <script src="<%= assetUrl('/js/headerMenu.js') %>"></script>
 <%# Page finder (feature page_finder): Ctrl+K / Cmd+K, for the school's staff. %>
 <% if (locals.featureOn && featureOn('page_finder') && !locals.isGuardianPage && typeof session !== 'undefined' && session && session.organizationId && !['guardian', 'student'].includes(String(session.userRole || session.accountType || '').toLowerCase())) { %>
@@ -1269,9 +1269,9 @@
 </style>
 
 <%# ── Notification Bell JS ──────────────────────────────────────────────── %>
-<script>window.__mgHeader = <%- JSON.stringify({ role: String((typeof session !== "undefined" && session && (session.userRole || session.accountType)) || ""), staffRole: String((typeof session !== "undefined" && session && ((session.accountType || (session.user && session.user.account_type) || session.userRole || (session.user && session.user.role)) || "")) || "") }).replace(/</g, '\\u003c') %>;</script>
+<script nonce="<%= locals.cspNonce || '' %>">window.__mgHeader = <%- JSON.stringify({ role: String((typeof session !== "undefined" && session && (session.userRole || session.accountType)) || ""), staffRole: String((typeof session !== "undefined" && session && ((session.accountType || (session.user && session.user.account_type) || session.userRole || (session.user && session.user.role)) || "")) || "") }).replace(/</g, '\\u003c') %>;</script>
 <script src="<%= assetUrl('/js/headerBell.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Help menu: opens beside the bell; one panel open at a time; Escape or a click elsewhere closes it.
   (function () {
     if (window.__managiraHelpMenu) return;
@@ -1298,3 +1298,4 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') setOpen(false); });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

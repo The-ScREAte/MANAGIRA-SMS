@@ -2671,10 +2671,11 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
 
 .workspace-header-copy .page-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.1;
+  line-height: 1.2;
+  letter-spacing: -.01em;
 }
 
 .workspace-cohort {
@@ -3712,8 +3713,8 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
   }
 
   .workspace-header-copy .page-title {
-    font-size: 16px;
-    line-height: 1.1;
+    font-size: 20px;
+    line-height: 1.15;
   }
 
   .workspace-meta-toggle {
@@ -3983,3 +3984,6 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
 /* A Class Tools item the person hasn't been given: greyed, opens nothing (title says who to ask). */
 .nav-link.is-locked { opacity: .5; cursor: not-allowed; }
 .nav-link.is-locked:hover { background: transparent; }
+.nav-link.is-locked { opacity: 1; cursor: not-allowed; }
+.nav-link.is-locked .nav-icon, .nav-link.is-locked .nav-link-label { opacity: .6; }
+.nav-lock-hint { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: #64748b; }

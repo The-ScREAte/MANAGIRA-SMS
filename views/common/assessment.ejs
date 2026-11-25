@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Assessment</title>
     <style>
       :root {
@@ -500,6 +500,7 @@ body {
   padding: 3px 10px;
   border-radius: 999px;
 }
+.qm-question-count.is-marks-off { background: #fffbeb; color: #b45309; }
 
 .qm-preview-trigger {
   display: inline-flex;
@@ -1506,6 +1507,7 @@ input[type="number"].score-input-invalid {
 } 
     </style>
   <link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/gradebookFlow.css') %>" />
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <main>
@@ -1538,7 +1540,7 @@ input[type="number"].score-input-invalid {
           <%- include('../partials/gradebookTools', { gbPlace: 'start' }) %>
           <% if (employees.length > 0) { %>
           <div class="teachers-popover-wrap">
-            <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false" aria-controls="teachers-popover" aria-label="Assigned teachers (<%= employees.length %>)">
+            <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false" aria-controls="teachers-popover" title="Assigned teachers">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span class="btn-label">Teachers</span>
               <span class="teachers-count"><%= employees.length %></span>
@@ -1707,7 +1709,7 @@ input[type="number"].score-input-invalid {
                   <% if (assessment.is_choice) { %>
                   <% const _picked = student.choices ? student.choices[assessment.assessment_id] : ''; %>
                   <select class="choice-input" name="scores[<%= student.student_id %>][<%= assessment.assessment_id %>]"
-                          aria-label="<%= assessment.title %>" <%= assessment.can_edit_scores ? '' : 'disabled' %>>
+                          aria-label="<%= assessmentStudentName %>: <%= assessment.title %>" <%= assessment.can_edit_scores ? '' : 'disabled' %>>
                     <option value="">–</option>
                     <% assessment.choice_labels.forEach(function (label) { %>
                     <option value="<%= label %>" <%= _picked && String(_picked).toLowerCase() === String(label).toLowerCase() ? 'selected' : '' %>><%= label %></option>
@@ -1716,6 +1718,7 @@ input[type="number"].score-input-invalid {
                   <% } else { %>
                   <input
                     type="number"
+                    aria-label="<%= assessmentStudentName %>: <%= assessment.title %> score"
                     name="scores[<%= student.student_id %>][<%= assessment.assessment_id %>]"
                     min="0"
                     max="<%= assessment.max_score + 10 %>"
@@ -1867,7 +1870,7 @@ input[type="number"].score-input-invalid {
       <div class="spinner" id="loading-spinner"></div>
     </main>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
       const metaCard = document.getElementById("assessment-meta-card");
       const metaToggle = document.getElementById("assessment-meta-toggle");
@@ -2096,8 +2099,18 @@ input[type="number"].score-input-invalid {
         const counter = document.getElementById("qm-question-count");
         if (counter) {
           counter.textContent = count + " question" + (count === 1 ? "" : "s");
+          // The marks the questions add up to against the test's "out of".
+          const totalMarks = Array.prototype.reduce.call(document.querySelectorAll("#question-items .question-marks"), (sum, el) => sum + (Number(el.value) || 0), 0);
+          const outOf = selectedAssessmentRule ? Number(selectedAssessmentRule.maxScore) || 0 : 0;
+          const marksOff = count > 0 && outOf > 0 && Math.abs(totalMarks - outOf) >= 0.005;
+          if (count > 0 && outOf > 0) counter.textContent += " · " + totalMarks + " / " + outOf + " marks";
+          counter.classList.toggle("is-marks-off", marksOff);
+          counter.title = marksOff ? "Questions add up to " + totalMarks + ", but the test is out of " + outOf + ". Marks count as they are, they are not scaled." : "";
         }
       }
+      document.addEventListener("input", (event) => {
+        if (event.target && event.target.classList && event.target.classList.contains("question-marks")) updateQuestionCount();
+      });
 
       function saveDraft() {
         try {
@@ -2292,6 +2305,7 @@ input[type="number"].score-input-invalid {
 
         questionAssessmentRules.textContent = `Rules: ${selectedAssessmentRule.title} | Category: ${selectedAssessmentRule.category} | Weight: ${selectedAssessmentRule.weight} | Max score: ${selectedAssessmentRule.maxScore} | Scale: ${selectedAssessmentRule.scaleBase} | Mode: ${selectedAssessmentRule.openBook ? "Open Book" : "Secure"} | Time: ${selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0 ? `${selectedAssessmentRule.timeLimitMinutes} min` : "Untimed"} | Status: ${statusLabel}`;
         applyAssessmentMarksLimit(selectedAssessmentRule.maxScore);
+        updateQuestionCount();
       }
 
       function openQuestionModal(mode, customTitle) {
@@ -3109,15 +3123,10 @@ input[type="number"].score-input-invalid {
             return;
           }
 
-          const totalMarks = questions.reduce((sum, item) => sum + Number(item.marks || 0), 0);
-          if (Number(totalMarks) > Number(selectedRule.maxScore || 0)) {
-            updateQuestionModalStatus(`Total question marks (${totalMarks}) cannot exceed assessment max score (${selectedRule.maxScore}).`, true);
-            return;
-          }
-
-          const hasInvalidMarks = questions.some((item) => Number(item.marks || 0) <= 0 || Number(item.marks || 0) > Number(selectedRule.maxScore || 0));
+          // Marks that don't add up to the test's "out of" are asked about when saving (public/js/questionMarks.js).
+          const hasInvalidMarks = questions.some((item) => !(Number(item.marks || 0) > 0));
           if (hasInvalidMarks) {
-            updateQuestionModalStatus(`Each question mark must be between 1 and ${selectedRule.maxScore}.`, true);
+            updateQuestionModalStatus("Each question needs marks above 0.", true);
             return;
           }
 
@@ -3136,15 +3145,18 @@ input[type="number"].score-input-invalid {
 
           updateQuestionModalStatus("Saving question set...", false);
           try {
-            const response = await fetch("/common/assessment/questions/upsert", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-              },
-              body: JSON.stringify(payload),
-            });
-            const result = await response.json();
+            const saved = window.QuestionMarks
+              ? await window.QuestionMarks.post("/common/assessment/questions/upsert", payload)
+              : await fetch("/common/assessment/questions/upsert", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify(payload),
+              }).then((r) => r.json().then((j) => ({ response: r, result: j })));
+            if (saved.cancelled) {
+              updateQuestionModalStatus("", false);
+              return;
+            }
+            const { response, result } = saved;
             if (!response.ok || !result.success) {
               throw new Error(result.error || "Failed to save question set.");
             }
@@ -3328,7 +3340,7 @@ input[type="number"].score-input-invalid {
       })();
     </script>
   <link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script>
-  <script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/gradebookFlow.js') %>" defer></script>
+  <script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionMarks.js') %>" defer></script><script src="<%= assetUrl('/js/gradebookFlow.js') %>" defer></script>
 </body>
 </html>
 

@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Edit Student</title>
     <style>
       :root {
@@ -660,7 +660,7 @@
       .es-in-drawer .es-profile-summary { display: none; }
     </style>
     <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         let updateFormSubmitting = false;
 
         function setUpdateStudentSavingState(isSaving) {
@@ -673,22 +673,26 @@
         }
 
         function confirmUpdate(event) {
+            const form = event.target;
+            // The submit sent again after "Update" in the dialog goes straight through.
+            if (form.__updateOk) { form.__updateOk = false; return true; }
             if (updateFormSubmitting) {
               event.preventDefault();
               return false;
             }
-
-            if (!confirm("Are you sure you want to update this student? Please double-check all details before proceeding.")) {
-              event.preventDefault();
-              return false;
-            }
-
-            if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(event.target);
-            updateFormSubmitting = true;
-            setUpdateStudentSavingState(true);
-            return true;
+            event.preventDefault();
+            const sender = event.submitter || null;
+            window.appConfirm("Update this student? Check the details first.", { ok: 'Update' }).then(function (yes) {
+              if (!yes) return;
+              if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
+              updateFormSubmitting = true;
+              setUpdateStudentSavingState(true);
+              form.__updateOk = true;
+              if (form.requestSubmit) form.requestSubmit(sender || undefined); else form.submit();
+            });
+            return false;
         }
-        function confirmDelete(message) { return confirm(message); }
+        function confirmDelete(message) { return window.appConfirm(message); }
 
         function bindEditDobUnknownToggle() {
           const dobInput = document.getElementById('esDateOfBirth');
@@ -720,8 +724,8 @@
           menu.classList.remove('open');
         }
 
-        function submitDeleteStudent() {
-          if (!confirmDelete('Delete this student permanently?\n\nOnly a student added by mistake (with no scores, attendance, report cards or payments) can be deleted. To take a student off the register and keep their records, use Graduate & archive students and mark them as left.')) {
+        async function submitDeleteStudent() {
+          if (!await confirmDelete('Delete this student permanently?\n\nOnly a student added by mistake (with no scores, attendance, report cards or payments) can be deleted. To take a student off the register and keep their records, use Graduate & archive students and mark them as left.')) {
             return;
           }
           const form = document.getElementById('deleteStudentForm');
@@ -903,8 +907,8 @@
               return;
             }
 
-            const keepExistingSubjects = window.confirm(
-              'Do you want this student enrolled in the same subjects as before? Click OK for Yes or Cancel for No.'
+            const keepExistingSubjects = await window.appConfirm(
+              'Do you want this student enrolled in the same subjects as before?', { ok: 'Yes', cancel: 'No' }
             );
 
             await reloadSubjectsForClass(newClassId, keepExistingSubjects);
@@ -953,6 +957,7 @@
           bindEditDobUnknownToggle();
         });
     </script>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 <%- include('../partials/flash') %>
@@ -973,7 +978,7 @@
     }
   %>
 
-  <form action="/common/editStudent/<%= student.student_id %>" method="POST" enctype="multipart/form-data" onsubmit="confirmUpdate(event)">
+  <form action="/common/editStudent/<%= student.student_id %>" method="POST" enctype="multipart/form-data" data-onsubmit="common-editStudent.1">
     <input type="hidden" name="keepExistingSubjectsOnClassChange" id="esKeepExistingSubjectsOnClassChange" value="">
     <input type="hidden" name="returnClassId" value="<%= (typeof returnClassId !== 'undefined' && returnClassId) ? returnClassId : '' %>">
     <input type="hidden" name="returnTermId" value="<%= (typeof returnTermId !== 'undefined' && returnTermId) ? returnTermId : '' %>">
@@ -1156,7 +1161,7 @@
           </div>
         <% }); %>
       </div>
-      <button type="button" class="es-add-guardian-btn" onclick="addGuardian()">+ Add parent / guardian</button>
+      <button type="button" class="es-add-guardian-btn" data-onclick="common-editStudent.2">+ Add parent / guardian</button>
     </div>
 
     <!-- Actions -->
@@ -1167,16 +1172,17 @@
       </button>
 
       <div class="es-action-menu">
-        <button type="button" class="es-menu-toggle" onclick="toggleActionMenu()" aria-label="More actions">:</button>
+        <button type="button" class="es-menu-toggle" data-onclick="common-editStudent.3" aria-label="More actions">:</button>
         <div id="studentActionDropdown" class="es-action-dropdown">
-          <% if (workspaceAccess().students.canDelete) { %><button type="button" class="es-btn-danger" onclick="submitDeleteStudent()">Delete student</button><% } %>
+          <% if (workspaceAccess().students.canDelete) { %><button type="button" class="es-btn-danger" data-onclick="common-editStudent.4">Delete student</button><% } %>
         </div>
       </div>
     </div>
   </form>
 
   <form id="deleteStudentForm" action="/common/deleteStudent/<%= student.student_id %>" method="POST"></form>
-<form id="es-remove-photo" method="post" action="/common/deleteStudentImage/<%= student.student_id %>" onsubmit="return confirmDelete('Are you sure you want to delete this image?')" hidden></form>
+<form id="es-remove-photo" method="post" action="/common/deleteStudentImage/<%= student.student_id %>" data-onsubmit="common-editStudent.5" hidden></form>
 </div>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

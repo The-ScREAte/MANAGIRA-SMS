@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Help History</title>
     <style>
       :root {
@@ -118,7 +118,7 @@
             color: white;
         }
     </style>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         function toggleDetails(ticketId) {
             const details = document.getElementById(`details-${ticketId}`);
             const arrow = document.getElementById(`arrow-${ticketId}`);
@@ -133,18 +133,18 @@
 
         function confirmReopen(event, ticketId) {
             event.preventDefault();
-            if (confirm(`Are you sure you want to reopen ticket #${ticketId}?`)) {
-                event.target.submit();
-            }
+            const form = event.target;
+            const sender = event.submitter || null;
+            window.appConfirm(`Reopen ticket #${ticketId}?`, { ok: 'Reopen' }).then((yes) => { if (yes) form.submit(); });
         }
 
         function confirmDelete(event, ticketId) {
             event.preventDefault();
-            if (confirm(`Are you sure you want to delete ticket #${ticketId} permanently?`)) {
-                event.target.submit();
-            }
+            const form = event.target;
+            window.appConfirm(`Delete ticket #${ticketId} permanently?`, { ok: 'Delete', danger: true }).then((yes) => { if (yes) form.submit(); });
         }
     </script>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
     <div class="content-container">
@@ -160,7 +160,7 @@
             </thead>
             <tbody>
                 <% threads.filter(thread => thread.is_resolved).forEach(thread => { %>
-                    <tr class="ticket-summary" onclick="toggleDetails('<%= thread.thread_id %>')">
+                    <tr class="ticket-summary" data-onclick="admin-helpHistory.1" data-mga0="<%= thread.thread_id %>">
                         <td>#<%= thread.thread_id %> <span id="arrow-<%= thread.thread_id %>" class="arrow">▶</span></td>
                         <td class="status-closed">Closed</td>
                         <td><%= thread.name %></td>
@@ -187,11 +187,11 @@
                                 </div>
                                 <!-- Actions -->
                                 <div>
-                                    <form action="/admin/reopenThread" method="POST" onsubmit="confirmReopen(event, '<%= thread.thread_id %>')">
+                                    <form action="/admin/reopenThread" method="POST" data-onsubmit="admin-helpHistory.2" data-mga0="<%= thread.thread_id %>">
                                         <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
                                         <button type="submit" class="btn-reopen">Reopen</button>
                                     </form>
-                                    <form action="/admin/deleteThread" method="POST" onsubmit="confirmDelete(event, '<%= thread.thread_id %>')">
+                                    <form action="/admin/deleteThread" method="POST" data-onsubmit="admin-helpHistory.3" data-mga0="<%= thread.thread_id %>">
                                         <input type="hidden" name="threadId" value="<%= thread.thread_id %>">
                                         <button type="submit" class="btn-delete">Delete</button>
                                     </form>
@@ -205,3 +205,4 @@
     </div>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

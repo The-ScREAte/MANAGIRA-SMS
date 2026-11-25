@@ -37,7 +37,7 @@
   const emblemMark = (cls, prefix, attrs) => include('./emblemMark', { site, cls, prefix, attrs });
 %>
 <div class="sw-site sw-site--<%= L %><%= site.design && site.design !== L ? ' sw-site--' + site.design : '' %><%= EM ? ' sw-emblem sw-emblem--' + EM.kind + ' sw-emblem--' + EM.placement : '' %><%= site.wholePhotos ? ' sw-whole' : '' %>" data-sw-layout="<%= L %>" data-sw-design="<%= site.design || L %>"<%= String(S.name || '').length > 46 ? ' data-sw-name="xlong"' : String(S.name || '').length > 28 ? ' data-sw-name="long"' : '' %><%= site.motion ? ' data-sw-motion' : '' %><% if (emStyle) { %> style="<%= emStyle %>"<% } %>>
-<% if (site.motion) { %><script>
+<% if (site.motion) { %><script nonce="<%= locals.cspNonce || '' %>">
   // 3D designs: starting positions are set before the page first shows, so nothing jumps.
   // Nothing moves for visitors who ask their device for less motion, and if the motion
   // script can't load, everything is shown in place.
@@ -552,7 +552,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

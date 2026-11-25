@@ -370,7 +370,7 @@
           </ul>
         </div>
 
-        <form action="/account/accept-hub-invitation/<%= token %>" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+        <form action="/account/accept-hub-invitation/<%= token %>" method="POST" data-onsubmit="account-hubInvitation.1">
           <!-- Organization Setup -->
           <div class="form-section">
             <h3>Organization Setup</h3>
@@ -459,7 +459,7 @@
             <div class="password-requirements">
               <h4>Password Requirements:</h4>
               <ul>
-                <li>At least 8 characters long</li>
+                <li>At least 10 characters long</li>
                 <li>Include uppercase and lowercase letters</li>
                 <li>Include at least one number</li>
                 <li>Include at least one special character</li>
@@ -475,7 +475,7 @@
                   type="password"
                   id="admin_password"
                   name="admin_password"
-                  minlength="8"
+                  minlength="10"
                   required
                 />
               </div>
@@ -488,7 +488,7 @@
                   type="password"
                   id="confirm_password"
                   name="confirm_password"
-                  minlength="8"
+                  minlength="10"
                   required
                 />
               </div>
@@ -523,7 +523,7 @@
     </div>
 
     <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Live subdomain preview
       document.getElementById('organization_nickname').addEventListener('input', function(e) {
         let value = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -543,10 +543,10 @@
         }
 
         // Password strength validation
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/;
         if (!passwordRegex.test(password)) {
           e.preventDefault();
-          alert('Password must meet all requirements:\n- At least 8 characters\n- One uppercase letter\n- One lowercase letter\n- One number\n- One special character');
+          alert('Password must meet all requirements:\n- At least 10 characters\n- One uppercase letter\n- One lowercase letter\n- One number\n- One special character');
           return false;
         }
 
@@ -554,4 +554,4 @@
       });
     </script>
   </div>
-
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -72,7 +72,7 @@
             <% if (_can('settings.manage')) { %><a class="hub-btn hub-btn--sm" href="/hub/settings/hub" data-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a><% } %>
           </div>
           <div class="hub-who">
-            <span class="hub-who__avatar hub-who__avatar--logo hub-who__avatar--lg"><% if (_logo) { %><img src="<%= _logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (_hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+            <span class="hub-who__avatar hub-who__avatar--logo hub-who__avatar--lg"><% if (_logo) { %><img src="<%= _logo %>" alt="" data-onerror="hub-settings.1" /><% } else { %><%= (_hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
             <div style="min-width:0">
               <div class="hub-who__name"><%= _hub.hub_name %></div>
               <div class="hub-who__meta"><%= _hub.hub_nickname %>.managira.com</div>
@@ -241,3 +241,4 @@
 
 <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
 <script src="<%= assetUrl('/js/hub.js') %>"></script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

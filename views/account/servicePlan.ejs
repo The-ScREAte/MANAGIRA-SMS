@@ -4,7 +4,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Select a Service Plan</title>
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://managira.com/account/service-plan" />
@@ -359,7 +359,7 @@
 
       .period-card-price .period-price-strike {
         text-decoration: line-through;
-        color: #b0b7c3;
+        color: #6b7280;
         font-size: 11px;
       }
 
@@ -371,7 +371,7 @@
         font-size: 10px;
         font-weight: 700;
         background: rgba(13, 141, 93, 0.1);
-        color: #0d8d5d;
+        color: #076b46;
       }
 
       .period-card.active .period-card-badge {
@@ -733,9 +733,9 @@
       /* On the public site the page frame already leaves room under the header. */
       .lp-public-main .pricing-shell { padding-top: 4px !important; }
       .pricing-header { margin: 0 auto 26px !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; text-align: center; max-width: 640px; }
-      .pricing-eyebrow { margin: 0 0 8px !important; font-size: .78rem !important; font-weight: 700 !important; letter-spacing: .08em; text-transform: uppercase; color: #0f5a66 !important; }
+      .pricing-header .pricing-eyebrow { margin: 0 0 8px !important; font-size: .78rem !important; font-weight: 700 !important; letter-spacing: .08em; text-transform: uppercase; color: #0f5a66 !important; }
       .pricing-header h1 { margin: 0 0 10px !important; font-size: clamp(1.7rem, 3vw, 2.3rem) !important; font-weight: 800 !important; letter-spacing: -.02em; color: #0f172a !important; }
-      .pricing-header p { margin: 0 !important; font-size: 1rem !important; line-height: 1.6; color: #64748b !important; }
+      .pricing-header p { margin: 0 !important; font-size: 1rem !important; line-height: 1.6; color: #475569 !important; }
       .plan-grid { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap: 18px !important; align-items: stretch; }
       .plan-card { display: flex !important; flex-direction: column !important; padding: 24px 22px 22px !important; border: 1px solid #e3e8ee !important; border-radius: 18px !important; background: #fff !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important; cursor: pointer; overflow: visible !important; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
       .plan-card:hover { border-color: #c9dfe2 !important; box-shadow: 0 16px 34px -22px rgba(15, 23, 42, .35) !important; transform: translateY(-2px); }
@@ -787,7 +787,10 @@
         .period-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
       }
     </style>
-  </head>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+    <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
+</head>
 
   <body>
     <main class="pricing-shell">
@@ -929,7 +932,7 @@
         </div>
       </form>
     </main>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function initServicePlanPage() {
         const plans = document.querySelectorAll(".plan-card");
         const selectedPlanInput = document.getElementById("selectedPlan");

@@ -446,6 +446,14 @@
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   }
 
+  .term-selector .term-pick { display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+  .term-selector .term-pick select { flex: 1 1 auto; }
+  .term-selector .term-show {
+    flex: none; width: auto !important; height: 40px; margin: 0 !important; padding: 0 14px; border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.14); color: #ffffff;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .term-selector .term-show:hover { background: rgba(255, 255, 255, 0.24); }
   .term-selector select:focus,
   .term-selector select:focus-visible {
     outline: none;
@@ -1247,13 +1255,16 @@
         <form method="GET" action="/guardian/academic-details">
           <input type="hidden" name="studentId" value="<%= student.student_id %>" />
           <label for="termSelect">Academic Period</label>
-          <select name="termId" id="termSelect" onchange="this.form.submit()">
+          <div class="term-pick">
+          <select name="termId" id="termSelect">
             <% terms.forEach(term => { %>
               <option value="<%= term.term_id %>" <%= term.term_id == selectedTermId ? 'selected' : '' %>>
                 <%= term.term_name %><%= term.year_label ? ' - ' + term.year_label : '' %>
               </option>
             <% }) %>
           </select>
+          <button type="submit" class="term-show">Show</button>
+          </div>
         </form>
         <%# The class may keep report cards from parents (Class settings): then there's no button. %>
         <% if (_showReportCards) { %>
@@ -1439,7 +1450,7 @@
 </div>
 <% } %>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function() {
     const openBtn = document.getElementById('openReportCardsBtn');
     const termSelectEl = document.getElementById('termSelect');
@@ -1576,3 +1587,4 @@
     });
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

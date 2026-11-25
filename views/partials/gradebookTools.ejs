@@ -55,7 +55,7 @@
     <% }) %>
     <p class="gb-menu__note">Just for you; saved to your account.</p>
   </div>
-  <script type="application/json" id="gb-config"><%- JSON.stringify({
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="gb-config"><%- JSON.stringify({
     organizationId: Number(organizationId),
     termId: Number(currentTerm.term_id),
     schoolYearId: schoolYearIdForTerm ? Number(schoolYearIdForTerm) : null,

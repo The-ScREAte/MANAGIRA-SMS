@@ -407,7 +407,9 @@
       if (!w) return;
       w.classList.add('has-error');
       var p = w.querySelector('.cff-error');
-      if (p) { p.textContent = message; p.hidden = false; }
+      if (p) { p.textContent = message; p.hidden = false; if (!p.id) p.id = 'cff-err-' + fieldId; p.setAttribute('role', 'alert'); }
+      var inp = w.querySelector('input,select,textarea');
+      if (inp) { inp.setAttribute('aria-invalid', 'true'); if (p) inp.setAttribute('aria-describedby', p.id); }
     }
     function clearError(fieldId) {
       var w = container.querySelector('[data-field="' + fieldId + '"]');
@@ -415,6 +417,8 @@
       w.classList.remove('has-error');
       var p = w.querySelector('.cff-error');
       if (p) p.hidden = true;
+      var inp = w.querySelector('input,select,textarea');
+      if (inp) { inp.removeAttribute('aria-invalid'); inp.removeAttribute('aria-describedby'); }
     }
     apply();
     return {

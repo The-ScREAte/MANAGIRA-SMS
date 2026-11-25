@@ -68,6 +68,7 @@
   ];
 %><%- include('partials/top') %>
   <%- include('../partials/homeStructuredData') %>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="lp">
 <%- include('partials/header') %>

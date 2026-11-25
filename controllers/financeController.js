@@ -3960,7 +3960,7 @@ module.exports = {
         </tr>`).join("");
 
       const logoBlock = schoolLogoUrl
-        ? `<img src="${esc(schoolLogoUrl)}" alt="${esc(schoolName)}" class="school-logo" onerror="this.style.display='none'">`
+        ? `<img src="${esc(schoolLogoUrl)}" alt="${esc(schoolName)}" class="school-logo" data-onerror="misc.hide">`
         : `<div class="school-logo school-logo-fallback">${esc(schoolName.charAt(0).toUpperCase())}</div>`;
 
       res.send(`<!DOCTYPE html>
@@ -4029,7 +4029,7 @@ module.exports = {
       </div>
     </header>
     <div class="report-actions">
-      <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button type="button" class="btn btn-primary" data-onclick="misc.print">🖨️ Print / Save PDF</button>
       <a class="btn" href="/account/settings/finance/arrears/reports/${esc(report.report_id)}/download?format=csv">⬇️ Download CSV</a>
     </div>
     <section class="summary">
@@ -4057,7 +4057,7 @@ module.exports = {
     </div>
     <footer class="report-footer">
       <div class="powered">
-        <img src="/images/managira.png" alt="Managira" onerror="this.style.display='none'">
+        <img src="/images/managira.png" alt="Managira" data-onerror="misc.hide">
         <span>Powered by <span class="brand-name">Managira</span> — School Management, simplified.</span>
       </div>
       <div class="footer-note">
@@ -4065,6 +4065,7 @@ module.exports = {
       </div>
     </footer>
   </div>
+<script src="/js/mgActions.js"></script>
 </body>
 </html>`);
     } catch (error) {
@@ -5391,7 +5392,7 @@ module.exports = {
   </div>
   <div class="actions">
     <a class="primary" href="/account/settings/finance/signoffs/${signoff.signoff_id}/report?format=csv">Download CSV</a>
-    <a href="javascript:window.print()">Print</a>
+    <a href="#" data-noop data-onclick="misc.print">Print</a>
   </div>
   <div class="summary"><strong>Payments in this sign-off scope:</strong> ${paymentsResult.rows.length} row(s).</div>
   <table>
@@ -5406,6 +5407,7 @@ module.exports = {
   </table>
   </div>
   </div>
+<script src="/js/mgActions.js"></script>
 </body>
 </html>`);
     } catch (error) {

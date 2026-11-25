@@ -326,7 +326,7 @@
         %>
           <div class="mp-bill-card <%= isRecurring ? 'recurring' : '' %>"
                data-bill-id="<%= b.bill_id %>"
-               onclick="mpOpenBill(<%= b.bill_id %>)">
+               data-onclick="account-myPaygira.1" data-mga0="<%= b.bill_id %>">
             <% const _tag = isRecurring ? String(b.recurrence || 'recurring') : 'one-time'; %>
             <div class="bc-top">
               <div class="bc-title"><%= b.title %></div>
@@ -357,14 +357,14 @@
       <h2 id="mpDrawerTitle">Bill</h2>
       <div class="sub" id="mpDrawerSub"></div>
     </div>
-    <button class="mp-close-btn" type="button" onclick="mpCloseBill()" aria-label="Close">✕</button>
+    <button class="mp-close-btn" type="button" data-onclick="account-myPaygira.2" aria-label="Close">✕</button>
   </div>
   <div class="mp-occ-popup" id="mpOccPopup"></div>
   <div class="mp-drawer-body" id="mpDrawerBody"><!-- filled by JS --></div>
 </aside>
 
 <!-- JSON payload (parsed by JS) -->
-<script id="mpBillsData" type="application/json"><%-
+<script nonce="<%= locals.cspNonce || '' %>" id="mpBillsData" type="application/json"><%-
   JSON.stringify((bills || []).map(b => ({
     bill_id: b.bill_id,
     title: b.title,
@@ -436,7 +436,7 @@
         <div class="mp-field span2"><label>Notes</label><textarea name="notes" id="mpNotes" rows="1"></textarea></div>
       </div>
       <div class="mp-modal-actions">
-        <button type="button" class="mp-btn ghost" onclick="mpCloseCollect()">Cancel</button>
+        <button type="button" class="mp-btn ghost" data-onclick="account-myPaygira.3">Cancel</button>
         <button type="submit" class="mp-btn primary" id="mpCollectSubmit">Record payment</button>
       </div>
     </form>
@@ -483,7 +483,7 @@
       </div>
       <div class="mp-bulk-list" id="mpBulkList"></div>
       <div class="mp-modal-actions">
-        <button type="button" class="mp-btn ghost" onclick="mpCloseBulkCollect()">Cancel</button>
+        <button type="button" class="mp-btn ghost" data-onclick="account-myPaygira.4">Cancel</button>
         <button type="submit" class="mp-btn primary" id="mpBulkSubmit">Record selected payments</button>
       </div>
     </form>
@@ -514,7 +514,7 @@
         <div class="mp-field span2"><label>Password</label><input type="password" name="password" id="mpSignoffPassword" required placeholder="Confirm with your password"></div>
       </div>
       <div class="mp-modal-actions">
-        <button type="button" class="mp-btn ghost" onclick="mpCloseSignoff()">Cancel</button>
+        <button type="button" class="mp-btn ghost" data-onclick="account-myPaygira.5">Cancel</button>
         <button type="submit" class="mp-btn primary" id="mpSignoffSubmit">Sign off</button>
       </div>
     </form>
@@ -523,7 +523,7 @@
 
 <div class="mp-toast-stack" id="mpToastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function(){
     var clientDisplayPreferences = <%- JSON.stringify(displayPreferences || {}) %>;
     var _nameDisplayFormat = clientDisplayPreferences.nameDisplayFormat === 'last_first' ? 'last_first' : 'first_last';
@@ -1856,3 +1856,4 @@
     refreshDashboardStats();
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

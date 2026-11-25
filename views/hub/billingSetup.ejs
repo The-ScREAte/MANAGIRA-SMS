@@ -13,7 +13,7 @@
 <html lang="en" data-appearance="<%= _apLook %>">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <meta name="robots" content="noindex" />
   <title><%= _hub.hub_name ? `Payment for ${_hub.hub_name}` : 'Hub payment' %> · Managira</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -42,6 +42,7 @@
   <%# The person's look: Light, Classic or Dark (public/js/appearance.js). %>
   <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
   <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main class="card">

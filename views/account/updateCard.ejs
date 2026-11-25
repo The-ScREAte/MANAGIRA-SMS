@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Update Payment Method</title>
     <% const paystackUiEnabled = (typeof paystackEnabled !== 'undefined') ? Boolean(paystackEnabled) : false; %>
     <% if (paystackUiEnabled) { %>
@@ -495,6 +495,7 @@
         font-family: var(--font-family);
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <%- include('../partials/flash') %>
@@ -649,7 +650,7 @@
     <form id="paystack-form" class="form-box">
       <input type="hidden" name="id" id="ps-id" />
       <label>Payment Type
-        <select name="account_type" id="ps-type" required onchange="togglePaystackFields()">
+        <select name="account_type" id="ps-type" required data-onchange="account-updateCard.1">
           <option value="">-- Choose Option --</option>
           <option value="bank">Bank Account</option>
           <% if (paystackUiEnabled) { %>
@@ -665,7 +666,7 @@
       <div id="bank-fields" style="display: none;">
         <label>Account Number <input type="text" name="account_number" id="ps-account-number" placeholder="Use: 0000000000 for GTBank test" /></label>
         <label>Bank Code 
-          <select name="bank_code" id="ps-bank-code" onchange="updateBankName()">
+          <select name="bank_code" id="ps-bank-code" data-onchange="account-updateCard.2">
             <option value="">-- Select Bank --</option>
             <option value="057">Zenith Bank</option>
             <option value="058">Guaranty Trust Bank (GTBank)</option>
@@ -743,7 +744,7 @@
     </ul>
     
       
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".set-fw-primary").forEach((btn) => {
           btn.addEventListener("click", async () => {
@@ -918,7 +919,7 @@
         document.getElementById("delete-ps-account").onclick = async () => {
           const id = document.getElementById("ps-id").value;
           if (!id) return;
-          if (!confirm("Are you sure you want to delete this subaccount?")) return;
+          if (!await window.appConfirm("Are you sure you want to delete this subaccount?")) return;
           const res = await fetch(`/account/paystack/${id}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) location.reload();
@@ -927,7 +928,7 @@
       });
     </script>
     <% if (!isHubMember) { %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // ✅ Paystack card management
       const orgEmail = <%- JSON.stringify(orgEmail || "") %>;
       const orgPhone = <%- JSON.stringify(orgPhone || "") %>;
@@ -1388,7 +1389,7 @@
 
         const authorizationCode = event.target.getAttribute("data-id");
 
-        if (!confirm("Are you sure you want to remove this card?")) {
+        if (!await window.appConfirm("Are you sure you want to remove this card?")) {
           return;
         }
 
@@ -1418,3 +1419,4 @@
     </div> <!-- End main-content -->
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

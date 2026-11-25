@@ -1373,37 +1373,56 @@
     <%
       // Each student's row and phone card are built in the browser from this short list: a big
       // school's page used to be 30 MB of repeated markup, built on the server for every visit.
+      // To keep it short, what many students share (class names, year and term, the link's start) is
+      // sent once, and fields that are empty are left out: the browser puts each student back together.
+      const _asClasses = {};
+      const _asYears = [];
+      const _asYearIndex = new Map();
       const _asStudents = students.map((s) => {
         const studentDisplayName = s.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(s) : [s.first_name, s.last_name].filter(Boolean).join(' ').trim());
         const hasImage = !!(s.image_url && s.image_url !== 'profilePlaceholder.png');
-        return {
+        const out = {
           i: s.student_id,
           n: studentDisplayName,
           in: (s.first_name[0] || '') + (s.last_name[0] || ''),
-          h: `/common/studentDetails?studentId=${s.student_id}${termId ? '&termId='+termId : ''}${s.class_id ? '&classId='+s.class_id : ''}`,
-          g: (s.graduated === true || s.graduated === 'true') ? 1 : 0,
-          d: (studentIdSettings && studentIdSettings.use_custom_student_id) ? s.display_student_id : ('#' + s.display_student_id),
           sid: s.display_student_id || '',
-          ci: s.class_id || '',
-          cn: s.class_name || '',
           ge: s.gender || '',
           e: s.email || '',
-          pa: s.has_portal_access ? 1 : 0,
-          yi: s.last_school_year_id || '',
-          y: s.last_school_year || '',
-          yc: s.in_current_year ? 1 : 0,
-          tn: s.last_term_name || '',
-          tc: s.in_current_term ? 1 : 0,
-          ed: s.editable_student_id || '',
-          im: hasImage ? s.image_url : '',
-          iu: hasImage ? publicImageUrl(s.image_url) : '',
         };
+        if (s.graduated === true || s.graduated === 'true') out.g = 1;
+        if (s.has_portal_access) out.pa = 1;
+        if (s.class_id) { out.ci = s.class_id; _asClasses[s.class_id] = s.class_name || ''; }
+        if (s.editable_student_id) out.ed = s.editable_student_id;
+        if (hasImage) { out.im = s.image_url; out.iu = publicImageUrl(s.image_url); }
+        if (s.last_school_year_id || s.last_school_year || s.last_term_name) {
+          const yearKey = [s.last_school_year_id || '', s.last_school_year || '', s.in_current_year ? 1 : 0, s.last_term_name || '', s.in_current_term ? 1 : 0].join('|');
+          if (!_asYearIndex.has(yearKey)) { _asYearIndex.set(yearKey, _asYears.length); _asYears.push([s.last_school_year_id || '', s.last_school_year || '', s.in_current_year ? 1 : 0, s.last_term_name || '', s.in_current_term ? 1 : 0]); }
+          out.yk = _asYearIndex.get(yearKey);
+        }
+        return out;
       });
+      const _asShared = { term: (typeof termId !== 'undefined' && termId) ? termId : '', hash: (studentIdSettings && studentIdSettings.use_custom_student_id) ? '' : '#', classes: _asClasses, years: _asYears };
     %>
-    <script type="application/json" id="asStudentsData"><%- JSON.stringify({ portal: !!studentPortalIntegrationActive, reset: !!canSendStudentPortalRequest, current: (typeof currentTermRow !== 'undefined' && currentTermRow) ? { year: currentTermRow.year_label, term: currentTermRow.term_name } : null, students: _asStudents }).replace(/</g, '\\u003c') %></script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="asStudentsData"><%- JSON.stringify({ portal: !!studentPortalIntegrationActive, reset: !!canSendStudentPortalRequest, current: (typeof currentTermRow !== 'undefined' && currentTermRow) ? { year: currentTermRow.year_label, term: currentTermRow.term_name } : null, shared: _asShared, students: _asStudents }).replace(/</g, '\\u003c') %></script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
         var data = JSON.parse(document.getElementById('asStudentsData').textContent);
+        // Put each student back together from the short form (see the list's builder above).
+        (function () {
+          var k = data.shared || {};
+          data.students = data.students.map(function (s) {
+            var y = (k.years && s.yk != null && k.years[s.yk]) || ['', '', 0, '', 0];
+            var ci = s.ci || '';
+            return {
+              i: s.i, n: s.n, 'in': s['in'], sid: s.sid, ge: s.ge, e: s.e,
+              g: s.g ? 1 : 0, pa: s.pa ? 1 : 0, ci: ci, cn: ci ? ((k.classes && k.classes[ci]) || '') : '',
+              d: (k.hash || '') + s.sid,
+              h: '/common/studentDetails?studentId=' + s.i + (k.term ? '&termId=' + k.term : '') + (ci ? '&classId=' + ci : ''),
+              yi: y[0], y: y[1], yc: y[2], tn: y[3], tc: y[4],
+              ed: s.ed || '', im: s.im || '', iu: s.iu || ''
+            };
+          });
+        })();
         var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&#34;', "'": '&#39;' }[c]; }); };
         var lower = function (v) { return String(v || '').toLowerCase(); };
         var ICON_VIEW = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
@@ -1689,7 +1708,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   'use strict';
 
@@ -2124,7 +2143,7 @@
   }
 
   if (bulkPortalBtn) {
-    bulkPortalBtn.addEventListener('click', function() {
+    bulkPortalBtn.addEventListener('click', async function() {
       if (!selectedIds.size) {
         window.alert('Select at least one student first.');
         return;
@@ -2166,7 +2185,7 @@
         confirmText += '\n\n' + skipNotes.join('\n');
       }
       confirmText += '\n\nDo you want to continue?';
-      if (!window.confirm(confirmText)) return;
+      if (!await window.appConfirm(confirmText)) return;
 
       var previousHtml = bulkPortalBtn.innerHTML;
       bulkPortalBtn.disabled = true;
@@ -2268,7 +2287,7 @@
   }
 
   function askSubjectCarryoverPreference(targetLabel) {
-    return window.confirm('Do you want ' + targetLabel + ' enrolled in the same subjects as before? Click OK for Yes or Cancel for No.');
+    return window.appConfirm('Do you want ' + targetLabel + ' enrolled in the same subjects as before?', { ok: 'Yes', cancel: 'No' });
   }
 
   function describeSubjectCarryoverChoice(keepExistingSubjects) {
@@ -2350,7 +2369,7 @@
   function closeModal() {
     asLift(overlay, false); _sid=_row=_card=null;
   }
-  function showStep2() {
+  async function showStep2() {
     var newClassId = modalSelect.value || '';
     var newClassName = newClassId ? modalSelect.options[modalSelect.selectedIndex].text : '—';
     var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
@@ -2377,7 +2396,7 @@
       modalMsg.textContent='This student ID is already in use.'; modalMsg.className='as-modal-msg error'; return;
     }
     if (hasClassChange && _carryExistingSubjectsClassId !== newClassId) {
-      _carryExistingSubjects = askSubjectCarryoverPreference('this student');
+      _carryExistingSubjects = await askSubjectCarryoverPreference('this student');
       _carryExistingSubjectsClassId = newClassId;
     }
 
@@ -2485,7 +2504,7 @@
       setPageBusy(false);
     });
   });
-  function requestStudentPasswordReset(button) {
+  async function requestStudentPasswordReset(button) {
     if (!button) return;
     var studentId = button.dataset.studentId;
     var studentName = button.dataset.studentName || 'this student';
@@ -2500,7 +2519,7 @@
       window.alert(studentName + ' already has portal access. No email was sent.');
       return;
     }
-    if (!window.confirm('Send student portal password setup/reset email to ' + studentName + '?')) {
+    if (!await window.appConfirm('Send student portal password setup/reset email to ' + studentName + '?')) {
       return;
     }
 
@@ -2912,7 +2931,7 @@
   }
   function closeBulkModal() { asLift(bulkOverlay, false); }
 
-  function showBulkStep2() {
+  async function showBulkStep2() {
     var hasClass = chkClass.checked && selClass.value;
     var hasYear  = chkYear.checked  && selYear.value;
     var hasEmail = !!(chkEmail && chkEmail.checked);
@@ -2994,7 +3013,7 @@
       }
     }
     if (hasClass && bulkKeepExistingSubjectsClassId !== selClass.value) {
-      bulkKeepExistingSubjects = askSubjectCarryoverPreference('these students');
+      bulkKeepExistingSubjects = await askSubjectCarryoverPreference('these students');
       bulkKeepExistingSubjectsClassId = selClass.value;
     }
     var n = selectedIds.size;

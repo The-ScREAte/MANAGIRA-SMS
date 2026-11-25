@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <title>Report and Transcript Delivery History | Managira</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -571,6 +571,7 @@
             }
         }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
     <div class="page-wrap">
@@ -692,7 +693,7 @@
     <script src="/js/embedPopupLift.js" defer></script>
     <script src="/js/reportPanelLift.js" defer></script>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         const organizationId = '<%= organizationId %>';
         const defaultClassId = '<%= classId || "" %>';
         const defaultTermId = '<%= termId || "" %>';
@@ -994,7 +995,7 @@
             const payload = encodeURIComponent(JSON.stringify({
                 classId: row.class_id, termId: row.term_id, studentId: row.student_id, channel, recipient,
             }));
-            return `<button class="tiny-btn" onclick="resendGuardianMessage('${payload}')">Resend</button>`;
+            return `<button class="tiny-btn" data-onclick="print-emailHistory.resend" data-mga0="${payload}">Resend</button>`;
         }
 
         async function resendGuardianMessage(encodedPayload) {
@@ -1035,14 +1036,14 @@
                     : '<span class="pill">PDF pending</span>';
 
                 const retryButton = String(row.status || '').toLowerCase() === 'failed' && String(row.source_type || '') === 'email_history' && Number.isFinite(Number(row.id))
-                    ? `<button class="tiny-btn retry" onclick="retryEmail(${Number(row.id)})">Retry</button>`
+                    ? `<button class="tiny-btn retry" data-onclick="print-emailHistory.retry" data-mga0="${Number(row.id)}">Retry</button>`
                     : '';
                 const resendButton = buildResendButton(row);
 
                 const isBatchGroup = row.isBatchGroup === true;
                 const encodedGroupToken = encodeURIComponent(String(row.group_token || ''));
                 const batchDetailBtn = isBatchGroup
-                    ? `<button class="tiny-btn" onclick="openBatchDetailsModal(decodeURIComponent('${encodedGroupToken}'))">View ${Number(row.batchCount || 0)} results</button>`
+                    ? `<button class="tiny-btn" data-onclick="print-emailHistory.batch" data-mga0="${encodedGroupToken}">View ${Number(row.batchCount || 0)} results</button>`
                     : '';
 
                 const errorHtml = row.error_message ? `<div class="error-msg">${escapeHtml(row.error_message)}</div>` : '';
@@ -1100,7 +1101,7 @@
                 const recipientsList = Array.isArray(row.recipient_emails) ? row.recipient_emails : [];
                 const recipients = recipientsList.length ? recipientsList.join(', ') : '-';
                 const retryButton = String(row.status || '').toLowerCase() === 'failed' && String(row.source_type || '') === 'email_history' && Number.isFinite(Number(row.id))
-                    ? `<button class="tiny-btn retry" onclick="retryEmail(${Number(row.id)})">Retry</button>`
+                    ? `<button class="tiny-btn retry" data-onclick="print-emailHistory.retry" data-mga0="${Number(row.id)}">Retry</button>`
                     : '';
                 const reportButton = row.report_pdf_url
                     ? `<a class="tiny-btn" href="${escapeHtml(row.report_pdf_url)}" target="_blank" rel="noopener">Open PDF</a>`
@@ -1108,7 +1109,7 @@
                 const isBatchGroup = row.isBatchGroup === true;
                 const encodedGroupToken = encodeURIComponent(String(row.group_token || ''));
                 const detailButton = isBatchGroup
-                    ? `<button class="tiny-btn" onclick="openBatchDetailsModal(decodeURIComponent('${encodedGroupToken}'))">View ${Number(row.batchCount || 0)} results</button>`
+                    ? `<button class="tiny-btn" data-onclick="print-emailHistory.batch" data-mga0="${encodedGroupToken}">View ${Number(row.batchCount || 0)} results</button>`
                     : '';
                 const resendButtonMobile = buildResendButton(row);
 
@@ -1175,7 +1176,7 @@
         }
 
         async function retryEmail(emailId) {
-            if (!confirm('Retry sending this email now?')) return;
+            if (!await window.appConfirm('Retry sending this email now?')) return;
 
             try {
                 const response = await fetch('/print/retryEmail', {
@@ -1265,5 +1266,6 @@
             await loadHistory();
         })();
     </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>
 </body>
 </html>

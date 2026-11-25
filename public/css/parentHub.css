@@ -1,14 +1,14 @@
 /* The parent's student tiles, schoolwork pages and family calendar. */
-.ph { box-sizing: border-box; width: 100%; max-width: 1240px; margin: 0 auto; padding: 20px 24px 56px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; text-align: left; }
+.ph { box-sizing: border-box; width: 100%; max-width: 1240px; margin: 0 auto; padding: 20px 24px 56px; color: #0f172a; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; text-align: left; }
 .ph *, .ph *::before, .ph *::after { box-sizing: border-box; }
 .ph-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 12px; color: #667085; font-size: 13px; font-weight: 600; text-decoration: none; }
 .ph-back::before { content: "‹"; font-size: 18px; line-height: 1; }
-.ph .ph-title { margin: 0 0 12px; padding: 0; color: inherit; font-size: 1.25rem; font-weight: 700; line-height: 1.3; text-align: left; }
+.ph .ph-title { margin: 0 0 12px; padding: 0; color: inherit; font-size: 1.375rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; text-align: left; }
 .ph-sub { margin: -8px 0 14px; color: #667085; font-size: 13px; }
 .ph-child { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ph-child__img { flex: none; width: 56px; height: 56px; border: 2px solid var(--org-primary-color, #01535b); border-radius: 50%; object-fit: cover; }
 .ph-child > div { min-width: 0; }
-.ph .ph-child h1 { margin: 0; padding: 0; color: inherit; font-size: 1.15rem; font-weight: 700; line-height: 1.3; text-align: left; }
+.ph .ph-child h1 { margin: 0; padding: 0; color: inherit; font-size: 1.375rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; text-align: left; }
 .ph-child p { margin: 2px 0 0; color: #667085; font-size: 13px; }
 
 .ph-week { display: grid; gap: 0; }

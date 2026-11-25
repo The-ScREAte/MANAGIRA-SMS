@@ -42,7 +42,7 @@
   <% }); %>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   if (window.__managiraFlashInitialized) return;
   window.__managiraFlashInitialized = true;

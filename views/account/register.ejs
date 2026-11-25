@@ -23,7 +23,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Register Your Organization</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
@@ -613,6 +613,9 @@
       .register-card .terms-group label { font-size: .86rem !important; }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <div class="page-wrapper">
@@ -623,7 +626,7 @@
         <p class="register-sub">It takes about five minutes. You'll add classes, students and staff after this.</p>
       </div>
 
-      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" data-human-check="register" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
+      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" data-human-check="register" data-onsubmit="account-register.1">
         <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
         <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
         <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
@@ -719,7 +722,7 @@
           .subdomain-preview.is-invalid strong { color: #7f1d1d; }
         </style>
 
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           (function () {
             // Mirror utils/orgNicknameSlug.js#slugifyNickname exactly.
             function slugifyNickname(input) {
@@ -843,8 +846,8 @@
           <div class="form-group" style="margin-bottom: 10px;">
             <label class="form-label" for="password">Password</label>
             <div class="password-input-wrapper">
-              <input type="password" name="password" id="password" class="form-input" placeholder="Create a password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
-              <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+              <input type="password" name="password" id="password" class="form-input" placeholder="Create a password" required data-oninput="account-register.2" value="<%= formData?.password || '' %>">
+              <button type="button" class="password-toggle-btn" data-onclick="account-register.3" aria-label="Show passwords">
                 <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
                 </svg>
@@ -888,7 +891,7 @@
   </div>
 
   <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const REGISTER_DRAFT_KEY = 'managira:register:draft:v1';
     const REGISTER_DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
     const EYE_OPEN_PATH = "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z";
@@ -1008,13 +1011,13 @@
     function checkPasswordStrength(password) {
       const strengthText = document.getElementById("password-strength");
       // Each requirement ticks itself off as it's met.
-      const rules = { length: /.{8,}/, upper: /[A-Z]/, lower: /[a-z]/, number: /\d/, symbol: /[!@#$%^&*]/ };
+      const rules = { length: /.{10,}/, upper: /[A-Z]/, lower: /[a-z]/, number: /\d/, symbol: /[!@#$%^&*]/ };
       document.querySelectorAll('.password-requirements [data-rule]').forEach(function (li) {
         li.classList.toggle('is-met', rules[li.getAttribute('data-rule')].test(password || ''));
       });
-      const weak = /.{8,}/;
-      const medium = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
-      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+      const weak = /.{10,}/;
+      const medium = /^(?=.*[A-Za-z])(?=.*\d).{10,}$/;
+      const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{10,}$/;
       if (!strengthText) return;
       if (strong.test(password)) {
         strengthText.textContent = 'Strong password';
@@ -1078,8 +1081,8 @@
       if (formEl) {
         formEl.addEventListener("submit", function (event) {
           if (passwordInput && confirmPasswordInput) {
-            if (passwordInput.value.length < 8) {
-              alert('⚠️ Password must be at least 8 characters long.');
+            if (passwordInput.value.length < 10) {
+              alert('⚠️ Password must be at least 10 characters long.');
               event.preventDefault();
             } else if (passwordInput.value !== confirmPasswordInput.value) {
               alert('⚠️ Passwords do not match.');
@@ -1103,3 +1106,4 @@
   <script src="<%= assetUrl('/js/humanCheck.js') %>" defer></script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -32,7 +32,7 @@ const websiteMediaUpload = multer({
   }),
   limits: { fileSize: VIDEO_MAX_MB * 1024 * 1024, files: 20 },
   fileFilter: (req, file, cb) => {
-    if (isImage(file) || isVideo(file)) return cb(null, true);
+    if ((isImage(file) || isVideo(file)) && require("./uploadSafety").isAllowedFile(file, ["image", "video"])) return cb(null, true);
     const error = new multer.MulterError("LIMIT_UNEXPECTED_FILE", file.fieldname);
     error.message = "Only photos and videos can be added to the website.";
     error.blockedType = true;

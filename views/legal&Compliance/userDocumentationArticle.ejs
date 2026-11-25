@@ -3,7 +3,7 @@
 <html lang="en" data-appearance="<%= _apLook %>">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title><%= title %></title>
   <meta name="description" content="<%= description %>">
   <style>
@@ -23,7 +23,7 @@
   <meta name="twitter:description" content="<%= description %>">
   <% if (typeof selectedArticle !== 'undefined' && selectedArticle && selectedArticle.updatedAt) { %><meta property="article:modified_time" content="<%= new Date(selectedArticle.updatedAt).toISOString() %>"><% } %>
   <% if (structuredData) { %>
-  <script type="application/ld+json"><%- typeof structuredData === 'string' ? structuredData : JSON.stringify(structuredData).replace(/</g, '\\u003c') %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json"><%- typeof structuredData === 'string' ? structuredData : JSON.stringify(structuredData).replace(/</g, '\\u003c') %></script>
   <% } %>
   <style>
     :root {
@@ -1185,6 +1185,7 @@
   <%# The person's look: Light, Classic or Dark (public/js/appearance.js). %>
   <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
   <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
 
@@ -1567,7 +1568,7 @@
 </div>
 <% } %>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   const KNOWLEDGE = <%- JSON.stringify(typeof helpKnowledge !== 'undefined' ? helpKnowledge : []) %>;
   const DOCS = <%- JSON.stringify(typeof documentationSearchResources !== 'undefined' ? documentationSearchResources : []) %>;
@@ -2013,7 +2014,7 @@
       const id      = btn.dataset.id;
       const current = btn.dataset.currentStatus;
       const next    = current === 'draft' ? 'active' : 'draft';
-      if (!confirm('Change status to "' + (next === 'active' ? 'Published' : 'Draft') + '"?')) return;
+      if (!await window.appConfirm('Change status to "' + (next === 'active' ? 'Published' : 'Draft') + '"?')) return;
       btn.disabled = true;
       try {
         const res  = await fetch('/legal/user-documentation/api/articles/' + id + '/status', {
@@ -2034,7 +2035,7 @@
     btn.addEventListener('click', async function () {
       const id    = btn.dataset.id;
       const title = btn.dataset.title;
-      if (!confirm('Permanently delete "' + title + '"? This cannot be undone.')) return;
+      if (!await window.appConfirm('Permanently delete "' + title + '"? This cannot be undone.')) return;
       btn.disabled = true;
       try {
         const res  = await fetch('/legal/user-documentation/api/articles/' + id + '/delete', {

@@ -124,7 +124,7 @@
     <% if (_b.ownClasses.length) { %><p class="cset-card__sub" style="padding:10px 20px 0;">Own choices: <%= _b.ownClasses.join(', ') %> (change in each class's Class settings).</p><% } %>
     <div class="cset-card__foot"><button type="submit" class="cset-save" data-brief-save>Save</button></div>
   </form>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var f = document.getElementById('cset-brief-form'); if (!f) return;
     var msg = f.querySelector('[data-brief-msg]'), btn = f.querySelector('[data-brief-save]');
@@ -141,6 +141,6 @@
 
   <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true }) %>
 </div>
-<script type="application/json" data-cs-state><%- JSON.stringify(_state).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" data-cs-state><%- JSON.stringify(_state).replace(/</g, '\\u003c') %></script>
 <script src="<%= assetUrl('/js/classSettings.js') %>" defer></script>
 <script src="<%= assetUrl('/js/classNotices.js') %>" defer></script>

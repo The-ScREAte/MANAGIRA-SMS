@@ -469,7 +469,7 @@
 </style>
 
 <% if (_hasDashboard) { %>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Apply hidden dashboard sections before they paint (saved per person in this browser).
   (function () {
     try {
@@ -666,7 +666,7 @@
 <%# Only for people who manage service accounts: anyone else would be sent back to this page, drawing it twice. %>
 <% if (_perm('settings_service_accounts')) { %>
 <div id="apiUsageDashBanner" hidden></div>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Managers: warn when the school's integrations are near today's API allowance.
   (function () {
     const host = document.getElementById('apiUsageDashBanner');
@@ -772,7 +772,7 @@
             <div class="od-pager" data-od-pager></div>
             <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
             <script src="<%= assetUrl('/js/listPager.js') %>"></script>
-            <script>
+            <script nonce="<%= locals.cspNonce || '' %>">
               // The class list shows a page at a time (Rows per page: 10 to 200), like every long list.
               (function () {
                 var host = document.querySelector('[data-od-pager]'); if (!host || !window.ManagiraPager) return;
@@ -1120,8 +1120,8 @@
                           </span>
                         </div>
                       </div>
-                      <button type="button" class="od-task__act od-task__reply" data-thread-toggle aria-label="Reply to <%= t.title %>">
-                        <i class="fa-regular fa-comment" aria-hidden="true"></i><span class="od-task__reply-count" data-comment-count><%= Number(t.comment_count) || 0 %></span>
+                      <button type="button" class="od-task__act od-task__reply" data-thread-toggle>
+                        <i class="fa-regular fa-comment" aria-hidden="true"></i><span class="sr-only">Reply to <%= t.title %>, comments</span><span class="od-task__reply-count" data-comment-count><%= Number(t.comment_count) || 0 %></span>
                       </button>
                     </div>
                   </li>
@@ -1240,7 +1240,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const root = document.querySelector('[data-od]');
     const tools = document.querySelector('[data-od-tools]');

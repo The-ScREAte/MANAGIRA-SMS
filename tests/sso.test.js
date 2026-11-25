@@ -199,7 +199,7 @@ test("after the email, the login page says how that person signs in", async () =
 test("the login page shows the school's sign-in without scripts too", async () => {
   const ejs = require("ejs");
   const file = path.join(__dirname, "../views/account/login.ejs");
-  const render = (locals) => ejs.renderFile(file, { messages: {}, email: "t@school.org", ...locals });
+  const render = (locals) => ejs.renderFile(file, { messages: {}, email: "t@school.org", assetUrl: (name) => name, ...locals }) // assetUrl is the app's own helper (app.locals);
   const sso = { name: "Okta <IT>", protocol: "SAML", start: `/account/sso/start/${"b".repeat(24)}` };
   const only = await render({ step: "sso", sso, passwordToo: false });
   assert.match(only, new RegExp(`<form id="ssoForm" method="post" action="${sso.start}"`));

@@ -166,7 +166,7 @@
         })
         .catch(function () { say('That didn\u2019t work. Try again.'); });
     }
-    root.addEventListener('click', function (event) {
+    root.addEventListener('click', async function (event) {
       if (event.target.closest('[data-sync-open]')) { openSheet(); return; }
       if (event.target.closest('[data-sync-close]') || event.target.matches('[data-sync]')) { root.querySelector('[data-sync]').hidden = true; return; }
       if (event.target.closest('[data-sync-copy]')) {
@@ -176,7 +176,7 @@
         return;
       }
       if (event.target.closest('[data-sync-reset]')) {
-        if (!window.confirm('Make a new link? Calendars using the old link stop updating until you add the new one.')) return;
+        if (!await window.appConfirm('Make a new link? Calendars using the old link stop updating until you add the new one.')) return;
         fetch(base + '/sync/reset', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
           .then(function (res) { return res.json(); })
           .then(function (result) {

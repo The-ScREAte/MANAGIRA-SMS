@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title>Assessment Question Sets</title>
   <style>
   /* The questions page: a quiet header, one small Filters button after New questions. */
@@ -18,6 +18,8 @@
   .ws-filters--simple [data-simple-hide], .ws-filters--simple [data-class-hide] { display: none; }
   .ws-filters__pop .filter-actions { margin-top: 14px; }
   .top-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; overflow: visible !important; }
+  .top-bar-actions #all-class-set-questions { height: 38px; padding: 0 16px; border: 1px solid var(--org-primary-color, #01535b); border-radius: 9px; background: var(--org-primary-color, #01535b); color: #fff; font-size: .86rem; font-weight: 600; }
+  .top-bar-actions #all-class-set-questions:hover { filter: brightness(.94); }
   .qm-review-setting--foot { margin: 26px 0 0; opacity: .8; font-size: .8rem; }
   .subject-group-head { margin-bottom: 6px; }
 
@@ -1600,6 +1602,7 @@
       border-radius: 999px;
       white-space: nowrap;
     }
+    .qm-question-count.is-marks-off { background: #fffbeb; color: #b45309; }
 
     .qm-question-header-actions {
       display: inline-flex;
@@ -2644,7 +2647,6 @@
     }
 
     @media (min-width: 1200px) {
-      body { font-size: 16.8px; }
       .top-bar h1 { font-size: 1.34rem; }
       .btn {
         font-size: 0.9rem;
@@ -2681,7 +2683,6 @@
     }
 
     @media (min-width: 1500px) {
-      body { font-size: 17.4px; }
       .top-bar h1 { font-size: 1.42rem; }
       .btn { font-size: 0.96rem; }
       .section-title { font-size: 1.04rem; }
@@ -2896,30 +2897,62 @@
       .qm-grid-2 { grid-template-columns: 1fr; }
     }
 
-    /* Final global scaling pass: larger desktop text, smaller mobile text */
-    @media (min-width: 992px) {
-      html { font-size: 112.5%; }
-      body {
-        font-size: 0.96rem !important;
-        line-height: 1.45;
-      }
-    }
 
-    @media (max-width: 768px) {
-      html { font-size: 90.625%; }
-      body {
-        font-size: 0.86rem !important;
-        line-height: 1.32;
-      }
-    }
+    /* One look for every pop-up drawer on this page: Review, Reuse, Edit, Preview and Mark. Same header, colours and buttons. */
+    body .students-modal-overlay, body .reuse-modal-overlay, body .qm-preview-overlay, body .grade-modal-overlay { align-items: stretch; justify-content: flex-end; padding: 0; background: rgba(10, 20, 30, 0.55); }
+    body .students-modal-overlay.show { display: flex; }
+    body .students-modal { width: min(760px, 100vw); max-width: 100%; height: 100%; max-height: 100%; padding: 0; gap: 0; border: 0; border-radius: 0; background: #fff; box-shadow: -8px 0 40px rgba(0,0,0,0.18); animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1); display: flex; flex-direction: column; overflow: hidden; }
+    .dr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 12px 18px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .dr-head__text { min-width: 0; }
+    .dr-head__title { margin: 0; color: #0f172a; font-size: 16px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dr-head__sub { margin: 2px 0 0; color: #64748b; font-size: 12.5px; line-height: 1.3; }
+    .dr-head__actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .dr-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin: 0; padding: 0; border: 1.5px solid #8ea3b6; border-radius: 9px; background: transparent; color: #334155; cursor: pointer; }
+    .dr-icon-btn:hover { background: rgba(100, 116, 139, .14); }
+    .dr-menu { position: relative; }
+    .dr-menu__pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 150px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, .16); }
+    .dr-menu__pop[hidden] { display: none; }
+    .dr-menu__item { display: block; width: 100%; margin: 0; padding: 8px 10px; border: 0; border-radius: 7px; background: none; color: #0f172a; font: inherit; font-size: 13.5px; font-weight: 500; text-align: left; cursor: pointer; }
+    .dr-menu__item:hover { background: #f1f5f9; }
+    .dr-menu__item:disabled { color: #94a3b8; cursor: default; background: none; }
+    .dr-menu__item.is-danger { color: #b42318; }
+    .dr-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .dr-muted { margin: 0; color: #64748b; font-size: 12.5px; }
+    .dr-quiet-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .dr-quiet { height: 32px; margin: 0; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #334155; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+    .dr-quiet:hover { background: #f8fafc; border-color: #94a3b8; }
+    .dr-quiet:disabled { opacity: .55; cursor: default; }
+    .students-toolbar { justify-content: space-between !important; }
+    .students-toolbar .students-status { margin: 0; color: #64748b; font-size: 12.5px; }
+    .students-table-wrap { border: 1px solid #e2e8f0; border-radius: 10px; overflow: auto; }
+    .students-table th { background: #f8fafc; color: #475569; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+    .students-table td { font-size: 14px; }
+    .students-col-act { width: 44px; }
+    .student-row-menu { position: relative; display: inline-block; }
+    .student-row-menu .dr-menu__pop { right: 0; }
+    .student-row-menu .dr-icon-btn { width: 30px; height: 30px; border-width: 1px; border-color: #cbd5e1; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
-    @media (max-width: 480px) {
-      html { font-size: 84.375%; }
-      body {
-        font-size: 0.82rem !important;
-        line-height: 1.3;
-      }
-    }
+    body .reuse-modal { padding: 0; background: #fff; }
+    body .reuse-modal .reuse-modal-x { position: static; }
+    .reuse-modal .dr-head__sub:empty { display: none; }
+    .dr-quiet { width: auto; }
+    /* Edit / Create / Preview / Mark drawers: the same bar as Review and Reuse. */
+    body .qm-topbar { padding: 12px 18px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    body .qm-topbar-icon { display: none; }
+    body .qm-topbar-title { font-size: 16px; font-weight: 600; color: #0f172a; letter-spacing: 0; }
+    body .qm-close-btn { width: 34px; height: 34px; border: 1.5px solid #8ea3b6; border-radius: 9px; background: transparent; color: #334155; }
+    body .qm-close-btn:hover { background: rgba(100, 116, 139, .14); }
+    body .question-modal { background: #f8fafc; }
+
+    body .qm-preview-topbar, body .grade-modal-header { padding: 12px 18px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    body .qm-preview-title, body .grade-modal-title { margin: 0; font-size: 16px; font-weight: 600; color: #0f172a; }
+    body .grade-modal-subtitle { color: #64748b; font-size: 12.5px; }
+    body .qm-preview-close, body .grade-modal-x { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 1.5px solid #8ea3b6; border-radius: 9px; background: transparent; color: #334155; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+    body .qm-preview-close:hover, body .grade-modal-x:hover { background: rgba(100, 116, 139, .14); }
+    body .qm-preview-print { height: 34px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #334155; font-size: 13.5px; font-weight: 600; }
+    body .qm-preview-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+    body .qm-preview-topbar { gap: 12px; }
   </style>
   <style>
     /* The assessments flow: each set is one slim row across the page. */
@@ -2939,13 +2972,14 @@
 <style>
   .qh { flex: 1 1 auto; min-width: 0; text-align: left; }
   .qh, .qh__title, .qh__sub { text-align: left !important; }
-  .qh__title { margin: 0; font-size: 1.35rem; font-weight: 700; color: #0f172a; letter-spacing: -.01em; }
+  .qh__title { margin: 0; font-size: 22px; font-weight: 700; color: #0f172a; letter-spacing: -.01em; }
   .qh__sub { margin: 4px 0 0; color: #64748b; font-size: .92rem; line-height: 1.45; max-width: 60ch; }
   .top-bar:has(.qh) { align-items: flex-start; gap: 14px; flex-wrap: wrap; }
   .top-bar:has(.qh) .btn { display: inline-flex; align-items: center; justify-content: center; width: auto; height: 38px; margin: 0; padding: 0 18px; border: 1px solid var(--org-primary-color, #01535b); border-radius: 9px; background: var(--org-primary-color, #01535b); color: #fff; font: inherit; font-size: .9rem; font-weight: 600; box-shadow: none; }
   .top-bar:has(.qh) .btn:hover { filter: brightness(1.08); }
-  @media (max-width: 640px) { .qh__title { font-size: 1.2rem; } .top-bar:has(.qh) .top-bar-actions { width: 100%; } .top-bar:has(.qh) .btn { flex: 1; } }
+  @media (max-width: 640px) { .top-bar:has(.qh) .top-bar-actions { width: 100%; } .top-bar:has(.qh) .btn { flex: 1; } }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="page-wrap">
@@ -3101,7 +3135,7 @@
       }
     %>
     <% if (!questionSets || !questionSets.length) { %>
-      <div class="empty-state"><%= typeof toMarkOnly !== "undefined" && toMarkOnly ? "Nothing to review." : "No question sets are available for this term." %></div>
+      <div class="empty-state"><%= typeof toMarkOnly !== "undefined" && toMarkOnly ? "Marked automatically. Nothing to review." : "No question sets are available for this term." %><% if (typeof toMarkOnly !== "undefined" && toMarkOnly && locals.toMarkSummary) { %><br><span class="dr-muted">Average <%= toMarkSummary.average %> / <%= toMarkSummary.outOf %> · <%= toMarkSummary.submitted %> submitted</span><% } %></div>
     <% } else { %>
       <% const classSetMap = new Map(); %>
       <% questionSets.forEach(function(setItem) { %>
@@ -3198,8 +3232,13 @@
                   }
                   return title;
                 })(); %>
-                <strong><%= (typeof toMarkOnly !== 'undefined' && toMarkOnly && setItem.assessment_title) ? setItem.assessment_title : _plainTitle %></strong>
-                <span class="exam-assess" title="The assessment these questions belong to">Assessment: <%= setItem.assessment_title || 'not linked' %></span>
+                <% const _shownTitle = (typeof toMarkOnly !== 'undefined' && toMarkOnly && setItem.assessment_title) ? setItem.assessment_title : _plainTitle;
+                   const _same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+                   const _aT = String(setItem.assessment_title || '').trim().toLowerCase();
+                   const _nearSame = (t) => { const x = String(t || '').trim().toLowerCase(); return Boolean(_aT) && (x === _aT || (x.startsWith(_aT) && /^\s*[-·:]?\s*(questions?|question set|set|test)?\s*$/.test(x.slice(_aT.length)))); };
+                   const _dupAssess = setItem.assessment_title && (_same(setItem.assessment_title, _shownTitle) || _same(setItem.assessment_title, setItem.set_title) || _nearSame(_shownTitle) || _nearSame(setItem.set_title)); %>
+                <strong><%= _shownTitle %></strong>
+                <% if (!_dupAssess) { %><span class="exam-assess" title="The assessment these questions belong to">Assessment: <%= setItem.assessment_title || 'not linked' %></span><% } %>
               </div>
               <div class="exam-meta-row">
                 <div class="exam-meta-line">
@@ -3317,6 +3356,19 @@
                       data-term-id="<%= termId %>"
                       data-school-year-id="<%= selectedSchoolYearId %>"
                     >Edit</a>
+                    <% if (locals.rubricAvailable) { %>
+                    <a
+                      href="#"
+                      class="set-action-link edit-set-btn"
+                      data-open-rubric="1"
+                      data-question-set-id="<%= setItem.question_set_id %>"
+                      data-assessment-id="<%= setItem.assessment_id %>"
+                      data-class-id="<%= setItem.class_id %>"
+                      data-subject-id="<%= setItem.subject_id %>"
+                      data-term-id="<%= termId %>"
+                      data-school-year-id="<%= selectedSchoolYearId %>"
+                    >Rubric</a>
+                    <% } %>
                     <a
                       href="#"
                       class="set-action-link reuse-set-btn"
@@ -3347,12 +3399,6 @@
         <% }); %>
       </div>
       <div class="empty-state" id="question-set-filter-empty" hidden>No question sets match the current filters.</div>
-    <% } %>
-    <% if (reviewRole === 'manager') { %>
-      <label class="qm-review-setting qm-review-setting--foot" title="Off: a saved test is available to students at once. On: a manager or supervisor approves it first.">
-        <input type="checkbox" id="reviewSettingBox" <%= typeof reviewRequired !== 'undefined' && reviewRequired ? 'checked' : '' %>>
-        <span>Review tests before students see them</span>
-      </label>
     <% } %>
 
   </div>
@@ -3525,10 +3571,16 @@
 
   <div class="reuse-modal-overlay" id="reuse-modal-overlay" aria-hidden="true">
     <div class="reuse-modal" role="dialog" aria-modal="true" aria-labelledby="reuse-modal-title">
-      <button type="button" class="reuse-modal-x" id="reuse-modal-x" aria-label="Close" title="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <h3 class="reuse-modal-title" id="reuse-modal-title">Reuse</h3>
-      <p class="reuse-source" id="reuse-source-summary"></p>
-
+      <div class="dr-head">
+        <div class="dr-head__text">
+          <h3 class="dr-head__title reuse-modal-title" id="reuse-modal-title">Reuse</h3>
+          <p class="dr-head__sub reuse-source" id="reuse-source-summary"></p>
+        </div>
+        <div class="dr-head__actions">
+          <button type="button" class="dr-icon-btn reuse-modal-x" id="reuse-modal-x" aria-label="Close" title="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+      <div class="dr-body">
       <div class="reuse-modal-grid">
         <div class="field-group">
           <label for="reuse-school-year">School year</label>
@@ -3572,59 +3624,63 @@
         <button type="button" class="btn btn-outline" id="reuse-cancel-btn">Cancel</button>
       </div>
       <p class="status-text" id="reuse-status"></p>
+      </div>
     </div>
   </div>
 
   <div class="students-modal-overlay" id="students-modal-overlay" aria-hidden="true">
     <div class="students-modal" role="dialog" aria-modal="true" aria-labelledby="students-modal-title">
-      <div class="students-modal-header">
-        <div>
-          <h3 class="students-modal-title" id="students-modal-title">Students</h3>
-          <p class="students-modal-subtitle" id="students-modal-subtitle"></p>
+      <div class="dr-head">
+        <div class="dr-head__text">
+          <h3 class="dr-head__title" id="students-modal-title">Review</h3>
+          <p class="dr-head__sub" id="students-modal-subtitle"></p>
         </div>
-        <button type="button" class="students-modal-close" id="students-modal-close" aria-label="Close students modal" title="Close">×</button>
-      </div>
-
-      <div class="students-summary" id="students-summary"></div>
-
-      <div class="students-toolbar">
-        <p class="students-status" id="students-status"></p>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <button type="button" class="btn btn-outline" id="students-unlock-all-btn">Unlock all</button>
-          <button type="button" class="post-grades-btn is-on" id="students-bq-btn" title="Mark one written question for everyone who handed in">Mark by question</button>
-          <button type="button" class="post-grades-btn is-on" id="students-remark-btn" title="Fixed a wrong answer key? Mark one question again for everyone who handed in.">Fix an answer</button>
-          <span class="students-share-line" id="students-share-line"></span>
-          <button type="button" class="post-grades-btn" id="students-post-scores-toggle" title="Post these grades to families">Post grades</button>
+        <div class="dr-head__actions">
+          <div class="dr-menu" id="students-header-menu">
+            <button type="button" class="dr-icon-btn" id="students-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="More" title="More"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+            <div class="dr-menu__pop" role="menu" hidden>
+              <button type="button" class="dr-menu__item" role="menuitem" id="students-unlock-all-btn">Unlock all</button>
+            </div>
+          </div>
+          <button type="button" class="dr-icon-btn" id="students-modal-close" aria-label="Close" title="Close"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
       </div>
 
-      <div class="students-remark" id="students-remark-panel" hidden>
-        <select id="students-remark-question" aria-label="Question"></select>
-        <input type="text" id="students-remark-key" placeholder="Right answer" aria-label="Right answer">
-        <button type="button" class="post-grades-btn" id="students-remark-go">Mark again for everyone</button>
-        <span class="students-share-line" id="students-remark-status" role="status"></span>
-      </div>
+      <div class="dr-body">
+        <p class="dr-muted" id="students-summary"></p>
 
-      <div class="students-table-wrap">
-        <table class="students-table" aria-describedby="students-modal-subtitle">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Finished</th>
-              <th>Score</th>
-              <th>Locked</th>
-              <th>Grade</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="students-table-body">
-            <tr>
-              <td colspan="8" class="student-subtle">Select a question set to load students.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="students-toolbar">
+          <p class="students-status" id="students-status"></p>
+          <div class="dr-quiet-row">
+            <button type="button" class="dr-quiet" id="students-bq-btn" title="Mark one written question for everyone who handed in">Mark by question</button>
+            <button type="button" class="dr-quiet" id="students-remark-btn" title="Fixed a wrong answer key? Mark one question again for everyone who handed in.">Fix an answer</button>
+          </div>
+        </div>
+
+        <div class="students-remark" id="students-remark-panel" hidden>
+          <select id="students-remark-question" aria-label="Question"></select>
+          <input type="text" id="students-remark-key" placeholder="Right answer" aria-label="Right answer">
+          <button type="button" class="dr-quiet" id="students-remark-go">Mark again for everyone</button>
+          <span class="dr-muted" id="students-remark-status" role="status"></span>
+        </div>
+
+        <div class="students-table-wrap">
+          <table class="students-table" aria-describedby="students-modal-subtitle">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th class="students-col-act"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="students-table-body">
+              <tr>
+                <td colspan="4" class="student-subtle">Loading students.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -3684,7 +3740,7 @@
     </div>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       var schoolYears = <%- JSON.stringify(schoolYears || []) %>;
       var termClassSubjects = <%- JSON.stringify(termClassSubjects || []) %>;
@@ -3950,8 +4006,14 @@
         qmPreviewEditButton.style.display = isVisible ? 'inline-flex' : 'none';
       }
 
+      function closeStudentMenus() {
+        document.querySelectorAll('#students-modal-overlay .dr-menu__pop').forEach(function (pop) { pop.hidden = true; });
+        document.querySelectorAll('#students-modal-overlay [aria-haspopup="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+      }
+
       function closeStudentsModal() {
         if (!studentsModalOverlay) return;
+        closeStudentMenus();
         studentsModalOverlay.classList.remove('show');
         studentsModalOverlay.setAttribute('aria-hidden', 'true');
       }
@@ -3994,11 +4056,7 @@
         var totalStudents = Number(summary.totalStudents || 0);
         var completedCount = Number(summary.completedCount || 0);
         var unlockedCount = Number(summary.unlockedCount || 0);
-        studentsSummary.innerHTML = [
-          '<span class="exam-pill">Total: ' + totalStudents + '</span>',
-          '<span class="exam-pill">Finished or locked: ' + completedCount + '</span>',
-          '<span class="exam-pill">Open: ' + unlockedCount + '</span>'
-        ].join('');
+        studentsSummary.textContent = totalStudents + ' student' + (totalStudents === 1 ? '' : 's') + ' · ' + completedCount + ' finished or locked · ' + unlockedCount + ' open';
       }
 
       function renderStudentsRows(payload) {
@@ -4006,27 +4064,22 @@
 
         var rows = Array.isArray(payload && payload.students) ? payload.students : [];
         if (!rows.length) {
-          studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">No eligible students found for this class and term.</td></tr>';
+          studentsTableBody.innerHTML = '<tr><td colspan="4" class="student-subtle">No eligible students found for this class and term.</td></tr>';
           return;
         }
 
         var markup = rows.map(function (student) {
           var statusLabel = mapAttemptStatusLabel(student.attemptStatus);
-          if (student.attemptStatus === 'submitted') {
-            statusLabel += student.isPosted ? ' (Posted)' : ' (Pending post)';
-          }
-          var startedLabel = formatAttemptTime(student.startedAt);
-          var finishedLabel = formatAttemptTime(student.submittedAt);
+          if (student.isLocked) statusLabel += ' · Locked';
           var scoreLabel = (student.score !== null && student.score !== undefined)
             ? (String(student.score) + (student.maxScore !== null && student.maxScore !== undefined ? (' / ' + String(student.maxScore)) : ''))
             : '-';
           var isLocked = Boolean(student.isLocked);
-          var lockLabel = isLocked ? 'Locked' : 'Open';
           var actionLabel = isLocked ? 'Unlock' : 'Lock';
           var actionType = isLocked ? 'unlock' : 'lock';
-          var actionDisabled = false;
-          var actionDisabledAttr = actionDisabled ? ' disabled="disabled" aria-disabled="true"' : '';
-          var actionDisabledClass = actionDisabled ? ' is-disabled' : '';
+          var items = [];
+          if (student.attemptId) items.push('<button type="button" class="dr-menu__item student-grade-btn" role="menuitem" data-attempt-id="' + escapeHtml(String(student.attemptId)) + '">Review answers</button>');
+          items.push('<button type="button" class="dr-menu__item student-lock-toggle-btn" role="menuitem" data-student-id="' + escapeHtml(String(student.studentId || '')) + '" data-action="' + actionType + '">' + actionLabel + '</button>');
           return [
             '<tr>',
             '  <td>',
@@ -4034,26 +4087,28 @@
             '    <div class="student-subtle">ID: ' + escapeHtml(String(student.studentId || '-')) + '</div>',
             '  </td>',
             '  <td>' + escapeHtml(statusLabel) + '</td>',
-            '  <td class="time-cell">' + escapeHtml(startedLabel) + '</td>',
-            '  <td class="time-cell">' + escapeHtml(finishedLabel) + '</td>',
             '  <td>' + escapeHtml(scoreLabel) + '</td>',
-            '  <td>' + escapeHtml(lockLabel) + '</td>',
-            '  <td>',
-            (student.attemptId
-              ? '    <button type="button" class="btn btn-secondary student-grade-btn" data-attempt-id="' + escapeHtml(String(student.attemptId)) + '">Grade</button>'
-              : '    <span class="student-subtle">-</span>'),
-            '  </td>',
-            '  <td>',
-            '    <button type="button" class="btn btn-secondary student-lock-toggle-btn' + actionDisabledClass + '" data-student-id="' + escapeHtml(String(student.studentId || '')) + '" data-action="' + escapeHtml(actionType) + '"' + actionDisabledAttr + '>' + escapeHtml(actionLabel) + '</button>',
-            '  </td>',
+            '  <td class="students-col-act"><div class="student-row-menu dr-menu"><button type="button" class="dr-icon-btn student-row-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Actions for ' + escapeHtml(formatStudentName(student)) + '" title="Actions"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button><div class="dr-menu__pop" role="menu" hidden>' + items.join('') + '</div></div></td>',
             '</tr>'
           ].join('');
         }).join('');
 
         studentsTableBody.innerHTML = markup;
 
+        studentsTableBody.querySelectorAll('.student-row-menu-btn').forEach(function (menuBtn) {
+          menuBtn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            var pop = menuBtn.parentNode.querySelector('.dr-menu__pop');
+            var willOpen = pop.hidden;
+            closeStudentMenus();
+            pop.hidden = !willOpen;
+            menuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          });
+        });
+
         studentsTableBody.querySelectorAll('.student-grade-btn').forEach(function (button) {
           button.addEventListener('click', function () {
+            closeStudentMenus();
             var attemptId = Number(button.getAttribute('data-attempt-id') || 0);
             if (attemptId) openGradeDrawer(attemptId);
           });
@@ -4062,6 +4117,7 @@
         studentsTableBody.querySelectorAll('.student-lock-toggle-btn').forEach(function (button) {
           button.addEventListener('click', async function () {
             if (button.classList.contains('is-disabled')) return;
+            closeStudentMenus();
             var targetStudentId = Number(button.getAttribute('data-student-id') || 0);
             var action = String(button.getAttribute('data-action') || '');
             if (!targetStudentId || !activeStudentsQuestionSetId) return;
@@ -4069,7 +4125,7 @@
             var originalLabel = button.textContent;
 
             if (action === 'lock') {
-              var lockApproved = window.confirm('Lock this student\'s current attempt now? They will stop seeing the assessment until it is unlocked again.');
+              var lockApproved = await window.appConfirm('Lock this student\'s current attempt now? They will stop seeing the assessment until it is unlocked again.');
               if (!lockApproved) return;
 
               button.disabled = true;
@@ -4108,10 +4164,10 @@
 
             if (action !== 'unlock') return;
 
-            var approved = window.confirm('Let this student take the test again? Their answers and their mark for this test are deleted, including a grade already posted.');
+            var approved = await window.appConfirm('Let this student take the test again? Their answers and their mark for this test are deleted, including a grade already posted.');
             if (!approved) return;
 
-            var reshuffleQuestions = window.confirm('Shuffle the order of the questions for the new try? OK shuffles them. Cancel keeps the same order (the student is still unlocked).');
+            var reshuffleQuestions = await window.appConfirm('Shuffle the order of the questions for the new try?', { ok: 'Shuffle', cancel: 'Keep order' });
 
             button.disabled = true;
             button.textContent = 'Unlocking...';
@@ -4236,6 +4292,7 @@
         gmEl('gmAnswer').textContent = a.text;
         gmEl('gmMarks').value = a.marked ? a.marks : '';
         gmEl('gmMarks').max = a.outOf;
+        gmEl('gmMarks').placeholder = 'out of ' + a.outOf;
         gmShowRubric(a);
         gmEl('gmPos').textContent = (gm.at + 1) + ' of ' + gm.answers.length + ' · ' + gmLeft() + ' to review';
         gmEl('gmPrev').disabled = gm.at === 0;
@@ -4596,7 +4653,7 @@
         activeStudentsQuestionSetId = Number(questionSetId);
         latestStudentsPayload = null;
         if (studentsTableBody) {
-          studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">Loading students...</td></tr>';
+          studentsTableBody.innerHTML = '<tr><td colspan="4" class="student-subtle">Loading students...</td></tr>';
         }
         setStudentsStatus('Loading students...', false);
 
@@ -5274,9 +5331,11 @@
         if (counter && count) {
           var totalMarks = Array.prototype.reduce.call(document.querySelectorAll('#question-items .question-marks'), function (sum, el) { return sum + (Number(el.value) || 0); }, 0);
           var outOf = typeof selectedAssessmentRule !== 'undefined' && selectedAssessmentRule ? Number(selectedAssessmentRule.maxScore) || 0 : 0;
-          counter.textContent += ' · ' + totalMarks + (outOf ? ' of ' + outOf : '') + ' marks';
-          counter.title = outOf && totalMarks < outOf
-            ? 'The gradebook gets the marks a student earns, not a share of ' + outOf + '. Make the marks add up to ' + outOf + ' if the test is marked out of ' + outOf + '.'
+          counter.textContent += ' · ' + totalMarks + (outOf ? ' / ' + outOf : '') + ' marks';
+          var marksOff = Boolean(outOf) && Math.abs(totalMarks - outOf) >= 0.005;
+          counter.classList.toggle('is-marks-off', marksOff);
+          counter.title = marksOff
+            ? 'Questions add up to ' + totalMarks + ', but the test is out of ' + outOf + '. Marks count as they are, they are not scaled.'
             : '';
         }
       }
@@ -6588,8 +6647,14 @@
 
         wrapper.querySelector('.question-remove').addEventListener('click', function () {
           if (hasTypedQuestionContent(wrapper)) {
-            var confirmed = window.confirm('This question has typed content. Remove it?');
-            if (!confirmed) return;
+            window.appConfirm('This question has typed content. Remove it?', { ok: 'Remove' }).then(function (confirmed) {
+              if (!confirmed) return;
+              wrapper.remove();
+              renumberQuestionCards();
+              updateQuestionCount();
+              saveDraft();
+            });
+            return;
           }
           wrapper.remove();
           renumberQuestionCards();
@@ -7594,6 +7659,22 @@
               termId: Number(button.getAttribute('data-term-id') || 0),
               schoolYearId: Number(button.getAttribute('data-school-year-id') || 0),
             });
+            if (button.getAttribute('data-open-rubric')) {
+              // Rubric: the editor opens with each written question's rubric showing.
+              var tries = 0;
+              var timer = setInterval(function () {
+                tries += 1;
+                var toggles = Array.prototype.slice.call(document.querySelectorAll('#question-modal-overlay .qr-toggle'));
+                if (toggles.length) {
+                  clearInterval(timer);
+                  toggles.forEach(function (t) { if (t.getAttribute('aria-expanded') !== 'true') t.click(); });
+                  toggles[0].scrollIntoView({ block: 'center' });
+                } else if (tries > 20) {
+                  clearInterval(timer);
+                  setQuestionStatus('This set has no written questions to add a rubric to.', true);
+                }
+              }, 250);
+            }
           } catch (error) {
             setQuestionStatus(error.message || 'Failed to open question set editor.', true);
           }
@@ -7614,7 +7695,7 @@
             await loadStudentsForQuestionSet(questionSetId);
           } catch (error) {
             if (studentsTableBody) {
-              studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">Failed to load students.</td></tr>';
+              studentsTableBody.innerHTML = '<tr><td colspan="4" class="student-subtle">Failed to load students.</td></tr>';
             }
             setStudentsStatus(error.message || 'Failed to load students.', true);
           }
@@ -7660,11 +7741,11 @@
 
           if (isCurrentlyOn) {
             if (postedCount <= 0) return;
-            var confirmedUnpost = window.confirm('Take back ' + postedCount + ' grade(s)? Families will stop seeing them until you post again.');
+            var confirmedUnpost = await window.appConfirm('Take back ' + postedCount + ' grade(s)? Families will stop seeing them until you post again.');
             if (!confirmedUnpost) return;
           } else {
             if (pendingCount <= 0) return;
-            var confirmedPost = window.confirm('Post ' + pendingCount + ' grade(s)? ' + shareLine(wrap.getAttribute('data-share') || ''));
+            var confirmedPost = await window.appConfirm('Post ' + pendingCount + ' grade(s)? ' + shareLine(wrap.getAttribute('data-share') || ''));
             if (!confirmedPost) return;
           }
 
@@ -7709,13 +7790,27 @@
         studentsModalClose.addEventListener('click', closeStudentsModal);
       }
 
-      if (studentsModalOverlay) {
-        studentsModalOverlay.addEventListener('click', function (event) {
-          if (event.target === studentsModalOverlay) {
-            closeStudentsModal();
-          }
+      var studentsMenuBtn = document.getElementById('students-menu-btn');
+      if (studentsMenuBtn) {
+        studentsMenuBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          var pop = studentsMenuBtn.parentNode.querySelector('.dr-menu__pop');
+          var willOpen = pop.hidden;
+          closeStudentMenus();
+          pop.hidden = !willOpen;
+          studentsMenuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         });
       }
+      if (studentsModalOverlay) {
+        studentsModalOverlay.addEventListener('click', function () { closeStudentMenus(); });
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape' || !studentsModalOverlay || !studentsModalOverlay.classList.contains('show')) return;
+        var gm = document.getElementById('gradeModalOverlay');
+        if (gm && gm.classList.contains('is-open')) return;
+        var open = studentsModalOverlay.querySelector('.dr-menu__pop:not([hidden])');
+        if (open) closeStudentMenus(); else closeStudentsModal();
+      });
 
       if (studentsUnlockAllButton) {
         studentsUnlockAllButton.addEventListener('click', async function () {
@@ -7727,7 +7822,7 @@
             return;
           }
 
-          var confirmed = window.confirm('Let every student who has finished take this test again? All their answers and marks for it are deleted, including grades already posted. This cannot be undone.');
+          var confirmed = await window.appConfirm('Let every student who has finished take this test again? All their answers and marks for it are deleted, including grades already posted. This cannot be undone.');
           if (!confirmed) return;
 
           var originalLabel = studentsUnlockAllButton.textContent;
@@ -7803,7 +7898,7 @@
         });
         go.addEventListener('click', async function () {
           if (!pick.value) return;
-          if (!window.confirm('Mark this question again for everyone who handed in? Changed grades go back to waiting until you post them.')) return;
+          if (!await window.appConfirm('Mark this question again for everyone who handed in? Changed grades go back to waiting until you post them.')) return;
           go.disabled = true;
           status.textContent = 'Marking…';
           try {
@@ -7858,7 +7953,7 @@
               setStudentsStatus('No posted scores to unpost.', true);
               return;
             }
-            var confirmedUnpost = window.confirm('Take back ' + state.postedCount + ' grade(s)? Families will stop seeing them until you post again.');
+            var confirmedUnpost = await window.appConfirm('Take back ' + state.postedCount + ' grade(s)? Families will stop seeing them until you post again.');
             if (!confirmedUnpost) return;
 
             studentsPostScoresToggle.disabled = true;
@@ -7888,7 +7983,7 @@
             return;
           }
 
-          var confirmed = window.confirm('Post ' + state.pendingCount + ' grade(s)? ' + shareLine(latestStudentsPayload && latestStudentsPayload.summary ? latestStudentsPayload.summary.parentShare : ''));
+          var confirmed = await window.appConfirm('Post ' + state.pendingCount + ' grade(s)? ' + shareLine(latestStudentsPayload && latestStudentsPayload.summary ? latestStudentsPayload.summary.parentShare : ''));
           if (!confirmed) return;
 
           studentsPostScoresToggle.disabled = true;
@@ -8202,17 +8297,12 @@
             return;
           }
 
-          var totalMarks = questions.reduce(function (sum, item) { return sum + Number(item.marks || 0); }, 0);
-          if (Number(totalMarks) > Number(selectedRule.maxScore || 0)) {
-            setQuestionStatus('Total question marks (' + totalMarks + ') cannot exceed assessment max score (' + selectedRule.maxScore + ').', true);
-            return;
-          }
-
+          // Marks that don't add up to the test's "out of" are asked about when saving (public/js/questionMarks.js).
           var hasInvalidMarks = questions.some(function (item) {
-            return Number(item.marks || 0) <= 0 || Number(item.marks || 0) > Number(selectedRule.maxScore || 0);
+            return !(Number(item.marks || 0) > 0);
           });
           if (hasInvalidMarks) {
-            setQuestionStatus('Each question mark must be between 1 and ' + selectedRule.maxScore + '.', true);
+            setQuestionStatus('Each question needs marks above 0.', true);
             return;
           }
 
@@ -8242,16 +8332,20 @@
           setQuestionStatus('Saving question set...', false);
           setSaveButtonLoading('Saving...');
           try {
-            var response = await fetch('/common/assessment/questions/upsert', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-              },
-              body: JSON.stringify(payload),
-            });
-
-            var result = await response.json();
+            var saved = window.QuestionMarks
+              ? await window.QuestionMarks.post('/common/assessment/questions/upsert', payload)
+              : await fetch('/common/assessment/questions/upsert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(payload),
+              }).then(function (r) { return r.json().then(function (j) { return { response: r, result: j }; }); });
+            if (saved.cancelled) {
+              setQuestionStatus('', false);
+              renderSaveButtonIdle();
+              return;
+            }
+            var response = saved.response;
+            var result = saved.result;
             if (!response.ok || !result.success) {
               throw new Error(result.error || 'Failed to save question set.');
             }
@@ -8352,7 +8446,7 @@
           var setTitle = String(button.getAttribute('data-set-title') || 'this question set').trim();
           if (!questionSetId) return;
 
-          var confirmed = window.confirm('Delete "' + setTitle + '"? This will permanently remove all questions in the set.');
+          var confirmed = await window.appConfirm('Delete "' + setTitle + '"? This will permanently remove all questions in the set.');
           if (!confirmed) return;
 
           button.classList.add('is-disabled');
@@ -8445,24 +8539,28 @@
           setReuseStatus('Reusing question set...', false);
 
           try {
-            var response = await fetch('/common/assessment/questions/reuse', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-              },
-              body: JSON.stringify({
-                sourceQuestionSetId: activeSourceQuestionSetId,
-                targetTermId: targetTermId,
-                targetClassId: targetClassId,
-                targetSubjectId: targetSubjectId,
-                targetAssessmentTitle: assessmentTitle,
-                shuffleMode: shuffleMode,
-                shuffleOptions: shouldShuffleOptions ? 'true' : 'false',
-              }),
-            });
-
-            var result = await response.json();
+            var reusePayload = {
+              sourceQuestionSetId: activeSourceQuestionSetId,
+              targetTermId: targetTermId,
+              targetClassId: targetClassId,
+              targetSubjectId: targetSubjectId,
+              targetAssessmentTitle: assessmentTitle,
+              shuffleMode: shuffleMode,
+              shuffleOptions: shouldShuffleOptions ? 'true' : 'false',
+            };
+            var reused = window.QuestionMarks
+              ? await window.QuestionMarks.post('/common/assessment/questions/reuse', reusePayload)
+              : await fetch('/common/assessment/questions/reuse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(reusePayload),
+              }).then(function (r) { return r.json().then(function (j) { return { response: r, result: j }; }); });
+            if (reused.cancelled) {
+              setReuseStatus('', false);
+              return;
+            }
+            var response = reused.response;
+            var result = reused.result;
             if (!response.ok || !result.success) {
               throw new Error(result.error || 'Failed to reuse question set.');
             }
@@ -8562,9 +8660,9 @@
     })();
   </script>
 <%# Resources & recommendations and help on each question: setResources.js takes the place of the older parent-only box. %>
-<link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><link rel="stylesheet" href="<%= assetUrl('/css/questionRubric.css') %>" /><script>window.QuestionRubricConfig = { on: <%= locals.rubricAvailable ? 'true' : 'false' %> };</script><script src="<%= assetUrl('/js/questionRubric.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><link rel="stylesheet" href="<%= assetUrl('/css/questionRubric.css') %>" /><script nonce="<%= locals.cspNonce || '' %>">window.QuestionRubricConfig = { on: <%= locals.rubricAvailable ? 'true' : 'false' %> };</script><script src="<%= assetUrl('/js/questionRubric.js') %>" defer></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script>
-<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionMarks.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
 </body>
 </html>
 

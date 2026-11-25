@@ -1389,7 +1389,7 @@
 
 <%- include('../partials/adminDrawer') %>
 <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (() => {
     const adminAnnouncementDrawer = ManagiraDrawer.create({
       id: 'adminAnnouncement',
@@ -1429,7 +1429,7 @@
     });
     document.querySelectorAll('[data-bc-delete]').forEach(function (button) {
       button.addEventListener('click', async function () {
-        if (!confirm('Delete this announcement? People will stop seeing it.')) return;
+        if (!await window.appConfirm('Delete this announcement? People will stop seeing it.')) return;
         button.disabled = true;
         const res = await fetch('/admin/broadcasts/' + button.getAttribute('data-bc-delete') + '/delete', { method: 'POST', credentials: 'same-origin' });
         if (res.ok) window.location.reload(); else { button.disabled = false; alert('Could not delete the announcement.'); }
@@ -1441,7 +1441,7 @@
     });
   })();
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (() => {
     const campaignsEndpoint = '/admin/announcements/email-campaigns';
     const recipientsEndpoint = '/admin/announcements/email-recipients';
@@ -1900,7 +1900,7 @@
       }
 
       if (action === 'delete') {
-        if (!window.confirm('Delete this automated email?')) return;
+        if (!await window.appConfirm('Delete this automated email?')) return;
         try {
           const result = await fetchJson(`${campaignsEndpoint}/${campaignId}`, { method: 'DELETE' });
           campaigns = result.campaigns || [];
@@ -2015,9 +2015,9 @@
   })();
 </script>
 
-<script type="application/json" id="la-data"><%- JSON.stringify(loginAdList.map((ad) => ({ id: ad.id, title: ad.title, media_type: ad.media_type, file_url: ad.media_type === 'image' ? publicImageUrl(ad.file_url, { public: true }) : ad.file_url, media_width: ad.media_width, media_height: ad.media_height, link_url: ad.link_url, link_label: ad.link_label, show_as_button: ad.show_as_button, button_x: ad.button_x, button_y: ad.button_y, button_color: ad.button_color, button_text_color: ad.button_text_color, button_size: ad.button_size, is_active: ad.is_active, show_on_login: ad.show_on_login, show_in_app: ad.show_in_app, app_position: ad.app_position, app_frequency: ad.app_frequency, app_max_views: ad.app_max_views, app_roles: ad.app_roles, starts_at: ad.starts_at, ends_at: ad.ends_at }))).replace(/</g, '\\u003c') %></script>
+<script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="la-data"><%- JSON.stringify(loginAdList.map((ad) => ({ id: ad.id, title: ad.title, media_type: ad.media_type, file_url: ad.media_type === 'image' ? publicImageUrl(ad.file_url, { public: true }) : ad.file_url, media_width: ad.media_width, media_height: ad.media_height, link_url: ad.link_url, link_label: ad.link_label, show_as_button: ad.show_as_button, button_x: ad.button_x, button_y: ad.button_y, button_color: ad.button_color, button_text_color: ad.button_text_color, button_size: ad.button_size, is_active: ad.is_active, show_on_login: ad.show_on_login, show_in_app: ad.show_in_app, app_position: ad.app_position, app_frequency: ad.app_frequency, app_max_views: ad.app_max_views, app_roles: ad.app_roles, starts_at: ad.starts_at, ends_at: ad.ends_at }))).replace(/</g, '\\u003c') %></script>
 <script src="<%= assetUrl('/js/loginAds.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (() => {
     const ads = JSON.parse(document.getElementById('la-data').textContent || '[]');
     const byId = new Map(ads.map((ad) => [String(ad.id), ad]));
@@ -2369,9 +2369,9 @@
         post('/admin/announcements/ads/' + id, body).then(() => window.location.reload())
           .catch((err) => { b.disabled = false; alert(err.message); });
       });
-      card.querySelector('[data-la-delete]').addEventListener('click', (e) => {
+      card.querySelector('[data-la-delete]').addEventListener('click', async (e) => {
         const b = e.currentTarget;
-        if (!confirm('Delete this ad? It will be removed from the login page.')) return;
+        if (!await window.appConfirm('Delete this ad? It will be removed from the login page.')) return;
         b.disabled = true;
         post('/admin/announcements/ads/' + id + '/delete').then(() => window.location.reload())
           .catch((err) => { b.disabled = false; alert(err.message); });

@@ -27,7 +27,7 @@
   /* A switch: a real checkbox, so the form works without scripts. */
   .wb-switch { position: relative; display: inline-flex; width: 26px; height: 15px; cursor: pointer; }
   .wb-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
-  .wb-switch span { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background-color .15s ease; pointer-events: none; }
+  .wb-switch span { position: absolute; inset: 0; border-radius: 999px; background: #7890b2; transition: background-color .15s ease; pointer-events: none; }
   .wb-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .25); transition: transform .15s ease; }
   .wb-switch input:checked + span { background: var(--ws-brand); }
   .wb-switch input:checked + span::after { transform: translateX(11px); }
@@ -195,7 +195,7 @@
   </form>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function () {
   var form = document.getElementById('wb-form');
   if (!form) return;

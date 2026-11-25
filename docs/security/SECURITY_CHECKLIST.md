@@ -124,7 +124,9 @@ Every security item and its status.
 - ☑️ Escaped page output by default
 - ☑️ Parameterized database queries
 - ☑️ 10 MB request size limit
-- 🔵 Full Content-Security-Policy for scripts (inline scripts moved to files first)
+- ☑️ Content-Security-Policy enforced (own site plus the named outside services; no wildcards); violations are logged at `/csp-report`
+- ☑️ Scripts run only with the response's nonce (no `unsafe-inline`); page handlers are `data-on<event>` attributes served by `public/js/mgActions.js`, never inline `onclick=`
+- ☑️ Database certificate verified by default on Render's public address (`*.render.com`); `DB_SSL_CA` / `DB_SSL_VERIFY` override
 - 🔵 Review of every unescaped output (`<%- %>`), rich text and report template for XSS
 - 🔵 Per-action limits on heavy work: large exports, bulk imports, PDF and report generation, searches
 - 🔵 Per-school usage limits on paid services (SMS, email)

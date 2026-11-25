@@ -524,7 +524,7 @@
         <div class="oc-node"
              data-role="<%= m.account_type %>"
              data-id="<%= m.user_id %>"
-             onclick="ocOpenEdit(<%= m.user_id %>)">
+             data-onclick="admin-orgChart.1" data-mga0="<%= m.user_id %>">
           <% if (totalReports > 0) { %>
             <span class="oc-reports-badge" title="Total reports (direct + indirect)">
               <%= totalReports %> <%= totalReports === 1 ? 'report' : 'reports' %>
@@ -544,14 +544,14 @@
           <% } %>
           <% if (bio) { %>
             <button type="button" class="oc-bio-toggle"
-                    onclick="event.stopPropagation(); this.closest('.oc-node-wrap').classList.toggle('bio-open');">
+                    data-onclick="admin-orgChart.2">
               <span>About</span>
               <span class="oc-chev">▾</span>
             </button>
           <% } %>
           <% if (kids.length) { %>
             <button type="button" class="oc-children-toggle"
-                    onclick="event.stopPropagation(); this.closest('li').classList.toggle('collapsed');"
+                    data-onclick="admin-orgChart.3"
                     aria-label="Toggle reports"></button>
           <% } %>
         </div>
@@ -582,11 +582,11 @@
 </div>
 
 <!-- ============== Edit Modal ============== -->
-<div class="oc-modal-backdrop" id="ocModal" onclick="if(event.target===this) ocCloseEdit()">
+<div class="oc-modal-backdrop" id="ocModal" data-onclick="admin-orgChart.4">
   <div class="oc-modal" role="dialog" aria-modal="true" aria-labelledby="ocModalTitle">
     <div class="oc-modal__head">
       <h3 id="ocModalTitle">Edit team member</h3>
-      <button type="button" class="oc-modal__close" onclick="ocCloseEdit()" aria-label="Close">×</button>
+      <button type="button" class="oc-modal__close" data-onclick="admin-orgChart.5" aria-label="Close">×</button>
     </div>
     <form id="ocEditForm" method="POST" enctype="multipart/form-data">
       <div class="oc-modal__body">
@@ -616,14 +616,14 @@
         </div>
       </div>
       <div class="oc-modal__foot">
-        <button type="button" class="oc-btn-cancel" onclick="ocCloseEdit()">Cancel</button>
+        <button type="button" class="oc-btn-cancel" data-onclick="admin-orgChart.5">Cancel</button>
         <button type="submit" class="oc-btn-save">Save changes</button>
       </div>
     </form>
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
 (function(){
   window.__OC_MEMBERS__ = <%- JSON.stringify(members.map(m => ({
     id: m.user_id,
@@ -712,3 +712,4 @@
   });
 })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

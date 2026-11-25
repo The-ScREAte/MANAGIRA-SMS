@@ -86,7 +86,7 @@
     pointer-events: none;
   }
   .os-hero > * { position: relative; z-index: 1; }
-  .os-title { margin: 0; padding: 0; font-size: 20px; font-weight: 700; line-height: 1.25; text-align: left; color: var(--os-ink); }
+  .os-title { margin: 0; padding: 0; font-size: 1.375rem; font-weight: 700; line-height: 1.25; text-align: left; color: var(--os-ink); }
   .os-subtitle { margin: 4px 0 0; padding: 0; font-size: 14px; text-align: left; color: var(--os-ink-2, #64748b); }
   .os-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .os-actions select {
@@ -176,7 +176,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 18px 20px;
+    padding: var(--card-pad, 18px);
     border: 1px solid var(--os-border);
     border-radius: 14px;
     background: var(--os-surface);
@@ -356,7 +356,7 @@
       </select>
       <% if (stats) { %>
       <% if (allowPdf) { %><button type="button" class="os-btn" id="osPdfBtn" data-url="<%= statsPdf %>?selectedTermId=<%= currentTerm.term_id %>"><%- icon('download') %><span>Download PDF</span></button><% } %>
-      <% if (allowPrint) { %><button type="button" class="os-btn" onclick="window.print()"><%- icon('print') %><span>Print</span></button><% } %>
+      <% if (allowPrint) { %><button type="button" class="os-btn" data-onclick="stats-organizationStats.1"><%- icon('print') %><span>Print</span></button><% } %>
 
       <% } %>
       <% if (canCompareClasses && stats) { %>
@@ -569,7 +569,7 @@
   <% } %>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const termSelect = document.getElementById("osTermSelect");
     if (termSelect) {
@@ -980,3 +980,4 @@
     }
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

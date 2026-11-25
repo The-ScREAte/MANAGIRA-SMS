@@ -67,9 +67,9 @@ main { padding: 0 !important; max-width: none !important; }
 
 .hub-nav h3, .management-nav h3, .settings-nav h3 {
   margin: 0 !important;
-  font-size: 13px !important;
+  font-size: var(--fs-head, 16px) !important;
   color: var(--text, #0f172a) !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   text-align: left !important;
@@ -787,13 +787,13 @@ main { padding: 0 !important; max-width: none !important; }
   .hub-nav h3,
   .management-nav h3,
   .settings-nav h3 {
-    font-size: 12px !important;
+    font-size: var(--fs-head, 16px) !important;
   }
 
   .hub-nav .nav-link,
   .management-nav .nav-link,
   .settings-nav .nav-link {
-    font-size: 12px !important;
+    font-size: var(--fs-body, 14px) !important;
     padding: 6px 9px 6px 10px !important;
   }
 

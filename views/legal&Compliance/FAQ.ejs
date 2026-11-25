@@ -85,6 +85,7 @@
   }
   @media (prefers-reduced-motion: reduce) { .fq-caret, .fq .fq-chips a { transition: none; } }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="fq" id="faq-page">
@@ -140,7 +141,7 @@
     </div>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       var input = document.getElementById('fq-search');
       if (!input) return;
@@ -184,7 +185,7 @@
     })();
   </script>
 
-  <script type="application/ld+json">
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json">
     <%- JSON.stringify({
       "@context": "https://schema.org",
       "@type": "FAQPage",

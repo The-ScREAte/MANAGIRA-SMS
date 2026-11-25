@@ -99,6 +99,7 @@ body.docs-body { margin: 0; background: #fff; color: var(--d-text); font-family:
   .docs-content table.doc-sheet { font-size: .86rem; }
   .docs-content table.doc-sheet th, .docs-content table.doc-sheet td { padding: 8px 8px; }
   .docs-content table.doc-sheet td code { white-space: normal; }
+  .docs-content table:not(.doc-sheet) td code { white-space: normal; overflow-wrap: anywhere; }
 }
 
 /* Numbered steps */

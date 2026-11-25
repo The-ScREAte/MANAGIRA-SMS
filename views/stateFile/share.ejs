@@ -24,6 +24,7 @@
     .done { margin: 12px 0 0; color: #067647; font-size: 14px; }
     .small { margin: 18px 0 0; color: #667085; font-size: 12.5px; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main class="card">
@@ -40,7 +41,7 @@
       <% if (message) { %><p class="msg" role="alert"><%= message %></p><% } %>
       <p class="done" id="done" hidden>Your download has started. You can close this page.</p>
       <p class="small">Sent through Managira for <%= school %>. If you weren’t expecting this, you can close this page.</p>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         document.getElementById('codeForm').addEventListener('submit', function () {
           // The file downloads and this page stays: say so once the request is sent.
           setTimeout(function () { document.getElementById('done').hidden = false; }, 1200);

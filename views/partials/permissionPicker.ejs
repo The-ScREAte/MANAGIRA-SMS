@@ -94,7 +94,7 @@
       </section>
     </div>
   </div>
-  <script type="application/json" id="permData"><%- _ui.json %></script>
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="permData"><%- _ui.json %></script>
 </div>
 <style>
   .perm-picker[hidden] { display: none; }
@@ -118,7 +118,7 @@
   .perm-node:has(> .perm-row input.perm-switch:checked) > .perm-row > .perm-caret { display: inline-flex; }
   .perm-node:has(> .perm-row input.perm-switch:checked) > .perm-row > .perm-count { display: inline; }
   .perm-node.is-open > .perm-row > .perm-caret svg { transform: rotate(90deg); }
-  .perm-picker input.perm-switch { flex: 0 0 auto; appearance: none; -webkit-appearance: none; position: relative; width: 26px !important; min-width: 26px; height: 15px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 999px; background: #94a3b8; box-shadow: none !important; cursor: pointer; transition: background .12s ease; }
+  .perm-picker input.perm-switch { flex: 0 0 auto; appearance: none; -webkit-appearance: none; position: relative; width: 26px !important; min-width: 26px; height: 15px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 999px; background: #7890b2; box-shadow: none !important; cursor: pointer; transition: background .12s ease; }
   .perm-picker input.perm-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .3); transition: transform .12s ease; }
   .perm-picker input.perm-switch:checked { background: var(--org-primary-color, var(--primary, #01535b)); }
   .perm-picker input.perm-switch:checked::after { transform: translateX(11px); }
@@ -162,10 +162,10 @@
     .perm-count { font-size: 0.64rem; }
     .perm-adv-btn, .perm-hr-toggle { font-size: 0.82rem; }
   }
-</style><script>
+</style><script nonce="<%= locals.cspNonce || '' %>">
 <%- _ui.logic %>
 </script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var picker = document.getElementById('permissionPicker');
     var form = picker && picker.closest('form');

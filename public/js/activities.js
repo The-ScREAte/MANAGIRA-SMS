@@ -125,8 +125,10 @@
       box.addEventListener('click', function (event) {
         if (event.target === box || event.target.closest('[data-close]')) { box.remove(); return; }
         if (event.target.closest('[data-delete]')) {
-          if (!window.confirm('Delete this activity?')) return;
-          send('/common/activities/' + item.id + '/delete', {}).then(function () { box.remove(); return load(); }).catch(function (err) { fail(err.message); });
+          window.appConfirm('Delete this activity?', { ok: 'Delete', danger: true }).then(function (yes) {
+            if (!yes) return;
+            send('/common/activities/' + item.id + '/delete', {}).then(function () { box.remove(); return load(); }).catch(function (err) { fail(err.message); });
+          });
         }
       });
       form.addEventListener('submit', function (event) {

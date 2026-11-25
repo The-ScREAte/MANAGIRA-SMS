@@ -34,13 +34,14 @@ form, .delete-link {
   text-decoration: underline;
 }
 
-button, select, input[type="text"], input[type="date"], input[type="month"], input[type="datetime-local"] {
+button, select, input[type="text"], input[type="number"], input[type="date"], input[type="month"], input[type="datetime-local"] {
   padding: 8px;
   margin-top: 5px;
 }
 
 select,
 input[type="text"],
+input[type="number"],
 input[type="date"],
 input[type="month"],
 input[type="datetime-local"] {

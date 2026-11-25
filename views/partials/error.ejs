@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
     <meta name="robots" content="noindex, follow">
     <title><%= title || 'Error' %></title>
     <style>
@@ -12,6 +12,7 @@
         .message { margin: 0 0 24px; font-size: 20px; line-height: 1.5; color: #475569; }
         .home-link { display: inline-block; padding: 11px 22px; border-radius: 10px; background: var(--org-primary-color, #01535b); color: #fff; font-weight: 600; text-decoration: none; }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
     <main class="error-details">

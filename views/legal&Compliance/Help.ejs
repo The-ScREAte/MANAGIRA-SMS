@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title><%= title %></title>
   <meta name="description" content="Managira Help Center — search across documentation, FAQs, and guides, or contact support directly.">
   <meta name="robots" content="noindex, nofollow">
@@ -373,6 +373,7 @@
       }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <main>
@@ -493,7 +494,7 @@
     </details>
   </main>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // Smart search across documentation + FAQ
     const KNOWLEDGE = <%- JSON.stringify(typeof helpKnowledge !== 'undefined' ? helpKnowledge : []) %>;
     const DOCS = <%- JSON.stringify(typeof documentationResources !== 'undefined' ? documentationResources : []) %>;
@@ -812,10 +813,14 @@
           alert('Please confirm this is a genuine request before submitting.');
           return;
         }
-        const ok = confirm('Submit this request to the Managira team?');
-        if (!ok) { e.preventDefault(); return; }
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending…';
+        if (form.__sendOk) { form.__sendOk = false; submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; return; }
+        e.preventDefault();
+        var sender = e.submitter || null;
+        window.appConfirm('Submit this request to the Managira team?', { ok: 'Submit' }).then(function (yes) {
+          if (!yes) return;
+          form.__sendOk = true;
+          if (form.requestSubmit) form.requestSubmit(sender || undefined); else form.submit();
+        });
       });
     })();
   </script>

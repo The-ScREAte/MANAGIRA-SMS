@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title><%= title %></title>
   <meta name="description" content="<%= typeof description !== 'undefined' ? description : 'Request a personalised live demo of Managira.' %>">
   <% if (typeof keywords !== 'undefined') { %><meta name="keywords" content="<%= keywords %>"><% } %>
@@ -276,7 +276,7 @@
       .demo-form-panel { padding: 16px 14px; border-radius: 16px; }
     }
   </style>
-  <script type="application/ld+json">
+  <script nonce="<%= locals.cspNonce || '' %>" type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "ContactPage",
@@ -315,7 +315,7 @@
     .demo-card textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     .demo-card input:focus, .demo-card textarea:focus { outline: none !important; border-color: #0f5a66 !important; box-shadow: 0 0 0 3px rgba(15, 90, 102, .14) !important; }
     .demo-card input::placeholder, .demo-card textarea::placeholder { color: #a3adba; }
-    .demo-card .field-note { display: block; margin: 6px 0 0 !important; font-size: .8rem !important; color: #94a3b8 !important; }
+    .demo-card .field-note { display: block; margin: 6px 0 0 !important; font-size: .8rem !important; color: #64748b !important; }
     .demo-card .confirm-row { display: flex !important; align-items: flex-start !important; gap: 10px !important; margin: 16px 0 18px !important; padding: 0 !important; border: 0 !important; background: none !important; font-size: .88rem !important; font-weight: 500 !important; color: #475569 !important; cursor: pointer; }
     .demo-card .confirm-row input { margin: 2px 0 0; width: 17px; height: 17px; accent-color: #0f5a66; }
     #demoSubmitBtn { width: 100% !important; height: 48px !important; border: 0 !important; border-radius: 12px !important; background: #0f5a66 !important; color: #fff !important; font-size: 1rem !important; font-weight: 650 !important; cursor: pointer; box-shadow: none !important; }
@@ -336,6 +336,9 @@
       .demo-card input[type="text"], .demo-card input[type="email"], .demo-card input[type="tel"], .demo-card textarea { font-size: 16px !important; }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <main>
@@ -409,7 +412,7 @@
     </div>
   </main>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     (function () {
       const form = document.getElementById('demoRequestForm');
       if (!form) return;
@@ -429,12 +432,14 @@
           alert('Please confirm this is a genuine request before submitting.');
           return;
         }
-        if (!confirm('Send this demo request to the Managira team?')) {
-          e.preventDefault();
-          return;
-        }
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending…';
+        if (form.__sendOk) { form.__sendOk = false; submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; return; }
+        e.preventDefault();
+        var sender = e.submitter || null;
+        window.appConfirm('Send this demo request to the Managira team?', { ok: 'Send' }).then(function (yes) {
+          if (!yes) return;
+          form.__sendOk = true;
+          if (form.requestSubmit) form.requestSubmit(sender || undefined); else form.submit();
+        });
       });
     })();
   </script>

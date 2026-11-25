@@ -88,7 +88,7 @@ test("a breached password is refused; an unreachable service never blocks anyone
     assert.equal(await rules.passwordProblemAsync(password), null);
     global.fetch = async () => { throw new Error("offline"); };
     assert.equal(await rules.passwordProblemAsync(password), null, "fails open");
-    assert.match(await rules.passwordProblemAsync("short"), /at least 8/);
+    assert.match(await rules.passwordProblemAsync("short"), /at least 10/);
   } finally {
     global.fetch = realFetch;
   }

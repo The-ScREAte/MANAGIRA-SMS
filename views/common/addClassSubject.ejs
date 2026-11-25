@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title>Add classes, subjects and graduation years</title>
     <style>
       :root { --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif; }
@@ -75,10 +75,11 @@
       .acs-error[hidden] { display: none; }
       @media (max-width: 560px) { .acs { padding: 14px 14px 32px; } .acs-tab { font-size: .85rem; } .acs-foot { justify-content: stretch; } .add-class-page button.acs-save[type="submit"] { width: 100%; } }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body class="add-class-page">
     <%- include('../partials/flash') %>
-    <script>document.body.classList.add('add-class-page');</script>
+    <script nonce="<%= locals.cspNonce || '' %>">document.body.classList.add('add-class-page');</script>
     <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
     <datalist id="subject-library"><% (typeof subjectNames !== 'undefined' ? subjectNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }); %></datalist>
 
@@ -154,7 +155,7 @@
       </section>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       (function () {
         var CLASSES = <%- JSON.stringify((classes || []).map(function (c) { return { id: c.class_id, name: c.class_name }; })) %>;
         var ASSIGNABLE = <%- JSON.stringify(assignableSubjects || []) %>;

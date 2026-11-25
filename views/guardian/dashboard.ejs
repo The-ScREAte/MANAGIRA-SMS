@@ -705,7 +705,7 @@
                 <a href="/guardian/edit-pending-student?pendingId=<%= child.pending_id %>" class="edit-btn">
                   Edit application
                 </a>
-                <button onclick="withdrawApplication(<%= child.pending_id %>, this)" data-student-name="<%= childDisplayName %>" class="withdraw-btn">
+                <button data-onclick="guardian-dashboard.1" data-mga0="<%= child.pending_id %>" data-student-name="<%= childDisplayName %>" class="withdraw-btn">
                   Withdraw
                 </button>
               </div>
@@ -813,10 +813,10 @@
 <script src="<%= assetUrl('/js/busMenu.js') %>"></script>
 <script src="<%= assetUrl('/js/portalRequests.js') %>"></script>
 <% } %>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   async function withdrawApplication(pendingId, button) {
     const studentName = button && button.dataset.studentName ? button.dataset.studentName : 'this student';
-    const confirmed = window.confirm(`⚠️ WITHDRAW APPLICATION\n\nAre you sure you want to withdraw the application for ${studentName}?\n\n❗ IMPORTANT: Any payment made is NON-REFUNDABLE.\n\nThis action cannot be undone.`);
+    const confirmed = await window.appConfirm(`⚠️ WITHDRAW APPLICATION\n\nAre you sure you want to withdraw the application for ${studentName}?\n\n❗ IMPORTANT: Any payment made is NON-REFUNDABLE.\n\nThis action cannot be undone.`);
     if (!confirmed || !button) return;
 
     const previousText = button.textContent;
@@ -844,3 +844,4 @@
     }
   }
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

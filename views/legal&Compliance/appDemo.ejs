@@ -218,6 +218,6 @@
 </div>
 
 <%# spa-router.js clears the hash before deferred scripts run; keep it for deep links. %>
-<script>window.__tourHash = location.hash;</script>
-<script id="tour-data" type="application/json"><%- tourJson %></script>
+<script nonce="<%= locals.cspNonce || '' %>">window.__tourHash = location.hash;</script>
+<script nonce="<%= locals.cspNonce || '' %>" id="tour-data" type="application/json"><%- tourJson %></script>
 <script src="<%= assetUrl('/js/appDemo.js') %>" defer></script>

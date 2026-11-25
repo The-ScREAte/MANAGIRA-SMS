@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
   <title>Hub Login - Managira</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
@@ -285,6 +285,9 @@
     .timeout-note strong { display: block; color: var(--text-primary); font-size: 1rem; font-weight: 650; line-height: 1.35; }
     .timeout-note span { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.45; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/a11y.css') %>">
+  <script src="<%= assetUrl('/js/a11y.js') %>" defer></script>
 </head>
 <body>
   <div class="page-wrapper<%= (typeof loginAds !== 'undefined' && loginAds && loginAds.length) ? ' auth-split' : '' %>">
@@ -329,7 +332,7 @@
                 required
                 autocomplete="current-password"
               >
-              <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('password', this)" onmousedown="event.preventDefault()" aria-label="Show password">
+              <button type="button" class="password-toggle-btn" data-onclick="hub-login.1" data-onmousedown="hub-login.2" aria-label="Show password">
                 <i class="fa-solid fa-eye fa-fw" aria-hidden="true"></i>
               </button>
             </div>
@@ -348,7 +351,7 @@
     <%- include('../partials/loginAdsPanel') %>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     function togglePasswordVisibility(inputId, button) {
       const input = document.getElementById(inputId);
       const icon = button.querySelector('i');
@@ -363,3 +366,4 @@
 <%- include('../partials/authLoader') %>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

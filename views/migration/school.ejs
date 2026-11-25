@@ -462,7 +462,7 @@
         <div><details class="mg-sum"<%= summary[key].length <= 6 ? " open" : "" %>><summary><h4><%= label %> <small><%= summary[key].length %></small></h4></summary><% if (summary[key].length) { %><ul><% summary[key].forEach((line) => { %><li><%= line %></li><% }) %></ul><% } else { %><p class="mg-hint">None.</p><% } %></details></div>
       <% }) %>
     </div>
-    <p><button class="mg-btn mg-btn--sm" type="button" onclick="window.print()">Print the summary</button></p>
+    <p><button class="mg-btn mg-btn--sm" type="button" data-onclick="migration-school.1">Print the summary</button></p>
     <% if (job.signed_at) { %>
       <p class="mg-good">Signed by <strong><%= job.signed_name %></strong> on <%= _when(job.signed_at) %>.</p>
       <p class="mg-next"><a class="mg-btn mg-btn--primary" href="/common/migration?step=live&embed=workspace">Next: go live</a></p>
@@ -567,7 +567,7 @@
 
       <h3>Apply again <%- _tip('Loads what is approved again: new files, more areas, your changes. Records update, never duplicate.') %> <%- _tip('Loads what is approved again: new files, more areas, your changes. Only approved areas load.') %></h3>
       <%- include('partials/upload', { label: 'Drop the new export files here', action: '/common/migration/upload', withEntity: false }) %>
-      <form method="POST" action="/common/migration/catch-up" data-starts-task onsubmit="return confirm('Apply your approved areas to your live account again?')"><button class="mg-btn mg-btn--primary" type="submit">Apply again</button></form>
+      <form method="POST" action="/common/migration/catch-up" data-starts-task data-onsubmit="migration-school.2"><button class="mg-btn mg-btn--primary" type="submit">Apply again</button></form>
       <p class="mg-hint">Files and sandbox are deleted <%= job.purge_after ? new Date(job.purge_after).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %>. Your live records stay.</p>
     <% } else if (job.signed_at) { %>
       <h2>Go live</h2>
@@ -576,7 +576,7 @@
         <li>Go live imports those files again, keeps a snapshot, and loads your live account: students (enrolled in the current term), parents, staff accounts (on hold until you invite them), sections as subjects of their classes with their teachers, final grades with credits and GPA on each student's transcript, and attendance totals per term. Daily attendance and archived columns stay read-only on each student.</li>
         <li>Your account opens for new data again. For 30 days Managira can roll the go-live back.</li>
       </ol>
-      <form method="POST" action="/common/migration/go-live" data-starts-task onsubmit="return confirm('Go live now? Your data moves into your live account. It runs in the background and takes a few minutes for a large school.')"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
+      <form method="POST" action="/common/migration/go-live" data-starts-task data-onsubmit="migration-school.3"><button class="mg-btn mg-btn--primary" type="submit">Go live</button></form>
     <% } else { %>
       <h2>Go live <%- _tip('Moves everything in your sandbox into your live account in one step. Ready when every box is ticked.') %></h2>
       <%- include('partials/ready', { heading: 'Ready to go live' }) %>
@@ -586,3 +586,4 @@
 
 </div>
 <script src="<%= assetUrl('/js/migrationTask.js') %>" defer></script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -4,7 +4,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Add New Students</title>
     <style>
       /* The school's own fields: two columns, paragraphs full width. */
@@ -2326,6 +2326,7 @@
         }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body>
     <%- include('../partials/flash') %>
@@ -2344,7 +2345,7 @@
             </svg>
             <span class="action-btn-label">Add Form</span>
           </button>
-          <button type="button" class="bulk-import-btn" onclick="openBulkImportModal()" aria-label="Import students" title="Import students">
+          <button type="button" class="bulk-import-btn" data-onclick="common-addStudent.1" aria-label="Import students" title="Import students">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v11"></path>
               <path d="M8 10l4 4 4-4"></path>
@@ -2361,7 +2362,7 @@
             <span class="action-btn-label">Save</span>
           </button>
           <span class="action-divider" aria-hidden="true"></span>
-          <button type="button" class="clear-import-btn" onclick="clearImportedDraft()" aria-label="Clear all forms" title="Clear all forms">
+          <button type="button" class="clear-import-btn" data-onclick="common-addStudent.2" aria-label="Clear all forms" title="Clear all forms">
             <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 6h18"></path>
               <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"></path>
@@ -2377,7 +2378,7 @@
 
       
       <% if (locals.studentFiles) { %><link rel="stylesheet" href="<%= assetUrl('/css/studentFilesFields.css') %>" /><script src="<%= assetUrl('/js/studentFilesFields.js') %>" defer></script><% } %>
-      <form id="addStudentFormMain" action="/common/addStudent" method="post" enctype="multipart/form-data" onsubmit="confirmAddStudent(event)">
+      <form id="addStudentFormMain" action="/common/addStudent" method="post" enctype="multipart/form-data" data-onsubmit="common-addStudent.3">
         <div class="student-forms-grid" id="studentFormsContainer"></div>
       </form>
   
@@ -2406,7 +2407,7 @@
             <% } %>
             <span class="collapse-indicator" style="display: none;">Collapsed</span>
             <div class="form-menu-container">
-              <button type="button" class="form-menu-button" onclick="toggleFormMenu(event, this)">
+              <button type="button" class="form-menu-button" data-onclick="common-addStudent.4">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <circle cx="12" cy="5" r="1.5"></circle>
                   <circle cx="12" cy="12" r="1.5"></circle>
@@ -2414,7 +2415,7 @@
                 </svg>
               </button>
               <div class="form-menu-dropdown">
-                <button type="button" class="form-menu-item" onclick="removeStudentForm(this)">
+                <button type="button" class="form-menu-item" data-onclick="common-addStudent.5">
                   Remove Form
                 </button>
               </div>
@@ -2574,7 +2575,7 @@
                 <h3 class="form-section-title">Subjects</h3>
               </div>
               <div class="subjects-collapsible" id="subjectsCollapsible-__INDEX__">
-                <button type="button" class="collapsible-btn" onclick="toggleSubjectsCollapsible(__INDEX__)" aria-expanded="false">
+                <button type="button" class="collapsible-btn" data-onclick="common-addStudent.6" data-mga0="__INDEX__" aria-expanded="false">
                   <span class="collapsible-label-wrap">
                     <span class="collapsible-label">Show Subjects</span>
                     <span class="subject-count-badge" id="subjectCountBadge-__INDEX__" style="display:none;">0 selected</span>
@@ -2621,7 +2622,7 @@
                 <div class="guardian-check-section" id="guardianCheckSection-__INDEX__">
                   <p>Does this guardian already have a child in this school?</p>
                   <div class="guardian-mode-pills">
-                    <button type="button" class="guardian-mode-btn" onclick="setGuardianMode(this, 'existing')">
+                    <button type="button" class="guardian-mode-btn" data-onclick="common-addStudent.7">
                       <span class="gmb-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <circle cx="11" cy="11" r="8"></circle>
@@ -2633,7 +2634,7 @@
                         <span class="gmb-sub">Link an existing guardian</span>
                       </span>
                     </button>
-                    <button type="button" class="guardian-mode-btn" onclick="setGuardianMode(this, 'new')">
+                    <button type="button" class="guardian-mode-btn" data-onclick="common-addStudent.8">
                       <span class="gmb-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
@@ -2651,7 +2652,7 @@
                 </div>
 
                 <div class="guardians-container"></div>
-                <button type="button" class="secondary-button guardian-add-btn" onclick="addGuardian(this)" style="display: none;">+ Add Another Guardian</button>
+                <button type="button" class="secondary-button guardian-add-btn" data-onclick="common-addStudent.9" style="display: none;">+ Add Another Guardian</button>
               </div>
               <% if (_cfIn('guardian').length) { %><div class="scf-grid" style="margin-top:14px"><%- include('../partials/studentCustomFields', { customFields: _cfIn('guardian'), nameSuffix: '___INDEX__', customValues: {} }) %></div><% } %>
             </div>
@@ -2662,7 +2663,7 @@
     </div> <!-- Closing student-management-system div -->
 
   
-    <script id="addStudentPageData" type="application/json"><%- JSON.stringify({
+    <script nonce="<%= locals.cspNonce || '' %>" id="addStudentPageData" type="application/json"><%- JSON.stringify({
       organizationId,
       hasSaveSuccessMessage: Boolean(messages && messages.success && messages.success.length),
       allSchoolYears: schoolYears,
@@ -2671,7 +2672,7 @@
     }).replace(/</g, '\\u003c') %></script>
 
     <script src="<%= assetUrl('/js/dialCodes.js') %>"></script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       // Helper functions for guardian autocomplete
       function escapeHtml(str) {
         return String(str || "").replace(/[&<>"']/g, (m) => ({
@@ -2755,7 +2756,7 @@
                      data-last="${escapeHtml(g.last_name)}"
                      data-phone="${escapeHtml(g.phone || "")}"
                      data-email="${escapeHtml(g.email || "")}">
-                  <img src="${img}" onerror="this.src='/images/profilePlaceholder.png'" />
+                  <img src="${img}" data-onerror="common-addStudent.10" />
                   <div>
                     <div><strong>${fullName}</strong></div>
                     <div class="guardian-meta">${meta}</div>
@@ -3200,7 +3201,7 @@
           console.warn('[AddStudent Submit] Missing required fields before submit', missingSummary);
         }
 
-        if (!confirm("Are you sure you want to add all students?")) {
+        if (!await window.appConfirm("Are you sure you want to add all students?")) {
           return;
         }
 
@@ -3222,7 +3223,7 @@
                 `${i + 1}. ${d.input.firstName} ${d.input.lastName} (${d.existing.class_name})`
               ).join('\n');
               const more = duplicates.length > 5 ? `\n...and ${duplicates.length - 5} more.` : '';
-              const proceed = confirm(
+              const proceed = await window.appConfirm(
                 `Student with exact same information already exists in this class:\n\n${preview}${more}\n\nDo you still want to save duplicate record(s)?`
               );
               if (!proceed) {
@@ -3234,7 +3235,7 @@
           }
         } catch (err) {
           console.error('Duplicate precheck failed:', err);
-          const proceedOnError = confirm('Could not verify duplicates right now. Do you want to continue saving?');
+          const proceedOnError = await window.appConfirm('Could not verify duplicates right now. Do you want to continue saving?');
           if (!proceedOnError) {
             hideSaveBusyOverlay();
             return;
@@ -3428,8 +3429,8 @@
         return true;
       }
 
-      function clearImportedDraft() {
-        const confirmed = confirm(
+      async function clearImportedDraft() {
+        const confirmed = await window.appConfirm(
           'This will clear all form data on this page (imported and manual). If you proceed, you will need to re-enter or re-import the data. Continue?'
         );
         if (!confirmed) return;
@@ -3609,8 +3610,8 @@ document.addEventListener('click', function(event) {
   }
 });
 
-function removeStudentForm(button) {
-  if (confirm('Remove this student form?')) {
+async function removeStudentForm(button) {
+  if (await window.appConfirm('Remove this student form?')) {
     const formBlock = button.closest('.student-form');
     if (formBlock) {
       formBlock.style.opacity = '0';
@@ -3839,7 +3840,7 @@ function addStudentForm() {
                 <input type="email" class="form-input" name="guardianEmail_${index}_${count}" readonly style="background: #f5f5f5;" />
               </div>
 
-              <button type="button" class="remove-guardian" onclick="removeGuardian(this)" 
+              <button type="button" class="remove-guardian" data-onclick="common-addStudent.11" 
                 style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 10px;">
                 Remove Guardian
               </button>
@@ -3898,7 +3899,7 @@ function addStudentForm() {
                 💡 Parent Portal setup uses email invitation. Guardian creates their own password from the invite link.
               </div>
 
-              <button type="button" class="remove-guardian" onclick="removeGuardian(this)" 
+              <button type="button" class="remove-guardian" data-onclick="common-addStudent.11" 
                 style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 10px;">
                 Remove Guardian
               </button>
@@ -3949,13 +3950,13 @@ function addStudentForm() {
         scheduleSaveDraft();
       }
       
-      function removeGuardian(button) {
+      async function removeGuardian(button) {
         const guardianRow = button.closest(".guardian-row");
         if (!guardianRow) return;
         const container = guardianRow.parentElement;
         const block = button.closest(".student-form");
         
-        if (confirm('Remove this guardian?')) {
+        if (await window.appConfirm('Remove this guardian?')) {
           guardianRow.remove();
           
           // If no more guardians, show the check section again
@@ -4867,16 +4868,16 @@ function addStudentForm() {
       <div class="bulk-import-content">
         <div class="modal-header">
           <h2>📤 Bulk Import Students</h2>
-          <button type="button" class="modal-close-btn" onclick="closeBulkImportModal()">×</button>
+          <button type="button" class="modal-close-btn" data-onclick="common-addStudent.12">×</button>
         </div>
 
         <div 
           id="uploadArea" 
           class="upload-area" 
-          onclick="document.getElementById('bulkFileInput').click()"
-          ondrop="handleFileDrop(event)"
-          ondragover="handleDragOver(event)"
-          ondragleave="handleDragLeave(event)"
+          data-onclick="common-addStudent.13"
+          data-ondrop="common-addStudent.14"
+          data-ondragover="common-addStudent.15"
+          data-ondragleave="common-addStudent.16"
         >
           <div class="upload-icon">📁</div>
           <div class="upload-text">Click or drag file here to upload</div>
@@ -4888,7 +4889,7 @@ function addStudentForm() {
           id="bulkFileInput" 
           class="file-input" 
           accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.jpg,.jpeg,.png"
-          onchange="handleFileSelect(event)"
+          data-onchange="common-addStudent.17"
         />
 
         <div class="imp-error" id="impError" role="alert" hidden></div>
@@ -4898,7 +4899,7 @@ function addStudentForm() {
           <div class="template-actions">
             <a class="template-link" href="/common/student-import-template?format=csv" download>CSV</a>
             <a class="template-link" href="/common/student-import-template?format=xlsx" download>Excel</a>
-            <button type="button" class="template-link" onclick="downloadWordTemplate()">Word</button>
+            <button type="button" class="template-link" data-onclick="common-addStudent.18">Word</button>
           </div>
           <div class="template-meta">Includes your school's own student fields.</div>
           <div class="template-warning">Remove the example row before importing.</div>
@@ -4909,7 +4910,7 @@ function addStudentForm() {
           <div class="imp-chips" id="impChips"></div>
           <details class="imp-list" id="impIgnored"><summary>Ignored columns <b></b></summary><ul></ul></details>
           <details class="imp-list" id="impCheck"><summary>Cells to check <b></b></summary><ul></ul></details>
-          <button type="button" class="imp-done" onclick="closeBulkImportModal()">Review forms</button>
+          <button type="button" class="imp-done" data-onclick="common-addStudent.12">Review forms</button>
         </div>
 
         <div id="parsingProgress" class="parsing-progress">
@@ -4987,3 +4988,4 @@ function addStudentForm() {
     .imp-done { justify-self: stretch; }
   }
 </style>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

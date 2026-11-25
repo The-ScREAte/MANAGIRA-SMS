@@ -2,8 +2,9 @@
 
 // A teacher opens only what the class dashboard offers them: the classes they're assigned to
 // (user_classes) and, in a class, the subjects they teach (user_subjects) — or every subject of
-// a class they are the main teacher or an assistant teacher of. Managers, supervisors and other staff aren't limited
-// here: their permissions decide. Route middleware for the gradebook and report cards, so a
+// a class they are the main teacher or an assistant teacher of. Managers and other staff aren't limited
+// here: their permissions decide. A supervisor is limited to their own classes unless a permission gives
+// them the classes (supervisorReach below). Route middleware for the gradebook and report cards, so a
 // teacher can't read or change another class's scores by typing its number in the address.
 
 const isTeacher = (req) => String(req.session?.userRole || req.session?.user?.account_type || req.session?.accountType || "")
@@ -137,6 +138,54 @@ async function assignedClasses(db, req) {
   return new Set(rows.map((row) => Number(row.class_id)));
 }
 
+// A Supervisor opens every class only when a permission gives them the classes: the student
+// list, classes and subjects, scores or attendance (or "Every class" in Class Settings). Without
+// one they open only the classes they're assigned to (user_classes), like a teacher. Returns that
+// set of classes, or null when the person isn't such a supervisor (no limit from here).
+const CLASS_VIEW_KEYS = ["manage_students", "manage_classes_subjects", "manage_assessments", "mark_attendance", "class_settings_all"];
+
+async function supervisorReach(db, req, holds = null) {
+  const role = String(req.session?.userRole || req.session?.user?.account_type || req.session?.accountType || "").trim().toLowerCase();
+  if (role !== "supervisor" && role !== "superviser") return null;
+  if (!holds) {
+        const perms = require("../middleware/permissionMiddleware");
+    const actor = perms.sessionActor(req);
+    holds = (key) => perms.userHasPermission(db, actor, key);
+  }
+  for (const key of CLASS_VIEW_KEYS) {
+    if (await holds(key)) return null;
+  }
+  return (await assignedClasses(db, req)) || new Set();
+}
+
+// The classes a class list may offer this person: a teacher's or a limited supervisor's own, or
+// null for everyone else (no limit).
+async function dashboardClasses(db, req) {
+  return (await listScope(db, req)) || (await supervisorReach(db, req));
+}
+
+// The class dashboard and the pages behind its tabs: a limited supervisor reaches only their
+// classes; everyone else is decided where they were before (teachers by their own checks).
+function requireClassDashboardAccess(db, holds = null) {
+  return async (req, res, next) => {
+    try {
+      const reach = await supervisorReach(db, req, holds);
+      if (!reach) return next();
+      const source = { ...(req.params || {}), ...(req.query || {}), ...(req.body && typeof req.body === "object" ? req.body : {}) };
+      const raw = source.classId ?? source.class_id;
+      const classId = idOf(raw);
+      if (!malformed(raw) && (classId === null ? raw === undefined || raw === null || String(raw).trim() === "" : reach.has(classId))) return next();
+      const message = "You don't have access to this class.";
+      const wantsJson = req.method !== "GET" || req.xhr || /json/i.test(req.get("accept") || "") || /json/i.test(req.get("content-type") || "");
+      if (wantsJson) return res.status(403).json({ success: false, error: message, message });
+      if (req.session && typeof req.flash === "function") req.flash("error", message);
+      return res.redirect("/common/orgDashboard");
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
+
 // Which of these students belong to the given classes: by their class now, a class they're
 // enrolled in (in the term asked for, when one is), or a subject of one of those classes they take.
 async function studentsInClasses(db, organizationId, studentIds, classIds, termId = null) {
@@ -188,4 +237,4 @@ function requireGroupScope(db) {
   };
 }
 
-module.exports = { teacherScope, withinScope, listScope, requireClassScope, requireLeadsClass, requireGroupScope, assignedClasses, studentsInClasses };
+module.exports = { teacherScope, withinScope, listScope, requireClassScope, requireLeadsClass, requireGroupScope, assignedClasses, studentsInClasses, supervisorReach, dashboardClasses, requireClassDashboardAccess, CLASS_VIEW_KEYS };

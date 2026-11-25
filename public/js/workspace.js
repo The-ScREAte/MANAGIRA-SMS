@@ -545,7 +545,7 @@
   }
 
   async function remove() {
-    if (!current.event || !confirm(`Delete "${current.event.title}"? This can't be undone.`)) return;
+    if (!current.event || !await window.appConfirm(`Delete "${current.event.title}"? This can't be undone.`)) return;
     try {
       await post(`/common/calendar/${current.event.kind === 'personal' ? 'personal' : 'events'}/${current.event.id}/delete`);
       const onSaved = current.onSaved;

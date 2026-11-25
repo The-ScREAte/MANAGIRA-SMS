@@ -136,6 +136,7 @@
   }
   function startTimer() {
     var end = deadline();
+    var warned = {};
     if (!timerEl || !end) return;
     timerEl.hidden = false;
     function tick() {
@@ -150,6 +151,10 @@
       timerEl.textContent = clock(left);
       timerEl.classList.toggle('is-low', left <= 300 && left > 60);
       timerEl.classList.toggle('is-out', left <= 60);
+      // The clock itself is not read out every second; screen reader users hear the two warnings.
+      [[300, '5 minutes left'], [60, '1 minute left']].forEach(function (w) {
+        if (left <= w[0] && !warned[w[0]]) { warned[w[0]] = true; if (window.a11yAnnounce) window.a11yAnnounce(w[1]); }
+      });
     }
     tick();
     tickLoop = setInterval(tick, 1000);
@@ -205,10 +210,17 @@
     modalCancel.textContent = cancelLabel;
     modalOk.classList.toggle('ex-btn--danger', Boolean(danger));
     onConfirm = action;
+    modalOpener = document.activeElement;
     modal.hidden = false;
     modalCancel.focus();
   }
-  function closeModal() { if (modal) modal.hidden = true; onConfirm = null; }
+  var modalOpener = null;
+  function closeModal() {
+    if (modal) modal.hidden = true;
+    onConfirm = null;
+    var back = modalOpener; modalOpener = null;
+    if (back && back.isConnected && back.focus) { try { back.focus(); } catch (e) { /* ignore */ } }
+  }
   if (modal) {
     modalCancel.addEventListener('click', closeModal);
     modalOk.addEventListener('click', function () { var action = onConfirm; closeModal(); if (action) action(); });

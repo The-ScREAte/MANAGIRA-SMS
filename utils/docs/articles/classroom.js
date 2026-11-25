@@ -114,9 +114,10 @@ module.exports = [
         title: "Mark a day's attendance",
         steps: [
           ["On your dashboard, open the class and choose <strong>Attendance</strong> in Class Tools.", "attendance.webp", "A class's Attendance: one row per student, one tap each."],
-          "Find the day's column. A day nobody has marked yet opens for editing at your first tap; for a day already saved, select <strong>Edit</strong> (the pencil) under the date.",
+          "Find the day's column. A day nobody has marked yet opens for editing at your first tap; for a day already saved, select <strong>Edit</strong> under the date.",
           "Tick each student who is present. <strong>Check all</strong> marks everyone present (and, where lunch is taken, everyone had lunch); then change the few who are different.",
-          "Select <strong>Save</strong> (the tick). <strong>Cancel</strong> (the cross) puts the day back as it was.",
+          "Select <strong>Save</strong>. <strong>Cancel</strong> puts the day back as it was.",
+          "If asked <strong>Done taking attendance for today?</strong>, choose <strong>Yes, I’m done</strong> when the day is finished, or <strong>Not yet</strong> to be asked again in 30 minutes.",
         ],
         tip: "Check all first, then tap the two or three who are absent. On a normal day it takes seconds.",
         note: "A ticked box is your school's color with a white tick. Every control on the sheet, the boxes, the lunch plates, the note button and the day's buttons, is the same size, and a little larger on a phone where you tap them.",
@@ -172,7 +173,17 @@ module.exports = [
         title: "Change a past day",
         steps: [
           "Open the day's column (choose a longer range in the filter if it isn't shown).",
-          "Select <strong>Edit</strong> under the day, change the marks, and select <strong>Save</strong>. Parents see the corrected attendance straight away.",
+          "Select <strong>Edit</strong> under the day, change the marks, and select <strong>Save</strong>. Parents see the corrected attendance in their portal straight away.",
+        ],
+      },
+      {
+        title: "When families are told",
+        text: "Families are not told the moment you press <strong>Save</strong>, so a mistake can be fixed first.",
+        list: [
+          "After you choose <strong>Yes, I’m done</strong>, families are told about the day's absences <strong>30 minutes</strong> later.",
+          "If nobody answers, they are told <strong>2 hours after the last save</strong>.",
+          "A student you correct to present before then is not mentioned.",
+          "Each family hears about a student's day once.",
         ],
       },
       {
@@ -189,7 +200,7 @@ module.exports = [
       },
     ],
     faq: [
-      ["Why can't I change a saved day?", "A saved day is locked until you select <strong>Edit</strong> (the pencil) under its date."],
+      ["Why can't I change a saved day?", "A saved day is locked until you select <strong>Edit</strong> under its date."],
       ["Where did the weekend go?", "It's folded into a slim strip named <em>WEEKEND</em> between the weeks. Select the strip to open the days."],
       ["Can I add a reason when a student leaves early?", "Yes. Use the note button beside the student for that day and choose <em>Left early</em>, or write your own note. It works for present students too."],
       ["Do parents see my notes?", "No. Notes are for staff. Parents are told about repeated absences or late arrivals only if your school's class settings turn that on; see <a href=\"/legal/user-documentation/attendance-notices\">Attendance notices</a>."],
@@ -212,7 +223,7 @@ module.exports = [
       {
         title: "How it works",
         list: [
-          "A week runs Monday to Sunday. After each day's attendance is saved, Managira counts the student's absences and late arrivals for that week.",
+          "A week runs Monday to Sunday. Once a day's attendance is done (30 minutes after the teacher confirms, or 2 hours after the last save), Managira counts the student's absences and late arrivals for that week.",
           "When a count reaches the number set for the student's class, each parent linked to the student gets <strong>one</strong> notice in Managira (the bell) and by email: <em>\"Amara has been absent 3 times this week.\"</em>",
           "It is sent once for that student, kind and week. A fourth absence the same week doesn't send another.",
           "A late arrival is a present student marked <strong>Arrived late</strong> in the day's note. See <a href=\"/legal/user-documentation/mark-attendance-for-a-class\">Take attendance</a>.",

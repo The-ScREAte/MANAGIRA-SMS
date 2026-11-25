@@ -88,6 +88,7 @@
     .ann-notify { margin: 6px 0 4px; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
     .ann-estimate { font-weight: 600; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="ann-composer-page">
   <%- include('../partials/adminDrawer') %>
@@ -221,13 +222,13 @@
       <div class="ann-error" id="ann_error"></div>
 
       <div class="ann-submit-bar">
-        <button type="button" class="ann-btn-secondary" onclick="window.parent && window.parent.postMessage({managiraDrawerSaved:false}, window.location.origin)">Cancel</button>
+        <button type="button" class="ann-btn-secondary" data-onclick="common-announcementComposer.1">Cancel</button>
         <button type="submit" class="ann-btn-primary"><%= a ? 'Save' : 'Create' %></button>
       </div>
     </form>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // Populate datetime-local inputs from the server-provided ISO timestamps
     // (datetime-local needs local-time "YYYY-MM-DDTHH:mm", not raw ISO/UTC).
     ['ann_starts_at', 'ann_ends_at'].forEach(function (id) {
@@ -469,3 +470,4 @@
     });
   </script>
 </body>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

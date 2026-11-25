@@ -826,7 +826,7 @@
       toast("This link opens another page in the full app.");
       return;
     }
-    if (start.closest("button, [role='button'], [role='tab'], [role='menuitem'], [onclick]")) {
+    if (start.closest("button, [role='button'], [role='tab'], [role='menuitem'], [onclick], [data-onclick]")) {
       e.preventDefault();
       toast(guide.length ? "Not part of this preview. Follow the walkthrough, or press × to explore."
         : hot.size ? "Not part of this preview." : "This preview shows the page as it looks.");

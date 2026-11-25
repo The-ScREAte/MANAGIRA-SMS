@@ -28,7 +28,7 @@
     </tbody></table>
     <% if (!keySet) { %><p class="mg-hint" style="margin-top:10px">Make a key with <code>node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"</code>, set it as BACKUP_ENCRYPTION_KEY on the server, and keep a copy somewhere safe away from Managira (a password manager). Without it no backup can be read.</p><% } %>
     <div class="mg-actions" style="margin-top:12px">
-      <form method="POST" action="/admin/backups/run" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Backing up…';"><button class="mg-btn mg-btn--primary" type="submit"<%= _ready ? '' : ' disabled' %>>Back up now</button></form>
+      <form method="POST" action="/admin/backups/run" data-onsubmit="admin-backups.1"><button class="mg-btn mg-btn--primary" type="submit"<%= _ready ? '' : ' disabled' %>>Back up now</button></form>
     </div>
   </section>
 
@@ -52,3 +52,4 @@
     <% } %>
   </section>
 </div>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

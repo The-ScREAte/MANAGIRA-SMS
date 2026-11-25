@@ -4,7 +4,7 @@ const { documentController } = require("../controllers/documentController");
 const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const multer = require("multer");
-const xlsxUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+const xlsxUpload = multer({ storage: multer.memoryStorage(), ...require("../utils/uploadSafety").safeUploadOptions({ maxMb: 8, maxFiles: 1, kinds: ["document"] }) });
 
 module.exports = (db) => {
   // Document list page

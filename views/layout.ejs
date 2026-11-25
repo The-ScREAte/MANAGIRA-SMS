@@ -94,7 +94,8 @@
     <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
     <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/embedPopupLift.js') %>" defer></script><% } %>
-<script>
+    <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     try {
       var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -109,6 +110,7 @@
     <%# Which school (and which parent account) this page was drawn for: the page-switcher loads the
         whole page when it changes (a parent opening a child at another school), so the header, logo
         and menus never stay those of the school before. %>
+    <% if (!locals.hideGlobalHeader && !_publicChrome) { %><a class="skip-link" href="#main-content">Skip to main content</a><% } %>
     <div id="app-scale-root" data-school="<%= (typeof session !== 'undefined' && session && session.organizationId) || '' %>:<%= (typeof session !== 'undefined' && session && session.guardianId) || '' %>">
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
@@ -195,7 +197,7 @@
             <% } %>
         <% } %>
 
-        <main<%- _publicChrome ? ' class="lp-public-main"' : '' %>>
+        <main id="main-content"<%- _publicChrome ? ' class="lp-public-main"' : '' %>>
             <%- body %>
         </main>
 
@@ -260,8 +262,8 @@
             }
 
             /* ---------- Managira Compact Headings ---------- */
-            body.managira-compact main h1 { font-size: 1.25rem; line-height: 1.3; }
-            body.managira-compact main :is(.cset-page__title, .mr-header h1, .as-head h1, .pa-head h1) { font-size: 1.375rem; font-weight: 700; font-family: Inter, sans-serif; }
+            body.managira-compact main h1 { font-size: 1.375rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
+            body.managira-compact main :is(.cset-page__title, .mr-header h1, .as-head h1, .pa-head h1, .cal-side__head h1, .birthdays-title-row h1, .ma h1, .rb-header h1) { font-size: 1.375rem; font-weight: 700; font-family: Inter, sans-serif; line-height: 1.25; }
             body.managira-compact main h2 { font-size: 1.05rem; line-height: 1.3; }
             body.managira-compact main h3 { font-size: 0.95rem; line-height: 1.3; }
             body.managira-compact main h4 { font-size: 0.875rem; line-height: 1.3; }
@@ -345,7 +347,7 @@
         <% } %>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
             function updateBottomInset() {
                 var vv = window.visualViewport;
@@ -374,7 +376,7 @@
         })();
     </script>
 <% if (locals.appearanceOwner) { %>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Light / dark: the header switch and the settings picker. The page changes at
   // once (public/js/appearance.js) and the choice is saved for this person in the
   // background; saves go out one after another so the last tap is the one kept.
@@ -481,5 +483,6 @@
 <script src="<%= assetUrl('/js/capturePack.js') %>" defer></script>
 <script src="<%= assetUrl('/js/demoCapture.js') %>" data-ends-at="<%= locals.demoCapture.endsAt %>" data-school="<%= locals.demoCapture.school %>" defer></script>
 <% } %>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>
 </body>
 </html>

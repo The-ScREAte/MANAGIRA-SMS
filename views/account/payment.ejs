@@ -1120,7 +1120,7 @@
     <p id="redirect-overlay-status-secondary" class="redirect-overlay-status-secondary" aria-live="polite"></p>
   </div>
 </div>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
       document.addEventListener("DOMContentLoaded", function () {
         const baseStripeAmount = parseInt('<%= stripePaymentDetails ? stripePaymentDetails.amount : paymentDetails.amount %>', 10);
   const baseStripeSubtotalAmount = parseInt('<%= stripePaymentDetails ? Math.round(Number(stripePaymentDetails.subtotalAmount || 0) * 100) : paymentDetails.amount %>', 10);
@@ -1525,8 +1525,9 @@
       }
 
       function confirmPayment() {
-        return confirm(
-          "You are about to proceed with the payment for the selected plan. Do you consent to proceed?"
+        return window.appConfirm(
+          "You are about to pay for the selected plan. Continue?",
+          { ok: "Pay" }
         );
       }
 
@@ -1663,7 +1664,7 @@
           return;
         }
 
-        if (!confirmPayment()) {
+        if (!(await confirmPayment())) {
           return;
         }
 

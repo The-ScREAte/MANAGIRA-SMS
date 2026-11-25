@@ -303,6 +303,7 @@
     }
     
     /* === Attendance Table === */
+    .attendance-page { overflow-x: clip; }
     .attendance-sheet-container {
         padding: <%= isEmbedded ? '0' : '16px 0' %>;
         margin: <%= isEmbedded ? '6px 0 0' : '30px auto' %>;
@@ -1090,6 +1091,7 @@
             .att-summary #attendance-summary thead th { color: #475569; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }
             .att-summary #attendance-summary tbody tr:last-child td { border-bottom: 0; font-weight: 700; }
 </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
         <div class="attendance-page <%= isEmbedded ? 'attendance-page-embedded' : '' %>">
@@ -1160,7 +1162,7 @@
                     <% } %>
                     </div>
                     <div class="attendance-header-actions">
-                        <button type="button" class="filter-toggle-btn" onclick="toggleFilters()" aria-expanded="false" aria-controls="filterControlsContent">
+                        <button type="button" class="filter-toggle-btn" data-onclick="common-attendanceCollection.1" aria-expanded="false" aria-controls="filterControlsContent">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
                             <span>Filters</span>
                             <span class="filter-range" id="attRangeLabel"></span>
@@ -1221,7 +1223,7 @@
                                     </label>
 
                                     <div class="filter-actions">
-                                        <button type="button" class="filter-reset-btn" id="filterResetBtn" onclick="resetFilters()" disabled>Reset</button>
+                                        <button type="button" class="filter-reset-btn" id="filterResetBtn" data-onclick="common-attendanceCollection.2" disabled>Reset</button>
                                     </div>
                                 </div>
                             </div>
@@ -1271,7 +1273,7 @@
           .attendance-sheet .att-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
           @media print { .attendance-sheet .att-form-col { display: none; } }
         </style>
-        <script>
+        <script nonce="<%= locals.cspNonce || '' %>">
           // Today's answers to the forms collected with attendance: saved as each one is chosen,
           // one student at a time (Custom editor, "Add it to the attendance page").
           (function () {
@@ -1334,7 +1336,7 @@
           })();
         </script>
         <% } %>
-        <script>window.ATT_RENDERED_RANGE = <%- JSON.stringify(locals.attendanceRange || 'd3') %>; window.ATT_MISSED = <%- JSON.stringify(locals.missedDays || []) %>; window.ATT_ALL_DATES = <%- JSON.stringify(locals.allDisplayDates || displayDates || []) %>; window.ATT_OFF = <%- JSON.stringify(locals.offDays || {}) %>;</script>
+        <script nonce="<%= locals.cspNonce || '' %>">window.ATT_RENDERED_RANGE = <%- JSON.stringify(locals.attendanceRange || 'd3') %>; window.ATT_MISSED = <%- JSON.stringify(locals.missedDays || []) %>; window.ATT_ALL_DATES = <%- JSON.stringify(locals.allDisplayDates || displayDates || []) %>; window.ATT_OFF = <%- JSON.stringify(locals.offDays || {}) %>;</script>
         <div class="attendance-sheet-container">
             <table class="attendance-sheet">
                 <thead>
@@ -1364,9 +1366,9 @@
                                     <%= _formattedDate %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
                                         <div class="date-actions">
-                                            <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" onclick="toggleEditSaveMode('<%= date %>')">Edit</div>
-                                            <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
-                                            <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check all</span><span class="ca-row"><input type="checkbox" class="check-all-box" onclick="markAllPresentForDate('<%= date %>', this.checked)" title="Everyone present" aria-label="Mark everyone present"><% if (locals.lunchOn) { %><button type="button" class="check-all-lunch att-plate-btn" onclick="window.lunchAllForDate && window.lunchAllForDate('<%= date %>')" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false"></button><% } %></span></div>
+                                            <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" data-onclick="common-attendanceCollection.3" data-mga0="<%= date %>">Edit</div>
+                                            <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" data-onclick="common-attendanceCollection.4" data-mga0="<%= date %>">Cancel</div>
+                                            <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check all</span><span class="ca-row"><input type="checkbox" class="check-all-box" data-onclick="common-attendanceCollection.5" data-mga0="<%= date %>" title="Everyone present" aria-label="Mark everyone present"><% if (locals.lunchOn) { %><button type="button" class="check-all-lunch att-plate-btn" data-onclick="common-attendanceCollection.6" data-mga0="<%= date %>" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false"></button><% } %></span></div>
                                         </div>
                                         <% if (locals.lunchOn) { %><div class="lunch-tally" data-lunch-date="<%= date %>" title="Students who had lunch" hidden><span class="att-plate-ico" aria-hidden="true"></span><b>0</b></div><% } %>
                                     <% } %>
@@ -1406,7 +1408,7 @@
                                 <%_ const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; _%>
                                 <%_ const showPairedWatermark = (rowIndex % 2) === 0; _%>
                                 <%_ const mark = attendanceMap[student.student_id] && attendanceMap[student.student_id][date]; _%>
-<td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>"><input type="checkbox" data-date="<%= date %>" data-student-id="<%= student.student_id %>" data-countable="<%= dateMeta.countable ? 'true' : 'false' %>" class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>" <%= mark === 'Present' ? 'checked' : '' %> <%= (!dateMeta.countable || mark) ? 'disabled' : '' %>>
+<td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>"><input type="checkbox" aria-label="<%= attendanceStudentName %>, present on <%= date %>" data-date="<%= date %>" data-student-id="<%= student.student_id %>" data-countable="<%= dateMeta.countable ? 'true' : 'false' %>" class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>" <%= mark === 'Present' ? 'checked' : '' %> <%= (!dateMeta.countable || mark) ? 'disabled' : '' %>>
                                 <%_ if (!dateMeta.countable && showPairedWatermark) { _%>
 <span class="inactive-watermark paired-watermark"><%= (dateMeta.markerLabel || 'Excluded').toUpperCase() %></span>
                                 <%_ } _%>
@@ -1427,7 +1429,7 @@
 
     <section class="att-summary">
     <h2 class="att-summary__title">Summary</h2>
-    <button type="button" id="attendanceSummaryToggle" class="attendance-summary-toggle" onclick="toggleAttendanceSummary()">Show summary</button>
+    <button type="button" id="attendanceSummaryToggle" class="attendance-summary-toggle" data-onclick="common-attendanceCollection.7">Show summary</button>
     <div id="attendanceSummaryWrapper" class="attendance-summary-wrapper collapsed-mobile">
       <table id="attendance-summary" style="width: 100%;">
           <thead>
@@ -1556,23 +1558,30 @@
             .attendance-sheet th.student-name { font-size: 11.5px !important; }
             .attendance-sheet td.overall-attendance { font-size: 12px !important; }
             .attendance-sheet td.overall-attendance .ov-pair { flex-direction: column; gap: 4px; }
-            .attendance-sheet .date-actions .edit-save-link, .attendance-sheet .date-actions .cancel-link, .attendance-sheet .att-plate-btn { width: 40px; height: 40px; }
+            .attendance-sheet .att-plate-btn { width: 40px; height: 40px; }
         }
         /* Every control on the sheet is one size: the day's boxes, "check all", the lunch plates, the reason button and the
            edit / cancel buttons (bigger on a phone, where they are tapped). Nothing is scaled up on its own. */
         .attendance-sheet { --att-ctl: 32px; }
-        @media (max-width: 768px) { .attendance-sheet { --att-ctl: 40px; } }
+        @media (max-width: 768px) {
+            .attendance-sheet { --att-ctl: 36px; }
+            .attendance-sheet .att-pair { gap: 4px; }
+            .attendance-sheet th.student-name, .attendance-sheet td.student-name { width: 84px; min-width: 84px; max-width: 84px; padding-left: 8px !important; padding-right: 6px !important; white-space: normal; word-break: break-word; }
+            .attendance-sheet td, .attendance-sheet th[data-date] { padding-left: 4px !important; padding-right: 4px !important; }
+        }
         .attendance-sheet td input[type="checkbox"][data-date], .attendance-sheet .check-all-box, .attendance-sheet .date-actions .mark-all-link .check-all-box,
-        .attendance-sheet .att-plate-btn, .attendance-sheet .att-note-btn, .attendance-sheet .date-actions .edit-save-link, .attendance-sheet .date-actions .cancel-link {
+        .attendance-sheet .att-plate-btn, .attendance-sheet .att-note-btn {
             width: var(--att-ctl) !important; height: var(--att-ctl) !important; min-width: 0 !important; box-sizing: border-box !important; border-radius: 9px !important; transform: none !important;
         }
         .attendance-sheet .att-plate-btn::before, .attendance-sheet .att-plate-ico { width: calc(var(--att-ctl) * .52); height: calc(var(--att-ctl) * .52); }
-        .attendance-sheet .date-actions .edit-save-link::before, .attendance-sheet .date-actions .cancel-link::before { width: calc(var(--att-ctl) * .5); height: calc(var(--att-ctl) * .5); }
+        /* Edit / Save / Cancel carry a short word beside the icon, same height as the other controls. */
+        .attendance-sheet .date-actions .edit-save-link, .attendance-sheet .date-actions .cancel-link { width: auto !important; min-width: 0 !important; height: var(--att-ctl) !important; padding: 0 11px !important; gap: 6px; border-radius: 9px !important; font-size: 12.5px !important; font-weight: 700; line-height: 1 !important; white-space: nowrap; }
+        .attendance-sheet .date-actions .edit-save-link::before, .attendance-sheet .date-actions .cancel-link::before { flex: none; width: 15px; height: 15px; }
         .attendance-sheet .att-note-btn svg { width: calc(var(--att-ctl) * .5); height: calc(var(--att-ctl) * .5); }
         .attendance-sheet .att-pair { gap: 8px; }
         @media print { .attendance-sheet .date-actions, .attendance-sheet .att-plate-btn:not([aria-pressed="true"]) { display: none; } }
     </style>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
         var originalStates = window.__attendanceOriginalStates || {};
         window.__attendanceOriginalStates = originalStates;
 
@@ -1633,8 +1642,8 @@
         // The server draws only the chosen days (and reads only those), so a longer range is a fresh load of the page.
         function setRangeCookie(v) { document.cookie = 'att_range=' + encodeURIComponent(v || '') + '; path=/; max-age=' + (v ? 31536000 : 0) + '; SameSite=Lax'; }
         function unsavedDays() { return Array.prototype.some.call(document.querySelectorAll('.attendance-sheet .edit-save-link'), function (l) { return l.textContent.trim() === 'Save'; }); }
-        function goToRange(v) {
-            if (unsavedDays() && !window.confirm('Showing other days discards the changes you haven\'t saved. Continue?')) { var sel = document.getElementById('dateFilter'); if (sel) sel.value = window.ATT_RENDERED_RANGE; return; }
+        async function goToRange(v) {
+            if (unsavedDays() && !await window.appConfirm('Showing other days discards the changes you haven\'t saved. Continue?')) { var sel = document.getElementById('dateFilter'); if (sel) sel.value = window.ATT_RENDERED_RANGE; return; }
             if (ATT_RANGES[v]) { saveRange(v); setRangeCookie(v); }
             var u = new URL(location.href); u.searchParams.set('range', v); location.assign(u.toString());
         }
@@ -2165,7 +2174,7 @@
                     + '<p id="attDoneText">Families are told about absences 30 minutes after you finish.</p>'
                     + '<div class="att-done-actions"><button type="button" class="att-done-btn no" data-no>Not yet</button><button type="button" class="att-done-btn yes" data-yes>Yes, I’m done</button></div></div>';
                 overlay.addEventListener('click', function (e) {
-                    if (e.target === overlay || e.target.closest('[data-no]')) notYet();
+                    if (e.target.closest('[data-no]')) notYet();
                     else if (e.target.closest('[data-yes]')) yes();
                 });
                 overlay.addEventListener('keydown', function (e) {
@@ -2342,7 +2351,7 @@
 
             
             </script>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
     // The Edit button shows a tick while its day is being edited (the page's own script switches the words).
     (function () {
         function sync(link) { var save = link.textContent.trim() === 'Save'; link.dataset.mode = save ? 'save' : 'edit'; link.title = save ? 'Save' : 'Edit'; link.setAttribute('aria-label', (save ? 'Save' : 'Edit') + ' attendance'); }
@@ -2353,7 +2362,7 @@
     })();
     </script>
     <% if (locals.lunchOn) { %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
     // Lunch, beside each student's checkbox. A day nobody has marked is open: the first tap starts editing.
     // A saved day is locked until Edit. Lunch is saved with the day's attendance, and only for a day
     // whose lunch was touched, so a day nobody took lunch for stays "not taken".
@@ -2467,7 +2476,7 @@
     </script>
     <% } %>
                 <% if (locals.notesOn) { %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
     // A reason for an absence: a small note button beside an absent student's day (once the notes column exists). On a
     // day being edited it goes with the day's Save; on a saved day it saves by itself, so a reason can be added later.
     (function () {
@@ -2626,7 +2635,7 @@
     })();
     </script>
     <% } %>
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
     // Days that aren't school days (the weekend, holidays, days off the school added) sit in one slim strip between the
     // school days, named on its side ("WEEKEND", "THANKSGIVING"). Click it and the days open as any other day, in slim
     // columns; "Collapse" folds them again. A day filtered to on its own is shown open.
@@ -2700,3 +2709,4 @@
         sheet.querySelectorAll('th.wk-strip').forEach(function (th) { th.tabIndex = 0; th.setAttribute('role', 'button'); th.setAttribute('aria-label', th.title + ', closed. Open these days'); });
     })();
     </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -131,7 +131,7 @@
     .fs-day input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--brand) 30%, transparent); outline-offset: 2px; }
     .fs-switch { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 22px; cursor: pointer; }
     .fs-switch input { position: absolute; opacity: 0; pointer-events: none; }
-    .fs-switch-ui { flex: none; position: relative; width: 26px; height: 15px; margin-top: 2px; border-radius: 999px; background: #d1d5db; transition: background 0.15s ease; }
+    .fs-switch-ui { flex: none; position: relative; width: 26px; height: 15px; margin-top: 2px; border-radius: 999px; background: #7890b2; transition: background 0.15s ease; }
     .fs-switch-ui::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.15s ease; }
     .fs-switch input:checked + .fs-switch-ui { background: var(--brand); }
     .fs-switch input:checked + .fs-switch-ui::after { transform: translateX(11px); }
@@ -255,6 +255,7 @@
     }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <header class="fs-top">
@@ -501,7 +502,7 @@
     </aside>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     window.FIRST_SETUP = <%- JSON.stringify({ steps, labels: _labels, hasTerms, yearMode, school: { name: school.name, shortName: school.shortName, phone: school.phone, address: school.address, state: school.state, logo: school.logo } }) %>;
   </script>
   <script src="<%= typeof assetUrl === 'function' ? assetUrl('/js/logoutConfirm.js') : '/js/logoutConfirm.js' %>"></script>

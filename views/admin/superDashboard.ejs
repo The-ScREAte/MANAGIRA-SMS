@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
   <title>Super Admin Dashboard</title>
   <link rel="stylesheet" href="/css/admin.css" />
   <style>
@@ -733,6 +733,7 @@
       .header-actions > * { flex: 1 1 0; justify-content: center; text-align: center; }
     }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="dashboard-wrapper">
@@ -891,7 +892,7 @@
         <span class="muted"><%= deletedAccounts ? deletedAccounts.length : 0 %> records</span>
       </div>
       <% if (deletedAccounts && deletedAccounts.length > 0) { %>
-      <form id="bulk-orgs-form" action="/admin/permanentlyDelete/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'application')" style="margin:0;"></form>
+      <form id="bulk-orgs-form" action="/admin/permanentlyDelete/bulk" method="post" data-onsubmit="admin-superDashboard.1" style="margin:0;"></form>
       <div class="bulk-toolbar is-hidden" data-bulk-toolbar="orgs">
         <span class="bulk-count" data-bulk-count="orgs">0 selected</span>
         <button type="submit" form="bulk-orgs-form" class="btn-bulk-delete" data-bulk-button="orgs" disabled>✕ Delete Selected Permanently</button>
@@ -913,7 +914,7 @@
             <tr>
               <td><input type="checkbox" class="row-checkbox" form="bulk-orgs-form" name="orgIds" value="<%= account.organization_id %>" data-bulk-row="orgs" aria-label="Select application"></td>
               <td>
-                <button type="button" class="expand-button" onclick="toggleDetails('org-<%= account.organization_id %>')">▾</button>
+                <button type="button" class="expand-button" data-onclick="admin-superDashboard.2" data-mga0="<%= account.organization_id %>">▾</button>
               </td>
               <td><strong><%= account.organization_name %></strong></td>
               <td><%= account.first_name %> <%= account.last_name %></td>
@@ -927,11 +928,11 @@
                     <div><strong>Address:</strong> <%= account.organization_address || 'N/A' %><% if (account.organization_country || account.organization_province) { %>, <%= [account.organization_province, account.organization_country].filter(Boolean).join(', ') %><% } %></div>
                   </div>
                   <div class="details-actions">
-                    <form action="/admin/restore" method="post" onsubmit="return confirmAction('restore this organization?')">
+                    <form action="/admin/restore" method="post" data-onsubmit="admin-superDashboard.3">
                       <input type="hidden" name="orgId" value="<%= account.organization_id %>" />
                       <button type="submit" class="btn-action btn-restore">✓ Restore</button>
                     </form>
-                    <form action="/admin/permanentlyDelete" method="post" onsubmit="return confirmAction('permanently delete this organization? This cannot be undone.')">
+                    <form action="/admin/permanentlyDelete" method="post" data-onsubmit="admin-superDashboard.4">
                       <input type="hidden" name="orgId" value="<%= account.organization_id %>" />
                       <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
                     </form>
@@ -954,7 +955,7 @@
         <span class="muted"><%= deletedHubs ? deletedHubs.length : 0 %> records</span>
       </div>
       <% if (deletedHubs && deletedHubs.length > 0) { %>
-      <form id="bulk-hubs-form" action="/admin/hubs/permanently-delete/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'hub')" style="margin:0;"></form>
+      <form id="bulk-hubs-form" action="/admin/hubs/permanently-delete/bulk" method="post" data-onsubmit="admin-superDashboard.5" style="margin:0;"></form>
       <div class="bulk-toolbar is-hidden" data-bulk-toolbar="hubs">
         <span class="bulk-count" data-bulk-count="hubs">0 selected</span>
         <button type="submit" form="bulk-hubs-form" class="btn-bulk-delete" data-bulk-button="hubs" disabled>✕ Delete Selected Permanently</button>
@@ -978,7 +979,7 @@
             <tr>
               <td><input type="checkbox" class="row-checkbox" form="bulk-hubs-form" name="hubIds" value="<%= hub.hub_id %>" data-bulk-row="hubs" aria-label="Select hub"></td>
               <td>
-                <button type="button" class="expand-button" onclick="toggleDetails('hub-<%= hub.hub_id %>')">▾</button>
+                <button type="button" class="expand-button" data-onclick="admin-superDashboard.6" data-mga0="<%= hub.hub_id %>">▾</button>
               </td>
               <td><strong><%= hub.hub_name %></strong></td>
               <td><%= hub.hub_nickname || 'N/A' %></td>
@@ -1017,11 +1018,11 @@
                   </div>
 
                   <div class="details-actions">
-                    <form action="/admin/hubs/restore" method="post" onsubmit="return confirmAction('restore this hub?')">
+                    <form action="/admin/hubs/restore" method="post" data-onsubmit="admin-superDashboard.7">
                       <input type="hidden" name="hubId" value="<%= hub.hub_id %>" />
                       <button type="submit" class="btn-action btn-restore">✓ Restore Hub</button>
                     </form>
-                    <form action="/admin/hubs/permanently-delete" method="post" onsubmit="return confirmAction('permanently delete this hub? This cannot be undone.')">
+                    <form action="/admin/hubs/permanently-delete" method="post" data-onsubmit="admin-superDashboard.8">
                       <input type="hidden" name="hubId" value="<%= hub.hub_id %>" />
                       <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
                     </form>
@@ -1044,7 +1045,7 @@
         <span class="muted"><%= deletedTickets ? deletedTickets.length : 0 %> records</span>
       </div>
       <% if (deletedTickets && deletedTickets.length > 0) { %>
-      <form id="bulk-tickets-form" action="/admin/permanentDeleteMessage/bulk" method="post" onsubmit="return confirmBulkSubmit(this, 'ticket')" style="margin:0;"></form>
+      <form id="bulk-tickets-form" action="/admin/permanentDeleteMessage/bulk" method="post" data-onsubmit="admin-superDashboard.9" style="margin:0;"></form>
       <div class="bulk-toolbar is-hidden" data-bulk-toolbar="tickets">
         <span class="bulk-count" data-bulk-count="tickets">0 selected</span>
         <button type="submit" form="bulk-tickets-form" class="btn-bulk-delete" data-bulk-button="tickets" disabled>✕ Delete Selected Permanently</button>
@@ -1067,7 +1068,7 @@
             <tr>
               <td><input type="checkbox" class="row-checkbox" form="bulk-tickets-form" name="threadIds" value="<%= ticket.thread_id %>" data-bulk-row="tickets" aria-label="Select ticket"></td>
               <td>
-                <button type="button" class="expand-button" onclick="toggleDetails('ticket-<%= ticket.thread_id %>')">▾</button>
+                <button type="button" class="expand-button" data-onclick="admin-superDashboard.10" data-mga0="<%= ticket.thread_id %>">▾</button>
               </td>
               <td>#<%= ticket.thread_id %></td>
               <td><%= ticket.name %></td>
@@ -1092,11 +1093,11 @@
                     </div>
                   </div>
                   <div class="details-actions">
-                    <form action="/admin/restoreMessage" method="POST" onsubmit="return confirmAction('restore this ticket?')">
+                    <form action="/admin/restoreMessage" method="POST" data-onsubmit="admin-superDashboard.11">
                       <input type="hidden" name="threadId" value="<%= ticket.thread_id %>" />
                       <button type="submit" class="btn-action btn-restore">✓ Restore</button>
                     </form>
-                    <form action="/admin/permanentDeleteMessage" method="POST" onsubmit="return confirmAction('permanently delete this ticket? This cannot be undone.')">
+                    <form action="/admin/permanentDeleteMessage" method="POST" data-onsubmit="admin-superDashboard.12">
                       <input type="hidden" name="threadId" value="<%= ticket.thread_id %>" />
                       <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
                     </form>
@@ -1138,7 +1139,7 @@
             %>
             <tr>
               <td>
-                <button type="button" class="expand-button" onclick="toggleDetails('contact-<%= c.id %>')">▾</button>
+                <button type="button" class="expand-button" data-onclick="admin-superDashboard.13" data-mga0="<%= c.id %>">▾</button>
               </td>
               <td><strong><%= c.contact_name %></strong></td>
               <td><%= c.organization_name || '—' %></td>
@@ -1164,11 +1165,11 @@
                   </div>
                   <% } %>
                   <div class="details-actions">
-                    <form action="/admin/contacts/restore" method="post" onsubmit="return confirmAction('restore this referral?')">
+                    <form action="/admin/contacts/restore" method="post" data-onsubmit="admin-superDashboard.14">
                       <input type="hidden" name="contactId" value="<%= c.id %>" />
                       <button type="submit" class="btn-action btn-restore">✓ Restore</button>
                     </form>
-                    <form action="/admin/contacts/permanent-delete" method="post" onsubmit="return confirmAction('permanently delete this referral? This cannot be undone.')">
+                    <form action="/admin/contacts/permanent-delete" method="post" data-onsubmit="admin-superDashboard.15">
                       <input type="hidden" name="contactId" value="<%= c.id %>" />
                       <button type="submit" class="btn-action btn-delete">✕ Delete Permanently</button>
                     </form>
@@ -1186,15 +1187,29 @@
     </div>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     function toggleDetails(id) {
       const details = document.getElementById(`details-${id}`);
       if (!details) return;
       details.style.display = details.style.display === 'table-row' ? 'none' : 'table-row';
     }
 
+    // A submit handler that asks with the app's own dialog: hold the submit, ask, then send the same form again.
+    function askThenSubmit(message, opts) {
+      const ev = window.event;
+      const form = ev && ev.target && ev.target.closest ? ev.target.closest('form') : null;
+      if (!form || !window.appConfirm) return window.confirm(message);
+      if (form.__askOk) { form.__askOk = false; return true; }
+      window.appConfirm(message, opts || {}).then(function (yes) {
+        if (!yes) return;
+        form.__askOk = true;
+        if (form.requestSubmit) form.requestSubmit(ev.submitter || undefined); else form.submit();
+      });
+      return false;
+    }
+
     function confirmAction(message) {
-      return confirm(`Are you sure you want to ${message}`);
+      return askThenSubmit(`Are you sure you want to ${message}`, { ok: /delete/i.test(message) ? 'Delete' : 'Yes', danger: /delete/i.test(message) });
     }
 
     // Bulk select-all + delete handling
@@ -1229,7 +1244,7 @@
       const key = form.id.replace(/^bulk-/, '').replace(/-form$/, '');
       const count = document.querySelectorAll(`[data-bulk-row="${key}"]:checked`).length;
       if (count === 0) return false;
-      return confirm(`Permanently delete ${count} ${label}${count === 1 ? '' : 's'}? This cannot be undone.`);
+      return askThenSubmit(`Permanently delete ${count} ${label}${count === 1 ? '' : 's'}? This cannot be undone.`, { ok: 'Delete', danger: true });
     }
 
     const usersModal = document.getElementById('users-modal');
@@ -1822,3 +1837,4 @@
   </script>
 </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

@@ -110,12 +110,12 @@
     </div>
   </form>
   <% if (!_isNew) { %>
-  <form id="sdfRemove" method="post" action="/common/student-documents/<%= student.student_id %>/<%= doc.id %>/delete" onsubmit="return confirm('Remove this file? It is deleted for everyone.');">
+  <form id="sdfRemove" method="post" action="/common/student-documents/<%= student.student_id %>/<%= doc.id %>/delete" data-onsubmit="common-studentDocumentForm.1">
     <input type="hidden" name="drawerId" value="<%= drawerId %>">
   </form>
   <% } %>
 </div>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var drawerId = <%- JSON.stringify(drawerId || '') %>;
     var form = document.getElementById('sdfForm');
@@ -158,3 +158,4 @@
     }
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

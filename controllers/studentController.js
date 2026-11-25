@@ -1671,14 +1671,25 @@ module.exports = {
       return res.status(400).json({ success: false, error: "Invalid assessment start request." });
     }
 
+    // The schema checks and the student's term and class are read before a connection is held for the
+    // transaction (they are kept per school for a few seconds, utils/stableReads.js).
+    let termContext = null;
+    try {
+      await ensureStudentPortalSchema(db);
+      await ensureAssessmentModeSchema(db);
+      await ensureStudentAssessmentLockSchema(db);
+      termContext = await resolveCurrentStudentTermContext(db, organizationId, studentId);
+    } catch (_) {
+      termContext = null;
+    }
     const client = await db.connect();
     try {
-      await ensureStudentPortalSchema(client);
-      await ensureAssessmentModeSchema(client);
-      await ensureStudentAssessmentLockSchema(client);
+      if (!termContext) await ensureStudentPortalSchema(client);
+      if (!termContext) await ensureAssessmentModeSchema(client);
+      if (!termContext) await ensureStudentAssessmentLockSchema(client);
       await client.query("BEGIN");
 
-      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const { selectedTerm, enrolledClassId } = termContext || await resolveCurrentStudentTermContext(client, organizationId, studentId);
       const effectiveClassId = enrolledClassId || null;
       if (!selectedTerm || !effectiveClassId) {
         await client.query("ROLLBACK");
@@ -1816,14 +1827,25 @@ module.exports = {
       return res.status(400).json({ success: false, error: "Invalid assessment lock request." });
     }
 
+    // The schema checks and the student's term and class are read before a connection is held for the
+    // transaction (they are kept per school for a few seconds, utils/stableReads.js).
+    let termContext = null;
+    try {
+      await ensureStudentPortalSchema(db);
+      await ensureAssessmentModeSchema(db);
+      await ensureStudentAssessmentLockSchema(db);
+      termContext = await resolveCurrentStudentTermContext(db, organizationId, studentId);
+    } catch (_) {
+      termContext = null;
+    }
     const client = await db.connect();
     try {
-      await ensureStudentPortalSchema(client);
-      await ensureAssessmentModeSchema(client);
-      await ensureStudentAssessmentLockSchema(client);
+      if (!termContext) await ensureStudentPortalSchema(client);
+      if (!termContext) await ensureAssessmentModeSchema(client);
+      if (!termContext) await ensureStudentAssessmentLockSchema(client);
       await client.query("BEGIN");
 
-      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const { selectedTerm, enrolledClassId } = termContext || await resolveCurrentStudentTermContext(client, organizationId, studentId);
       const effectiveClassId = enrolledClassId || null;
       if (!selectedTerm || !effectiveClassId) {
         await client.query("ROLLBACK");
@@ -1920,18 +1942,31 @@ module.exports = {
       return res.redirect("/student/testing-room");
     }
 
+    // The schema checks and the student's term and class are read before a connection is held for the
+    // transaction (they are kept per school for a few seconds, utils/stableReads.js).
+    let termContext = null;
+    try {
+      await ensureStudentPortalSchema(db);
+      await ensureAssessmentModeSchema(db);
+      await ensureStudentAssessmentLockSchema(db);
+      await ensureStudentAssessmentAttemptIntegrity(db);
+      await ensureAssessmentQuestionSetRetakeSchema(db);
+      termContext = await resolveCurrentStudentTermContext(db, organizationId, studentId);
+    } catch (_) {
+      termContext = null;
+    }
     const client = await db.connect();
     let released = false;
 
     try {
-      await ensureStudentPortalSchema(client);
-      await ensureAssessmentModeSchema(client);
-      await ensureStudentAssessmentLockSchema(client);
-      await ensureStudentAssessmentAttemptIntegrity(client);
-      await ensureAssessmentQuestionSetRetakeSchema(client);
+      if (!termContext) await ensureStudentPortalSchema(client);
+      if (!termContext) await ensureAssessmentModeSchema(client);
+      if (!termContext) await ensureStudentAssessmentLockSchema(client);
+      if (!termContext) await ensureStudentAssessmentAttemptIntegrity(client);
+      if (!termContext) await ensureAssessmentQuestionSetRetakeSchema(client);
       await client.query("BEGIN");
 
-      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const { selectedTerm, enrolledClassId } = termContext || await resolveCurrentStudentTermContext(client, organizationId, studentId);
       const effectiveClassId = enrolledClassId || null;
       if (!selectedTerm || !effectiveClassId) {
         await client.query("ROLLBACK");
@@ -2227,13 +2262,23 @@ module.exports = {
       return res.status(400).json({ success: false, error: "Invalid autosave request." });
     }
 
+    // The schema checks and the student's term and class are read before a connection is held for the
+    // transaction (they are kept per school for a few seconds, utils/stableReads.js).
+    let termContext = null;
+    try {
+      await ensureStudentPortalSchema(db);
+      await ensureAssessmentModeSchema(db);
+      termContext = await resolveCurrentStudentTermContext(db, organizationId, studentId);
+    } catch (_) {
+      termContext = null;
+    }
     const client = await db.connect();
     try {
-      await ensureStudentPortalSchema(client);
-      await ensureAssessmentModeSchema(client);
+      if (!termContext) await ensureStudentPortalSchema(client);
+      if (!termContext) await ensureAssessmentModeSchema(client);
       await client.query("BEGIN");
 
-      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const { selectedTerm, enrolledClassId } = termContext || await resolveCurrentStudentTermContext(client, organizationId, studentId);
       const effectiveClassId = enrolledClassId || null;
       if (!selectedTerm || !effectiveClassId) {
         await client.query("ROLLBACK");

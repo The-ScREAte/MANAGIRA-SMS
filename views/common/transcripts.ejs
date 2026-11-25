@@ -90,7 +90,7 @@
   .tr-dialog .gp-btn { width: auto; margin: 0; }
   @media (max-width: 640px) { .tr-open span { display: none; } .gp-page--transcripts select.tr-input { flex: 1 1 140px; } }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (() => {
     const form = document.getElementById('tr-form');
     if (!form || form.dataset.bound) return;

@@ -101,8 +101,8 @@ const validateRegistration = [
     .not()
     .isEmpty()
     .withMessage("Password is required")
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/)
-    .withMessage("Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."),
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{10,}$/)
+    .withMessage("Use at least 10 characters, with an uppercase letter, a lowercase letter, a number and one of ! @ # $ % ^ & *."),
   check("confirmPassword").custom((value, { req }) => {
     if (value !== req.body.password) {
       throw new Error("Passwords do not match");
@@ -217,8 +217,8 @@ const validateAccountUpdate = [
   // Password checks only if a password is provided
   body("password")
     .optional({ checkFalsy: true })
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters")
+    .isLength({ min: 10 })
+    .withMessage("Password must be at least 10 characters")
     .matches(/[A-Z]/)
     .withMessage("Password must contain an uppercase letter")
     .matches(/[a-z]/)

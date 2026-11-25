@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/calendar.css') %>" />
 <div class="cal-flash"><%- include('../partials/flash') %></div>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // Ask for the first month's items now, while the calendar library is still
   // downloading. Same range the month view requests (6 weeks from the Monday
   // on or before the 1st); the agenda view's month fits inside it.
@@ -125,7 +125,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="<%= assetUrl('/js/workspace.js') %>"></script>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const root = document.querySelector('[data-cal]');
     if (!root || root.dataset.ready === '1' || !window.FullCalendar) return;
@@ -541,7 +541,7 @@
       if (e.target === syncDialog) { syncDialog.close(); return; }
       const remove = e.target.closest('[data-conn-remove]');
       if (remove) {
-        if (!confirm('Disconnect? The Managira calendar is removed from your account. Nothing in Managira changes.')) return;
+        if (!await window.appConfirm('Disconnect? The Managira calendar is removed from your account. Nothing in Managira changes.')) return;
         try { await W.post(`/common/calendar/connections/${remove.dataset.connRemove}/disconnect`); await loadSync(); W.toast('Disconnected'); }
         catch (err) { syncError.textContent = err.message; }
       }

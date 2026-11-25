@@ -240,7 +240,7 @@ const describeCriteria = (locals, type, criteria) => Object.entries(criteria || 
 });
 
 // ---------- signed, encrypted download links ----------
-const linkKey = () => crypto.createHash("sha256").update(`report-download:${process.env.SESSION_SECRET || ""}`).digest();
+const linkKey = () => crypto.createHash("sha256").update(`report-download:${require("../utils/sessionSecret").sessionSecret()}`).digest();
 function sealLink(payload) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", linkKey(), iv);

@@ -578,7 +578,7 @@
   }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/menuArrange.css') %>" />
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   // A workspace never opens inside another workspace's panel: a link that lands here from inside a frame takes the whole window.
   if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { /* a different origin: stay */ } }
 </script>
@@ -661,7 +661,7 @@
         </li>
         <% }) %>
       </ul>
-      <script>window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="admissions"]'));</script>
+      <script nonce="<%= locals.cspNonce || '' %>">window.ManagiraMenuArrange && ManagiraMenuArrange.init(document.querySelector('[data-arrange-menu="admissions"]'));</script>
     </nav>
     </div>
 
@@ -710,7 +710,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function initHubMenu() {
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('.hub-section');

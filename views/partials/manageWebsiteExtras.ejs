@@ -115,7 +115,7 @@
 <div class="mwx-toast" id="mwxToast" role="status" aria-live="polite"></div>
 <input type="file" id="mwxFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var settings = <%- JSON.stringify(mwxSettings).replace(/</g, '\\u003c') %>;
     var limits = <%- JSON.stringify(mwxLimits) %>;

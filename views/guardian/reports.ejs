@@ -414,10 +414,10 @@
   <% const _only = locals.onlyChild || null; %>
   <% if (_only) { %>
   <%# Opened from a child's page: only that child's messages, and a way back to all of them. %>
-  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: 'About ' + _only.name + (_unread ? ' · ' + _unread + ' unread' : ''), back: { href: '/guardian/child?studentId=' + _only.id, label: _only.name }, extraHtml: '<a class="pt-quiet" href="/guardian/reports">All messages</a><button type="button" class="pt-primary" onclick="openModal()">+ New message</button>' }) %>
+  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: 'About ' + _only.name + (_unread ? ' · ' + _unread + ' unread' : ''), back: { href: '/guardian/child?studentId=' + _only.id, label: _only.name }, extraHtml: '<a class="pt-quiet" href="/guardian/reports">All messages</a><button type="button" class="pt-primary" data-onclick="guardian-reports.1">+ New message</button>' }) %>
   <style>.pt-quiet{display:inline-flex;align-items:center;height:38px;padding:0 14px;margin-right:8px;border:1px solid #d7dee7;border-radius:10px;color:#0f172a;background:#fff;font-size:.88rem;font-weight:600;text-decoration:none}.pt-quiet:hover{border-color:var(--org-primary-color,#0f766e)}</style>
   <% } else { %>
-  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: _unread ? _unread + ' unread' : 'Your conversations with the school.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, extraHtml: '<button type="button" class="pt-primary" onclick="openModal()">+ New message</button>' }) %>
+  <%- include('../partials/portalHead', { title: 'Messages', icon: 'messages', sub: _unread ? _unread + ' unread' : 'Your conversations with the school.', back: { href: '/guardian/dashboard', label: 'Dashboard' }, extraHtml: '<button type="button" class="pt-primary" data-onclick="guardian-reports.1">+ New message</button>' }) %>
   <% } %>
 
   <details class="mobile-collapse">
@@ -458,9 +458,9 @@
           </div>
         </a>
         <div class="report-menu-wrap" id="menu-<%= report.report_id %>">
-          <button type="button" class="report-menu-btn" onclick="toggleReportMenu('<%= report.report_id %>')" title="Options">&#8942;</button>
+          <button type="button" class="report-menu-btn" data-onclick="guardian-reports.2" data-mga0="<%= report.report_id %>" title="Options">&#8942;</button>
           <div class="report-menu-dropdown">
-            <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" class="delete-report-form" onsubmit="return confirm('Delete this report and all replies? This cannot be undone.')">
+            <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" class="delete-report-form" data-onsubmit="guardian-reports.3">
               <button type="submit">&#128465; Delete</button>
             </form>
           </div>
@@ -522,13 +522,13 @@
       </div>
       <div class="modal-actions" data-ap-skip>
         <button type="submit" class="btn-submit">Send message</button>
-        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button type="button" class="btn-cancel" data-onclick="guardian-reports.4">Cancel</button>
       </div>
     </form>
   </div>
 </div>
 
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   function openModal() {
     document.getElementById('reportModal').classList.add('active');
     // The child already chosen (a child's own messages): show their staff straight away.
@@ -615,3 +615,4 @@
     applyFilters();
   })();
 </script>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

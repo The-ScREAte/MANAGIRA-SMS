@@ -411,7 +411,7 @@
       to { transform: rotate(360deg); }
     }
   </style>
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     const subjectsCache = new Map();
 
     console.info('[CreateEmployee:Client] script_initialized', {
@@ -453,7 +453,7 @@
           selectAllDiv.className = "class-checkbox";
           selectAllDiv.innerHTML = `
             <input type="checkbox" id="selectAllSubjects-${classId}"
-              onchange="document.querySelectorAll('#${containerId} input[type=checkbox]').forEach(cb => cb.checked = this.checked)">
+              data-onchange="common-createEmployee.selectAll" data-mga0="${containerId}">
             <label><strong>Select All Subjects</strong></label>
           `;
           container.appendChild(selectAllDiv);
@@ -623,6 +623,7 @@
       }
     });
   </script>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <div class="create-employee-page">
@@ -686,7 +687,7 @@
             <div class="class-checkbox">
               <input type="checkbox" name="classes" value="<%= cls.class_id %>"
                 id="class_<%= cls.class_id %>"
-                onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
+                data-onchange="common-createEmployee.1" data-mga0="<%= cls.class_id %>" data-mga1="<%= cls.class_id %>">
               <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
               <%- include('../partials/employeeMainTeacher', { cls, personId: null }) %>
             </div>
@@ -719,7 +720,7 @@
     </div>
   </div>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // Opened from the dashboard pencil (?classId=…): preselect Teacher and tick that class.
     (function () {
       const classId = new URLSearchParams(window.location.search).get('classId');
@@ -735,7 +736,7 @@
     })();
   </script>
 
-  <script>
+  <script nonce="<%= locals.cspNonce || '' %>">
     // createEmployee.ejs is a plain POST that redirects back to itself with
     // a flash message — if we land back here (inside the drawer) with a
     // success flash showing, that redirect just happened, so let the
@@ -747,3 +748,4 @@
     }
   </script>
 </body>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

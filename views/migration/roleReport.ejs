@@ -19,6 +19,7 @@
     .sign div { flex: 1; padding-top: 6px; border-top: 1.5px solid #8ea3b6; color: #475467; }
     @page { size: A4 landscape; margin: 12mm; }
   </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
   <h1>Role report</h1>

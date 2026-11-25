@@ -3,7 +3,7 @@
   <head>
     <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
-    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
+    <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>" />
     <title><%= title %></title>
     <style>
       :root {
@@ -1255,13 +1255,14 @@
         }
       }
     </style>
+<% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
   <body class="manage-records-page">
     <link rel="stylesheet" href="/css/manage.css" />
     <div class="manage-records-shell ws-root">
       <%- include('../partials/flash') %>
 
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         // Ensure scoped styles apply on SPA navigation
         document.body.classList.add('manage-records-page');
       </script>
@@ -1272,7 +1273,7 @@
           <p class="ws-head__sub">Each school year and its terms. The current ones are marked with a dot.</p>
         </div>
         <div class="ws-head__actions">
-          <button type="button" class="ws-btn ws-btn--primary" onclick="openRegisterSchoolYearModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New school year</button>
+          <button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageRecords.1"><i class="fa-solid fa-plus" aria-hidden="true"></i> New school year</button>
         </div>
       </header>
       <% const _needEnroll = typeof termsWithoutEnrollment !== 'undefined' ? termsWithoutEnrollment : []; %>
@@ -1322,7 +1323,7 @@
         .term-lib__msg { margin: 10px 0 0; font-size: 13px; }
         .term-lib__msg:empty { display: none; }
       </style>
-      <script>
+      <script nonce="<%= locals.cspNonce || '' %>">
         (function () {
           var box = document.getElementById('termLibrary');
           if (!box || box.dataset.ready) return;
@@ -1334,14 +1335,14 @@
             var save = e.target.closest('li').querySelector('[data-term-action="rename"]');
             save.hidden = e.target.value.trim() === e.target.dataset.original || !e.target.value.trim();
           });
-          box.addEventListener('click', function (e) {
+          box.addEventListener('click', async function (e) {
             var btn = e.target.closest('[data-term-action]');
             if (!btn) return;
             var item = btn.closest('li');
             var id = item.dataset.termDef;
             var input = item.querySelector('.term-lib__name');
             var action = btn.dataset.termAction;
-            if (action === 'remove' && !confirm('Remove the term name “' + input.dataset.original + '”?')) return;
+            if (action === 'remove' && !await window.appConfirm('Remove the term name “' + input.dataset.original + '”?')) return;
             btn.disabled = true;
             fetch('/common/termLibrary/' + action, {
               method: 'POST',
@@ -1382,7 +1383,7 @@
               action="/common/updateSchoolYearAndTerms"
               method="post"
               class="school-year-form"
-              onsubmit="return validateAndConfirmChanges(this)"
+              data-onsubmit="common-manageRecords.2"
             >
               <input type="hidden" name="yearId" value="<%= year.id %>" />
               <input type="hidden" name="currentYear" class="current-year-hidden" value="<%= year.current ? year.id : '' %>" />
@@ -1394,7 +1395,7 @@
               <div class="enroll-class-inputs" style="display:none;"></div>
               <div
                 class="school-year-header"
-                onclick="toggleTerms('<%= year.id %>')"
+                data-onclick="common-manageRecords.3" data-mga0="<%= year.id %>"
               >
                 <label class="year-label" style="display: flex; align-items: center; gap: 6px;">
                   <% if (year.current) { %>
@@ -1405,10 +1406,11 @@
                 <input
                   type="text"
                   name="year_label"
+                  aria-label="School year name"
                   <%= schoolYearIsCompleted ? 'readonly' : '' %>
                   value="<%= year.year_label %>"
                   required
-                  onclick="event.stopPropagation()"
+                  data-onclick="common-manageRecords.4"
                 />
                 <label class="current-label">
                   <input 
@@ -1418,7 +1420,7 @@
                     class="current-year-radio"
                     <%= year.current ? 'checked' : '' %>
                     <%= schoolYearIsCompleted ? 'disabled' : '' %>
-                    onclick="event.stopPropagation()"
+                    data-onclick="common-manageRecords.4"
                   > 
                   Current
                 </label>
@@ -1431,8 +1433,8 @@
                   <span class="arrow" id="arrow<%= year.id %>">&#9660;</span>
                   
                   <!-- Three-dot menu for delete school year -->
-                  <div class="term-menu-container" onclick="event.stopPropagation()">
-                    <button type="button" class="term-menu-button" onclick="toggleYearMenu(event, this)">
+                  <div class="term-menu-container" data-onclick="common-manageRecords.4">
+                    <button type="button" class="term-menu-button" data-onclick="common-manageRecords.5" aria-label="More actions for <%= year.year_label %>" aria-haspopup="true">
                       ⋮
                     </button>
                     <div class="term-menu-dropdown">
@@ -1440,7 +1442,7 @@
                       <button
                         type="button"
                         class="term-menu-item edit"
-                        onclick="enableSchoolYearEdit(this)"
+                        data-onclick="common-manageRecords.6"
                       >
                         Rename school year
                       </button>
@@ -1448,7 +1450,7 @@
                       <button
                         type="button"
                         class="term-menu-item delete"
-                        onclick="deleteSchoolYear('<%= year.id %>', this)"
+                        data-onclick="common-manageRecords.7" data-mga0="<%= year.id %>"
                       >
                         Delete School Year
                       </button>
@@ -1496,14 +1498,14 @@
                     
                     <!-- Three-dot menu for delete option -->
                     <div class="term-menu-container">
-                      <button type="button" class="term-menu-button" onclick="toggleTermMenu(event, this)">
+                      <button type="button" class="term-menu-button" data-onclick="common-manageRecords.8" aria-label="More actions for this term" aria-haspopup="true">
                         ⋮
                       </button>
                       <div class="term-menu-dropdown">
                         <button
                           type="button"
                           class="term-menu-item delete"
-                          onclick="deleteTerm('<%= term.term_id %>', this)"
+                          data-onclick="common-manageRecords.9" data-mga0="<%= term.term_id %>"
                         >
                             Delete Term / Semester
                         </button>
@@ -1516,6 +1518,7 @@
                       <input
                         type="date"
                         name="startDates[]"
+                        aria-label="Term start date"
                         <%= termIsCompleted ? 'readonly' : '' %>
                         value="<%= new Date(term.start_date).toISOString().slice(0, 10) %>"
                         required
@@ -1526,6 +1529,7 @@
                       <input
                         type="date"
                         name="endDates[]"
+                        aria-label="Term end date"
                         <%= termIsCompleted ? 'readonly' : '' %>
                         value="<%= new Date(term.end_date).toISOString().slice(0, 10) %>"
                         required
@@ -1542,7 +1546,7 @@
               </div>
 
               <div class="year-form-actions">
-                <a href="#" onclick="addTermToSchoolYear(event, '<%= year.id %>')"
+                <a href="#" data-onclick="common-manageRecords.10" data-mga0="<%= year.id %>"
                   class="add-term-link">Add Term / Semester</a
                 >
 
@@ -1580,7 +1584,7 @@
         </div>
         <div class="rsy-modal-body">
           <div class="rsy-modal-status error" id="rsyModalStatus"></div>
-          <form id="rsyModalForm" onsubmit="return submitRegisterSchoolYearModal(event, this)">
+          <form id="rsyModalForm" data-onsubmit="common-manageRecords.11">
             <div class="rsy-top">
             <div class="rsy-form-group">
               <label class="rsy-form-label" for="rsySchoolYear">School year</label>
@@ -1618,7 +1622,7 @@
         </div>
 
         <div class="rsy-modal-footer">
-          <a href="#" class="rsy-add-term-link" onclick="addRsyTerm(); return false;">
+          <a href="#" class="rsy-add-term-link" data-onclick="common-manageRecords.12">
             ➕ Add term
           </a>
 
@@ -1674,7 +1678,7 @@
       </div>
     </div>
 
-    <script>
+    <script nonce="<%= locals.cspNonce || '' %>">
       const previousCurrentTermIdForEnrollment = <%= Number(previousCurrentTermId || 0) %>;
       const previousCurrentTermNameForEnrollment = <%- JSON.stringify(previousCurrentTermName || '') %>;
       const previousTermEnrollmentClasses = <%- JSON.stringify(previousTermEnrollmentClasses || []) %>;
@@ -1687,3 +1691,4 @@
 <script src="<%= assetUrl('/js/belowHeaderPanels.js') %>" defer></script>
   </body>
 </html>
+<script src="<%= locals.assetUrl ? assetUrl('/js/mgActions.js') : '/js/mgActions.js' %>"></script>

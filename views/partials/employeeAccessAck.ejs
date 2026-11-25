@@ -23,7 +23,7 @@
   .ack-box__label small { font-size: 0.8rem; line-height: 1.5; color: #475569; }
   [data-ack-submit]:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     const box = document.currentScript && document.currentScript.previousElementSibling && document.currentScript.previousElementSibling.previousElementSibling;
     const root = (box && box.matches && box.matches('[data-ack-box]')) ? box : document.querySelector('[data-ack-box]');

@@ -312,7 +312,7 @@
       </div>
     </div>
   </div>
-<script>
+<script nonce="<%= locals.cspNonce || '' %>">
   window.reportBuilderData = <%- JSON.stringify(reportBuilderData).replace(/</g, '\\u003c') %>;
 </script>
 <script src="<%= assetUrl('/js/reportPanelLift.js') %>" defer></script>
