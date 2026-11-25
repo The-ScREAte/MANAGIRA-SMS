@@ -12,7 +12,7 @@
 //  - a member of staff: the person card (personCardController.staff): in full with Manage
 //    Employees or for yourself, otherwise only a colleague who shares a class.
 //  - a family: the guardian page and the contact card (Manage Guardians: the whole school; See
-//    Contacts: the Mail Room's contacts; a teacher or supervisor: parents of their classes'
+//    Contacts: the Mailroom's contacts; a teacher or supervisor: parents of their classes'
 //    students, never the address). Parents are guardian_profiles linked through guardian_students.
 const { ReadError, reqFor, roleOf, holds, cap, ROW_MAX } = require("./index");
 const classScope = require("../classScope");
@@ -662,7 +662,7 @@ async function studentProfile(db, actor, q) {
   // This term's attendance (and lunch): Mark Attendance or Manage Students as on get_attendance; a
   // teacher only for a class they lead (main or assistant), as the class attendance page.
   const tScope = await classScope.teacherScope(db, ctx.req);
-  const svcOn = await require("../schoolServices").services(db, organizationId);
+  const svcOn = student.class_id ? await require("../schoolServices").classServices(db, organizationId, Number(student.class_id)) : await require("../schoolServices").services(db, organizationId);
   const attendanceOk = (await holds(db, actor, P.MARK_ATTENDANCE)) || (!tScope && (await holds(db, actor, P.MANAGE_STUDENTS)));
   const leads = !tScope || (student.class_id && tScope.mainClasses.has(Number(student.class_id)));
   if (!svcOn.attendance && !svcOn.lunch) {
@@ -1048,7 +1048,7 @@ async function classStaff(db, actor, q) {
 }
 
 // ── Families: who may see which parents ─────────────────────────────────────────────────
-// office: Manage Guardians (the whole school, everything); contacts: See Contacts (the Mail Room's
+// office: Manage Guardians (the whole school, everything); contacts: See Contacts (the Mailroom's
 // contacts, the contact card); class: a teacher or supervisor (parents of their classes' students,
 // only those children, never the address).
 async function familyAccess(db, actor, ctx) {

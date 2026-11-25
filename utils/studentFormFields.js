@@ -2,7 +2,7 @@
 //
 // The standard student details (name, date of birth, gender, class...) never
 // change. On top of them a school can add fields and choose where each one is
-// asked: on the Add Student form, on the online application form, or both.
+// asked: on the Add student form, on the online application form, or both.
 // Answers given on an application move to the student when it is approved.
 //
 // A field that has been answered for anyone can't be deleted or change type,
@@ -23,7 +23,7 @@ const STANDARD_FIELDS = {
   application: ["First name", "Last name", "Date of birth", "Gender", "Class", "Hometown", "Email", "Photo", "Guardian"],
 };
 
-// Where a field sits on the Add Student form. Every key matches a section of
+// Where a field sits on the Add student form. Every key matches a section of
 // that form; "more" is its own section after Student Information.
 const SECTIONS = {
   student: "Student Information",

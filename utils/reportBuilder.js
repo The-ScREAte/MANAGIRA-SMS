@@ -45,10 +45,12 @@ const STUDENT_JOINS = {
          WHERE g.organization_id = s.organization_id AND g.student_id = s.student_id
       ) p
     ) parent ON TRUE`,
+  // /*ATT_OFF*/ becomes a test for the student's class not taking attendance (Class settings › Take attendance): those
+  // students' figures come back empty (buildQueries fills it in).
   attendance: `LEFT JOIN LATERAL (
-      SELECT COUNT(*) AS days,
-             COUNT(*) FILTER (WHERE a2.status::text ILIKE 'present') AS present,
-             COUNT(*) FILTER (WHERE a2.status::text ILIKE 'absent') AS absent
+      SELECT CASE WHEN /*ATT_OFF*/ THEN NULL ELSE COUNT(*) END AS days,
+             CASE WHEN /*ATT_OFF*/ THEN NULL ELSE COUNT(*) FILTER (WHERE a2.status::text ILIKE 'present') END AS present,
+             CASE WHEN /*ATT_OFF*/ THEN NULL ELSE COUNT(*) FILTER (WHERE a2.status::text ILIKE 'absent') END AS absent
         FROM attendance_records a2
        WHERE a2.student_id = s.student_id AND a2.organization_id = s.organization_id
          AND a2.term_id = ${CURRENT_TERM}
@@ -2713,7 +2715,26 @@ function normalizeSort(report, columns, sort) {
 
 // Builds the count and data queries for one run. Both share the same bound
 // values; the data query adds LIMIT/OFFSET at the end.
-function buildQueries(report, { columns, criteria = {}, organizationId, allowedClassIds = null, ownRowsOf = null, sort, limit, offset = 0 }) {
+// The classes whose own Take attendance / Take lunch switch is off (or the school's): their attendance and lunch rows
+// and figures are left out of every report. { attendance: [classId], lunch: [classId] }.
+async function loadOffClasses(db, organizationId) {
+  const none = { attendance: [], lunch: [] };
+  try {
+    const svc = require("./schoolServices");
+    const ids = (await db.query("SELECT class_id FROM classes WHERE organization_id = $1", [organizationId])).rows.map((r) => Number(r.class_id));
+    const byClass = await svc.classServicesFor(db, organizationId, ids);
+    return {
+      attendance: ids.filter((id) => byClass.get(id) && !byClass.get(id).attendance),
+      lunch: ids.filter((id) => byClass.get(id) && !byClass.get(id).lunch),
+    };
+  } catch (error) {
+    return none;
+  }
+}
+// Class ids are whole numbers from the database, so they are written into the SQL as they are.
+const idArray = (ids) => `ARRAY[${ids.map(Number).filter(Number.isInteger).join(",")}]::int[]`;
+
+function buildQueries(report, { columns, criteria = {}, organizationId, allowedClassIds = null, ownRowsOf = null, offClasses = null, sort, limit, offset = 0 }) {
   const values = [organizationId];
   const bind = (value) => {
     values.push(value);
@@ -2730,6 +2751,11 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
     else if (!allowedClassIds.length || !report.classExpression) clauses.push("1 = 0");
     else clauses.push(`${report.classExpression} = ANY(${bind(allowedClassIds)}::int[])`);
   }
+  // A class that doesn't take attendance (or lunch) has no rows in the attendance (or lunch) reports.
+  const offList = offClasses && (report.requires === "attendance" ? offClasses.attendance : report.requires === "lunch" ? offClasses.lunch : null);
+  if (offList && offList.length && report.classExpression && !report.orgWide) {
+    clauses.push(`(${report.classExpression} IS NULL OR NOT (${report.classExpression} = ANY(${idArray(offList)})))`);
+  }
   const criteriaJoins = new Set();
   for (const definition of report.criteria || []) {
     if (!Object.hasOwn(criteria, definition.key) || definition.inFrom) continue;
@@ -2742,7 +2768,8 @@ function buildQueries(report, { columns, criteria = {}, organizationId, allowedC
   const order = normalizeSort(report, columns, sort);
   const dataJoins = new Set(criteriaJoins);
   columns.forEach((key) => { if (report.columns[key].join) dataJoins.add(report.columns[key].join); });
-  const joinSql = (names) => [...names].map((name) => report.joins[name]).join("\n");
+  const attOffSql = offClasses && offClasses.attendance.length ? `s.class_id = ANY(${idArray(offClasses.attendance)})` : "FALSE";
+  const joinSql = (names) => [...names].map((name) => String(report.joins[name]).split("/*ATT_OFF*/").join(attOffSql)).join("\n");
 
   // Plain dates are returned as text so they never shift with the server's time zone.
   const selections = columns.map((key) => {
@@ -2847,6 +2874,7 @@ Object.values(REPORTS).forEach((report) => {
 REPORTS.students.criteria = REPORTS.students.criteria.filter((criterion) => !["dob", "home_address"].includes(criterion.key));
 
 module.exports = {
+  loadOffClasses,
   subjectTotalsSql: subjectTotals,
   REPORTS,
   FAMILIES,

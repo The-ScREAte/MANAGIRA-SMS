@@ -14,7 +14,7 @@ const notifSvc = require("../utils/notificationService");
 const assessmentApproval = require("../utils/assessmentApproval");
 
 // Staff open a parent message through one link that picks the right place:
-// Mail Room's inbox for Mail Room users, the class's Parent Messages for teachers.
+// Mailroom's inbox for Mailroom users, the class's Parent Messages for teachers.
 async function reportThreadLink(db, reportId) {
   return `/common/parent-messages/${Number.parseInt(reportId, 10)}`;
 }
@@ -989,7 +989,10 @@ module.exports = {
       // With the assessments flow, parents see only approved grades.
       const gradeFlow2 = assessmentApproval.flowOn(organizationId);
       // Overall lunch, unless the class keeps it from parents.
-      const lunchShown = Boolean(see.lunch);
+      // The class they are in for this term decides what it takes (Class settings: Take attendance, Take lunch).
+      const termServices = effectiveClassId ? await require('../utils/schoolServices').classServices(db, organizationId, Number(effectiveClassId)) : null;
+      const lunchShown = Boolean(see.lunch) && (!termServices || termServices.lunch);
+      const attendanceShown = Boolean(see.attendance) && (!termServices || termServices.attendance);
       const [
         mainTeacherResult,
         subjectsResult,
@@ -1207,7 +1210,7 @@ module.exports = {
 
       // Lunch shows where it's taken for the class, or was taken this term before it stopped.
       const lunchTotal = lunchTotals.get(studentId) || null;
-      const lunch = lunchShown && (lunchTotal || classTakesLunch)
+      const lunch = lunchShown && classTakesLunch
         ? { days: lunchTotal ? lunchTotal.days : 0, taken: lunchTotal ? lunchTotal.taken : 0, label: overallLunch.label(lunchTotal) }
         : null;
 
@@ -1231,7 +1234,7 @@ module.exports = {
         uniqueAssessments,
         attendance,
         attendanceSummary,
-        showAttendance: see.attendance,
+        showAttendance: attendanceShown,
         lunch,
         showReportCards: see.reportCards,
         pastResults,

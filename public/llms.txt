@@ -20,7 +20,7 @@ Help center: https://managira.com/legal/user-documentation
 - Transportation: buses, routes and stops, rider assignments and live bus location for staff and parents, with a driver portal.
 - Parent (guardian) portal: report cards, attendance, bills and payments, and messages with the school.
 - Student portal: students sign in to take online assessments and see their own information.
-- Mail Room: message families by email, SMS or WhatsApp, and answer parents' messages in one inbox; contact cards with the school's own contact fields.
+- Mailroom: message families by email, SMS or WhatsApp, and answer parents' messages in one inbox; contact cards with the school's own contact fields.
 - Calendar: school events, personal events, tasks and each teacher's lessons from the timetable, with Google Calendar and Outlook sync.
 - School website: a public website for each school on its own managira.com address, with online admission.
 - Districts and networks: Hubs let a district or network oversee many member schools (including central billing) while each school keeps its own records.

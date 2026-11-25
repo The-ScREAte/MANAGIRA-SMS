@@ -74,7 +74,7 @@ function renderStats(req, res, locals) {
   const isEmbedded = isEmbeddedRequest(req, "organizationStats");
   const hideChrome = isEmbedded || isPdf;
   return res.render("stats/organizationStats", {
-    title: "Organization Stats",
+    title: "Organization stats",
     isEmbedded,
     isPdf,
     organizationName: req.session.organizationName || "",
@@ -206,9 +206,24 @@ function pickTerm(terms, requestedTermId) {
   );
 }
 
+// The classes that don't take attendance (the school's switch or the class's own Take attendance): their saved
+// attendance is left out of every figure, so they are never counted as missing it. Empty when every class takes it.
+async function attendanceOffClassIds(organizationId) {
+  try {
+    const svc = require("../utils/schoolServices");
+    const ids = (await db.query("SELECT class_id FROM classes WHERE organization_id = $1", [organizationId])).rows.map((r) => Number(r.class_id));
+    const byClass = await svc.classServicesFor(db, organizationId, ids);
+    return ids.filter((id) => byClass.get(id) && !byClass.get(id).attendance);
+  } catch (error) {
+    return [];
+  }
+}
+
+
 // Side-by-side figures for chosen classes in one term (the page's Compare
 // classes panel, and Mira).
 async function compareClasses(organizationId, termId, classIds) {
+  const offIds = await attendanceOffClassIds(organizationId);
   const rows = (await db.query(
     `WITH ${STUDENT_SUBJECT_SCORES_CTE},
      enrolled AS (
@@ -231,7 +246,7 @@ async function compareClasses(organizationId, termId, classIds) {
               COUNT(*) FILTER (WHERE status = 'Present')::int AS present,
               COUNT(*)::int AS marked
        FROM attendance_records
-       WHERE organization_id = $1 AND term_id = $2
+       WHERE organization_id = $1 AND term_id = $2 AND class_id <> ALL($5::int[])
        GROUP BY class_id
      )
      SELECT c.class_id, c.class_name,
@@ -245,7 +260,7 @@ async function compareClasses(organizationId, termId, classIds) {
      LEFT JOIN attendance at ON at.class_id = c.class_id
      WHERE c.organization_id = $1 AND c.class_id = ANY($3::int[])
      ORDER BY ${CLASS_ORDER_SQL}`,
-    [organizationId, termId, classIds, PASS_MARK]
+    [organizationId, termId, classIds, PASS_MARK, offIds]
   )).rows;
 
   return rows.map((row) => ({
@@ -369,6 +384,9 @@ async function buildOrganizationStats(organizationId, requestedTermId, preloaded
     : terms.slice(0, termIndex).reverse().find((term) => term.has_results) || null;
   const termId = currentTerm.term_id;
   const params = [organizationId, termId];
+  // Attendance of a class that doesn't take it is left out (see attendanceOffClassIds).
+  const attOff = await attendanceOffClassIds(organizationId);
+  const attParams = [organizationId, termId, attOff];
 
   const [
     academic,
@@ -403,7 +421,7 @@ async function buildOrganizationStats(organizationId, requestedTermId, preloaded
        attendance AS (
          SELECT class_id, COUNT(*) FILTER (WHERE status = 'Present')::int AS present, COUNT(*)::int AS marked
          FROM attendance_records
-         WHERE organization_id = $1 AND term_id = $2
+         WHERE organization_id = $1 AND term_id = $2 AND class_id <> ALL($3::int[])
          GROUP BY class_id
        )
        SELECT c.class_id, c.class_name, COALESCE(en.enrolled, 0) AS enrolled, at.present, at.marked
@@ -412,12 +430,12 @@ async function buildOrganizationStats(organizationId, requestedTermId, preloaded
        LEFT JOIN attendance at ON at.class_id = c.class_id
        WHERE c.organization_id = $1 AND (en.enrolled IS NOT NULL OR at.marked IS NOT NULL)
        ORDER BY ${CLASS_ORDER_SQL}`,
-      params
+      attParams
     ),
     db.query(
       `SELECT COUNT(*) FILTER (WHERE status = 'Present')::int AS present, COUNT(*)::int AS marked
-       FROM attendance_records WHERE organization_id = $1 AND term_id = $2`,
-      params
+       FROM attendance_records WHERE organization_id = $1 AND term_id = $2 AND class_id <> ALL($3::int[])`,
+      attParams
     ),
     // Gender of students enrolled this term.
     db.query(
@@ -466,11 +484,11 @@ async function buildOrganizationStats(organizationId, requestedTermId, preloaded
        FROM (
          SELECT student_id
          FROM attendance_records
-         WHERE organization_id = $1 AND term_id = $2
+         WHERE organization_id = $1 AND term_id = $2 AND class_id <> ALL($4::int[])
          GROUP BY student_id
          HAVING COUNT(*) FILTER (WHERE status = 'Present') * 100.0 / NULLIF(COUNT(*), 0) < $3
        ) low`,
-      [...params, LOW_ATTENDANCE_RATE]
+      [...params, LOW_ATTENDANCE_RATE, attOff]
     ),
     db.query(`SELECT COUNT(*)::int AS total FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL`, [organizationId]),
   ]);
@@ -543,7 +561,7 @@ function statsToCsv(term, stats, { attendance: attendanceOn = true } = {}) {
   const k = stats.kpis;
   const a = stats.academic;
 
-  row("Organization statistics", termLabel(term));
+  row("Organization stats", termLabel(term));
   row("Generated", new Date().toISOString().slice(0, 10));
   row();
   row("Summary", "Value");

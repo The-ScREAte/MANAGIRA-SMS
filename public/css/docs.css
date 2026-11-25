@@ -175,6 +175,14 @@ body.docs-body { margin: 0; background: #fff; color: var(--d-text); font-family:
 .docs-results strong { display: block; font-size: .92rem; color: var(--d-text); }
 .docs-results small { display: block; margin-top: 2px; font-size: .78rem; color: var(--d-muted); }
 .docs-results__none { padding: 12px; font-size: .88rem; color: var(--d-muted); }
+.docs-results__sec { display: block; margin-top: 1px; font-size: .8rem; font-weight: 600; color: var(--d-accent); }
+.docs-results__sec::before { content: "› "; }
+.docs-results__snip { display: block; margin-top: 3px; font-size: .82rem; line-height: 1.45; color: var(--d-text); opacity: .82; }
+.docs-results mark { background: var(--d-accent-soft); color: inherit; border-radius: 3px; padding: 0 1px; }
+.docs-results__fix { padding: 8px 12px 4px; font-size: .8rem; color: var(--d-muted); }
+.docs-results--side { position: static; max-height: none; margin: 0 0 12px; padding: 4px; box-shadow: none; }
+.docs-results--side a { padding: 9px 10px; }
+.docs-results--side strong { font-size: .86rem; }
 .docs-popular { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; font-size: .84rem; color: var(--d-muted); }
 .docs-popular a { padding: 4px 10px; border-radius: 999px; border: 1px solid #d6e6e8; background: #fff; color: var(--d-accent); text-decoration: none; font-weight: 600; }
 .docs-section-title { margin: 34px 0 14px; font-size: 1.2rem; font-weight: 750; letter-spacing: -.01em; }

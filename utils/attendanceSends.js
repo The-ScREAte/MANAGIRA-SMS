@@ -36,6 +36,10 @@ async function tellFamilies(db, organizationId, studentIds, date) {
   if (!studentIds || !studentIds.length) return;
   // A school that keeps attendance elsewhere tells nobody about it.
   if (!(await require("./schoolServices").attendanceOn(db, organizationId))) return;
+  // Nor about a class that doesn't take attendance (Class settings › Take attendance): its students are left out.
+  const byStudent = await require("./schoolServices").studentServicesFor(db, organizationId, studentIds);
+  studentIds = studentIds.filter((id) => !byStudent.has(Number(id)) || byStudent.get(Number(id)).attendance);
+  if (!studentIds.length) return;
   const { triggerAbsenceAlertsForStudents } = require("./notificationDigestService");
   await Promise.all([
     triggerAbsenceAlertsForStudents(db, organizationId, studentIds).catch((error) => console.error("[Attendance] Absence-threshold notification failed:", error.message)),
@@ -49,6 +53,8 @@ async function onSaved(db, organizationId, { classId, date, studentIds, now = ne
   const day = dayKey(date);
   if (!day || !studentIds || !studentIds.length) return { held: false, confirmed: false };
   if (!(await require("./schoolServices").attendanceOn(db, organizationId))) return { held: false, confirmed: false };
+  // A class that doesn't take attendance holds and sends nothing.
+  if (classId && !(await require("./schoolServices").classServices(db, organizationId, classId)).attendance) return { held: false, confirmed: false };
   try {
     if (!(await ready(db)) || !classId) throw new Error("not ready");
     const { rows } = await db.query(

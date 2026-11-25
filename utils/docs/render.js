@@ -10,7 +10,8 @@
 //   tags, featured, who, intro (HTML), sections, faq [[question, answer]], related [slug].
 // A section: { title, text?, steps?, list?, table?, code?, subsections?, example?, tip?, note?, warning?, html? }.
 // A subsection: { title, text?, steps?, list?, table?, tables? [{ label, rows }], code?, prints?, tip?, note? }.
-// A step: "text", or [text, image, caption]: the image is a file in public/images/docs/.
+// A step: "text", [text, image, caption], or { text, image, caption, images: [[image, caption], ...] }.
+// Images are files in public/images/docs/. A section or subsection may also carry `images`.
 
 const IMAGE_ROOT = "/images/docs/";
 
@@ -27,10 +28,22 @@ function figure(image, caption, alt) {
   return `<figure class="doc-media doc-image"><img src="${esc(src)}" alt="${esc(alt || String(caption || "").replace(/<[^>]+>/g, "") || "Screenshot")}">${cap}</figure>`;
 }
 
+// The pictures of a step, section or subsection, in order.
+const picturesOf = (part) => [
+  ...(part.image ? [[part.image, part.caption]] : []),
+  ...(part.images || []).map((entry) => (Array.isArray(entry) ? entry : [entry.image, entry.caption])),
+];
+const figures = (part) => picturesOf(part).map(([image, caption]) => figure(image, caption, caption)).join("");
+
+function stepOf(step) {
+  if (Array.isArray(step)) return { text: step[0], image: step[1], caption: step[2] };
+  return typeof step === "object" && step ? step : { text: step };
+}
+
 function steps(list) {
-  const items = list.map((step) => {
-    const [text, image, caption] = Array.isArray(step) ? step : [step];
-    return `<li><p>${inline(text)}</p>${figure(image, caption, caption)}</li>`;
+  const items = list.map((raw) => {
+    const step = stepOf(raw);
+    return `<li><p>${inline(step.text)}</p>${figures(step)}</li>`;
   });
   return `<ol>${items.join("")}</ol>`;
 }
@@ -54,8 +67,9 @@ function section(part) {
   const out = [];
   if (part.title) out.push(`<h2>${esc(part.title)}</h2>`);
   if (part.text) out.push(...[].concat(part.text).map((p) => `<p>${inline(p)}</p>`));
+  // A section's own pictures (where it is on the page) come before its steps.
+  out.push(figures(part));
   if (part.steps) out.push(steps(part.steps));
-  if (part.image) out.push(figure(part.image, part.caption, part.caption));
   if (part.list) out.push(`<ul>${part.list.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`);
   if (part.table) out.push(table(part.table));
   if (part.code) out.push(`<pre><code>${esc(part.code)}</code></pre>`);
@@ -74,8 +88,9 @@ const labelled = ({ label, rows }) => `<p class="doc-table-label">${inline(label
 function subsection(part) {
   const out = [`<h3>${esc(part.title)}</h3>`];
   if (part.text) out.push(...[].concat(part.text).map((p) => `<p>${inline(p)}</p>`));
+  // A section's own pictures (where it is on the page) come before its steps.
+  out.push(figures(part));
   if (part.steps) out.push(steps(part.steps));
-  if (part.image) out.push(figure(part.image, part.caption, part.caption));
   if (part.list) out.push(`<ul>${part.list.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`);
   if (part.table) out.push(table(part.table));
   if (part.tables) part.tables.forEach((item) => out.push(labelled(item)));
@@ -105,8 +120,8 @@ function imagesOf(article) {
   const found = [];
   const add = (image) => { if (image && !image.startsWith("http")) found.push(image.startsWith("/") ? image : IMAGE_ROOT + image); };
   const walk = (part) => {
-    if (part.image) add(part.image);
-    (part.steps || []).forEach((step) => { if (Array.isArray(step)) add(step[1]); });
+    picturesOf(part).forEach(([image]) => add(image));
+    (part.steps || []).forEach((step) => picturesOf(stepOf(step)).forEach(([image]) => add(image)));
     (part.subsections || []).forEach(walk);
   };
   (article.sections || []).forEach(walk);

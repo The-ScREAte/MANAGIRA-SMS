@@ -17,7 +17,7 @@ module.exports = [
         <li><strong>Student count:</strong> Higher active student counts can move the school into a different pricing tier.</li>
         <li><strong>Billing cycle:</strong> Monthly, term, yearly, or other cycle options can change total amount and discount behavior.</li>
         <li><strong>Plan and region pricing:</strong> The selected plan and location pricing rules are applied at checkout and renewal.</li>
-        <li><strong>Free students for your first months:</strong> Some plans include free students only for your first months. After them, every student is charged, and a bill that covers several months counts the free students only for the months still inside that time. <strong>Settings</strong>, <strong>Billing &amp; Plan</strong> shows until when yours are free.</li>
+        <li><strong>Free students for your first months:</strong> Some plans include free students only for your first months. After them, every student is charged, and a bill that covers several months counts the free students only for the months still inside that time. <strong>Settings</strong>, <strong>Billing &amp; plan</strong> shows until when yours are free.</li>
       </ul>
       <h2>What schools should do</h2>
       <ol>
@@ -27,7 +27,7 @@ module.exports = [
       </ol>
       <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> If your school expects a pricing jump, review student archive and graduation updates before renewal to avoid overcounting inactive learners.</div>
       <h2>Cancel your subscription</h2>
-      <p>To cancel, contact Managira support at <a href="mailto:support@managira.com">support@managira.com</a>, or use <strong>Contact support</strong> in the help menu. Your school keeps full access until the end of the period it paid for, nothing more is charged, and your records are kept. <strong>Settings</strong>, <strong>Billing &amp; Plan</strong> shows the day your access ends.</p>
+      <p>To cancel, contact Managira support at <a href="mailto:support@managira.com">support@managira.com</a>, or use <strong>Contact support</strong> in the help menu. Your school keeps full access until the end of the period it paid for, nothing more is charged, and your records are kept. <strong>Settings</strong>, <strong>Billing &amp; plan</strong> shows the day your access ends.</p>
       <p>Changed your mind? Contact support before that day and your subscription continues. Schools in a hub are billed by their hub: ask the hub instead.</p>
     `,
   },

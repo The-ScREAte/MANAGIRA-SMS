@@ -798,7 +798,7 @@ module.exports = {
         req.flash("error", "Student profile not found.");
         return res.redirect("/account/student-login");
       }
-      const sees = await studentSees(db, organizationId, studentId);
+      let sees = await studentSees(db, organizationId, studentId);
       const transportationSnapshot = sees.transport
         ? await getStudentTransportationSnapshot(db, organizationId, Number(studentId), { imageUrl: res.locals.publicImageUrl }).catch(() => null)
         : null;
@@ -842,6 +842,12 @@ module.exports = {
       req.session.currentTermId = selectedTerm.term_id;
 
       const effectiveClassId = enrolledClassId || student.class_id;
+      // The class they are in for this term decides what they take: a class that doesn't take attendance or lunch
+      // shows neither (Class settings, Take attendance / Take lunch; what was saved stays).
+      if (effectiveClassId) {
+        const termServices = await require("../utils/schoolServices").classServices(db, organizationId, Number(effectiveClassId));
+        sees = { ...sees, attendance: sees.attendance && termServices.attendance, lunch: sees.lunch && termServices.lunch };
+      }
       // With the assessments flow, the student sees only approved grades.
       const gradeFlow = assessmentApproval.flowOn(organizationId);
       // Overall lunch, beside attendance: days with lunch out of days taken.

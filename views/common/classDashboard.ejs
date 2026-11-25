@@ -50,8 +50,12 @@
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const _canMarkAttendance = Array.isArray(typeof userPermissions !== 'undefined' ? userPermissions : null) && userPermissions.includes('mark_attendance'); %>
   <%# Offered to someone who may mark it: saving needs Mark Attendance, and a teacher marks only the class they lead. %>
-  <% const _svc = locals.schoolServices || { attendance: true, lunch: true, name: 'Attendance and lunch' };
-  const _offerAttendance = hasAttendanceFeature && _canMarkAttendance && (_svc.attendance || _svc.lunch) && (userRole !== "Teacher" || isMainTeacher || (typeof isAssistantTeacher !== 'undefined' && isAssistantTeacher)); %>
+  <% /* What THIS class takes: the school's switches and the class's own (Take attendance, Take lunch). Name and icons follow it. */
+  const _svc = locals.classServices || locals.schoolServices || { attendance: true, lunch: true, name: 'Attendance & lunch', icons: ['attendance', 'lunch'] };
+  const _svcIcons = (_svc.icons || [_svc.attendance ? 'attendance' : null, _svc.lunch ? 'lunch' : null]).filter(Boolean);
+  // Offered with the feature and the right to mark; shown only while the class takes attendance or lunch.
+  const _offerBase = hasAttendanceFeature && _canMarkAttendance && (userRole !== "Teacher" || isMainTeacher || (typeof isAssistantTeacher !== 'undefined' && isAssistantTeacher));
+  const _offerAttendance = _offerBase && (_svc.attendance || _svc.lunch); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
   <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean' ? canOpenPaygiraWorkspace : true; %>
   <%# The weekly briefing's choices for this class: in Class settings when the class has it, else in Class Tools. %>
@@ -96,7 +100,7 @@
             <% if (_briefingAllowed && !_classSettingsShown) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="briefing" data-onclick="common-classDashboard.3">
-                <span class="nav-icon" aria-hidden="true"><%- navIcon('mailroom') %></span>
+                <span class="nav-icon" aria-hidden="true"><%- navIcon('briefing') %></span>
                 <span class="nav-link-label">Weekly briefing</span>
               </button>
             </li>
@@ -158,11 +162,11 @@
             </li>
             <% } %>
 
-            <% if (_offerAttendance) { %>
-              <li>
+            <% if (_offerBase) { %>
+              <li data-att-item<%= _offerAttendance ? '' : ' hidden' %>>
                 <button class="nav-link" type="button" data-nav-key="attendance" data-onclick="common-classDashboard.11">
-                  <span class="nav-icon" aria-hidden="true"><%- navIcon('attendance') %></span>
-                  <span class="nav-link-label"><%= _svc.name %></span>
+                  <span class="nav-icon<%= _svcIcons.length > 1 ? ' nav-icon--pair' : '' %>" aria-hidden="true" data-att-icons><%- _svcIcons.map((n) => navIcon(n)).join('') %></span>
+                  <span class="nav-link-label" data-att-label><%= _svc.name %></span>
                 </button>
               </li>
             <% } %>
@@ -210,9 +214,9 @@
 
             <% if (hasFilesFeature) { %>
               <li>
-                <button class="nav-link" type="button" data-nav-key="docs" title="Docs/Sheets" data-onclick="common-classDashboard.17">
+                <button class="nav-link" type="button" data-nav-key="docs" title="Docs &amp; sheets" data-onclick="common-classDashboard.17">
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('docs') %></span>
-                  <span class="nav-link-label">Docs &amp; Sheets</span>
+                  <span class="nav-link-label">Docs &amp; sheets</span>
                   <% if (userRole === 'Teacher' && (assignedFilesCount || 0) > 0) { %>
                     <span class="files-badge" title="Assigned docs/sheets"><%= assignedFilesCount %></span>
                   <% } %>
@@ -224,7 +228,7 @@
             <% if (locals.classSettingsPanel && locals.featureOn && featureOn('class_settings')) { %>
               <li>
                 <button class="nav-link" type="button" data-nav-key="settings" data-onclick="common-classDashboard.18">
-                  <span class="nav-icon" aria-hidden="true"><%- navIcon('settings') %></span>
+                  <span class="nav-icon" aria-hidden="true"><%- navIcon('classSettings') %></span>
                   <span class="nav-link-label">Class &amp; notif. settings</span>
                 </button>
               </li>
@@ -573,7 +577,7 @@
             <section class="workspace-panel" id="panel-reports" data-panel-key="reports">
               <div class="workspace-panel-head">
                 <div>
-                  <p class="card-subtext">Conversations with parents about individual students. They also appear in Mail Room's inbox.</p>
+                  <p class="card-subtext">Conversations with parents about individual students. They also appear in Mailroom's inbox.</p>
                 </div>
                 <div class="pr-head-actions">
                   <% if (Array.isArray(locals.userPermissions) && locals.userPermissions.includes('mailroom')) { %>
@@ -1027,6 +1031,9 @@
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= _offerAttendance ? 'true' : 'false' %>,
+        attendanceOffered: <%= _offerBase ? 'true' : 'false' %>,
+        attServices: <%- JSON.stringify({ attendance: Boolean(_svc.attendance), lunch: Boolean(_svc.lunch), name: _svc.name, icons: _svcIcons }) %>,
+        attIconSvg: <%- JSON.stringify({ attendance: navIcon('attendance'), lunch: navIcon('lunch') }) %>,
         canOpenAssessmentQuestions: <%= canAccessAssessmentQuestions ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
@@ -1498,17 +1505,43 @@
           sidebarKey: 'settings',
         };
       }
-      // Lunch switched on or off: an attendance tab already open loads again, so it shows the change
-      // (bound once, however many times the page-switcher opens a classroom).
-      if (!window.__classSettingsLunchReload) {
-        window.__classSettingsLunchReload = true;
-        document.addEventListener('managira:class-settings-saved', function (event) {
-          if (!event.detail || event.detail.key !== 'lunch') return;
-          document.querySelectorAll('#panel-frame-attendance iframe.workspace-frame').forEach(function (frame) {
-            try { frame.contentWindow.location.reload(); } catch (_) { frame.src = frame.src; }
-          });
+      // Take attendance or Take lunch switched on or off for this class: the menu item's name and icons follow it
+      // (both: calendar and plate, "Attendance & lunch"; one: that one; neither: the item goes), and an attendance
+      // tab already open loads again (or closes) so the page shows the change. Bound once, however many times the
+      // page-switcher opens a classroom.
+      function applyClassServices(next) {
+        var ctx = workspaceContext;
+        ctx.attServices = next;
+        ctx.canOpenAttendance = Boolean(ctx.attendanceOffered && (next.attendance || next.lunch));
+        var item = document.querySelector('[data-att-item]');
+        if (item) {
+          item.hidden = !ctx.canOpenAttendance;
+          var label = item.querySelector('[data-att-label]');
+          if (label) label.textContent = next.name;
+          var icons = item.querySelector('[data-att-icons]');
+          if (icons) {
+            icons.innerHTML = (next.icons || []).map(function (n) { return ctx.attIconSvg[n] || ''; }).join('');
+            icons.classList.toggle('nav-icon--pair', (next.icons || []).length > 1);
+          }
+        }
+        var tab = getWorkspaceTabById('attendance');
+        if (!tab) return;
+        if (!ctx.canOpenAttendance) { closeWorkspaceTab('attendance'); return; }
+        tab.title = next.name;
+        tab.panelDescription = next.name + ' workspace for the current class and term.';
+        renderWorkspaceTabBar();
+        document.querySelectorAll('#panel-frame-attendance iframe.workspace-frame').forEach(function (frame) {
+          try { frame.contentWindow.location.reload(); } catch (_) { frame.src = frame.src; }
         });
       }
+      if (window.__classServicesHandler) document.removeEventListener('managira:class-settings-saved', window.__classServicesHandler);
+      window.__classServicesHandler = function (event) {
+        var d = event.detail || {};
+        if ((d.key !== 'lunch' && d.key !== 'attendance') || !d.services) return;
+        if (d.classId && Number(d.classId) !== Number(workspaceContext.classId)) return;
+        applyClassServices(d.services);
+      };
+      document.addEventListener('managira:class-settings-saved', window.__classServicesHandler);
 
       function getWorkspaceTransportationTab() {
         return {
@@ -1604,14 +1637,14 @@
         if (!workspaceContext.canOpenAttendance) return getWorkspaceOverviewTab();
         return {
           id: 'attendance',
-          title: <%- JSON.stringify(_svc.name) %>,
+          title: workspaceContext.attServices.name,
           panelId: 'panel-frame-attendance',
           routePath: workspaceContext.basePath + '/attendance',
           sidebarKey: 'attendance',
           type: 'iframe',
           noFrameHeader: true,
           iframeSrc: workspaceContext.attendanceUrl,
-          panelDescription: <%- JSON.stringify(_svc.name + ' workspace for the current class and term.') %>,
+          panelDescription: workspaceContext.attServices.name + ' workspace for the current class and term.',
         };
       }
 
@@ -1619,7 +1652,7 @@
         if (!workspaceContext.canOpenDocs) return getWorkspaceOverviewTab();
         return {
           id: 'docs',
-          title: 'Docs/Sheets',
+          title: 'Docs & sheets',
           panelId: 'panel-frame-docs',
           routePath: workspaceContext.basePath + '/docs',
           sidebarKey: 'docs',

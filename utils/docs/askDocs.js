@@ -325,6 +325,110 @@ function bestHeadingHit(headingWords, asked, askedTotal, askedWords, askedAlts) 
   return best;
 }
 
+// One group per word asked: the word and the words that mean the same.
+function groupsOf(index, asked) {
+  const seen = new Set();
+  const groups = [];
+  keyWords(asked).forEach((w) => {
+    if (seen.has(w)) return;
+    seen.add(w);
+    const alts = [...(ALTS.get(w) || [])].filter((a) => !seen.has(a));
+    let weight = index.guideIdf(w) || (alts.length ? Math.max(...alts.map(index.guideIdf)) * 0.6 : 0);
+    // A word no guide uses can't be answered from them: it weighs heavily. Everyday verbs
+    // ("make", "set", "change") say what to do, not what about: they count little.
+    if (!weight) weight = 2.5;
+    if (GENERIC.has(w)) weight = Math.min(weight, 0.5);
+    groups.push({ word: w, alts, weight, scale: GENERIC.has(w) ? 0.4 : 1 });
+  });
+  // Everyday verbs count for a fraction of the words that say what the question is about.
+  const aboutWeight = Math.max(0, ...groups.filter((g) => g.scale === 1).map((g) => g.weight));
+  if (aboutWeight) groups.forEach((g) => { if (g.scale < 1) g.weight = Math.min(g.weight, 0.3 * aboutWeight); });
+  return { groups, askedWords: new Set(groups.map((g) => g.word)), askedAlts: new Set(groups.flatMap((g) => g.alts)) };
+}
+
+// The guides that answer the asked words, best first.
+function rankGuides(index, groups, askedWords, askedAlts) {
+  return index.guides.map((guide) => {
+    const m = match(guide, groups, index.guideIdf, index.guideAvg, 0.25);
+    // A guide whose title is what was asked ("Take a test", "Report cards") comes first.
+    // Words common to every guide ("student", "class") barely count elsewhere, but in a title
+    // they say what the guide is about: how much of the question the title says, and how much
+    // of the title is the question, each word counted once (everyday verbs as half).
+    const titleWords = new Set(guide.titleWords);
+    const asked = groups.map((g) => ({ w: g.word, alts: g.alts, n: g.scale < 1 ? 0.5 : 1 }));
+    const askedTotal = asked.reduce((sum, a) => sum + a.n, 0);
+    const saidByTitle = asked.reduce((sum, a) => sum + (titleWords.has(a.w) ? a.n : a.alts.some((x) => titleWords.has(x)) ? a.n * 0.5 : 0), 0) / askedTotal;
+    const titleIsAsked = guide.titleWords.length
+      ? guide.titleWords.reduce((sum, w) => sum + (askedWords.has(w) ? 1 : askedAlts.has(w) ? 0.4 : 0), 0) / guide.titleWords.length
+      : 0;
+    const titleHit = Math.max(
+      0.6 * saidByTitle + 0.4 * titleIsAsked,
+      0.5 * bestHeadingHit(guide.headingWords, asked, askedTotal, askedWords, askedAlts),
+      0.7 * bestHeadingHit(guide.tagWords, asked, askedTotal, askedWords, askedAlts)
+    );
+    return { guide, score: m.score * (1 + 0.5 * titleHit) + 4.5 * titleHit, coverage: m.coverage };
+  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+}
+
+// The help center's search box: the guides that match, best first, each linked to the part of
+// the guide that matches best (its section), with that part's words as a snippet. Misspelt
+// words are read as the nearest word the guides use.
+function search(query, articles, { limit = 8 } = {}) {
+  const q = String(query || "").trim().slice(0, 200);
+  if (q.length < 2) return { query: q, corrected: "", results: [] };
+  const index = indexFor(articles);
+  const asked = correctText(index, q);
+  const { groups, askedWords, askedAlts } = groupsOf(index, asked);
+  if (!groups.length) return { query: q, corrected: "", results: [] };
+  const ranked = rankGuides(index, groups, askedWords, askedAlts);
+  if (!ranked.length) return { query: q, corrected: asked !== q ? asked : "", results: [] };
+  const top = ranked[0].score;
+  const askedList = groups.map((g) => ({ w: g.word, alts: g.alts, n: g.scale < 1 ? 0.5 : 1 }));
+  const askedSum = askedList.reduce((sum, a) => sum + a.n, 0) || 1;
+  const results = ranked
+    .filter((entry, at) => at === 0 || (entry.score >= top * 0.2 && entry.coverage >= 0.34))
+    .slice(0, limit)
+    .map((entry) => {
+      // The part of the guide that says it best: its words, and a section title that says it.
+      let best = null;
+      entry.guide.pieces.forEach((piece) => {
+        if (piece.piece.kind === "summary") return;
+        const m = match(piece, groups, index.pieceIdf, index.pieceAvg);
+        if (m.score <= 0) return;
+        const heading = piece.piece.heading && piece.piece.heading !== entry.guide.article.title ? [...new Set(keyWords(piece.piece.heading))] : [];
+        const hit = heading.length ? bestHeadingHit([heading], askedList, askedSum, askedWords, askedAlts) : 0;
+        const score = m.score * (0.6 + m.coverage) + 2 * hit;
+        if (!best || score > best.score) best = { piece: piece.piece, score };
+      });
+      const article = entry.guide.article;
+      const piece = best && best.score > 0.5 ? best.piece : null;
+      return {
+        slug: article.slug,
+        title: article.title,
+        topic: article.topic || "",
+        url: docUrl(article, piece ? piece.anchor : ""),
+        section: piece && piece.heading && piece.heading !== article.title ? piece.heading : "",
+        snippet: snippetOf(piece ? piece.text : textOf(article.seoDescription || ""), groups),
+      };
+    });
+  return { query: q, corrected: asked !== q ? asked : "", results };
+}
+
+// About 160 characters of a part, starting near the first word that matches.
+function snippetOf(text, groups) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (t.length <= 170) return t;
+  const lower = t.toLowerCase();
+  const wanted = groups.flatMap((g) => [g.word, ...g.alts]).filter((w) => w.length > 2);
+  let at = -1;
+  wanted.forEach((w) => { const i = lower.indexOf(w); if (i !== -1 && (at === -1 || i < at)) at = i; });
+  let start = at > 60 ? t.lastIndexOf(" ", at - 40) + 1 : 0;
+  if (start < 0) start = 0;
+  let end = Math.min(t.length, start + 165);
+  if (end < t.length) end = t.lastIndexOf(" ", end) > start ? t.lastIndexOf(" ", end) : end;
+  return (start > 0 ? "…" : "") + t.slice(start, end) + (end < t.length ? "…" : "");
+}
+
 // ---------- asking ----------
 const docUrl = (article, anchor) => `/legal/user-documentation/${article.slug}${anchor ? `#${anchor}` : ""}`;
 const sentence = (text) => {
@@ -374,50 +478,13 @@ function ask(question, articles) {
   const ownerGuides = index.guides.filter((guide) => guide.names.has(said));
   const page = !ownerGuides.length && PAGES.find((entry) => entry.test.test(asked) && !(entry.unless && entry.unless.test(asked)));
   if (page) return { type: "answer", confidence: "sure", answer: page.answer, source: { ...page.source, section: "", excerpt: "" }, related: [] };
-  // One group per word asked: the word and the words that mean the same.
-  const seen = new Set();
-  const groups = [];
-  keyWords(asked).forEach((w) => {
-    if (seen.has(w)) return;
-    seen.add(w);
-    const alts = [...(ALTS.get(w) || [])].filter((a) => !seen.has(a));
-    let weight = index.guideIdf(w) || (alts.length ? Math.max(...alts.map(index.guideIdf)) * 0.6 : 0);
-    // A word no guide uses can't be answered from them: it weighs heavily. Everyday verbs
-    // ("make", "set", "change") say what to do, not what about: they count little.
-    if (!weight) weight = 2.5;
-    if (GENERIC.has(w)) weight = Math.min(weight, 0.5);
-    groups.push({ word: w, alts, weight, scale: GENERIC.has(w) ? 0.4 : 1 });
-  });
+  const { groups, askedWords, askedAlts } = groupsOf(index, asked);
   if (!groups.length) return { type: "no_results" };
-  // Everyday verbs count for a fraction of the words that say what the question is about.
-  const aboutWeight = Math.max(0, ...groups.filter((g) => g.scale === 1).map((g) => g.weight));
-  if (aboutWeight) groups.forEach((g) => { if (g.scale < 1) g.weight = Math.min(g.weight, 0.3 * aboutWeight); });
-  const askedWords = new Set(groups.map((g) => g.word));
-  const askedAlts = new Set(groups.flatMap((g) => g.alts));
   const howTo = /^\s*(how\b|what are the steps|steps to|where do i|can i\b)/i.test(q);
   const whatIs = /^\s*(what\s+(is|are)|what's|explain|tell me about)\b/i.test(q);
 
   // 1. The guides that answer it.
-  const guides = index.guides.map((guide) => {
-    const m = match(guide, groups, index.guideIdf, index.guideAvg, 0.25);
-    // A guide whose title is what was asked ("Take a test", "Report cards") comes first.
-    // Words common to every guide ("student", "class") barely count elsewhere, but in a title
-    // they say what the guide is about: how much of the question the title says, and how much
-    // of the title is the question, each word counted once (everyday verbs as half).
-    const titleWords = new Set(guide.titleWords);
-    const asked = groups.map((g) => ({ w: g.word, alts: g.alts, n: g.scale < 1 ? 0.5 : 1 }));
-    const askedTotal = asked.reduce((sum, a) => sum + a.n, 0);
-    const saidByTitle = asked.reduce((sum, a) => sum + (titleWords.has(a.w) ? a.n : a.alts.some((x) => titleWords.has(x)) ? a.n * 0.5 : 0), 0) / askedTotal;
-    const titleIsAsked = guide.titleWords.length
-      ? guide.titleWords.reduce((sum, w) => sum + (askedWords.has(w) ? 1 : askedAlts.has(w) ? 0.4 : 0), 0) / guide.titleWords.length
-      : 0;
-    const titleHit = Math.max(
-      0.6 * saidByTitle + 0.4 * titleIsAsked,
-      0.5 * bestHeadingHit(guide.headingWords, asked, askedTotal, askedWords, askedAlts),
-      0.7 * bestHeadingHit(guide.tagWords, asked, askedTotal, askedWords, askedAlts)
-    );
-    return { guide, score: m.score * (1 + 0.5 * titleHit) + 4.5 * titleHit, coverage: m.coverage };
-  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score);
+  const guides = rankGuides(index, groups, askedWords, askedAlts);
   const closest = guides.slice(0, 3).map((entry) => ({ title: entry.guide.article.title, url: docUrl(entry.guide.article, "") }));
   if (!guides.length) return { type: "no_results", closest };
 
@@ -513,4 +580,4 @@ function compose(piece, sameGuide, groups) {
   return { mode: "text", title: heading, lines };
 }
 
-module.exports = { ask, buildIndex, piecesOf, keyWords, words, stem };
+module.exports = { ask, search, buildIndex, piecesOf, keyWords, words, stem };

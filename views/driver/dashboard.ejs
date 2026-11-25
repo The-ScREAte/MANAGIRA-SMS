@@ -16,7 +16,7 @@
       <h1>Today’s trip</h1>
       <p><%= [session.firstName, driverBus ? 'Bus ' + driverBus.bus_number : 'No bus assigned yet', driverBus && driverBus.license_plate, driverBus && driverBus.capacity ? driverBus.capacity + ' seats' : ''].filter(Boolean).join(' · ') %></p>
     </div>
-    <% if (!_transportOff) { %><button type="button" class="drv-reportbtn" data-drv-report>Report</button><% } %>
+    <% if (!_transportOff) { %><button type="button" class="drv-reportbtn" data-drv-report><%- navIcon('reportFile', 18) %> Report</button><% } %>
   </header>
 
   <section class="drv-card drv-trip" aria-label="Trip">
@@ -46,10 +46,10 @@
           <div><dt>Time</dt><dd id="drv-fact-time">–</dd></div>
         </dl>
         <button type="button" class="drv-go" id="drv-start">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <%- navIcon('play') %>
           <span>Go</span>
         </button>
-        <button type="button" class="drv-endtrip" id="drv-end-page" hidden>End trip</button>
+        <button type="button" class="drv-endtrip" id="drv-end-page" hidden><%- navIcon('stop') %> End trip</button>
         <span class="drv-live" id="drv-live" hidden><i aria-hidden="true"></i>Live</span>
         <p class="drv-note" id="drv-note" role="alert" hidden></p>
       </div>
@@ -105,6 +105,7 @@
   navApps: navApps,
 }) %></script>
 <script src="/js/driverLocation.js?v=<%= assetVersion %>"></script>
+<script src="<%= assetUrl('/js/navIconsClient.js') %>"></script>
 <script src="<%= assetUrl('/js/driverNav.js') %>"></script>
 <% if (locals.customFormsReady && customFormsReady()) { %>
 <link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />

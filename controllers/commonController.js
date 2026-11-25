@@ -4329,6 +4329,9 @@ const commonController = {
           role: isOrgAccount ? "organization" : effectiveDashboardRole,
           actorId: resolveWorkspaceActor(req).id,
           attendanceUsed: (res.locals.schoolServices || {}).attendance !== false,
+          // A class that doesn't take attendance is never "missing" it.
+          attendanceOffClassIds: await require("../utils/schoolServices").classServicesFor(db, organizationId, classes.map((cls) => cls.class_id))
+            .then((byClass) => [...byClass].filter(([, svc]) => !svc.attendance).map(([id]) => id)).catch(() => []),
         }).catch(() => null);
       }
 
@@ -5051,7 +5054,7 @@ const commonController = {
 
       const customFields = await studentFormFields.formFields(db, req.session.organizationId, "student").catch(() => []);
       res.render("common/addStudent", {
-        title: "Add New Student",
+        title: "Add student",
         studentFiles: await studentDocsForm(db, req),
         customFields,
         isEmbedded,
@@ -8666,8 +8669,13 @@ const commonController = {
         studentFormFields.answersFor(db, req.session.organizationId, { studentId: student.student_id }, "student").catch(() => []),
       ]);
       const documentsOn = documentsList !== null;
+      // What this student's class takes (school and class switches): the Attendance tab and old-system attendance follow it.
+      const studentServices = student.class_id
+        ? await require("../utils/schoolServices").classServices(db, req.session.organizationId, Number(student.class_id)).catch(() => null)
+        : null;
       res.render("common/studentDetails", {
         isEmbedded,
+        studentServices,
         studentDocuments: documentsOn
           ? { portfolio: true, list: documentsList, types: studentDocs.TYPES, sharing: studentDocs.SHARING, manager: studentDocs.isManagerRole(req), maxMb: studentDocs.MAX_MB }
           : null,
@@ -9709,9 +9717,10 @@ const commonController = {
 
       // Attendance: the drawn days' marks, the overall figures for the whole term (one aggregate), and
       // which of the past week's school days nobody has marked yet. Lunch the same way. All side by side.
-      const lunchOn = (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
-      // What the school takes in Managira (Management, Class & notif. settings): with attendance off the page is the lunch plates only.
-      const svc = await require("../utils/schoolServices").services(db, organizationId);
+      // What this class takes: the school's switches (Management, Class & notif. settings) and the class's own
+      // (Take attendance, Take lunch). With attendance off the page is the lunch plates only, and the reverse.
+      const svc = await require("../utils/schoolServices").classServices(db, organizationId, classId);
+      const lunchOn = svc.lunch;
       const attendanceOn = svc.attendance;
       const newestDay = allDisplayDates.length ? allDisplayDates[allDisplayDates.length - 1] : attendanceTodayKey;
       const weekFrom = new Date(new Date(`${newestDay}T00:00:00Z`).getTime() - 6 * 86400000).toISOString().slice(0, 10);
@@ -11662,7 +11671,7 @@ const commonController = {
 
       const students = studentsResult.rows;
 
-      const noStudentsUrl = `/common/admissions?panel=create-student&page=${encodeURIComponent("/common/addStudent")}&label=${encodeURIComponent("Add New Student")}`;
+      const noStudentsUrl = `/common/admissions?panel=create-student&page=${encodeURIComponent("/common/addStudent")}&label=${encodeURIComponent("Add student")}`;
       if (students.length === 0) {
         req.flash(
           "error",
@@ -18099,6 +18108,8 @@ NUMBERING:
       // Class Tools › Class settings (feature class_settings): only for someone who may manage
       // this class (controllers/classSettingsController.js); null leaves it out of the menu.
       const classSettingsPanel = await classSettingsPanelP;
+      // What this class takes (school AND class switches): decides the Attendance / Lunch item in Class Tools.
+      const classServices = await require("../utils/schoolServices").classServices(db, req.session.organizationId, Number(classId));
       // Forms the school gave a Class Tools item of their own (the school's cached list).
       const classFormTiles = await classFormTilesP;
       // Forms shown beside each student in the Students list (feature report_remarks_forms), and
@@ -18117,6 +18128,7 @@ NUMBERING:
         ? await require("./markByQuestionController").countsBySubject(db, req, classId, currentTerm && currentTerm.term_id).catch(() => new Map())
         : new Map();
       res.render("common/classDashboard", {
+        classServices,
         toReviewBySubject: Object.fromEntries(toReviewBySubject),
         toReviewTotal: [...toReviewBySubject.values()].reduce((sum, n) => sum + n, 0),
         classFormTiles,
@@ -20611,17 +20623,6 @@ NUMBERING:
         },
         PERMISSIONS.SET_ASSESSMENT_QUESTIONS
       );
-      const canEditContactTemplate = await userHasPermission(
-        db,
-        {
-          userId: req.session.user?.user_id || req.session.userId || null,
-          userRole: req.session.userRole || req.session.user?.account_type || null,
-          organizationId: req.session.organizationId || null,
-          accountType: req.session.accountType || req.session.user?.account_type || null,
-          userEmail: req.session.user?.email || null,
-        },
-        PERMISSIONS.EDIT_CONTACT_TEMPLATE
-      );
       const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
       const canAccessAssessmentQuestions =
         canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
@@ -20658,8 +20659,6 @@ NUMBERING:
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
-        // The contact template is edited in Admissions > Admission Settings now (Parents & guardians).
-        canEditContactTemplate: false,
         // Service accounts have their own permission (routes/apiAccessRoute.js checks it too).
         canManageApiAccess: menuAccess.serviceAccounts,
       });
@@ -23435,9 +23434,9 @@ NUMBERING:
   /**
    * Staff replies to an existing guardian report — inserts a reply and notifies the guardian.
    */
-  // ---------- Parent messages (guardian_reports): Mail Room inbox ----------
+  // ---------- Parent messages (guardian_reports): Mailroom inbox ----------
 
-  // One link for notifications: Mail Room users land in its inbox, teachers in the class's Parent Messages.
+  // One link for notifications: Mailroom users land in its inbox, teachers in the class's Parent Messages.
   parentMessageOpen: async (req, res, db) => {
     const id = Number.parseInt(req.params.id, 10);
     try {
@@ -23473,7 +23472,9 @@ NUMBERING:
       const student = (await db.query("SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId])).rows[0];
       if (!student) return res.status(404).json({ success: false, error: "Student not found." });
       if (!(await require("../utils/studentDocuments").inScope(db, req, studentId))) return res.status(403).json({ success: false, error: "Not available." });
-      const svc = await require("../utils/schoolServices").services(db, organizationId);
+      // What the student's class takes (school and class switches); neither: nothing to show.
+      const svc = await require("../utils/schoolServices").classServices(db, organizationId, student.class_id);
+      if (!svc.attendance && !svc.lunch) return res.status(403).json({ success: false, error: "Attendance and lunch aren't used for this student's class." });
       const overallLunch = require("../utils/overallLunch");
       const dayOffset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
       const lateReady = await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] });
@@ -23492,8 +23493,8 @@ NUMBERING:
             WHERE organization_id = $1 AND term_id = $2 AND student_id = $3 ORDER BY date DESC LIMIT 11 OFFSET $4`,
           [organizationId, termId, studentId, dayOffset]
         )),
-        require("../utils/classSettings").settingsFor(db, organizationId, student.class_id).catch(() => ({ lunch: true })),
-        overallLunch.totalsFor(db, organizationId, termId, [studentId]),
+        Promise.resolve({ lunch: svc.lunch }),
+        svc.lunch ? overallLunch.totalsFor(db, organizationId, termId, [studentId]) : new Map(),
       ]);
       const t = totals.rows[0] || { total: 0, present: 0, late: 0, absent: 0 };
       const lunchTotals = lunch.get(studentId);
@@ -23516,9 +23517,9 @@ NUMBERING:
   },
 
   // Everything said about one student, on the student page's Messages tab: the parents' conversations
-  // (guardian_reports) and what the school sent their families from the Mail Room, newest first.
+  // (guardian_reports) and what the school sent their families from the Mailroom, newest first.
   // Same reach as the pages those come from: a teacher or supervisor only for their own classes'
-  // students; conversations as the class's staff or a Mail Room user; sent messages only with the Mail
+  // students; conversations as the class's staff or a Mailroom user; sent messages only with the Mail
   // Room, and for someone limited to some classes only their own sends.
   studentMessages: async (req, res, db) => {
     try {
@@ -23647,7 +23648,7 @@ NUMBERING:
     }
   },
 
-  // Every parent conversation in the school, newest activity first, for Mail Room's inbox.
+  // Every parent conversation in the school, newest activity first, for Mailroom's inbox.
   mailroomInbox: async (req, res, db) => {
     try {
       const { rows } = await db.query(
@@ -23684,7 +23685,7 @@ NUMBERING:
     }
   },
 
-  // Open / in progress / resolved, from Mail Room or by someone in the conversation.
+  // Open / in progress / resolved, from Mailroom or by someone in the conversation.
   parentMessageStatus: async (req, res, db) => {
     const id = Number.parseInt(req.params.id, 10);
     const status = String((req.body && req.body.status) || "");

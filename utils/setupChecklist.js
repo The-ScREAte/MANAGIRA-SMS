@@ -45,7 +45,7 @@ const STEPS = [
     required: true,
     title: "Add your classes",
     hint: "Grade 1, JHS 2… each class gets its own dashboard.",
-    href: management("graduation", "/common/manageClassSubjectAndGradYr", "Classes, Subjects & Grad Years"),
+    href: management("graduation", "/common/manageClassSubjectAndGradYr", "Classes & subjects"),
     sql: `SELECT EXISTS (SELECT 1 FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL) AS done`,
   },
   {
@@ -53,7 +53,7 @@ const STEPS = [
     required: true,
     title: "Add subjects to your classes",
     hint: "Subjects are what scores and report cards are built on.",
-    href: management("graduation", "/common/manageClassSubjectAndGradYr", "Classes, Subjects & Grad Years"),
+    href: management("graduation", "/common/manageClassSubjectAndGradYr", "Classes & subjects"),
     sql: `SELECT EXISTS (SELECT 1 FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL) AS done`,
   },
   {
@@ -71,7 +71,7 @@ const STEPS = [
     required: true,
     title: "Add your students",
     hint: "One by one, or import them all from a spreadsheet.",
-    href: admissions("create-student", "/common/addStudent", "Add New Student"),
+    href: admissions("create-student", "/common/addStudent", "Add student"),
     sql: `SELECT EXISTS (SELECT 1 FROM students WHERE organization_id = $1) AS done`,
   },
   {
@@ -88,7 +88,7 @@ const STEPS = [
     required: true,
     title: "Set the grading scale for report cards",
     hint: "Which score earns which grade and remark (A, B, Excellent…).",
-    href: reports("report-settings", "/print/reportSettings", "Report Settings"),
+    href: reports("report-settings", "/print/reportSettings", "Report settings"),
     needsTerm: true,
     sql: `SELECT EXISTS (SELECT 1 FROM score_remarks WHERE organization_id = $1 AND term_id = $2) AS done`,
   },
@@ -113,7 +113,7 @@ const STEPS = [
     required: false,
     title: "Add a signature for report cards",
     hint: "The head's signature printed on every report card.",
-    href: reports("report-settings", "/print/reportSettings", "Report Settings"),
+    href: reports("report-settings", "/print/reportSettings", "Report settings"),
     needsTerm: true,
     sql: `SELECT EXISTS (SELECT 1 FROM report_settings WHERE organization_id = $1 AND term_id = $2
                           AND NULLIF(signature_image_path, '') IS NOT NULL) AS done`,
@@ -123,7 +123,7 @@ const STEPS = [
     required: false,
     title: "Set promotion rules",
     hint: "The pass mark and which class each class moves up to.",
-    href: reports("report-settings", "/print/reportSettings", "Report Settings"),
+    href: reports("report-settings", "/print/reportSettings", "Report settings"),
     needsTerm: true,
     sql: `SELECT EXISTS (SELECT 1 FROM status_settings WHERE organization_id = $1 AND term_id = $2) AS done`,
   },
@@ -151,7 +151,7 @@ const STEPS = [
     feature: WEBSITE,
     title: "Set up the school website",
     hint: "Photos, news and your school's details for the public.",
-    href: management("public-website", "/account/managePublicContent", "School Website"),
+    href: management("public-website", "/account/managePublicContent", "School website"),
     sql: `SELECT (EXISTS (SELECT 1 FROM organization_images WHERE organization_id = $1)
                   OR EXISTS (SELECT 1 FROM organization_website_settings WHERE organization_id = $1 AND settings <> '{}'::jsonb)) AS done`,
   },
@@ -161,7 +161,7 @@ const STEPS = [
     feature: WEBSITE,
     title: "Open online admissions",
     hint: "Let families apply from your website; you review them in Admissions → Online Admission.",
-    href: admissions("online-admission-settings", "/common/admissionSettings", "Admission Settings"),
+    href: admissions("online-admission-settings", "/common/admissionSettings", "Admission settings"),
     sql: `SELECT COALESCE(public_registration_enabled, FALSE) AS done FROM organizations WHERE organization_id = $1`,
   },
 ];

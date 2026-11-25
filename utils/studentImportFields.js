@@ -1,8 +1,8 @@
-// Custom student fields in a student import (Add Student > Import).
+// Custom student fields in a student import (Add student > Import).
 //
 // Pure helpers, no database and no HTTP: matching file columns to the school's
 // own student fields (Admissions > Admission Settings), reading each cell into
-// a value the Add Student form accepts, and building the download template.
+// a value the Add student form accepts, and building the download template.
 // Anything that cannot be understood is returned as an "issue" (never thrown,
 // never silently dropped) so the import screen can show it.
 
@@ -223,7 +223,7 @@ function parseText(field, raw) {
   return text.length > max ? { value: text.slice(0, max).trim(), issue: "long" } : { value: text };
 }
 
-// One cell into a value the Add Student form takes. { value, issue? }.
+// One cell into a value the Add student form takes. { value, issue? }.
 // A cell that doesn't fit gives { value: "" or the kept text, issue }.
 function coerceValue(field, raw, ctx = {}) {
   try {
@@ -356,7 +356,7 @@ function sampleFor(field) {
 }
 
 // { headers, sample, customStart } for the download: every standard column,
-// then one column per active custom field that is on the Add Student form.
+// then one column per active custom field that is on the Add student form.
 function templateModel(fields, { sampleClass = "" } = {}) {
   const active = (fields || []).filter((f) => f && f.status !== "obsolete" && f.onStudentForm !== false);
   const sample = ["Ama", "Mensah", "2012-05-15", "Female", sampleClass || "", "Salt Lake City", "1746 W 400 N", "ama.mensah@example.com", "", "", "Kwame", "Mensah", "0241234567", "kwame.mensah@example.com", "", ""];

@@ -284,7 +284,7 @@
       </summary>
       <div class="as-std">
         <div class="as-std__col">
-          <h3>Add Student form</h3>
+          <h3>Add student form</h3>
           <div class="as-chips"><% standardFields.student.forEach((f) => { %><span><%= f %></span><% }) %></div>
         </div>
         <% if (hasWebsite) { %>
@@ -334,7 +334,7 @@
           <% if (hasWebsite) { %>
           <div class="as-filter" role="group" aria-label="Show fields for">
             <button type="button" class="is-on" data-as-filter="all">All</button>
-            <button type="button" data-as-filter="student">Add Student</button>
+            <button type="button" data-as-filter="student">Add student</button>
             <button type="button" data-as-filter="application">Online application</button>
           </div>
           <% } %>
@@ -517,7 +517,7 @@
         </label>
         <div class="as-field">Ask on
           <div class="as-checks">
-            <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add Student</span></label>
+            <label class="as-check"><input type="checkbox" name="onStudentForm" ${onStudent ? 'checked' : ''}><span>Add student</span></label>
             ${hasWebsite ? `<label class="as-check"><input type="checkbox" name="onApplication" ${onApp ? 'checked' : ''}><span>Online application</span></label>` : ''}
           </div>
         </div>

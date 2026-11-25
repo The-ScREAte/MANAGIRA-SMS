@@ -2954,11 +2954,22 @@
                     </div>
                     <% } %>
 
-                    <% if (!displaySettings.sections.attendance && (showGradeTotalRow || showLunch)) { %>
-                    <%# Attendance is off: the grade total and lunch still print, in the attendance row's style. %>
+                    <% if (!displaySettings.sections.attendance) { %>
+                    <%# Attendance is off (for the school, or this class's Take attendance): the overall score, the grade total and lunch still print, in the attendance row's style, with no gap where attendance was. %>
                     <div class="attendance-info">
                         <table class="promotion-table">
                             <tr>
+                                <td>Overall % | Score:</td>
+                                <td>
+                                    <%= student.overallPercentage %> %
+                                    <span style="font-weight:600;color:#475569;">
+                                        |
+                                        <%= Number.isFinite(Number(student.totalScoreSum)) ? Number(student.totalScoreSum).toFixed(2) : '0.00' %>
+                                        <% if (Number.isFinite(Number(student.totalMaxScoreSum))) { %>
+                                            /<%= Number(student.totalMaxScoreSum).toFixed(2) %>
+                                        <% } %>
+                                    </span>
+                                </td>
                                 <% if (showGradeTotalRow) { %>
                                 <td>Total Grade Score:</td>
                                 <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
@@ -2967,7 +2978,7 @@
                                 <td>Lunch:</td>
                                 <td class="report-lunch"><%= lunchText %></td>
                                 <% } %>
-                                <td colspan="<%= showGradeTotalRow && showLunch ? 4 : 6 %>"></td>
+                                <td colspan="<%= 6 - (showGradeTotalRow ? 2 : 0) - (showLunch ? 2 : 0) %>"></td>
                             </tr>
                         </table>
                     </div>

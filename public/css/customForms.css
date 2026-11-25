@@ -213,16 +213,16 @@
 /* Pop-ups open under the app header, never over it: they start where the header ends (the
    drawer measures it when it opens; --header-height exists only on pages that have the header)
    and sit just below it, like the classroom's other windows. */
-.cfm { position: fixed; inset: 0; top: var(--header-height, 0px); z-index: 12990; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .45); }
-.cfm__box { display: flex; flex-direction: column; width: min(640px, 100%); max-height: calc(100vh - 32px); border-radius: 14px; background: var(--cf-surface); box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+.cfm { position: fixed; inset: 0; top: var(--header-height, 0px); z-index: 12990; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+.cfm__box { display: flex; flex-direction: column; width: min(640px, 100%); max-height: 100%; border-radius: 14px; background: var(--cf-surface); box-shadow: 0 24px 60px rgba(0,0,0,.28); }
 .cfm__box--wide { width: min(1040px, 100%); }
 .cfm__box--narrow { width: min(460px, 100%); }
-.cfm__box--tall { width: min(1040px, 100%); height: calc(100vh - 32px); }
+.cfm__box--tall { width: min(1040px, 100%); height: 100%; }
 .cfm__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 12px; border-bottom: 1px solid var(--cf-line); }
 .cfm__head h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .cfm .cfm__close { display: grid; place-items: center; width: 32px; height: 32px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--cf-muted); box-shadow: none; cursor: pointer; }
 .cfm .cfm__close:hover { background: var(--cf-soft-2); color: var(--cf-text); }
-.cfm__body { flex: 1; padding: 18px 20px; overflow: auto; }
+.cfm__body { flex: 1 1 auto; min-height: 0; padding: 18px 20px; overflow: auto; }
 .cfm__foot { display: flex; align-items: center; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--cf-line); }
 .cfm .cf-spacer { flex: 1; }
 .cfm .cf-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--cf-muted); }
@@ -537,7 +537,9 @@ html[data-appearance="dark"] :is(.cf, .cfm, .cff, .cfp) { --cf-edge: color-mix(i
 .cfm .cf-libcard, .cfm .cf-typebtn { padding: 8px 10px; }
 
 /* Pop-ups: panels from the right, under the header, to the bottom (confirmations stay small and centred) */
-.cfm { place-items: stretch end; padding: 0; background: rgba(15, 23, 42, .35); }
+/* One grid cell exactly as big as the pop-up area: with the default auto row, a tall panel stretched
+   the row to its content, so the panel ran past the screen and its body never scrolled. */
+.cfm { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: stretch end; padding: 0; background: rgba(15, 23, 42, .35); }
 .cfm__box { width: min(1040px, 100%); height: 100%; max-height: none; border: 0; border-left: 1.5px solid var(--cf-edge); border-radius: 0; box-shadow: -18px 0 40px rgba(0,0,0,.18); }
 .cfm__box--wide { width: min(1040px, 100%); }
 .cfm__box--tall { width: min(1040px, 100%); height: 100%; }

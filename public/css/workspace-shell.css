@@ -140,8 +140,8 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav .nav-link .nav-link-icon svg,
 .management-nav .nav-link .nav-link-icon svg,
 .settings-nav .nav-link .nav-link-icon svg {
-  width: 21px;
-  height: 21px;
+  width: 20px;
+  height: 20px;
   stroke: currentColor;
   display: block;
 }

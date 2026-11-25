@@ -634,7 +634,7 @@
         <% const hasPreselectedPlan = !!(preferredPlanId && preferredPlanName); %>
         <% if (hasPreselectedPlan && trialRequested) { %>
           <div class="notice">
-            You're starting a <strong>free trial</strong>. Create your school's account below to begin.
+            <span>You're starting a <strong>free trial</strong>. Create your school's account below to begin.</span>
           </div>
         <% } else if (hasPreselectedPlan) { %>
           <div class="notice">
@@ -642,7 +642,7 @@
           </div>
         <% } else if (trialRequested) { %>
           <div class="notice">
-            You're starting a <strong>free trial</strong>. Create your account, then verify your card to begin.
+            <span>You're starting a <strong>free trial</strong>. Create your account, then verify your card to begin.</span>
           </div>
         <% } %>
 
@@ -866,7 +866,7 @@
         <div class="password-requirements" style="margin-top: 0; margin-bottom: 10px;">
           <p>Your password needs:</p>
           <ul>
-            <li data-rule="length">8 or more characters</li>
+            <li data-rule="length">10 or more characters</li>
             <li data-rule="upper">An uppercase letter</li>
             <li data-rule="lower">A lowercase letter</li>
             <li data-rule="number">A number</li>

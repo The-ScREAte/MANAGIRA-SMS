@@ -18,7 +18,7 @@
 //                                          broadcastAudience).
 //   get_activity_log                      Report Builder › Activity log (reports_builder + manage_records).
 //   get_class_settings                    classSettings.access / settingsFor (Class Settings, Every Class).
-//   get_parent_messages                   Mail Room's inbox (mailroom) or the classroom's Parent
+//   get_parent_messages                   Mailroom's inbox (mailroom) or the classroom's Parent
 //                                          Messages (a thread they're on, or their class's).
 //   get_briefing                          /common/briefing/preview (weeklyBriefing.preview), never sent.
 //   get_announcement_reads                the school's pop-up, banner and dashboard notices (Publish
@@ -774,11 +774,13 @@ const get_class_settings = {
     // What the school turned off (Class & notif. settings, School) isn't offered.
     const svc = await require("../schoolServices").services(db, org);
     const lunchOffered = page.switchesFor(org, { svc }).some((s) => s.key === "lunch");
+    const attendanceOffered = page.switchesFor(org, { svc }).some((s) => s.key === "attendance");
     const items = page.shareItemsFor(org, svc);
     const all = picked.map((c) => {
       const s = byClass.get(c.id) || classSettings.withDefaults(null);
       return {
         class: c.name,
+        ...(attendanceOffered ? { take_attendance: page.valueAt(s, "attendance") } : {}),
         ...(lunchOffered ? { take_lunch: page.valueAt(s, "lunch") } : {}),
         shared_with_parents: Object.fromEntries(items.map((i) => [i.label, page.valueAt(s, `parents.${i.key}`)])),
         shared_with_students: Object.fromEntries(items.map((i) => [i.label, page.valueAt(s, `students.${i.key}`)])),
@@ -790,6 +792,7 @@ const get_class_settings = {
       data: rows,
       totals: {
         classes: all.length,
+        ...(attendanceOffered ? { taking_attendance: all.filter((c) => c.take_attendance).length } : {}),
         ...(lunchOffered ? { taking_lunch: all.filter((c) => c.take_lunch).length } : {}),
         sharing_with_parents: Object.fromEntries(items.map((i) => [i.label, count("shared_with_parents", i.label)])),
         sharing_with_students: Object.fromEntries(items.map((i) => [i.label, count("shared_with_students", i.label)])),
@@ -820,7 +823,7 @@ const get_parent_messages = {
   async run(db, actor, q) {
     const org = actor.organizationId;
     if (isDriver(actor)) throw new ReadError("PERMISSION_DENIED", "Parent messages are for school staff; drivers don't see them.");
-    // Mail Room: every conversation in the school. Anyone else: those they're on, and their classes' (as the classroom's Parent Messages).
+    // Mailroom: every conversation in the school. Anyone else: those they're on, and their classes' (as the classroom's Parent Messages).
     const mailroom = await holds(db, actor, "mailroom");
     const userId = Number(actor.userId) || 0;
     const classes = await schoolClasses(db, org);
@@ -900,7 +903,7 @@ const get_parent_messages = {
       })),
       totals: { threads: all.length, needs_reply: all.filter((x) => x.needsReply).length, by_status: byStatus, listed: listed.length },
       scope: {
-        sees: mailroom ? "every parent conversation in the school (Mail Room)" : "conversations you're on and those about students in your classes",
+        sees: mailroom ? "every parent conversation in the school (Mailroom)" : "conversations you're on and those about students in your classes",
         classes: classNames, student: student ? student.name : null, from: from || null,
         unread_only: unreadOnly,
         unread_means: "needs a reply: not resolved, and the last message came from the parent (Managira keeps no per-person read marks on these)",

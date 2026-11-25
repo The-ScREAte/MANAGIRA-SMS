@@ -750,14 +750,19 @@
 
     async _executeScripts(container) {
       const scripts = container.querySelectorAll('script');
+      // The page's security policy (CSP) only trusts the nonce of the page the browser first
+      // loaded; the fetched page carries a different one. Scripts we re-run take this page's.
+      const pageNonce = this._pageNonce();
 
       for (const oldScript of scripts) {
         const newScript = document.createElement('script');
 
-        // Copy attributes
+        // Copy attributes (not the fetched page's nonce)
         Array.from(oldScript.attributes).forEach(attr => {
+          if (attr.name === 'nonce') return;
           newScript.setAttribute(attr.name, attr.value);
         });
+        if (pageNonce) newScript.nonce = pageNonce;
 
         if (!oldScript.parentNode) continue;
 
@@ -784,6 +789,14 @@
           }
         }
       }
+    }
+
+    _pageNonce() {
+      if (this.__nonce) return this.__nonce;
+      // Browsers hide the nonce attribute after load but keep the .nonce property.
+      const holder = Array.from(document.querySelectorAll('script')).find((el) => el.nonce);
+      this.__nonce = holder ? holder.nonce : '';
+      return this.__nonce;
     }
 
     // ── Reinitialize Event Handlers ───────────────────────────────────

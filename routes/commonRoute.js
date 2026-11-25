@@ -366,7 +366,7 @@ module.exports = (db) => {
   router.post("/classReportReplies/:replyId/delete", checkFeatureAccess, isAuthenticated, express.json(), (req, res) =>
     commonController.classReportReplyDelete(req, res, db)
   );
-  // Parent messages: one link for notifications, Mail Room's inbox, and status.
+  // Parent messages: one link for notifications, Mailroom's inbox, and status.
   router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
   router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
   router.get("/student-attendance", isAuthenticated, require("../utils/schoolServices").requireService(db, "either"), (req, res) => commonController.studentAttendance(req, res, db));
@@ -384,7 +384,7 @@ module.exports = (db) => {
   router.post("/admissionSettings/fields/:id(\\d+)/status", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("status"));
   router.post("/admissionSettings/fields/:id(\\d+)/delete", isAuthenticated, blockGuardians, express.json(), admissionSettingsController.fieldsApi("delete"));
 
-  // Contact cards (Mail Room) and the contact template (Management Tools).
+  // Contact cards (Mailroom) and the contact template (Management Tools).
   // Permission checks (see / edit contacts, edit template) are in the controller.
   router.get("/contacts/card", isAuthenticated, blockGuardians, contactsController.card);
   router.post("/contacts/card", isAuthenticated, blockGuardians, express.json(), contactsController.saveCard);

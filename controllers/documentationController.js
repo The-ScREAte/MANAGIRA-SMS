@@ -10,6 +10,7 @@ const {
   ensureDocumentationSchema,
   getDocumentationArticleById,
   getDocumentationArticleBySlug,
+  listDocumentationArticles,
   recordHelpfulVote,
   searchDocumentationArticles,
   setDocumentationArticleStatus,
@@ -18,6 +19,7 @@ const {
 const managiraFAQ = require('../utils/managiraFAQ');
 const docsCatalog = require('../utils/docs/catalog');
 const docsPresent = require('../utils/docs/present');
+const { search: searchGuides } = require('../utils/docs/askDocs');
 const db = require('../config/db');
 const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
 
@@ -269,10 +271,11 @@ function buildMediaResponseHtml(media) {
 const POPULAR = [
   { slug: 'register-a-school-and-complete-first-time-setup', label: 'Set up your school' },
   { slug: 'create-and-add-student', label: 'Add a student' },
+  { slug: 'mark-attendance-for-a-class', label: 'Take attendance' },
   { slug: 'report-card', label: 'Report cards' },
-  { slug: 'report-card-templates', label: 'Report card templates' },
-  { slug: 'single-sign-on', label: 'Single sign-on' },
-  { slug: 'school-website', label: 'School website' },
+  { slug: 'parent-portal', label: 'Parent portal' },
+  { slug: 'paygira-bills', label: 'Send a bill' },
+  { slug: 'driver-app', label: 'Driver app' },
 ];
 
 function docsLocals(articles) {
@@ -509,6 +512,20 @@ async function documentationSearchJson(req, res) {
   }
 }
 
+// The help center's search box: every word of every guide, each result linked to the section
+// that matches (utils/docs/askDocs.js search). Read from the cached guides; nothing is written.
+async function documentationFindJson(req, res) {
+  try {
+    const q = String(req.query.q || '').trim().slice(0, 200);
+    const articles = await listDocumentationArticles({ includeDrafts: false });
+    const out = searchGuides(q, articles, { limit: 8 });
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.json({ success: true, ...out });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Unable to search the guides right now.' });
+  }
+}
+
 async function documentationHelpfulVote(req, res) {
   try {
     const articleId = Number(req.body.articleId || req.body.article_id);
@@ -678,6 +695,7 @@ module.exports = {
   documentationDeleteArticle,
   documentationDuplicateArticle,
   documentationHelpfulVote,
+  documentationFindJson,
   documentationSearchJson,
   documentationToggleStatus,
   documentationUpdateArticle,

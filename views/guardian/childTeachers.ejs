@@ -2,6 +2,6 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <div class="ph">
   <%- include('../partials/flash') %>
-  <%- include('../partials/portalHead', { title: 'Teachers', icon: 'staff', sub: (child.firstName ? child.firstName + '’s' : 'Your child’s') + ' teachers' + (child.className ? ' in ' + child.className : ''), back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
+  <%- include('../partials/portalHead', { title: 'Teachers', icon: 'teachers', sub: (child.firstName ? child.firstName + '’s' : 'Your child’s') + ' teachers' + (child.className ? ' in ' + child.className : ''), back: { href: '/guardian/child?studentId=' + child.id, label: child.name } }) %>
   <%- include('../partials/teacherCards', { teachers, messageHref: '/guardian/reports?studentId=' + child.id, emptyText: child.classId ? 'No teachers have been assigned to ' + (child.className || 'this class') + ' yet.' : 'Your child isn’t in a class yet.' }) %>
 </div>

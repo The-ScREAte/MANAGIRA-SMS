@@ -1791,7 +1791,7 @@ const printController = (db) => ({
       const gradePresentation = normalizeGradePresentationConfig(secVis.gradePresentation);
       const uniformSubjectScaling = normalizeUniformSubjectScaling(secVis.uniformSubjectScaling);
       // What the school takes in Managira: attendance or lunch it doesn't use is never printed (stored choices stay).
-      const schoolSvc = res.locals.schoolServices || { attendance: true, lunch: true };
+      const schoolSvc = await require("../utils/schoolServices").classServices(db, organizationId, parsedClassId);
       const displaySettings = {
         columns: {
           classScore:      colVis.classScore      !== false,
@@ -1814,7 +1814,7 @@ const printController = (db) => ({
           gradePresentation,
           uniformSubjectScaling,
           attendance:      secVis.attendance      !== false && schoolSvc.attendance,
-          turnOffAutoAttendance: secVis.turnOffAutoAttendance === true,
+          turnOffAutoAttendance: secVis.turnOffAutoAttendance === true && schoolSvc.attendance,
           manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
             ? Number(secVis.manualAttendanceOutOf)
             : null,
@@ -3307,7 +3307,20 @@ const printController = (db) => ({
       const transcriptDesignUtil = require("../utils/transcriptDesign");
       const transcriptDesign = await transcriptDesignUtil.designFor(db, organizationId).catch(() => transcriptDesignUtil.DEFAULT);
 
+      // What each class takes (school and class switches): the attendance and lunch choices of a class that doesn't take
+      // them show switched off (classServicesWhy says whether the school or the class turned it off).
+      const schoolServices = require("../utils/schoolServices");
+      const schoolSvcNow = await schoolServices.services(db, organizationId);
+      const svcByClass = await schoolServices.classServicesFor(db, organizationId, organizationClasses.map((cls) => cls.class_id));
+      const classServicesMap = {};
+      const classServicesWhy = {};
+      svcByClass.forEach((svc, id) => {
+        classServicesMap[id] = { attendance: svc.attendance, lunch: svc.lunch };
+        classServicesWhy[id] = { attendance: schoolSvcNow.attendance ? "class" : "school", lunch: schoolSvcNow.lunch ? "class" : "school" };
+      });
       res.render("print/reportSettings", {
+        classServicesMap,
+        classServicesWhy,
         reportRemarks,
         canBuildForms,
         transcriptDesign,

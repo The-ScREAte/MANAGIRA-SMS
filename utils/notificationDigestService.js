@@ -9,7 +9,7 @@ const {
 const APP_URL = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
 const LOGIN_URL = `${APP_URL}/account/login`;
 
-// Staff open a parent conversation through one link: Mail Room users land in
+// Staff open a parent conversation through one link: Mailroom users land in
 // its inbox, teachers in the class's Parent Messages (see /common/parent-messages/:id).
 const parentMessageUrl = (reportId) => `${APP_URL}/common/parent-messages/${Number(reportId)}`;
 const {

@@ -96,7 +96,7 @@ module.exports = {
       name: "get_family",
       description:
         "A family: the parents/guardians of a student (or one parent by name), each with phone and email, their children, whether they've accepted the parent portal invitation, " +
-        "and the details the school keeps on them (emergency & pickup and other contact sections). Manage Guardians sees everything; See Contacts the Mail Room's contacts; " +
+        "and the details the school keeps on them (emergency & pickup and other contact sections). Manage Guardians sees everything; See Contacts the Mailroom's contacts; " +
         "a teacher or supervisor only parents of their classes' students, without the address, and only the contact sections the school shares with teachers. Text the family or staff typed is under untrusted.",
       parameters: {
         type: "object",

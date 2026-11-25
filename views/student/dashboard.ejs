@@ -840,7 +840,7 @@
   .sx .sx-stat--link { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
   .sx .sx-stat--link:hover { border-color: var(--org-primary-color, #0f766e); box-shadow: 0 2px 8px rgba(15, 23, 42, .06); }
   .sx-stat__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); color: var(--org-primary-color, #0f766e); }
-  .sx-stat__icon svg { width: 20px; height: 20px; }
+  .sx-stat__icon svg { width: 24px; height: 24px; }
   .sx-stat__text { display: grid; min-width: 0; }
   .sx-stat__label { color: #64748b; font-size: .78rem; font-weight: 650; }
   .sx-stat strong { color: #0f172a; font-size: 1.2rem; font-weight: 750; line-height: 1.25; }
@@ -897,13 +897,13 @@
           <%- include('../partials/gpaStat', { label: _gpa.cumulative ? 'Cumulative GPA' : 'GPA', value: (_gpa.cumulative || _gpa.term).unweighted, detail: _gpa.cumulative && _gpa.term ? 'This term ' + _gpa.term.unweighted : '4.0 scale' }) %>
           <% } %>
           <button type="button" class="sx-stat sx-stat--link" id="sp-term-popup-btn">
-            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('calendar') %></span>
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('term') %></span>
             <span class="sx-stat__text"><span class="sx-stat__label">Term</span><strong><%= _termValue %></strong><small><%= _termNote %></small></span>
           </button>
           <% if (_lunch && _lunch.taken) { %>
           <%# Overall lunch, once lunch has been taken this term. %>
           <div class="sx-stat">
-            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('dashboard') %></span>
+            <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('lunch') %></span>
             <span class="sx-stat__text"><span class="sx-stat__label">Lunch</span><strong><%= _lunch.label %></strong><small>Days with lunch</small></span>
           </div>
           <% } %>
@@ -937,27 +937,27 @@
         <div data-gdr-panel="tiles">
         <% } %>
         <div class="app-tiles sp-app-tiles">
-          <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule') %></span><span class="app-tile__name">Schedule</span></button>
-          <a class="sp-action-tile app-tile" href="/student/calendar"><span class="app-tile__icon"><%- navIcon('calendar') %></span><span class="app-tile__name">Calendar</span></a>
-          <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities') %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
-          <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('grading') %></span><span class="app-tile__name">Grades</span></button>
-          <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('staff') %></span><span class="app-tile__name">Teachers</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="schedule"><span class="app-tile__icon"><%- navIcon('schedule', 24) %></span><span class="app-tile__name">Schedule</span></button>
+          <a class="sp-action-tile app-tile" href="/student/calendar"><span class="app-tile__icon"><%- navIcon('calendar', 24) %></span><span class="app-tile__name">Calendar</span></a>
+          <button class="sp-action-tile app-tile" type="button" data-panel="activities"><span class="app-tile__icon"><%- navIcon('activities', 24) %></span><span class="app-tile__name">Activities</span><% if (studentActivities && studentActivities.length) { %><span class="app-tile__badge"><%= studentActivities.length > 99 ? '99+' : studentActivities.length %></span><% } %></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="grades"><span class="app-tile__icon"><%- navIcon('grading', 24) %></span><span class="app-tile__name">Grades</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="teachers"><span class="app-tile__icon"><%- navIcon('teachers', 24) %></span><span class="app-tile__name">Teachers</span></button>
           <% if (_sees.transport !== false) { %>
-          <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation') %></span><span class="app-tile__name">Bus</span></button>
+          <button class="sp-action-tile app-tile" type="button" data-panel="transport"><span class="app-tile__icon"><%- navIcon('transportation', 24) %></span><span class="app-tile__name">Bus</span></button>
           <% } %>
           <% if (testingRoomEnabled) { %>
-          <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('questions') %></span><span class="app-tile__name">Testing Room</span><% if (openAssessmentsCount) { %><span class="app-tile__badge"><%= openAssessmentsCount > 99 ? '99+' : openAssessmentsCount %></span><% } %></a>
+          <a class="sp-action-tile app-tile" href="/student/testing-room"><span class="app-tile__icon"><%- navIcon('testingRoom', 24) %></span><span class="app-tile__name">Testing Room</span><% if (openAssessmentsCount) { %><span class="app-tile__badge"><%= openAssessmentsCount > 99 ? '99+' : openAssessmentsCount %></span><% } %></a>
           <% } %>
           <% if (locals.customFormsReady && customFormsReady()) { %>
-          <a class="sp-action-tile app-tile" href="/student/forms"><span class="app-tile__icon"><%- navIcon('forms') %></span><span class="app-tile__name">Forms</span><% if (locals.formsToDo) { %><span class="app-tile__badge"><%= formsToDo > 99 ? '99+' : formsToDo %></span><% } %></a>
+          <a class="sp-action-tile app-tile" href="/student/forms"><span class="app-tile__icon"><%- navIcon('forms', 24) %></span><span class="app-tile__name">Forms</span><% if (locals.formsToDo) { %><span class="app-tile__badge"><%= formsToDo > 99 ? '99+' : formsToDo %></span><% } %></a>
           <% (locals.formTiles || []).forEach((form) => { %>
           <a class="sp-action-tile app-tile" href="/student/forms?form=<%= form.id %>"><span class="app-tile__icon"><%- formIcon(form.icon) %></span><span class="app-tile__name"><%= form.name %></span><% if (form.todo) { %><span class="app-tile__badge">1</span><% } %></a>
           <% }) %>
           <% } %>
           <% if (locals.portfolioShared !== false) { %>
-          <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio') %></span><span class="app-tile__name">Portfolio</span></a>
+          <a class="sp-action-tile app-tile" href="/student/portfolio"><span class="app-tile__icon"><%- navIcon('portfolio', 24) %></span><span class="app-tile__name">Portfolio</span></a>
           <% } %>
-          <a class="sp-action-tile app-tile" href="/student/settings"><span class="app-tile__icon"><%- navIcon('settings') %></span><span class="app-tile__name">Settings</span></a>
+          <a class="sp-action-tile app-tile" href="/student/settings"><span class="app-tile__icon"><%- navIcon('settings', 24) %></span><span class="app-tile__name">Settings</span></a>
         </div>
         <%- include('../partials/familyDetailsCard', { mode: 'student' }) %>
         <% if (_portalReq) { %>

@@ -73,6 +73,7 @@ router.get('/app-demo/play/:id(\\d+)', adminsOnlyDemo, appDemoController.playerP
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', requireHuman('demo', { back: '/legal/request-demo', perHour: 10 }), legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);
+router.get('/user-documentation/api/find', documentationController.documentationFindJson);
 router.post('/user-documentation/api/helpful', documentationController.documentationHelpfulVote);
 
 router.post('/user-documentation/api/articles', isAuthenticated, ensureAdmin, documentationController.documentationCreateArticle);

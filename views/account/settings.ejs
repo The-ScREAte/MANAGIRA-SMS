@@ -933,7 +933,7 @@
         position: fixed;
         top: 0;
         right: 0;
-        height: 100%;
+        bottom: 0;
         width: min(1040px, 100vw);
         background: #fff;
         box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18);
@@ -1296,6 +1296,7 @@
         justify-content: center;
         padding: 20px;
         z-index: 1100;
+        overflow-y: auto;
       }
 
       .modal-overlay.show {
@@ -1311,6 +1312,8 @@
         border: 1px solid var(--border);
         box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
         position: relative;
+        max-height: 100%;
+        overflow-y: auto;
         animation: settingsModalIn 0.2s ease-out;
       }
 
@@ -3247,7 +3250,7 @@
           <% if (_canProfileSettings) { %>
           <li><button class="nav-link <%= _defaultSettingsSectionId === 'customize' ? 'active' : '' %>" data-target="customize">
             <span class="nav-link-icon"><%- navIcon('school') %></span>
-            <span>Customize School</span>
+            <span>Customize school</span>
           </button></li>
           <% } %>
           <li><button class="nav-link <%= _defaultSettingsSectionId === 'profile' ? 'active' : '' %>" data-target="profile">
@@ -3263,7 +3266,7 @@
           <% if (_canBillingSettings) { %>
           <li><button class="nav-link" data-target="billing">
             <span class="nav-link-icon"><%- navIcon('billing') %></span>
-            <span>Billing &amp; Plan</span>
+            <span>Billing &amp; plan</span>
           </button></li>
           <% } %>
           <% if (_canSecuritySettings) { %>
@@ -3274,25 +3277,25 @@
           <% } %>
           <% if (locals.twoStep && twoStep.show) { %>
           <li><button class="nav-link" data-target="two-step">
-            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span class="nav-link-icon"><%- navIcon('twoStep') %></span>
             <span>Two-step sign-in</span>
           </button></li>
           <% } %>
           <% if (_canTenant) { %>
           <li><button class="nav-link" data-target="tenant">
-            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span class="nav-link-icon"><%- navIcon('tenantConfig') %></span>
             <span>Tenant configuration</span>
           </button></li>
           <% } else if (_canSso) { %>
           <li><button class="nav-link" data-target="sso">
-            <span class="nav-link-icon"><%- navIcon('security') %></span>
+            <span class="nav-link-icon"><%- navIcon('singleSignOn') %></span>
             <span>Single sign-on</span>
           </button></li>
           <% } %>
           <% if (_canTokenSettings && _canSecuritySettings) { %>
           <li><button class="nav-link" data-target="access-tokens">
             <span class="nav-link-icon"><%- navIcon('accessTokens') %></span>
-            <span>Access Tokens</span>
+            <span>Access tokens</span>
           </button></li>
           <% } %>
           <% if ((typeof alertRulesOn !== 'undefined' && alertRulesOn) || (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
@@ -3336,7 +3339,7 @@
         <% if (!_integrationsPage) { %>
         <% if (_canProfileSettings && !_isOnHoldRestricted) { %>
         <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
-          <h1>Customize School</h1>
+          <h1>Customize school</h1>
           <p class="lead">
             Manage your school website branding and settings.
           </p>
@@ -3846,6 +3849,15 @@
               </form>
             </div>
           </div>
+          <% if (locals.aboutMe) { const _am = locals.aboutMe; %>
+          <%# About me (feature teacher_cards): edited on Update Account Information; linked from here. %>
+          <div class="card" id="about-me-card" data-no-collapse>
+            <h4>About me</h4>
+            <small>A fun fact and up to two photos. Families see them on their child's Teachers page when your school shares them.</small>
+            <p style="margin:10px 0 12px;color:#334155;"><%= _am.funFact ? _am.funFact : 'Nothing added yet.' %><% if (_am.photos && _am.photos.length) { %> · <%= _am.photos.length %> photo<%= _am.photos.length === 1 ? '' : 's' %><% } %></p>
+            <a class="btn-link" href="/account/update#about-me" data-no-spa>Edit About me</a>
+          </div>
+          <% } %>
         </section>
         <% } %>
 
@@ -3905,7 +3917,7 @@
 
         <% if (_canBillingSettings) { %>
         <section id="billing" class="settings-section <%= _defaultSettingsSectionId === 'billing' ? 'is-default' : '' %>">
-          <h1>Billing &amp; Plan</h1>
+          <h1>Billing &amp; plan</h1>
           <p class="lead">Manage your billing and transaction account settings.</p>
 
           <% if (isHubMember) { %>
@@ -4601,7 +4613,7 @@
                 <span class="sms-provider-logo-chip">
                   <img src="/images/icons/apple-maps-192.png" alt="Apple Maps logo" />
                 </span>
-                <span>Maps</span>
+                <span>Apple Maps</span>
               </span>
               <span
                 class="pill"
@@ -4613,7 +4625,7 @@
               <%- integrationCoverageBadge('apple-maps') %>
             </h4>
             <small class="google-integration-description">
-              Activate to let drivers open their route directly in the Maps app from the Driver Dashboard, one stop at a time in order, ending at the school.
+              Activate to let drivers open their route directly in the Apple Maps app from the Driver Dashboard, one stop at a time in order, ending at the school.
               <%- integrationActivityLine('Maps') %>
             </small>
 
@@ -4621,7 +4633,7 @@
               <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="apple-maps">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Maps actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
+                  <summary class="google-actions-toggle" aria-label="Apple Maps actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4961,6 +4973,7 @@
                         </small>
                       </div>
                       <% } %>
+                      <% if (psConfigured) { %>
                       <small style="display:block;margin-top:4px;color:#94a3b8;">
                         <% if (ps.credentialsReadable === false) { %>
                           Saved key can't be read. Restore the original server encryption key or enter a replacement.
@@ -4968,6 +4981,7 @@
                           Saved securely; only the last four characters are shown.
                         <% } %>
                       </small>
+                      <% } %>
                     </div>
 
                     <% if (def.key === 'twilio') { %>
@@ -5227,7 +5241,7 @@
              const _orgSaved = (typeof savedOrgNotificationPrefs !== 'undefined' && savedOrgNotificationPrefs) ? savedOrgNotificationPrefs : {}; %>
         <% if (_canTokenSettings && _canSecuritySettings) { %>
         <section id="access-tokens" class="settings-section settings-section--frame">
-          <iframe class="settings-access-frame" title="Access Tokens" data-src="/api-access/tokens?embed=workspace" loading="lazy"></iframe>
+          <iframe class="settings-access-frame" title="Access tokens" data-src="/api-access/tokens?embed=workspace" loading="lazy"></iframe>
         </section>
         <style>
           .settings-section--frame { padding: 0; }
@@ -7357,7 +7371,7 @@
         });
         wireSimpleIntegrationToggle({
           prefix: "apple-maps-nav",
-          label: "Maps",
+          label: "Apple Maps",
           endpoint: "/account/transportation/apple-maps-nav/activate",
         });
 

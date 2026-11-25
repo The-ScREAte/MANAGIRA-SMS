@@ -3,7 +3,7 @@
     The number is only in the page as an attribute, never as visible text, until revealed. %>
 <link rel="stylesheet" href="/css/gpaReveal.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
 <div class="<%= locals.cls || 'sx-stat' %> gpa-stat" data-gpa-stat>
-  <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('stats') %></span>
+  <span class="sx-stat__icon" aria-hidden="true"><%- navIcon('academic') %></span>
   <span class="sx-stat__text">
     <span class="sx-stat__label"><%= label %></span>
     <strong class="gpa-stat__value" data-gpa-value data-value="<%= value %>" aria-live="polite">••••</strong>

@@ -4,7 +4,7 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "compare_classes",
   description:
-    "Compare 2+ classes side by side for one term (default: the current term) - the same figures as the Organization Stats page's Compare classes: " +
+    "Compare 2+ classes side by side for one term (default: the current term) - the same figures as the Organization stats page's Compare classes: " +
     "students enrolled, average score, pass rate (results at or above the pass mark) and attendance rate. Returns a table (present as markdown) and a " +
     "`chartUrl` image - embed it with markdown image syntax, e.g. `![Class comparison](chartUrl)`. A null value means nothing is saved for that class " +
     "in that term yet - say so rather than showing 0. Needs Manage Records.",

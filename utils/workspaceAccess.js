@@ -19,7 +19,7 @@ const PAYGIRA_MENU = [
   { id: "payments", label: "Payments", icon: "payments", pages: [{ id: "payments", label: "Payments", url: "/account/settings/finance?section=payments" }] },
   // Money the school sends out. (Where parents' payments land is not here: Settings, Billing & Plan.)
   { id: "payouts", label: "Pay staff & vendors", icon: "payouts", pages: [{ id: "payouts", label: "Pay staff & vendors", url: "/account/settings/finance?section=payouts" }] },
-  { id: "settings", label: "Settings", icon: "sliders", pages: [{ id: "settings", label: "Settings", url: "/account/settings/finance?section=settings" }] },
+  { id: "settings", label: "Settings", icon: "paygiraSettings", pages: [{ id: "settings", label: "Settings", url: "/account/settings/finance?section=settings" }] },
 ];
 // The places a person gets, each with the pages they hold; `url` is the first of them.
 const paygiraMenuFor = (pages) => PAYGIRA_MENU
@@ -54,8 +54,6 @@ function workspaceAccess({ permissions, features, role, featureOn } = {}) {
     promotion: can("approve_promotions"),
     employees: can("manage_employees"),
     guardians: can("manage_guardians") && hasProfile,
-    // The contact template moved to Admissions > Admission Settings (Parents & guardians).
-    contactTemplate: false,
     transportation: can("manage_transportation"),
     mira: can("settings_mira"),
     events: can("publish_events_announcements"),

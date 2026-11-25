@@ -42,7 +42,7 @@ function render(req, res, card) {
     drawerId: String(req.query.drawerId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40),
   });
 }
-const guardiansPanel = (key, edit) => `/common/management?panel=guardians&page=${encodeURIComponent(`/common/guardians?open=${key}${edit ? "&edit=1" : ""}`)}&label=${encodeURIComponent("Guardians")}`;
+const guardiansPanel = (key, edit) => `/common/management?panel=guardians&page=${encodeURIComponent(`/common/guardians?open=${key}${edit ? "&edit=1" : ""}`)}&label=${encodeURIComponent("Parents & guardians")}`;
 const notAvailable = (req, res) => res.status(404) && render(req, res, null);
 
 // ── A student ───────────────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ async function student(req, res, db) {
         label: "Edit student",
         href: inClass
           ? home + (home.includes("?") ? "&" : "?") + "edit=1"
-          : `/common/admissions?panel=all-students&page=${encodeURIComponent(`/common/editStudent?studentId=${s.student_id}`)}&label=${encodeURIComponent("All Students")}`,
+          : `/common/admissions?panel=all-students&page=${encodeURIComponent(`/common/editStudent?studentId=${s.student_id}`)}&label=${encodeURIComponent("All students")}`,
         top: true,
         primary: true,
       } : null,

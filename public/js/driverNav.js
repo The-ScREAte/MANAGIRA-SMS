@@ -31,12 +31,17 @@
     roundabout: 'M12 21v-6M12 15a4.5 4.5 0 1 0-4.5-4.5M7.5 6v4.5H12',
     arrive: 'M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'
   };
+  // Turn directions, drawn with the shared Lucide icons.
+  var TURN = { straight: 'arrowUp', left: 'cornerUpLeft', right: 'cornerUpRight', 'slight left': 'arrowUpLeft', 'slight right': 'arrowUpRight', 'sharp left': 'cornerDownLeft', 'sharp right': 'cornerDownRight', uturn: 'uTurn', roundabout: 'roundabout', arrive: 'mapPin' };
   function arrowSvg(name) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (ICONS[name] || ICONS.straight) + '"/></svg>';
+    return window.ManagiraNavIcon ? window.ManagiraNavIcon(TURN[name] || 'arrowUp', { size: 24 }) : '';
   }
+  // Controls use the shared line icons (public/js/navIconsClient.js); the drawings made for the map
+  // (compass needle, whole route) keep their own paths at the same stroke weight.
   function toolSvg(path) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + path + '</svg>';
   }
+  function sharedIcon(name, size) { return window.ManagiraNavIcon ? window.ManagiraNavIcon(name, size ? { size: size } : {}) : ''; }
   var TOOL = {
     minimize: '<path d="M6 9l6 6 6-6"/>',
     compass: '<path d="M12 3l4 9h-8z" fill="#d92d20" stroke="none"/><path d="M12 21l-4-9h8z" fill="currentColor" stroke="none" opacity=".35"/>',
@@ -361,7 +366,7 @@
         idle.list.innerHTML = st.stops.map(function (s) {
           var count = studentsAt(s.id).length;
           return '<li><span class="drv-num">' + (s.seq + 1) + '</span><div><strong>' + esc(s.name) + '</strong><span class="drv-sub">' + count + ' student' + (count === 1 ? '' : 's') + '</span></div></li>';
-        }).join('') + (st.dest ? '<li><span class="drv-num"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></span><div><strong>' + esc(st.dest.label) + '</strong><span class="drv-sub">Final stop</span></div></li>' : '');
+        }).join('') + (st.dest ? '<li><span class="drv-num">' + sharedIcon('mapPin', 14) + '</span><div><strong>' + esc(st.dest.label) + '</strong><span class="drv-sub">Final stop</span></div></li>' : '');
       }
     }
     var studentTab = 'yes';
@@ -427,23 +432,23 @@
       +   '<button type="button" class="drvn-chip" id="drvn-chip" aria-expanded="false" aria-controls="drvn-more"></button>'
       + '</div>'
       + '<div class="drvn-tools">'
-      +   '<button type="button" class="drvn-tool" id="drvn-minimize" aria-label="Minimize the map" title="Minimize">' + toolSvg(TOOL.minimize) + '</button>'
-      +   '<button type="button" class="drvn-tool" id="drvn-compass" aria-label="Turn the map" title="Direction of travel or north"><span id="drvn-compass-needle" style="display:flex">' + toolSvg(TOOL.compass) + '</span></button>'
-      +   '<button type="button" class="drvn-tool" id="drvn-overview" aria-label="Show the whole route" title="Whole route">' + toolSvg(TOOL.overview) + '</button>'
-      +   '<div class="drvn-zoom"><button type="button" class="drvn-tool" id="drvn-zoom-in" aria-label="Zoom in">' + toolSvg(TOOL.plus) + '</button><button type="button" class="drvn-tool" id="drvn-zoom-out" aria-label="Zoom out">' + toolSvg(TOOL.minus) + '</button></div>'
+      +   '<button type="button" class="drvn-tool" id="drvn-minimize" aria-label="Minimize the map" title="Minimize">' + sharedIcon('minimize') + '</button>'
+      +   '<button type="button" class="drvn-tool" id="drvn-compass" aria-label="Turn the map" title="Direction of travel or north"><span id="drvn-compass-needle" style="display:flex">' + sharedIcon('compass') + '</span></button>'
+      +   '<button type="button" class="drvn-tool" id="drvn-overview" aria-label="Show the whole route" title="Whole route">' + sharedIcon('maximize') + '</button>'
+      +   '<div class="drvn-zoom"><button type="button" class="drvn-tool" id="drvn-zoom-in" aria-label="Zoom in">' + sharedIcon('zoomIn') + '</button><button type="button" class="drvn-tool" id="drvn-zoom-out" aria-label="Zoom out">' + sharedIcon('zoomOut') + '</button></div>'
       + '</div>'
-      + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7z"/></svg>Re-center</button>'
+      + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden>' + sharedIcon('navigate', 18) + 'Re-center</button>'
       + '<p class="drvn-toast" id="drvn-toast" role="status" hidden></p>'
       + '<div class="drvn-board" id="drvn-board" hidden><div class="drvn-board__head"><strong id="drvn-board-stop"></strong><small id="drvn-board-count"></small></div><div class="drvn-picks" id="drvn-board-list" hidden></div><div class="drvn-confirm__btns"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-board-all">All boarded</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-board-except">Except</button></div></div>'
       + '<section class="drvn-sheet" id="drvn-sheet" aria-label="Trip">'
       +   '<button type="button" class="drvn-grab" id="drvn-grab" aria-label="Show stops" aria-expanded="false"><i></i></button>'
       +   '<div class="drvn-eta"><div class="drvn-eta__text"><strong class="drvn-eta__time" id="drvn-eta-time">–</strong><span class="drvn-eta__sub"><i class="drvn-dot" id="drvn-dot" aria-hidden="true"></i><span id="drvn-eta-sub">Finding GPS…</span></span></div>'
-      +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">Navigate<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>'
+      +     '<div class="drvn-open"><button type="button" class="drvn-openbtn" id="drvn-open" aria-haspopup="menu" aria-expanded="false">' + sharedIcon('navigate', 16) + 'Navigate</button>'
       +       '<div class="drvn-menu" id="drvn-menu" role="menu" hidden>' + (cfg.navApps || []).map(function (app) { return '<button type="button" role="menuitem" data-nav-app="' + esc(app.key) + '">' + esc(app.label) + '</button>'; }).join('') + '<p class="drvn-menu__note">Families see an estimate until you return.</p></div></div>'
-      +     '<button type="button" class="drvn-end" id="drvn-end">End</button></div>'
+      +     '<button type="button" class="drvn-end" id="drvn-end">' + sharedIcon('stop', 16) + 'End</button></div>'
       +   '<div class="drvn-confirm" id="drvn-confirm" hidden><div class="drvn-confirm__head"><p id="drvn-confirm-title"></p><small id="drvn-arrival-count"></small></div><input type="search" class="drvn-search" id="drvn-arrival-search" placeholder="Search students" autocomplete="off" aria-label="Search students" hidden /><div class="drvn-arrivals" id="drvn-arrivals" hidden></div><div class="drvn-confirm__btns drvn-confirm__main" id="drvn-arrive-answer"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-arrive-yes">Yes</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-arrive-no">No</button></div><button type="button" class="drvn-plain drvn-plain--danger drvn-endmain" id="drvn-end-yes" hidden>End trip</button><div class="drvn-confirm__btns drvn-confirm__minor"><button type="button" class="drvn-plain" id="drvn-except-back" hidden>Back</button><button type="button" class="drvn-plain" id="drvn-no-students">No students</button><button type="button" class="drvn-plain" id="drvn-keep">Keep driving</button></div></div>'
       +   '<div class="drvn-more" id="drvn-more" hidden>'
-      +     '<div class="drvn-morehead"><strong id="drvn-route-name"></strong><button type="button" class="drvn-morex" id="drvn-more-close" aria-label="Close stops">' + toolSvg('<path d="M6 6l12 12M18 6L6 18"/>') + '</button></div>'
+      +     '<div class="drvn-morehead"><strong id="drvn-route-name"></strong><button type="button" class="drvn-morex" id="drvn-more-close" aria-label="Close stops">' + sharedIcon('x') + '</button></div>'
       +     '<input type="search" class="drvn-search" id="drvn-stops-search" placeholder="Find a stop or student" autocomplete="off" aria-label="Find a stop or student" />'
       +     '<div id="drvn-stops"></div>'
       +     '<form class="drvn-addstop" id="drvn-addstop" hidden><input id="drvn-addstop-input" maxlength="300" autocomplete="off" placeholder="Stop address" aria-label="Stop address" /><div class="drvn-confirm__btns"><button type="button" class="drvn-plain" id="drvn-addstop-here">Use my location</button><button type="submit" class="drvn-plain drvn-plain--go" id="drvn-addstop-save">Add stop</button></div></form>'
@@ -478,7 +483,7 @@
       nav.classList.toggle('drvn--tall', sheetHeight() > nav.clientHeight * 0.4);
     }
 
-    var CHIP_ARROW = '<svg class="drvn-chip__arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    var CHIP_ARROW = '<svg class="drvn-chip__arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     var toastTimer = 0;
     function toast(text, ms) {
       ui.toast.textContent = text;
@@ -572,7 +577,7 @@
         var school = document.createElement('div');
         school.className = 'drvn-mark drvn-mark--school';
         school.title = st.dest.label;
-        school.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg>';
+        school.innerHTML = sharedIcon('mapPin');
         st.markers.push(new gl.Marker({ element: school }).setLngLat([st.dest.lng, st.dest.lat]).addTo(st.map));
       }
     }

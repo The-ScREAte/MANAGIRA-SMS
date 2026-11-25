@@ -2334,6 +2334,10 @@
     .rs-opt__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .rs-opt__text b { font-weight: 600; color: #0f172a; }
     .rs-opt__text small { font-size: 0.76rem; font-weight: 400; color: var(--muted); line-height: 1.35; }
+    /* Attendance or lunch the class doesn't take: shown switched off, with one muted line saying why. */
+    #advancedDsPanel .rs-opt--off { cursor: default; }
+    #advancedDsPanel .rs-opt--off .rs-opt__text b { color: var(--muted); }
+    .rs-svc-note { font-size: 0.76rem; font-weight: 400; color: var(--muted); line-height: 1.35; }
     #advancedDsPanel .rs-opt--split { align-items: center; justify-content: space-between; flex-wrap: wrap; cursor: default; }
     .rs-opt__main { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 220px; min-width: 0; margin: 0; cursor: pointer; }
     .rs-opt__aside { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 0 26px; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
@@ -2821,10 +2825,10 @@
     <div class="rs-stack">
       <div class="card" id="reportLayoutCard">
         <h2>Report Card Layout</h2>
-        <div class="notice">Choose how each class's report card looks. Make your own in <a href="/documents" target="_blank" rel="noopener">Docs &amp; Sheets</a>.</div>
+        <div class="notice">Choose how each class's report card looks. Make your own in <a href="/documents" target="_blank" rel="noopener">Docs &amp; sheets</a>.</div>
         <% const _rtList = (typeof reportTemplates !== 'undefined' && reportTemplates) || []; const _rtMap = (typeof reportTemplateMap !== 'undefined' && reportTemplateMap) || {}; %>
         <% if (!_rtList.length) { %>
-          <p class="rl-empty">No layouts yet. In Docs &amp; Sheets, open a Sheet → <strong>Fields</strong> → pick a sample, then turn on <strong>Use as a report card</strong> in Settings.</p>
+          <p class="rl-empty">No layouts yet. In Docs &amp; sheets, open a Sheet → <strong>Fields</strong> → pick a sample, then turn on <strong>Use as a report card</strong> in Settings.</p>
         <% } else { %>
           <div class="rl-list">
             <% (enrolledClasses || []).forEach((cls) => { %>
@@ -7570,17 +7574,21 @@
         gpa: ['GPA', '4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0.'],
       };
       const secKeys = new Set(secRows.map((row) => row[0]));
-      // What the school takes in Managira: a service it doesn't use is left out of the report card, so its choices are
-      // hidden here (they stay as saved).
-      const SCHOOL_SVC = <%- JSON.stringify(locals.schoolServices || { attendance: true, lunch: true }) %>;
+      // What this class takes (the school's switches and the class's own: Management › Class settings): attendance or lunch
+      // it doesn't take never prints, so its choices show here switched off and disabled, with a note. What was saved stays
+      // (the save keeps it), so turning attendance back on brings the earlier choice back.
+      const SCHOOL_SVC = (<%- JSON.stringify(locals.classServicesMap || {}) %>)[String(classId)] || <%- JSON.stringify(locals.schoolServices || { attendance: true, lunch: true }) %>;
+      const SVC_WHY = (<%- JSON.stringify(locals.classServicesWhy || {}) %>)[String(classId)] || {};
       const svcHidden = (key) => (key === 'attendance' && !SCHOOL_SVC.attendance) || (key === 'lunch' && !SCHOOL_SVC.lunch);
+      const svcNote = (key) => `<span class="rs-svc-note">${key === 'lunch' ? 'Lunch' : 'Attendance'} is off for this ${SVC_WHY[key] === 'school' ? 'school' : 'class'}.</span>`;
       const secRow = (key) => {
         if (!secKeys.has(key)) return '';
         const words = SECTION_WORDS[key] || [secRows.find((row) => row[0] === key)[2], ''];
+        const off = svcHidden(key);
         return `
-        <label class="ds-adv-flat-lbl rs-opt"${svcHidden(key) ? ' style="display:none"' : ''}>
-          <input type="checkbox" class="ds-adv-sec" data-key="${key}" ${ds.sections[key] ? 'checked' : ''}>
-          <span class="rs-opt__text"><b>${words[0]}</b>${words[1] ? `<small>${words[1]}</small>` : ''}</span>
+        <label class="ds-adv-flat-lbl rs-opt${off ? ' rs-opt--off' : ''}">
+          <input type="checkbox" class="ds-adv-sec" data-key="${key}" ${off ? 'data-svc-off="1" disabled' : (ds.sections[key] ? 'checked' : '')}>
+          <span class="rs-opt__text"><b>${words[0]}</b>${off ? svcNote(key) : (words[1] ? `<small>${words[1]}</small>` : '')}</span>
         </label>`;
       };
       const secHtml = secRows.map(([key]) => secRow(key)).join('');
@@ -7590,14 +7598,14 @@
         ? Number(ds.sections.manualAttendanceOutOf)
         : '';
       const attendanceManualRow = `
-        <div class="ds-adv-flat-lbl rs-opt rs-opt--split">
+        <div class="ds-adv-flat-lbl rs-opt rs-opt--split${SCHOOL_SVC.attendance ? '' : ' rs-opt--off'}">
           <label class="rs-opt__main">
-            <input type="checkbox" id="ds-adv-turnOffAutoAttendance" ${turnOffAutoAttendanceOn ? 'checked' : ''}>
+            <input type="checkbox" id="ds-adv-turnOffAutoAttendance" ${SCHOOL_SVC.attendance ? '' : 'data-svc-off="1" disabled'} ${SCHOOL_SVC.attendance && turnOffAutoAttendanceOn ? 'checked' : ''}>
             <span class="rs-opt__text"><b>Type attendance by hand</b><small>Instead of counting the attendance page.</small></span>
           </label>
           <label class="rs-opt__aside">
             Out of
-            <input type="number" id="ds-adv-manualAttendanceOutOf" min="0" value="${manualAttendanceOutOfValue}" placeholder="e.g. 30" ${turnOffAutoAttendanceOn ? '' : 'disabled'}>
+            <input type="number" id="ds-adv-manualAttendanceOutOf" min="0" value="${SCHOOL_SVC.attendance ? manualAttendanceOutOfValue : ''}" placeholder="e.g. 30" ${SCHOOL_SVC.attendance && turnOffAutoAttendanceOn ? '' : 'disabled'}>
           </label>
         </div>`;
 
@@ -7793,7 +7801,7 @@
           </div>
           <div class="rs-col">
             ${group('Promotion', '', activatePromotionRow + secRow('promotion'))}
-            ${(SCHOOL_SVC.attendance || SCHOOL_SVC.lunch) ? group(SCHOOL_SVC.attendance && SCHOOL_SVC.lunch ? 'Attendance &amp; lunch' : (SCHOOL_SVC.lunch ? 'Lunch' : 'Attendance'), '', secRow('attendance') + secRow('lunch') + (SCHOOL_SVC.attendance ? attendanceManualRow : `<div style="display:none">${attendanceManualRow}</div>`)) : `<div style="display:none">${secRow('attendance') + secRow('lunch') + attendanceManualRow}</div>`}
+            ${group('Attendance &amp; lunch', '', secRow('attendance') + secRow('lunch') + attendanceManualRow)}
             ${group('Remarks', 'Which remarks print.', secRow('teacherRemarks') + secRow('conductRemarks') + secRow('attitudeRemarks') + secRow('interestRemarks') + customRows)}
             ${group('Also on the report card', '', secRow('gradeKey') + secRow('choiceResults') + secRow('gpa') + secRow('customSections') + cfSectionsHtml)}
           </div>
@@ -7882,7 +7890,7 @@
       const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
       if (turnOffAutoAttendanceCb && manualAttendanceOutOfInput) {
         const syncManualAttendanceOutOfState = () => {
-          manualAttendanceOutOfInput.disabled = !turnOffAutoAttendanceCb.checked;
+          manualAttendanceOutOfInput.disabled = turnOffAutoAttendanceCb.disabled || !turnOffAutoAttendanceCb.checked;
         };
         syncManualAttendanceOutOfState();
         turnOffAutoAttendanceCb.addEventListener('change', syncManualAttendanceOutOfState);
@@ -8454,7 +8462,9 @@
       });
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
-      panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      // Attendance / lunch the class doesn't take show switched off and disabled: what was saved stays as it was.
+      const savedSecs = ((allDisplaySettingsMap[String(classId)] || {}).sections) || {};
+      panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.dataset.svcOff ? (cb.dataset.key === 'lunch' ? savedSecs.lunch === true : savedSecs.attendance !== false) : cb.checked; });
       // Custom editor sections ticked one by one (feature report_remarks_forms). Ticks for sections
       // not listed here are kept; without the list, what was saved stays as it was.
       const savedCfShown = (((allDisplaySettingsMap[String(classId)] || {}).sections || {}).customSectionsVisibility) || {};
@@ -8499,13 +8509,16 @@
         usedOverride: gradePresentationOverride !== null,
       });
       const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
-      sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
+      sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? (turnOffAutoAttendanceCb.dataset.svcOff ? savedSecs.turnOffAutoAttendance === true : turnOffAutoAttendanceCb.checked) : false;
       const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
       const manualAttendanceOutOfRaw = manualAttendanceOutOfInput ? manualAttendanceOutOfInput.value.trim() : '';
       const manualAttendanceOutOfParsed = parseInt(manualAttendanceOutOfRaw, 10);
       sections.manualAttendanceOutOf = manualAttendanceOutOfRaw !== '' && Number.isFinite(manualAttendanceOutOfParsed) && manualAttendanceOutOfParsed > 0
         ? manualAttendanceOutOfParsed
         : null;
+      if (turnOffAutoAttendanceCb && turnOffAutoAttendanceCb.dataset.svcOff) {
+        sections.manualAttendanceOutOf = Number.isFinite(Number(savedSecs.manualAttendanceOutOf)) && Number(savedSecs.manualAttendanceOutOf) > 0 ? Number(savedSecs.manualAttendanceOutOf) : null;
+      }
 
       const paygiraEnabledCb = document.getElementById('ds-adv-paygira-enabled');
       const paygiraMode = panel.querySelector('input[name="ds-paygira-mode"]:checked')?.value === 'manual' ? 'manual' : 'auto';

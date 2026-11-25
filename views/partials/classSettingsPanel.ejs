@@ -45,7 +45,7 @@
           <ul class="cset-list">
             <li class="cset-row cset-colhead"><span class="cset-row__label"></span><span class="cset-cells"><% (_cs.share[0] ? _cs.share[0].boxes : []).forEach((box) => { %><span class="cset-cell"><%= box.label %></span><% }) %></span><span class="cset-lockslot"></span></li>
             <% _cs.share.forEach((item) => { const _off = item.locked && !_cs.canLock; %>
-            <li class="cset-row" data-cs-row title="<%= item.help %>">
+            <li class="cset-row" data-cs-row<%- item.needs ? ' data-cs-needs="' + item.needs + '"' + (item.hidden ? ' hidden' : '') : '' %> title="<%= item.help %>">
               <span class="cset-row__label"><%= item.label %></span>
               <p class="cset-msg" data-cs-msg role="status" aria-live="polite"></p>
               <span class="cset-cells">
@@ -65,7 +65,7 @@
         </div>
 
         <% if (_cs.notices) { %>
-        <div class="cset-card">
+        <div class="cset-card" data-cs-needs="attendance"<%= _cs.noticesHidden ? ' hidden' : '' %>>
           <div class="cset-card__head"><h3 class="cset-card__title">Attendance notices</h3></div>
           <%- include('classNoticeRows', { notices: _cs.notices, classId: classId }) %>
         </div>

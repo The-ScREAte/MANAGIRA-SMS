@@ -515,13 +515,13 @@ function initHeaderMenu() {
 
       // Results grouped by kind, best matches first, with the typed text highlighted.
       const SEARCH_GROUPS = [
-        { key: "student", label: "Students", icon: "fa-user-graduate" },
-        { key: "guardian", label: "Parents & guardians", icon: "fa-people-roof" },
-        { key: "employee", label: "Staff", icon: "fa-id-badge" },
-        { key: "teacher", label: "Teachers", icon: "fa-chalkboard-user" },
-        { key: "class", label: "Classes", icon: "fa-chalkboard" },
-        { key: "subject", label: "Subjects", icon: "fa-book" },
-        { key: "organization_profile", label: "School", icon: "fa-school" },
+        { key: "student", label: "Students", icon: "students" },
+        { key: "guardian", label: "Parents & guardians", icon: "guardians" },
+        { key: "employee", label: "Staff", icon: "staff" },
+        { key: "teacher", label: "Teachers", icon: "profile" },
+        { key: "class", label: "Classes", icon: "classroom" },
+        { key: "subject", label: "Subjects", icon: "homework" },
+        { key: "organization_profile", label: "School", icon: "school" },
       ];
       const markMatch = (text, query) => {
         const safe = escapeHtml(text || "");
@@ -572,7 +572,7 @@ function initHeaderMenu() {
         const initials = String(title).split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
         const avatar = hasPhoto
           ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" data-onerror="hdr.avatar" data-mga0="${escapeHtml(initials)}">`
-          : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
+          : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon">${window.ManagiraNavIcon ? window.ManagiraNavIcon(group.icon) : ""}</span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
         return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}"${personOf(item) ? ` data-person="${personOf(item)}"` : ""}>${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query_)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
       };
       let query_ = "";

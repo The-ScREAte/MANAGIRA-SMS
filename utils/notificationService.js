@@ -946,7 +946,7 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
     }
 
     // Callers pass the conversation link (/common/parent-messages/:id), which
-    // routes each person to their class page or Mail Room. Without one, fall
+    // routes each person to their class page or Mailroom. Without one, fall
     // back to the student's class page.
     let resolvedLink = link;
     if (!resolvedLink) try {

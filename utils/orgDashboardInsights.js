@@ -49,6 +49,7 @@ async function loadOrgDashboardInsights(db, opts) {
     role = "",
     actorId = 0,
     attendanceUsed = true, // the school takes attendance in Managira (utils/schoolServices.js)
+    attendanceOffClassIds = [], // classes whose own Take attendance switch is off: not counted as missing
   } = opts;
   const roleKey = String(role || "").trim().toLowerCase();
   // Recent activity is role based: managers see everyone, supervisors see everyone
@@ -62,10 +63,11 @@ async function loadOrgDashboardInsights(db, opts) {
   const classIds = classes.map((cls) => Number(cls.class_id)).filter(Number.isInteger);
   // A teacher marks attendance only where they are the class's main teacher (the attendance
   // page's own rule), so only those classes count for them and are offered.
-  const attendanceClasses = roleKey === "teacher"
+  const attendanceOff = new Set((attendanceOffClassIds || []).map(Number));
+  const attendanceClasses = (roleKey === "teacher"
     ? classes.filter((cls) => (Array.isArray(cls.employees) ? cls.employees : [])
         .some((person) => Number(person.user_id) === Number(actorId) && person.main))
-    : classes;
+    : classes).filter((cls) => !attendanceOff.has(Number(cls.class_id)));
   const attendanceClassIds = attendanceClasses.map((cls) => Number(cls.class_id)).filter(Number.isInteger);
 
   const show = {

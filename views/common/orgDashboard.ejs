@@ -18,24 +18,27 @@
   // The browser re-orders them by how often this person uses them.
   const _actions = [];
   const _addAction = (key, href, icon, label, compose) => _actions.push({ key, href, icon, label, compose });
+  // Older icon names the insights and alerts still carry, drawn from the shared set.
+  const _faNavMap = { 'fa-chalkboard-user': 'classroom', 'fa-envelope-open-text': 'mailroom', 'fa-user-lock': 'userLock', 'fa-inbox': 'applications', 'fa-clipboard-check': 'attendance', 'fa-wallet': 'paygira', 'fa-bus': 'transportation', 'fa-triangle-exclamation': 'alert', 'fa-pen-to-square': 'grading', 'fa-hourglass-half': 'hourglass', 'fa-list-check': 'tasks', 'fa-calendar-xmark': 'calendarX', 'fa-flag-checkered': 'flag', 'fa-calendar-check': 'calendarCheck' };
+  const _faNav = (name) => _faNavMap[name] || String(name || 'alert');
   const _wsMember = typeof workspaceMember === 'undefined' ? true : !!workspaceMember;
   // Events, announcements and activities are managed in the Management workspace's right-hand panel.
   // These links load Management as a full page (data-no-spa): it reads which panel to open from the address.
   const _eventsPanel = (tab) => '/common/management?panel=announcements-events&page=' + encodeURIComponent('/common/manageEventsAnnouncements' + (tab ? '?tab=' + tab : '')) + '&label=' + encodeURIComponent('Events, announcements & activities');
-  if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'fa-square-check', 'New task', 'task');
-  _addAction('calendar', '/common/calendar', 'fa-calendar-days', 'Calendar');
-  if (_perm('manage_students')) { _addAction('add-student', '/common/addStudent', 'fa-user-plus', 'Add student'); _addAction('students', '/common/allStudents', 'fa-user-graduate', 'All students'); }
+  if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'task', 'New task', 'task');
+  _addAction('calendar', '/common/calendar', 'calendar', 'Calendar');
+  if (_perm('manage_students')) { _addAction('add-student', '/common/addStudent', 'addStudent', 'Add student'); _addAction('students', '/common/allStudents', 'students', 'All students'); }
   // Held only while the school has transportation switched on.
-  if (_perm('manage_transportation')) _addAction('transport', '/transportation/manage', 'fa-bus', 'Transport');
-  if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'fa-inbox', 'Admissions');
-  if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'fa-id-badge', 'Add staff'); _addAction('management', '/common/management', 'fa-users-gear', 'Management'); }
-  if (_perm('publish_events_announcements')) _addAction('events', _eventsPanel(), 'fa-calendar-plus', 'Events & announcements');
-  if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Overdue fees'); }
-  if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'fa-paper-plane', 'Send a message');
-  if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'fa-chart-column', 'Reports');
-  if (_perm('manage_records')) _addAction('records', '/common/manageRecords', 'fa-calendar-days', 'School years & terms');
-  if (_perm('manage_classes_subjects')) _addAction('classes', '/common/manageClassSubjectAndGradYr', 'fa-chalkboard', 'Classes & subjects');
-  _addAction('settings', '/account/settings', 'fa-user-gear', 'My profile & settings');
+  if (_perm('manage_transportation')) _addAction('transport', '/transportation/manage', 'transportation', 'Transportation');
+  if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'admissions', 'Admissions');
+  if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'addStaff', 'Add user'); _addAction('management', '/common/management', 'management', 'Management Tools'); }
+  if (_perm('publish_events_announcements')) _addAction('events', _eventsPanel(), 'announcements', 'Events, announcements & activities');
+  if (_perm('paygira_workspace') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'paygira', 'PayGira'); if (_perm('paygira_recovery')) _addAction('arrears', '/account/settings/finance/arrears', 'feeRecovery', 'Overdue fees'); }
+  if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'mailroom', 'Mailroom');
+  if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'reports', 'Reports');
+  if (_perm('manage_records')) _addAction('records', '/common/manageRecords', 'schoolYears', 'School years & terms');
+  if (_perm('manage_classes_subjects')) _addAction('classes', '/common/manageClassSubjectAndGradYr', 'classesSubjects', 'Classes & subjects');
+  _addAction('settings', '/account/settings', 'settings', 'Settings');
 %>
 
 <style>
@@ -69,13 +72,13 @@
     border: 1px solid color-mix(in srgb, var(--org-primary-color, #0f5a66) 35%, #e2e8f0) !important; border-radius: 8px !important; background: #fff !important; color: #0f172a !important;
     font-size: 0.92rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); white-space: nowrap;
   }
-  .od-tool i { color: var(--org-primary-color, #0f5a66); }
-  .od-tool .od-tool__caret { font-size: 0.7rem; color: #94a3b8; transition: transform .15s ease; }
+  .od-tool > svg { width: 20px; height: 20px; flex: 0 0 auto; color: var(--org-primary-color, #0f5a66); }
+  .od-tool .od-tool__caret { display: inline-flex; color: #94a3b8; transition: transform .15s ease; }
+  .od-tool .od-tool__caret svg { width: 14px; height: 14px; }
   .od-dd.is-open .od-tool { border-color: var(--org-primary-color, #0f5a66) !important; }
   .od-dd.is-open .od-tool__caret { transform: rotate(180deg); }
   .od-tool--icon { width: 44px !important; justify-content: center; padding: 0 !important; }
   .od-tool--customize { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 7%, #ffffff) !important; }
-  .od-tool--customize i { font-size: 0.85rem; }
   .od-dd__panel {
     position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 270px; max-width: calc(100vw - 32px);
     background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
@@ -93,10 +96,11 @@
     display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #0f172a !important;
     font-size: 0.88rem; font-weight: 600; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .od-qa a i {
+  .od-qa a .od-qa__ico {
     flex: 0 0 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 9%, #fff); color: var(--org-primary-color, #0f5a66); font-size: 0.85rem;
+    background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 9%, #fff); color: var(--org-primary-color, #0f5a66);
   }
+  .od-qa a .od-qa__ico svg { width: 20px; height: 20px; }
   
   .od-dd__hint { margin: 6px 8px 2px; font-size: 0.76rem; color: #94a3b8; }
   .od-check { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; font-size: 0.9rem; color: #0f172a; cursor: pointer; margin: 0; }
@@ -149,6 +153,7 @@
   .od-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
   .od-card__title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--od-text) !important; }
   .od-card__title i { color: var(--od-primary); font-size: 0.95rem; }
+  .od-card__title > svg { width: 24px; height: 24px; flex: 0 0 auto; color: var(--od-primary); }
   .od-count { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--od-soft); color: var(--od-primary); font-size: 0.78rem; font-weight: 700; }
   .od-link { color: var(--od-primary) !important; font-size: 0.88rem; font-weight: 600; white-space: nowrap; }
   .od-link:hover { text-decoration: underline; }
@@ -290,6 +295,8 @@
   .od-alert { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; }
   .od-alert:first-child { padding-top: 0; }
   .od-alert__icon { flex: 0 0 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
+  .od-alert__icon svg { width: 20px; height: 20px; }
+  .od-kpi__icon svg { width: 24px; height: 24px; }
   .od-alert--red .od-alert__icon { background: #fef2f2; color: #b91c1c; }
   .od-alert--amber .od-alert__icon { background: #fffbeb; color: #b45309; }
   .od-alert--blue .od-alert__icon { background: #eff6ff; color: #1d4ed8; }
@@ -485,9 +492,9 @@
 
 <div class="org-nav-wrap<%= _hasDashboard ? '' : ' org-nav-wrap--center' %>">
   <div class="org-nav-buttons">
-    <button id="orgDashboardBtn" class="org-nav-button active">Org Dashboard</button>
+    <button id="orgDashboardBtn" class="org-nav-button active">Dashboard</button>
     <% if (_hasWebsite) { %>
-      <a id="publicDashboardBtn" class="org-nav-button" href="/common/publicDashboard?organizationId=<%= encodeURIComponent(organizationId) %>" target="_blank" rel="noopener noreferrer" data-no-spa>School Website</a>
+      <a id="publicDashboardBtn" class="org-nav-button" href="/common/publicDashboard?organizationId=<%= encodeURIComponent(organizationId) %>" target="_blank" rel="noopener noreferrer" data-no-spa>School website</a>
     <% } %>
   </div>
 
@@ -496,13 +503,13 @@
       <% if (_actions.length) { %>
       <div class="od-dd od-dd--actions" data-od-dd>
         <button type="button" class="od-tool" aria-haspopup="true" aria-expanded="false" data-od-dd-toggle>
-          <i class="fa-solid fa-bolt" aria-hidden="true"></i> Quick actions <i class="fa-solid fa-chevron-down od-tool__caret" aria-hidden="true"></i>
+          <%- navIcon('bolt') %> Quick actions <span class="od-tool__caret"><%- navIcon('chevronDown') %></span>
         </button>
         <div class="od-dd__panel od-dd__panel--wide" hidden data-od-dd-panel>
           <div class="od-dd__title">Quick actions</div>
           <ul class="od-qa" data-od-qa>
             <% _actions.forEach(function(a, i) { %>
-              <li data-qa-key="<%= a.key %>" data-qa-index="<%= i %>"<%= i >= 6 ? ' class=od-qa--more' : '' %>><a href="<%= a.href %>"<% if (a.compose) { %> data-ws-compose="<%= a.compose %>"<% } %><% if (/^\/common\/management\?/.test(a.href)) { %> data-no-spa<% } %>><i class="fa-solid <%= a.icon %>" aria-hidden="true"></i><%= a.label %></a></li>
+              <li data-qa-key="<%= a.key %>" data-qa-index="<%= i %>"<%= i >= 6 ? ' class=od-qa--more' : '' %>><a href="<%= a.href %>"<% if (a.compose) { %> data-ws-compose="<%= a.compose %>"<% } %><% if (/^\/common\/management\?/.test(a.href)) { %> data-no-spa<% } %>><span class="od-qa__ico"><%- navIcon(a.icon) %></span><%= a.label %></a></li>
             <% }) %>
           </ul>
           <% if (_actions.length > 6) { %><button type="button" class="od-qa__all" data-od-qa-all>Show all <%= _actions.length %></button><% } %>
@@ -513,7 +520,7 @@
 
       <div class="od-dd" data-od-dd>
         <button type="button" class="od-tool od-tool--customize" aria-haspopup="true" aria-expanded="false" aria-label="Customize dashboard" title="Choose what shows on your dashboard" data-od-dd-toggle>
-          <i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="od-tool__text">Customize</span>
+          <%- navIcon('sliders') %><span class="od-tool__text">Customize</span>
         </button>
         <div class="od-dd__panel" hidden data-od-dd-panel>
           <div class="od-dd__title">Customize your dashboard</div>
@@ -716,7 +723,7 @@
       <div class="od-pair">
         <section class="od-card" data-od-classes data-od-section="classes" data-od-label="Enrolled classes" aria-label="Enrolled classes">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i> Enrolled Classes <span class="od-count"><%= uniqueSortedClasses.length %></span></h2>
+            <h2 class="od-card__title"><%- navIcon('classroom') %> Enrolled classes <span class="od-count"><%= uniqueSortedClasses.length %></span></h2>
           </div>
           <% if (uniqueSortedClasses.length) { %>
             <% let _crowN = 0; %>
@@ -800,7 +807,7 @@
         <div class="od-stack">
         <section class="od-card" data-od-section="year" data-od-label="Current school year" aria-label="Current school year">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> School Year <span class="od-chip"><%= schoolYear.year_label %></span></h2>
+            <h2 class="od-card__title"><%- navIcon('calendar') %> School year <span class="od-chip"><%= schoolYear.year_label %></span></h2>
             <span class="od-today" title="Organization country: <%= dashboardCountryName || dashboardCountryCode || '—' %>">
               <% if (dashboardCountryFlagUrl) { %><img src="<%= dashboardCountryFlagUrl %>" alt="" width="20" height="15"><% } else { %><i class="fa-solid fa-earth-africa" aria-hidden="true"></i><% } %>
               <%= dashboardTodayLabel %>
@@ -853,7 +860,7 @@
         <div class="od-kpis">
           <% _kpis.forEach(function(k) { const tag = k.href ? 'a' : 'div'; %>
             <<%= tag %> class="od-kpi od-kpi--<%= k.key %>" data-od-section="kpi-<%= k.key %>" data-od-label="<%= k.label %>"<% if (k.href) { %> href="<%= k.href %>"<% } %>>
-              <span class="od-kpi__icon"><i class="fa-solid <%= k.icon %>" aria-hidden="true"></i></span>
+              <span class="od-kpi__icon"><%- navIcon(_faNav(k.icon)) %></span>
               <span class="od-kpi__body">
                 <span class="od-kpi__label"><%= k.label %></span>
                 <span class="od-kpi__value"><%= k.value %></span>
@@ -930,7 +937,7 @@
         <% if (userRole !== "teacher") { %>
         <section class="od-card" data-od-section="events" data-od-label="Events" aria-label="Events">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Events <span class="od-count"><%= _allEvents.length %></span></h2>
+            <h2 class="od-card__title"><%- navIcon('calendar') %> Events <span class="od-count"><%= _allEvents.length %></span></h2>
             <% if (_canPublish) { %><span class="od-card__links"><a class="od-link" href="<%= _eventsPanel() %>" data-no-spa>Manage</a></span><% } %>
           </div>
           <% if (_upcomingAll.length) { %>
@@ -982,7 +989,7 @@
         %>
         <section class="od-card od-activity-card" data-od-section="announcements" data-od-label="Activity & announcements" aria-label="Activity and announcements" data-od-feed data-od-me="<%= _me %>">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Activity &amp; Announcements</h2>
+            <h2 class="od-card__title"><%- navIcon('bolt') %> Activity &amp; announcements</h2>
             <% if (_wsMember) { %><button type="button" class="od-link od-newtask" data-ws-compose="task"><i class="fa-solid fa-plus" aria-hidden="true"></i> New task</button><% } %>
           </div>
           <%
@@ -1180,13 +1187,13 @@
         <% if (_attention) { %>
         <section class="od-card" data-od-section="attention" data-od-label="Needs attention" aria-label="Needs attention">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-solid fa-bell" aria-hidden="true"></i> Needs attention <% if (_attention.length) { %><span class="od-count"><%= _attention.length %></span><% } %></h2>
+            <h2 class="od-card__title"><%- navIcon('notifications') %> Needs attention <% if (_attention.length) { %><span class="od-count"><%= _attention.length %></span><% } %></h2>
           </div>
           <% if (_attention.length) { %>
             <ul class="od-list">
               <% _attention.forEach(function(item) { %>
                 <li class="od-alert od-alert--<%= item.tone %>">
-                  <span class="od-alert__icon"><i class="fa-solid <%= item.icon %>" aria-hidden="true"></i></span>
+                  <span class="od-alert__icon"><%- navIcon(_faNav(item.icon)) %></span>
                   <span class="od-alert__body">
                     <span class="od-alert__text"><%= item.text %></span>
                     <% if (item.note) { %><span class="od-alert__note"><%= item.note %></span><% } %>
@@ -1210,7 +1217,7 @@
         <% if (_activity) { %>
         <section class="od-card" data-od-section="activity" data-od-label="Recent activity" aria-label="Recent activity">
           <div class="od-card__head">
-            <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
+            <h2 class="od-card__title"><%- navIcon('history') %> Recent activity
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
             <%# The activity log is a Report Builder report: Report Builder to open it, Organization Records to see it. %>
             <% if (_perm('reports_builder') && _perm('manage_records')) { %>

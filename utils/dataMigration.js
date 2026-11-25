@@ -2658,7 +2658,7 @@ async function loadLive(db, job, actor, progress = quiet) {
         [id, studentId, clean(g.data.relationship, 60) || "Parent"]
       );
       if (joined) ledger.made("guardian_students", { guardian_id: id, student_id: studentId });
-      // The per-student parent row as well, as Add Student writes it: older pages (the student's
+      // The per-student parent row as well, as Add student writes it: older pages (the student's
       // page) still read it. One per first name per student (the table's own rule).
       const { rows: [legacy] } = await q(
         `INSERT INTO guardians (first_name, last_name, phone, email, student_id, organization_id)

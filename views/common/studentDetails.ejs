@@ -840,9 +840,9 @@
         var _canMessage = _isStaff && _perms.includes('mailroom');
         var _messageHref = '/common/mailroom?student=' + encodeURIComponent((student.first_name || '') + ' ' + (student.last_name || '')).replace(/%20/g, '+');
         var _reportHref = (_isStaff && _cid && workspaceAccess().reports.terminal) ? ('/print/printStudentReport?classId=' + _cid + '&termId=' + currentTerm + '&studentIds=' + student.student_id) : '';
-        // Messages: Mail Room people, and a class's own staff (a teacher sees their classes' parents' conversations).
+        // Messages: Mailroom people, and a class's own staff (a teacher sees their classes' parents' conversations).
         var _hasMessages = _isStaff && _active && (_canMessage || ['Teacher', 'Supervisor'].includes(req.session.userRole));
-        var _svc = locals.schoolServices || { attendance: true, lunch: true, name: 'Attendance and lunch' };
+        var _svc = locals.studentServices || locals.schoolServices || { attendance: true, lunch: true, name: 'Attendance & lunch' };
         var _hasAttendance = _isStaff && _perms.includes('mark_attendance') && (_svc.attendance || _svc.lunch);
         var _attendanceHref = (_active && _cid) ? ('/common/classDashboard/' + _cid + '/attendance') : '';
         var _hasBills = _isStaff && !!workspaceAccess().paygira.students;
@@ -1192,7 +1192,7 @@
       <% } %>
       <% if (_hasRecords) { %>
       <div class="sd-panel" id="sd-panel-records" role="tabpanel" aria-labelledby="sd-tab-records" data-sd-panel="records" hidden>
-      <% if (locals.oldSystem && (oldSystem.history.length || ((locals.schoolServices || {}).attendance !== false && oldSystem.attendance.length) || oldSystem.sourceGpa)) { %>
+      <% if (locals.oldSystem && (oldSystem.history.length || (_svc.attendance !== false && oldSystem.attendance.length) || oldSystem.sourceGpa)) { %>
       <%# Final grades and attendance totals from the school's old system (data migration). %>
       <section class="sd-card">
         <h3 class="sd-card__title">Academic record before Managira</h3>
@@ -1213,7 +1213,7 @@
           </table>
         </div>
         <% } %>
-        <% if (oldSystem.attendance.length && (locals.schoolServices || {}).attendance !== false) { %>
+        <% if (oldSystem.attendance.length && _svc.attendance !== false) { %>
         <h4 style="margin:14px 0 6px;font-size:14px">Attendance</h4>
         <div class="table-container">
           <table>

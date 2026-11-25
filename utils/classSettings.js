@@ -61,6 +61,8 @@ function normalizeNotices(raw) {
 }
 
 const DEFAULTS = Object.freeze({
+  // Take attendance on the class's attendance page; off, the class has no attendance anywhere (utils/schoolServices.js classServices).
+  attendance: true,
   // Take lunch beside attendance on the class attendance page.
   lunch: true,
   // Whether this class's students may use the student portal: on, and management or the class can
@@ -72,6 +74,7 @@ const DEFAULTS = Object.freeze({
 
 // Every switch, with its stored key ("lunch", "parents.attendance", "students.lunch", ...).
 const SWITCHES = [
+  { key: "attendance", group: "class", label: "Take attendance", help: "Daily attendance for this class: its page, report cards, student pages, the portals and notices. Off: none of it shows for this class (what was saved stays)." },
   { key: "lunch", group: "class", label: "Take lunch", help: "A plate beside each student's checkbox on the attendance page, saved with attendance." },
   { key: "portal", group: "class", label: "Student portal", help: "Lets this class's students use the student portal; it decides who can be invited." },
   ...SHARE_ITEMS.flatMap((item) => AUDIENCES.map((audience) => ({
@@ -94,7 +97,7 @@ function withDefaults(stored) {
   // Settings management has locked: the class's own teachers can't change them (only Every Class can).
   const locks = {};
   if (raw.locks && typeof raw.locks === "object") Object.keys(raw.locks).forEach((key) => { if (SWITCH_KEYS.has(key) && raw.locks[key] === true) locks[key] = true; });
-  return { lunch: bool(raw.lunch, DEFAULTS.lunch), portal: bool(raw.portal, DEFAULTS.portal), parents: share("parents"), students: share("students"), notices: normalizeNotices(raw.notices), locks };
+  return { attendance: bool(raw.attendance, DEFAULTS.attendance), lunch: bool(raw.lunch, DEFAULTS.lunch), portal: bool(raw.portal, DEFAULTS.portal), parents: share("parents"), students: share("students"), notices: normalizeNotices(raw.notices), locks };
 }
 
 // Where the feature is off for a school, every class behaves as before: everything on.
@@ -140,13 +143,17 @@ async function ready(db) {
 }
 
 // What the school itself turned off (Class & notif. settings, "School": utils/schoolServices.js) wins over every class:
-// no attendance or lunch is shown, shared or sent, whatever a class's own switches say. { raw: true } gives the
-// class's own switches as saved (the settings pages draw those).
+// no attendance or lunch is shown, shared or sent, whatever a class's own switches say. A class's own Take attendance and
+// Take lunch switches then decide for that class the same way, so what comes back says what the class really takes:
+// settings.attendance and settings.lunch are the effective values (utils/schoolServices.js classServices reads them).
+// { raw: true } gives the class's own switches as saved (the settings pages draw those).
 function overlay(settings, svc) {
-  if (svc.attendance && svc.lunch) return settings;
-  const next = { ...settings, parents: { ...settings.parents }, students: { ...settings.students }, notices: { absent: { ...settings.notices.absent }, late: { ...settings.notices.late } } };
-  if (!svc.lunch) { next.lunch = false; next.parents.lunch = false; next.students.lunch = false; }
-  if (!svc.attendance) {
+  const attendance = svc.attendance && settings.attendance !== false;
+  const lunch = svc.lunch && settings.lunch !== false;
+  if (attendance && lunch) return settings;
+  const next = { ...settings, attendance, lunch, parents: { ...settings.parents }, students: { ...settings.students }, notices: { absent: { ...settings.notices.absent }, late: { ...settings.notices.late } } };
+  if (!lunch) { next.parents.lunch = false; next.students.lunch = false; }
+  if (!attendance) {
     next.parents.attendance = false; next.students.attendance = false;
     next.notices.absent.on = false; next.notices.late.on = false;
   }

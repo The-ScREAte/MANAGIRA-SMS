@@ -431,7 +431,7 @@
     var every = everyOf(s);
     var builtin = Boolean(s.builtin);
     if (builtin) {
-      more = (REMARKS ? row('Students list', check('beside', s.beside, 'Beside each student', 'Teachers write each remark from the class’s Students list. Unticked, they use the remark pop-up.')) : '')
+      more = (REMARKS ? row('Students list', check('beside', s.beside, 'Beside each student')) : '')
         + row('Notes', '<textarea class="cf-input" rows="2" data-bind="notes" maxlength="2000" placeholder="Optional">' + esc(s.notes || '') + '</textarea>');
     }
     return '<article class="cf-sec is-open' + (builtin ? ' is-builtin' : '') + '">'

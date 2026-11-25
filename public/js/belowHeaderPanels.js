@@ -19,6 +19,12 @@
       var cls = el.getAttribute('data-below-header');
       var open = cls ? el.classList.contains(cls) : (!el.hidden && getComputedStyle(el).display !== 'none');
       if (open && el.style.top !== top) el.style.top = top;
+      // A panel sized "100%" or "100vh" from the top of the screen runs past the bottom once its top
+      // moves down under the header; pin it to the bottom edge instead so its last pixel stays reachable.
+      if (open && getComputedStyle(el).position === 'fixed') {
+        var box = el.getBoundingClientRect();
+        if (box.height > 0 && box.bottom > window.innerHeight + 1) { el.style.bottom = '0px'; el.style.height = 'auto'; el.style.maxHeight = 'none'; }
+      }
       if (el.hasAttribute('data-popup-lift') && el.classList.contains('is-open') !== open) el.classList.toggle('is-open', open);
     });
     busy = false;

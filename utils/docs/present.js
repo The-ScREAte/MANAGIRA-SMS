@@ -38,8 +38,12 @@ function prepareArticle(html) {
   const known = imageSizes();
   body = body.replace(/<img ([^>]*?)src="([^"]+)"([^>]*)>/g, (match, before, src, after) => {
     const size = known[src.replace(/^\/images\/docs\//, "")];
-    const dims = size ? ` width="${size[0]}" height="${size[1]}"` : "";
-    return `<img ${before}src="${src}"${after}${dims} loading="lazy" decoding="async">`;
+    // A close-up or phone picture is saved at twice its size, for sharp text: it shows at half.
+    const hd = size && size[2] === 2;
+    const w = size ? (hd ? Math.round(size[0] / 2) : size[0]) : 0;
+    const h = size ? (hd ? Math.round(size[1] / 2) : size[1]) : 0;
+    const dims = size ? ` width="${w}" height="${h}"${hd ? ` style="max-width:${w}px"` : ""}` : "";
+    return `<img ${before}src="${src}"${after}${dims}${hd ? ' data-hd="1"' : ""} loading="lazy" decoding="async">`;
   });
   const words = plain(body).split(" ").filter(Boolean).length;
   return { html: body, toc, minutes: Math.max(1, Math.round(words / 200)) };

@@ -4,7 +4,7 @@
 .pt-head .pt-back:hover { text-decoration: underline; }
 .pt-row { display: flex; align-items: center; gap: 14px; }
 .pt-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); color: var(--org-primary-color, #0f766e); }
-.pt-icon svg { width: 22px; height: 22px; }
+.pt-icon svg { width: 24px; height: 24px; }
 .pt-text { min-width: 0; flex: 1; }
 .pt-head .pt-text h1 { margin: 0; color: #0f172a; font-size: 1.375rem; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; text-align: left; }
 .pt-head p { margin: 2px 0 0; color: #64748b; font-size: .9rem; }

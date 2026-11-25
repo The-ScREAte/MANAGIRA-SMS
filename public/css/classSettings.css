@@ -220,7 +220,7 @@ label.cset-row__label { cursor: pointer; }
 .cset-crow__name { flex: 1; min-width: 0; display: grid; }
 .cset-crow__name strong { font-size: 14px; font-weight: 500; }
 .cset-crow__name small { color: var(--cs-muted); font-size: 12px; }
-.cset-hcell { display: flex; flex: none; align-items: center; gap: 10px; width: 240px; }
+.cset-hcell { display: flex; flex: none; align-items: center; gap: 10px; width: 200px; }
 .cset-hcell__label { flex: 1; margin: 0; font-size: 13px; font-weight: 500; color: var(--cs-muted); cursor: pointer; }
 .cset-crow__toggle { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin: 0 0 0 6px; padding: 0; border: 1px solid var(--cs-line); border-radius: 8px; background: var(--cs-surface); color: var(--cs-muted); cursor: pointer; }
 .cset-crow__toggle:hover { border-color: var(--cs-brand); color: var(--cs-brand); }
@@ -293,3 +293,11 @@ label.cset-row__label { cursor: pointer; }
 .cset-page .cset-days-head, .cset .cset-days-head, h4.cset-days-head { color: var(--cs-text) !important; font-size: 13px; }
 :is(.cset--wide, .cset-page) .cset-cell:has(.cset-num) { width: 130px; }
 :is(.cset--wide, .cset-page) .cset-cells:has(.cset-num) { width: 240px; }
+
+/* Weekly briefing: preview picker */
+.cset-page .cset-brief-preview .cset-brief-selects { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cset-preview-open { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border: 1px solid var(--border, #d0d5dd); border-radius: 8px; color: inherit; font-size: 13.5px; font-weight: 600; text-decoration: none; background: #fff; }
+.cset-preview-open[aria-disabled="true"] { opacity: .5; cursor: default; }
+
+/* Attendance and Lunch rows follow the class's own switch for them (public/js/classSettings.js). */
+.cset [data-cs-needs][hidden], .cset-page [data-cs-needs][hidden] { display: none !important; }

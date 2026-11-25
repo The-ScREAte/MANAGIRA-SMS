@@ -623,7 +623,7 @@ a.rb-link:focus-visible { outline: 2px solid var(--org-primary-color, #0f766e); 
 /* Pop-ups from the right, under the header, to the bottom: same look as the other panels */
 .rb-modal { align-items: stretch; justify-content: flex-end; padding: 0; z-index: 12990; background: rgba(15, 23, 42, .35); }
 .rb-modal[hidden] { display: none; }
-.rb-dialog { --rb-edge: #8ea3b6; --rb-rule: #b7c4d0; width: min(1040px, 100%); height: 100%; max-height: none; padding: 0; gap: 0; border-radius: 0; border-left: 1.5px solid var(--rb-edge); background: var(--ap-surface, #ffffff); color: var(--ap-text, var(--rb-text)); box-shadow: -18px 0 40px rgba(0, 0, 0, .18); overflow: auto; }
+.rb-dialog { --rb-edge: #8ea3b6; --rb-rule: #b7c4d0; width: min(1040px, 100%); height: 100%; max-height: none; margin: 0; padding: 0; gap: 0; border-radius: 0; border-left: 1.5px solid var(--rb-edge); background: var(--ap-surface, #ffffff); color: var(--ap-text, var(--rb-text)); box-shadow: -18px 0 40px rgba(0, 0, 0, .18); overflow: auto; }
 html[data-appearance="dark"] .rb-dialog { --rb-edge: color-mix(in srgb, var(--ap-line, #5a6470) 65%, #fff); --rb-rule: var(--ap-line, #4d5763); }
 .rb-dialog-wide { width: min(1040px, 100%); }
 .rb-dialog > * { margin: 0; padding-left: 16px; padding-right: 16px; }

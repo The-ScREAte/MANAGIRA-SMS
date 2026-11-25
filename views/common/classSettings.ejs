@@ -9,11 +9,11 @@
 <%
   const _totalText = rows.length === 1 ? '1 class' : rows.length + ' classes';
   const _what = (item, audience) => 'shares ' + item.label.toLowerCase() + ' with ' + audience.label.toLowerCase();
-  const _lunchWhat = 'takes lunch';
+  const _whatFor = { attendance: 'takes attendance', lunch: 'takes lunch', portal: 'lets students use the student portal' };
   // "All classes": on / locked only when every class is. Each class's own rows load when its row opens, so the
   // switches' state travels as compact data (the page's "All classes" boxes read it, not the rows).
   const _keys = rows.length ? Object.keys(rows[0].on) : [];
-  const _allRow = { id: null, name: 'All classes', on: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.on[k])])), locked: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.locked[k])])) };
+  const _allRow = { id: null, name: 'All classes', any: Object.fromEntries(_keys.map((k) => [k, rows.some((x) => x.on[k])])), on: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.on[k])])), locked: Object.fromEntries(_keys.map((k) => [k, rows.every((x) => x.locked[k])])) };
   // "All classes" shows the notices only where every class agrees; changing it sets every class.
   const _agree = (kind, field) => (rows.length && rows.every((x) => x.notices && x.notices[kind][field] === rows[0].notices[kind][field]) ? rows[0].notices[kind][field] : (field === 'on' ? true : 3));
   _allRow.notices = { absent: { on: _agree('absent', 'on'), count: _agree('absent', 'count') }, late: { on: _agree('late', 'on'), count: _agree('late', 'count') } };
@@ -97,7 +97,7 @@
             <div class="cset-hcell">
               <label class="cset-hcell__label" for="cs-<%= isAll ? 'all' : r.id %>-<%= s.key %>"><%= s.label %></label>
               <span class="cset-switch">
-                <input type="checkbox" role="switch" id="cs-<%= isAll ? 'all' : r.id %>-<%= s.key %>" data-cs-key="<%= s.key %>" <%- isAll ? 'data-cs-all' : 'data-cs-class="' + Number(r.id) + '"' %> data-cs-what="<%= s.key === 'portal' ? 'lets students use the student portal' : _lunchWhat %>" aria-label="<%= s.label %>, <%= _label %>" <%= _on(s.key) ? 'checked' : '' %> />
+                <input type="checkbox" role="switch" id="cs-<%= isAll ? 'all' : r.id %>-<%= s.key %>" data-cs-key="<%= s.key %>" <%- isAll ? 'data-cs-all' : 'data-cs-class="' + Number(r.id) + '"' %> data-cs-what="<%= _whatFor[s.key] || 'has this setting' %>" aria-label="<%= s.label %>, <%= _label %>" <%= _on(s.key) ? 'checked' : '' %> />
                 <span class="cset-switch__track" aria-hidden="true"></span>
               </span>
               <%- include('../partials/classSettingsLock', _lockArgs([s.key])) %>
@@ -162,11 +162,50 @@
       <% }) %>
     </ul>
     <% if (_b.ownClasses.length) { %><p class="cset-card__sub" style="padding:10px 20px 0;">Own choices: <%= _b.ownClasses.join(', ') %> (change in each class's Class settings).</p><% } %>
+    <div class="cset-row cset-brief-preview">
+      <span class="cset-row__label">Preview</span>
+      <span class="cset-brief-selects">
+        <select data-brief-pclass aria-label="Class">
+          <option value="">Class</option>
+          <% (_b.classes || []).forEach((c) => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %>
+        </select>
+        <select data-brief-pstudent aria-label="Student" disabled><option value="">Student</option></select>
+        <select data-brief-paudience aria-label="For">
+          <option value="parents">Family</option>
+          <option value="students">Student</option>
+        </select>
+        <a class="cset-preview-open" data-brief-popen href="#" target="_blank" rel="noopener" aria-disabled="true">Open preview</a>
+      </span>
+    </div>
     <div class="cset-card__foot"><button type="submit" class="cset-save" data-brief-save>Save</button></div>
   </form>
   <script nonce="<%= locals.cspNonce || '' %>">
   (function () {
     var f = document.getElementById('cset-brief-form'); if (!f) return;
+    // Preview: choose a class, then a student; opens what they'd get this week (nothing is sent).
+    var pc = f.querySelector('[data-brief-pclass]'), ps = f.querySelector('[data-brief-pstudent]'), pa = f.querySelector('[data-brief-paudience]'), po = f.querySelector('[data-brief-popen]');
+    function syncPreview() {
+      var id = ps && ps.value;
+      po.href = id ? '/common/briefing/preview?studentId=' + encodeURIComponent(id) + '&audience=' + encodeURIComponent(pa.value) : '#';
+      po.setAttribute('aria-disabled', id ? 'false' : 'true');
+    }
+    if (pc && ps && pa && po) {
+      pc.addEventListener('change', function () {
+        ps.innerHTML = '<option value="">Student</option>'; ps.disabled = true; syncPreview();
+        if (!pc.value) return;
+        fetch('/common/briefing/students?classId=' + encodeURIComponent(pc.value), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            (j.students || []).forEach(function (st) { var o = document.createElement('option'); o.value = st.id; o.textContent = st.name; ps.appendChild(o); });
+            ps.disabled = !(j.students || []).length;
+          }).catch(function () {});
+      });
+      ps.addEventListener('change', syncPreview);
+      pa.addEventListener('change', syncPreview);
+      po.addEventListener('click', function (e) { if (po.getAttribute('aria-disabled') === 'true') e.preventDefault(); });
+    }
+    // Opened from the page finder or an old weekly briefing link: bring this card into view.
+    if (/[?&]focus=briefing\b/.test(location.search)) setTimeout(function () { f.scrollIntoView({ block: 'start' }); }, 250);
     var msg = f.querySelector('[data-brief-msg]'), btn = f.querySelector('[data-brief-save]');
     f.addEventListener('submit', function (e) {
       e.preventDefault(); btn.disabled = true; msg.className = 'cset-msg'; msg.textContent = 'Saving…';

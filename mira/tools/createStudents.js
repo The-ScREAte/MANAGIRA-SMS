@@ -4,7 +4,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "create_students",
   description:
-    "Add one or more new students (the Add New Student page) - single or bulk. This is the template every student must be normalized into before calling: " +
+    "Add one or more new students (the Add student page) - single or bulk. This is the template every student must be normalized into before calling: " +
     "whatever messy format the user gives you (a pasted list, a spreadsheet dump, a paragraph of names) - extract and convert it into this exact shape, " +
     "one object per student, before calling. Never guess a class, gender, or date the user didn't actually give you - ask instead. " +
     "Runs the real app's own validation and duplicate-detection before saving; if a duplicate is detected the whole batch is rejected (not just that " +

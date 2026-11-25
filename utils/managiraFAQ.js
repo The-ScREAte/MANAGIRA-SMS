@@ -130,7 +130,7 @@ const managiraFAQ = [
     id: 32,
     category: "Parents & Guardians",
     question: "Can guardians submit concerns?",
-    answer: "Yes. Parents can message the school from the parent portal, and staff reply from the Mail Room inbox.",
+    answer: "Yes. Parents can message the school from the parent portal, and staff reply from the Mailroom inbox.",
     keywords: ["guardian concerns", "feedback", "report issue"]
   },
   {
@@ -172,7 +172,7 @@ const managiraFAQ = [
     id: 55,
     category: "Student Management",
     question: "How do I add a student?",
-    answer: "Open Admissions, select Add New Student, fill in the form and save. You can also import many students at once from a spreadsheet.",
+    answer: "Open Admissions, select Add student, fill in the form and save. You can also import many students at once from a spreadsheet.",
     keywords: ["add student", "new student"]
   },
   {
@@ -319,14 +319,14 @@ const managiraFAQ = [
     id: 208,
     category: "Student Management",
     question: "Can schools add their own fields to the student and admission forms?",
-    answer: "Yes. In Admissions > Admission Settings > Forms, a school can add its own fields, such as previous school or medical notes, and choose whether each appears on the Add Student form, the online application, or both. Answers from an approved application move to the student's record.",
+    answer: "Yes. In Admissions > Admission Settings > Forms, a school can add its own fields, such as previous school or medical notes, and choose whether each appears on the Add student form, the online application, or both. Answers from an approved application move to the student's record.",
     keywords: ["custom fields", "admission form", "student form fields", "custom student information"]
   },
   {
     id: 209,
     category: "Technical & Platform",
     question: "Can schools message parents by SMS and WhatsApp?",
-    answer: "Yes. From the Mail Room, staff message families by email, SMS or WhatsApp, and answer parents' messages in one inbox. Schools connect their own Twilio account for text messages and their own WhatsApp Business number, and pay the provider directly with no markup from Managira.",
+    answer: "Yes. From the Mailroom, staff message families by email, SMS or WhatsApp, and answer parents' messages in one inbox. Schools connect their own Twilio account for text messages and their own WhatsApp Business number, and pay the provider directly with no markup from Managira.",
     keywords: ["sms parents", "whatsapp school", "message parents", "school communication"]
   }
 ];

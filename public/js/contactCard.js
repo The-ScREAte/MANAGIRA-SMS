@@ -1,4 +1,4 @@
-// The parent / guardian contact card, shared by the Mail Room and Parents & guardians
+// The parent / guardian contact card, shared by the Mailroom and Parents & guardians
 // (styles in public/css/contactCard.css). Base details, the school's own parent fields in
 // their sections (Admissions > Admission Settings), and the children. With "Edit Contacts"
 // (or Manage Guardians) every field is editable in place; Save lights up once something changes.

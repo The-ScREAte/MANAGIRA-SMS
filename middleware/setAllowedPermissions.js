@@ -53,7 +53,7 @@ const setAllowedPermissions = async (req, res, next) => {
     const stamp = crypto.createHash('md5')
       .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]
         .concat(res.locals.customFormsReady() ? ['custom_forms'] : [])
-        .concat(res.locals.schoolServices && res.locals.schoolServices.name !== 'Attendance and lunch' ? ['services:' + res.locals.schoolServices.name] : [])
+        .concat(res.locals.schoolServices && res.locals.schoolServices.name !== 'Attendance & lunch' ? ['services:' + res.locals.schoolServices.name] : [])
         .concat(features.isOn('class_settings', { organizationId: req.session?.organizationId }) ? ['class_settings'] : [])))
       .digest('base64url')
       .slice(0, 12);

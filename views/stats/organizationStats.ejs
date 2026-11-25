@@ -6,7 +6,7 @@
   const allowPdf = typeof statsAllowPdf === 'undefined' ? true : !!statsAllowPdf;
   const statsPdf = typeof statsPdfPath !== 'undefined' && statsPdfPath ? statsPdfPath : '/stats/organization/pdf';
   const allowPrint = typeof statsAllowPrint !== 'undefined' && !!statsAllowPrint;
-  const heading = typeof statsHeading !== 'undefined' && statsHeading ? statsHeading : 'Organization statistics';
+  const heading = typeof statsHeading !== 'undefined' && statsHeading ? statsHeading : 'Organization stats';
   const canCompareClasses = features.includes("Class Base Analytics & Insights") && !isPdf && (typeof statsAllowCompare === 'undefined' || !!statsAllowCompare);
   const fmtPct = (value) => (value === null || value === undefined ? '—' : `${value}%`);
   const fmtNum = (value) => (value === null || value === undefined ? '—' : Number(value).toLocaleString());

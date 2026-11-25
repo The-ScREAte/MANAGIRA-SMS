@@ -921,6 +921,10 @@ module.exports = {
       if (text(q.student)) {
         const student = await findStudent(db, actor, q.student, reach);
         const studentId = Number(student.student_id);
+        // A student's class that doesn't take lunch (Class settings › Take lunch) has nothing to show.
+        if (student.class_id && !(await require("../schoolServices").classServices(db, org, Number(student.class_id))).lunch) {
+          throw new ReadError("NOT_FOUND", `${student.class_name || "That student's class"} doesn't take lunch (Class settings › Take lunch is off).`);
+        }
         const [{ rows: days }, overall] = await Promise.all([
           db.query(
             `SELECT lunch_date::text AS day, had_lunch FROM class_lunch
@@ -1026,7 +1030,13 @@ module.exports = {
       const scope = await teacherScope(db, actor);
       const reach = scope ? scope.mainClasses : null; // requireLeadsClass: a teacher only for classes they lead
       const range = await rangeFor(db, actor, q);
-      const { classes, leftOut } = await pickClasses(db, actor, q.classes || q.class, reach, scope ? " (attendance is for the classes you lead)" : "");
+      const picked = await pickClasses(db, actor, q.classes || q.class, reach, scope ? " (attendance is for the classes you lead)" : "");
+      const leftOut = picked.leftOut;
+      // A class that doesn't take attendance (Class settings › Take attendance) isn't read.
+      const svcBy = await require("../schoolServices").classServicesFor(db, org, picked.classes.map((c) => c.id));
+      const classes = picked.classes.filter((c) => (svcBy.get(c.id) || { attendance: true }).attendance);
+      const notTaking = picked.classes.filter((c) => !(svcBy.get(c.id) || { attendance: true }).attendance).map((c) => c.name);
+      if (!classes.length) throw new ReadError("NOT_FOUND", `${listOf(notTaking)} ${notTaking.length === 1 ? "doesn't" : "don't"} take attendance (Class settings › Take attendance is off).`);
       const classIds = classes.map((c) => c.id);
       const terms = await termsOverlapping(db, org, range.from, range.to);
       if (!terms.length) throw new ReadError("NOT_FOUND", `No term of your school covers ${range.from} to ${range.to}.`);
@@ -1036,6 +1046,7 @@ module.exports = {
         terms: terms.map(termOut),
         classes: classes.map((c) => c.name),
         ...(leftOut.length ? { left_out: `Not classes you lead: ${listOf(leftOut)}` } : {}),
+        ...(notTaking.length ? { not_taking_attendance: notTaking } : {}),
       };
 
       if (status === "not_marked") {

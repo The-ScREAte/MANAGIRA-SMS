@@ -14,7 +14,8 @@
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
   };
 
-  // Best matches first: title words count most, then tags, topic and summary.
+  // Best matches first among the titles the page already has: title words count most, then
+  // tags, topic and summary.
   function search(query) {
     var words = norm(query).split(/\s+/).filter(function (w) { return w.length > 1; });
     if (!words.length) return [];
@@ -34,60 +35,112 @@
       .map(function (hit) { return hit.item; });
   }
 
-  document.querySelectorAll("[data-docs-search]").forEach(function (box) {
-    var input = box.querySelector("input");
-    var results = box.querySelector(".docs-results");
-    var active = -1;
+  // Every word of every guide, searched on the server (utils/docs/askDocs.js search): each result
+  // goes straight to the section that matches, with its words as a snippet. Titles the page
+  // already has answer at once while the server looks.
+  var found = {};
+  function findInGuides(q) {
+    if (found[q]) return Promise.resolve(found[q]);
+    return fetch("/legal/user-documentation/api/find?q=" + encodeURIComponent(q), { headers: { accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { if (data && data.success) found[q] = data; return data; })
+      .catch(function () { return null; });
+  }
+  // The words asked, marked in a snippet (built from escaped pieces, never as HTML).
+  function marked(text, q) {
+    var raw = String(text || "");
+    var lower = norm(raw);
+    var spans = [];
+    norm(q).split(/\s+/).filter(function (w) { return w.length > 2; }).forEach(function (w) {
+      for (var i = lower.indexOf(w); i !== -1; i = lower.indexOf(w, i + w.length)) spans.push([i, i + w.length]);
+    });
+    spans.sort(function (a, b) { return a[0] - b[0]; });
+    var out = "", at = 0;
+    spans.forEach(function (span) {
+      if (span[0] < at) return;
+      out += esc(raw.slice(at, span[0])) + "<mark>" + esc(raw.slice(span[0], span[1])) + "</mark>";
+      at = span[1];
+    });
+    return out + esc(raw.slice(at));
+  }
+  function resultHtml(hit, q) {
+    return '<a href="' + esc(hit.url || ("/legal/user-documentation/" + encodeURIComponent(hit.s))) + '">'
+      + "<strong>" + esc(hit.title || hit.t) + "</strong>"
+      + (hit.section ? '<span class="docs-results__sec">' + esc(hit.section) + "</span>" : "")
+      + (hit.snippet ? '<span class="docs-results__snip">' + marked(hit.snippet, q) + "</span>" : "")
+      + "<small>" + esc(hit.topic || hit.c) + "</small></a>";
+  }
+  function noneHtml(q) {
+    return '<div class="docs-results__none">No guides match "' + esc(q) + '". Try other words, or ask in the chat.</div>';
+  }
+  // Shows results for what's typed in `input` inside `list`, quick ones first, then the full ones.
+  function searcher(input, list, onShow) {
+    var timer = null, asked = "";
     function show() {
       var q = input.value.trim();
-      if (!q) { results.hidden = true; return; }
-      var hits = search(q);
-      active = -1;
-      results.innerHTML = hits.length
-        ? hits.map(function (hit) { return '<a href="/legal/user-documentation/' + encodeURIComponent(hit.s) + '"><strong>' + esc(hit.t) + "</strong><small>" + esc(hit.c) + "</small></a>"; }).join("")
-        : '<div class="docs-results__none">No guides match "' + esc(q) + '". Try other words, or ask Mira in the chat.</div>';
-      results.hidden = false;
+      asked = q;
+      clearTimeout(timer);
+      if (!q) { onShow(false); return; }
+      var quick = search(q);
+      list.innerHTML = quick.length ? quick.map(function (hit) { return resultHtml(hit, q); }).join("") : '<div class="docs-results__none">Searching…</div>';
+      onShow(true);
+      if (q.length < 2) return;
+      timer = setTimeout(function () {
+        findInGuides(q).then(function (data) {
+          if (asked !== q) return;
+          if (!data) { if (!quick.length) list.innerHTML = noneHtml(q); return; }
+          var hits = data.results || [];
+          list.innerHTML = (data.corrected ? '<div class="docs-results__fix">Showing results for <strong>' + esc(data.corrected) + "</strong></div>" : "")
+            + (hits.length ? hits.map(function (hit) { return resultHtml(hit, q); }).join("") : noneHtml(q));
+          onShow(true);
+        });
+      }, 160);
     }
     input.addEventListener("input", show);
-    input.addEventListener("focus", show);
+    input.addEventListener("focus", function () { if (input.value.trim()) show(); });
+    var active = -1;
     input.addEventListener("keydown", function (event) {
-      var links = results.querySelectorAll("a");
+      var links = list.querySelectorAll("a");
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         if (!links.length) return;
         event.preventDefault();
         active = (active + (event.key === "ArrowDown" ? 1 : links.length - 1)) % links.length;
         links.forEach(function (link, i) { link.classList.toggle("is-active", i === active); });
+        if (links[active]) links[active].scrollIntoView({ block: "nearest" });
       } else if (event.key === "Enter") {
         var go = links[active >= 0 ? active : 0];
         if (go) { event.preventDefault(); window.location.href = go.href; }
       } else if (event.key === "Escape") {
-        results.hidden = true;
+        onShow(false);
       }
     });
+    input.addEventListener("input", function () { active = -1; });
+  }
+
+  document.querySelectorAll("[data-docs-search]").forEach(function (box) {
+    var input = box.querySelector("input");
+    var results = box.querySelector(".docs-results");
+    searcher(input, results, function (on) { results.hidden = !on; });
     document.addEventListener("click", function (event) { if (!box.contains(event.target)) results.hidden = true; });
   });
 
-  // Sidebar: filter the guides as you type.
+  // Sidebar: typing searches every guide; the topics come back when the box is empty.
   var side = document.querySelector("[data-docs-side]");
   if (side) {
     var filter = side.querySelector(".docs-filter input");
+    var nav = side.querySelector("nav");
     var empty = side.querySelector(".docs-side__empty");
-    if (filter) filter.addEventListener("input", function () {
-      var q = norm(filter.value.trim());
-      var any = false;
-      side.querySelectorAll(".docs-group").forEach(function (group) {
-        var shown = 0;
-        group.querySelectorAll("li").forEach(function (li) {
-          var hit = !q || norm(li.textContent).indexOf(q) !== -1;
-          li.hidden = !hit;
-          if (hit) shown += 1;
-        });
-        group.hidden = !shown;
-        if (q && shown) group.open = true;
-        if (shown) any = true;
+    if (filter && nav) {
+      var list = document.createElement("div");
+      list.className = "docs-results docs-results--side";
+      list.hidden = true;
+      nav.parentNode.insertBefore(list, nav);
+      searcher(filter, list, function (on) {
+        list.hidden = !on;
+        nav.hidden = on;
+        if (empty) empty.style.display = "none";
       });
-      if (empty) empty.style.display = any ? "none" : "block";
-    });
+    }
     // Keep the current guide in view inside the sidebar, without moving the page.
     var current = side.querySelector('[aria-current="page"]');
     if (current && current.offsetTop > side.clientHeight - 60) side.scrollTop = current.offsetTop - side.clientHeight / 2;

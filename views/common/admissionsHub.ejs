@@ -5,23 +5,23 @@
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const _perms = Array.isArray(locals.userPermissions) ? locals.userPermissions : [];
   const _canStudents = menuAccess.students;
-  // Menu order: All Students, Add Student, Online Applications, the Graduate &
+  // Menu order: All Students, Add student, Online Applications, the Graduate &
   // Former Students dropdown, then Admission Settings.
   const _onlineLinks = [
-    menuAccess.applications && { id: 'pending', url: '/common/admissionPending', label: 'Online Applications', hint: 'Applications sent from the school website', icon: 'applications' },
+    menuAccess.applications && { id: 'pending', url: '/common/admissionPending', label: 'Online applications', hint: 'Applications sent from the school website', icon: 'applications' },
   ].filter(Boolean);
   const _groups = [
     (menuAccess.alumni || _perms.includes('manage_school_year_terms')) && {
-      id: 'graduate-former', label: 'Former Students',
+      id: 'graduate-former', label: 'Former students',
       icon: 'graduation',
       links: [
-        _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate & Withdraw', icon: 'leaveSchool' },
-        menuAccess.alumni && { panel: 'former-students', url: '/common/archivedStudents', label: 'Graduates & Alumni', icon: 'alumni' },
+        _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate & withdraw', icon: 'leaveSchool' },
+        menuAccess.alumni && { panel: 'former-students', url: '/common/archivedStudents', label: 'Graduates & alumni', icon: 'alumni' },
       ].filter(Boolean),
     },
   ].filter((g) => g && g.links.length);
   const _settingsLinks = [
-    menuAccess.settings && { id: 'online-admission-settings', url: '/common/admissionSettings', label: 'Admission Settings', hint: 'Online admission and the fields on student forms', icon: 'sliders' },
+    menuAccess.settings && { id: 'online-admission-settings', url: '/common/admissionSettings', label: 'Admission settings', hint: 'Online admission and the fields on student forms', icon: 'admissionSettings' },
   ].filter(Boolean);
   // Plain (non-dropdown) links, for their panels.
   const _extraLinks = _onlineLinks.concat(_settingsLinks);
@@ -152,8 +152,8 @@
   }
 
   .nav-link-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 
   .hub-main {
@@ -569,8 +569,8 @@
   
 
   .nav-sublink .nav-link-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
   }
 
   .hub-nav.is-collapsed .nav-submenu {
@@ -611,17 +611,17 @@
       <ul class="nav-list" data-arrange-menu="admissions" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
         <% if (_canStudents) { %>
         <li>
-          <a class="nav-link<%= _canStudents ? ' active' : '' %>" href="/common/allStudents" data-no-spa data-section="all-students" data-embed-url="/common/allStudents" data-embed-label="All Students">
+          <a class="nav-link<%= _canStudents ? ' active' : '' %>" href="/common/allStudents" data-no-spa data-section="all-students" data-embed-url="/common/allStudents" data-embed-label="All students">
             <span class="nav-link-icon"><%- navIcon('students') %></span>
-            <span>All Students</span>
+            <span>All students</span>
           </a>
         </li>
         <% } %>
         <% if (menuAccess.addStudent) { %>
         <li>
-          <a class="nav-link" href="/common/addStudent" data-no-spa data-section="create-student" data-embed-url="/common/addStudent" data-embed-label="Add New Student">
+          <a class="nav-link" href="/common/addStudent" data-no-spa data-section="create-student" data-embed-url="/common/addStudent" data-embed-label="Add student">
             <span class="nav-link-icon"><%- navIcon('addStudent') %></span>
-            <span>Add Student</span>
+            <span>Add student</span>
           </a>
         </li>
         <% } %>
@@ -671,7 +671,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <p>Loading All Students…</p>
+            <p>Loading All students…</p>
           </div>
         </div>
       </section>
@@ -680,7 +680,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg>
-            <p>Loading Create Student…</p>
+            <p>Loading Add student…</p>
           </div>
         </div>
       </section>

@@ -27,7 +27,7 @@ async function studentHome(db, req, studentId, { termId = null, classId = null }
   const term = termId ? `?termId=${encodeURIComponent(termId)}` : "";
   if (klass) return `/common/classDashboard/${klass}/student/${id}${term}`;
   const page = `/common/studentDetails?studentId=${id}${termId ? `&termId=${encodeURIComponent(termId)}` : ""}`;
-  return `/common/admissions?panel=all-students&page=${encodeURIComponent(page)}&label=${encodeURIComponent("All Students")}`;
+  return `/common/admissions?panel=all-students&page=${encodeURIComponent(page)}&label=${encodeURIComponent("All students")}`;
 }
 
 module.exports = { studentHome };

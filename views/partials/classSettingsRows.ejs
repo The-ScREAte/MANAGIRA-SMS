@@ -9,7 +9,9 @@
             <ul class="cset-list">
   <li class="cset-row cset-colhead"><span class="cset-row__label"></span><span class="cset-cells"><% audiences.forEach((a) => { %><span class="cset-cell"><%= a.label %></span><% }) %></span><span class="cset-lockslot"></span></li>
   <% shareItems.forEach((item) => { %>
-  <li class="cset-row">
+  <%# Attendance and Lunch rows show while the class takes them (its own switch is on); "All classes" while any class does. %>
+  <% const _needsOff = item.needs && (r.any ? r.any[item.needs] === false : r.on[item.needs] === false); %>
+  <li class="cset-row"<%- item.needs ? ' data-cs-needs="' + item.needs + '"' + (_needsOff ? ' hidden' : '') : '' %>>
     <span class="cset-row__label"><%= item.label %></span>
     <span class="cset-cells">
       <% audiences.forEach((a) => { const _key = a.key + '.' + item.key; %>
@@ -26,6 +28,8 @@
   <% }) %>
 </ul>
 <% if (locals.noticesOn && r.notices) { %>
+<div data-cs-needs="attendance"<%= (r.any ? r.any.attendance === false : r.on.attendance === false) ? ' hidden' : '' %>>
 <h4 class="cset-subhead">Attendance notices</h4>
 <%- include('classNoticeRows', { notices: Object.assign({ max: 10 }, r.notices), classId: isAll ? null : r.id }) %>
+</div>
 <% } %>

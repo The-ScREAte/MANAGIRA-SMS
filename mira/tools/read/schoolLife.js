@@ -21,8 +21,8 @@ module.exports = {
       keywords: /\b(activity log|audit\w*|who (?:changed|deleted|edited|added|updated|removed|did|made)|changed by|deleted by|history of changes|logs?)\b/,
     },
     class_settings: {
-      label: "Class settings: what each class shares with parents and students, and Take lunch",
-      keywords: /\b(class settings?|share[sd]? with (?:parents|students|families)|shared with|sharing|take lunch|lunch|visible to (?:parents|students)|(?:parents|students|families) (?:can )?see)\b/,
+      label: "Class settings: what each class shares with parents and students, and Take attendance and Take lunch",
+      keywords: /\b(class settings?|share[sd]? with (?:parents|students|families)|shared with|sharing|take attendance|take lunch|lunch|visible to (?:parents|students)|(?:parents|students|families) (?:can )?see)\b/,
     },
     weekly_briefing: {
       label: "Weekly briefing: what this week's email to a family or student would say (a preview, never sent), and who has seen or acknowledged a school notice",
@@ -134,7 +134,7 @@ module.exports = {
     }),
     readTool({
       name: "get_class_settings",
-      description: "What each class shares with parents and with students (attendance, lunch, report cards, GPA, bus, files, portfolio, teachers' details) and whether it takes lunch. " + ENVELOPE,
+      description: "What each class shares with parents and with students (attendance, lunch, report cards, GPA, bus, files, portfolio, teachers' details) and whether it takes attendance and lunch. " + ENVELOPE,
       parameters: { type: "object", properties: { class: { type: "string", description: "Class or grade in the person's words; omit for every class they manage." } }, required: [] },
       access: { anyOf: ["class_settings", "class_settings_all"] },
       areas: ["class_settings"],
@@ -143,7 +143,7 @@ module.exports = {
       name: "get_parent_messages",
       description:
         "Conversations parents started with the school (and staff with parents): student, parent, status, last message time, and whether it needs a reply. " +
-        "Mail Room sees every one; others see those they're on and their classes'. unread_only = needs a reply. Message text is under `untrusted`. " + ENVELOPE,
+        "Mailroom sees every one; others see those they're on and their classes'. unread_only = needs a reply. Message text is under `untrusted`. " + ENVELOPE,
       parameters: {
         type: "object",
         properties: {

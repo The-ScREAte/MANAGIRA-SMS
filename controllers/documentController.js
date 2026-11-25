@@ -520,7 +520,7 @@ const documentController = {
         documentsTotal,
         pageLimit,
         pageNumber,
-        title: "Docs/Sheets",
+        title: "Docs & sheets",
         documents: documentRows,
         classes: classes.rows,
         employees: employees.rows,
@@ -545,7 +545,7 @@ const documentController = {
 
       try {
         return res.render("common/documents", {
-          title: "Docs/Sheets",
+          title: "Docs & sheets",
           documents: [],
           classes: [],
           employees: [],

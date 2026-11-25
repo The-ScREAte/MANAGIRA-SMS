@@ -104,13 +104,14 @@
         if (STATE) STATE[input.getAttribute('data-cs-class')].on[key] = on;
         syncAll(key);
       }
+      syncNeeds(input);
       var msg = statusFor(input);
       input.setAttribute('aria-busy', 'true');
       show(msg, 'Saving…', 'saving');
       var body = isAll ? { all: true, key: key, on: on } : { classId: Number(input.getAttribute('data-cs-class') || root.getAttribute('data-class-id')), key: key, on: on, from: from };
-      queue = queue.then(function () { return post(url, body); }).then(function () {
+      queue = queue.then(function () { return post(url, body); }).then(function (json) {
         show(msg, describe(input, on, isAll), 'saved');
-        root.dispatchEvent(new CustomEvent('managira:class-settings-saved', { bubbles: true, detail: { key: key, on: on, all: isAll, classId: body.classId || null } }));
+        root.dispatchEvent(new CustomEvent('managira:class-settings-saved', { bubbles: true, detail: { key: key, on: on, all: isAll, classId: body.classId || null, services: (json && json.services) || null } }));
       }, function (error) {
         targets.forEach(function (c, i) { c.checked = before[i]; });
         if (STATE && !isAll) STATE[input.getAttribute('data-cs-class')].on[key] = before[0];
@@ -119,9 +120,26 @@
           input.indeterminate = allBefore.indeterminate;
         }
         syncAll(key);
+        syncNeeds(input);
         show(msg, error.message, 'error');
       }).then(function () { input.removeAttribute('aria-busy'); });
     });
+
+    // Attendance and Lunch rows ("Share with" and the attendance notices) show only while the class takes them:
+    // their own switch is on. In the table, "All classes" shows them while any class takes them.
+    function syncNeeds(input) {
+      var key = input && input.getAttribute('data-cs-key');
+      if (key !== 'attendance' && key !== 'lunch') return;
+      var scope = from === 'management' ? input.closest('.cset-crow') : root;
+      var on = input.checked || input.indeterminate;
+      if (scope) scope.querySelectorAll('[data-cs-needs="' + key + '"]').forEach(function (el) { el.hidden = !on; });
+      var all = from === 'management' ? allCell(key) : null;
+      if (all && all !== input) {
+        var allScope = all.closest('.cset-crow');
+        var allOn = all.checked || all.indeterminate;
+        if (allScope) allScope.querySelectorAll('[data-cs-needs="' + key + '"]').forEach(function (el) { el.hidden = !allOn; });
+      }
+    }
 
     // Management lists the classes a page at a time (Rows per page: 10 to 200); a search looks at every class.
     var csRows = Array.prototype.slice.call(root.querySelectorAll('[data-cs-name]'));

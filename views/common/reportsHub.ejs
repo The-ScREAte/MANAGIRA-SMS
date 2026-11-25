@@ -138,8 +138,8 @@
   }
 
   .nav-link-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 
   /* Expandable group (Term Reports) */
@@ -228,8 +228,8 @@
   
 
   .nav-sublink .nav-link-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
   }
 
   .hub-main {
@@ -595,9 +595,9 @@
       <ul class="nav-list" data-arrange-menu="reports" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
         <% if (hasOrgStats) { %>
         <li>
-          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="View Statistics">
+          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="Organization stats">
             <span class="nav-link-icon"><%- navIcon('stats') %></span>
-            <span>Organization Stats</span>
+            <span>Organization stats</span>
           </a>
         </li>
         <% } %>
@@ -605,7 +605,7 @@
         <li>
           <button class="nav-link nav-group-toggle" data-section="term-management" aria-expanded="false">
             <span class="nav-link-icon"><%- navIcon('termReports') %></span>
-            <span>Term Reports</span>
+            <span>Term reports</span>
             <span class="nav-caret" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></span>
           </button>
           <ul class="nav-submenu">
@@ -621,15 +621,15 @@
             <li>
               <a class="nav-sublink" href="/common/transcripts" data-no-spa data-group="term-management" data-section="transcripts" data-embed-url="/common/transcripts" data-embed-label="Transcripts">
                 <span class="nav-link-icon"><%- navIcon('transcript') %></span>
-                <span>Transcript</span>
+                <span>Transcripts</span>
               </a>
             </li>
             <% } %>
             <% if (menuAccess.settings) { %>
             <li>
-              <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
-                <span class="nav-link-icon"><%- navIcon('sliders') %></span>
-                <span>Report Settings</span>
+              <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report settings">
+                <span class="nav-link-icon"><%- navIcon('reportSettings') %></span>
+                <span>Report settings</span>
               </a>
             </li>
             <% } %>
@@ -638,9 +638,9 @@
         <% } %>
         <% if (menuAccess.builder) { %>
         <li>
-          <a class="nav-link<%= hasOrgStats ? '' : ' active' %>" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report Builder">
+          <a class="nav-link<%= hasOrgStats ? '' : ' active' %>" href="/common/report-builder" data-no-spa data-section="report-builder" data-embed-url="/common/report-builder" data-embed-label="Report builder">
             <span class="nav-link-icon"><%- navIcon('reportBuilder') %></span>
-            <span>Report Builder</span>
+            <span>Report builder</span>
           </a>
         </li>
         <% } %>
@@ -655,7 +655,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/><path d="m17 17 2 2 4-4"/></svg>
-            <p>Loading Report Builder…</p>
+            <p>Loading Report builder…</p>
           </div>
         </div>
       </section>
@@ -664,7 +664,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <p>Loading Organization Stats…</p>
+            <p>Loading Organization stats…</p>
           </div>
         </div>
       </section>

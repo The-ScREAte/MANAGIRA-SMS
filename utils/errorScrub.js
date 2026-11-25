@@ -4,10 +4,12 @@
 // `error` or `message` is a raw Postgres / network message (table, column and constraint names,
 // "invalid input syntax for type integer: ...") says what the database looks like, so it is
 // replaced by a plain sentence and the original goes to the log.
-const RAW_ERROR = /invalid input syntax for|syntax error at or near|(column|relation|table|function|operator|type|schema|index|constraint) "[^"]+"[^.]*?(does not exist|already exists|violates)|violates (foreign key|unique|not-null|check) constraint|duplicate key value|null value in column|current transaction is aborted|permission denied for|out of range for type|value too long for type|canceling statement due to|terminating connection|password authentication failed|connect ECONNREFUSED|getaddrinfo ENOTFOUND|read ECONNRESET|write EPIPE|\bEPIPE\b|ECONNRESET|Connection terminated|not queryable|socket hang up|Cannot read propert|is not a function|is not defined|ER_[A-Z_]+|SQLSTATE/i;
+const RAW_ERROR = /invalid input syntax for|syntax error at or near|(column|relation|table|function|operator|type|schema|index|constraint) "[^"]+"[^.]*?(does not exist|already exists|violates)|violates (foreign key|unique|not-null|check) constraint|duplicate key value|null value in column|current transaction is aborted|permission denied for|out of range for type|value too long for type|canceling statement due to|terminating connection|password authentication failed|connect ECONNREFUSED|getaddrinfo ENOTFOUND|read ECONNRESET|write EPIPE|\bEPIPE\b|ECONNRESET|Connection terminated|not queryable|socket hang up|Cannot read propert|is not a function|is not defined|SQLSTATE/i;
+// MySQL-style codes are upper case only: with the i flag "driver_user_id" matched, and a short live bus answer was hidden.
+const DB_CODE = /\bER_[A-Z_]+\b/;
 const PLAIN = "Something went wrong. Please try again.";
 
-const looksRaw = (value) => typeof value === "string" && RAW_ERROR.test(value);
+const looksRaw = (value) => typeof value === "string" && (RAW_ERROR.test(value) || DB_CODE.test(value));
 
 function scrubBody(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { body, hit: null };

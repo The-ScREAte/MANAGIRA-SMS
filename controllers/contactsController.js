@@ -1,4 +1,4 @@
-// Contact cards (Mail Room) and the contact template (Management Tools).
+// Contact cards (Mailroom) and the contact template (Management Tools).
 // See utils/contacts.js.
 const db = require("../config/db");
 const contacts = require("../utils/contacts");
@@ -36,7 +36,7 @@ function fail(res, err, fallback) {
 }
 
 // The requested keys that this person may open: the same guardians their
-// Mail Room contact list shows (all of them, or their classes' only).
+// Mailroom contact list shows (all of them, or their classes' only).
 async function keysInScope(req, access) {
   const who = actor(req);
   const keys = contacts.parseKeys(req.method === "GET" ? req.query.keys : req.body && req.body.keys);

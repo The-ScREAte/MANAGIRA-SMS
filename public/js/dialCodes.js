@@ -216,6 +216,9 @@ window.initPhoneCountryCombos = function initPhoneCountryCombos(root) {
       const defaultOption = Array.from(select.options).find((o) => o.dataset.iso2 === defaultIso2);
       if (defaultOption) select.value = defaultOption.value;
     }
+    // A form reset goes back to the default country, not the first in the list (Ghana).
+    const homeOption = Array.from(select.options).find((o) => o.dataset.iso2 === defaultIso2);
+    if (homeOption) homeOption.defaultSelected = true;
 
     updateFlag();
   });
@@ -251,11 +254,15 @@ window.setPhoneComboValue = function setPhoneComboValue(combo, fullValue) {
   input.value = localDigits;
   if (matchedDial) {
     select.value = matchedDial;
+  } else {
+    // No country in the number: the combo's default country (the school's, else US).
+    const home = Array.from(select.options).find((o) => o.defaultSelected);
+    if (home) select.value = home.value;
   }
 
   if (flagImg) {
     const opt = select.options[select.selectedIndex];
-    const iso2 = String((opt && opt.dataset.iso2) || combo.dataset.defaultIso2 || "GH").toLowerCase();
+    const iso2 = String((opt && opt.dataset.iso2) || combo.dataset.defaultIso2 || "US").toLowerCase();
     flagImg.src = `https://flagcdn.com/24x18/${iso2}.png`;
     flagImg.alt = iso2.toUpperCase();
   }

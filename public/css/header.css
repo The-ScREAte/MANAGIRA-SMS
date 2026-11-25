@@ -795,7 +795,6 @@
     display: block;
     stroke: currentColor;
     fill: none;
-    stroke-width: 2;
     pointer-events: none;
   }
 
@@ -948,8 +947,8 @@
     color: inherit;
   }
   header#top-header .nav-menu .menu-icon svg {
-    width: 19px !important;
-    height: 19px !important;
+    width: 20px !important;
+    height: 20px !important;
     margin: 0 !important;
   }
   header#top-header .nav-menu .nav-item a.management-link:not(.logout),
@@ -1239,6 +1238,7 @@
   .search-results-dropdown .sr-item.is-muted { opacity: .65; }
   .search-results-dropdown .sr-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; margin: 0; border-radius: 50%; object-fit: cover; background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent); color: var(--org-primary-color, #0f5a66); font-size: .72rem; font-weight: 800; }
   .search-results-dropdown .sr-avatar--icon { border-radius: 9px; font-size: .8rem; }
+  .search-results-dropdown .sr-avatar--icon svg { width: 16px; height: 16px; }
   .search-results-dropdown .sr-text { display: flex; flex-direction: column; min-width: 0; }
   .search-results-dropdown .sr-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-results-dropdown .sr-title mark { padding: 0; background: none; color: var(--org-primary-color, #0f5a66); font-weight: 800; }
@@ -1675,7 +1675,7 @@
     header#top-header .nav-menu .ap-dots-label svg { width: 30px !important; height: 30px !important; padding: 6px; }
 
     header#top-header .nav-menu .menu-icon { width: 30px; height: 30px; }
-    header#top-header .nav-menu .menu-icon svg { width: 18px !important; height: 18px !important; }
+    header#top-header .nav-menu .menu-icon svg { width: 20px !important; height: 20px !important; }
 
     a.header-welcome {
       display: none !important;

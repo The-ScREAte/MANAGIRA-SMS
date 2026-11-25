@@ -50,10 +50,13 @@ const portalOffered = (db, organizationId) => require("../utils/studentPortal").
   .then((status) => Boolean(status && status.activated)).catch(() => false);
 // What the school itself turned off (the "School" card on the Management page, utils/schoolServices.js) is left out:
 // no lunch switch, no sharing row and no notices for a service the school doesn't use in Managira.
+const SERVICE_KEYS = ["attendance", "lunch"];
 const usedItem = (svc, key) => !svc || !((key === "attendance" && !svc.attendance) || (key === "lunch" && !svc.lunch));
 const switchesFor = (organizationId, { portal = true, svc = null } = {}) => classSettings.SWITCHES
   .filter((s) => offered(organizationId, s.item || s.key) && (s.key !== "portal" || portal) && usedItem(svc, s.item || s.key));
 const shareItemsFor = (organizationId, svc = null) => classSettings.SHARE_ITEMS.filter((item) => offered(organizationId, item.key) && usedItem(svc, item.key));
+// For the management table: the items with whether each needs a class switch (Attendance and Lunch rows follow the class's own).
+const shareItemsOut = (organizationId, svc) => shareItemsFor(organizationId, svc).map((item) => ({ key: item.key, label: item.label, help: item.help, needs: SERVICE_KEYS.includes(item.key) ? item.key : null }));
 // Briefing sections of a service the school turned off stay in the form, hidden (a save keeps their choices), marked `off`.
 const sectionsFor = (briefing, svc) => briefing.SECTIONS.map((section) => ({ ...section, off: !usedItem(svc, section.key) }));
 // A switch's value in a settings object ("lunch", "parents.attendance", "students.lunch").
@@ -187,6 +190,9 @@ async function classroomPanel(db, req, { classId, term } = {}) {
     key: item.key,
     label: item.label,
     help: item.help,
+    // Attendance and Lunch rows are left out while this class's own switch for it is off (the page shows them again when it is on).
+    needs: SERVICE_KEYS.includes(item.key) ? item.key : null,
+    hidden: SERVICE_KEYS.includes(item.key) && settings[item.key] === false,
     // Locked when management locked the item for either audience (it locks both together).
     locked: classSettings.AUDIENCES.some((audience) => classSettings.isLocked(settings, `${audience.key}.${item.key}`)),
     lockKeys: classSettings.AUDIENCES.map((audience) => `${audience.key}.${item.key}`),
@@ -204,7 +210,8 @@ async function classroomPanel(db, req, { classId, term } = {}) {
         own: Boolean(own),
         settings: own || all.school,
         school: all.school,
-        sections: sectionsFor(briefing, svc),
+        // The briefing's Attendance and Lunch rows go while this class's own switch for it is off.
+        sections: sectionsFor(briefing, { attendance: svc.attendance && settings.attendance !== false, lunch: svc.lunch && settings.lunch !== false }),
         sent: `${briefing.DAYS[all.schedule.day]} at ${briefing.hourLabel(all.schedule.hour)}`,
         url: `/common/briefing/class/${Number(classId)}`,
       };
@@ -219,6 +226,7 @@ async function classroomPanel(db, req, { classId, term } = {}) {
     canLock: Boolean(granted.all) && isManager(req),
     classSwitches,
     notices: noticesOn ? { ...settings.notices, max: classSettings.NOTICE_MAX } : null,
+    noticesHidden: settings.attendance === false,
     weeklyBriefing,
     share,
     calendar: await calendarCard(db, req, term),
@@ -284,6 +292,8 @@ async function managementPage(req, res, db) {
           settings: all.school, schedule: all.schedule, sections: sectionsFor(briefing, svc), days: briefing.DAYS,
           timeZones: briefing.TIME_ZONES, hourLabel: briefing.hourLabel,
           ownClasses: classes.filter((c) => all.classes.has(c.id)).map((c) => c.name),
+          // The preview picker: every class, then its students (GET /common/briefing/students).
+          classes: classes.map((c) => ({ id: c.id, name: c.name })),
         };
       } catch (error) {
         console.error("[Class settings] weekly briefing:", error.message);
@@ -301,7 +311,7 @@ async function managementPage(req, res, db) {
       ready,
       canLock: isManager(req),
       classSwitches: switches.filter((s) => s.group === "class").map((s) => ({ key: s.key, label: s.label, help: s.help })),
-      shareItems: shareItemsFor(organizationId, svc).map((item) => ({ key: item.key, label: item.label, help: item.help })),
+      shareItems: shareItemsOut(organizationId, svc),
       audiences: classSettings.AUDIENCES,
       rows,
       calendar,
@@ -333,7 +343,7 @@ async function managementRows(req, res, db) {
     const settings = byClass.get(classId) || classSettings.withDefaults(null);
     const r = { ...classes[0], notices: settings.notices, on: Object.fromEntries(switches.map((sw) => [sw.key, valueAt(settings, sw.key)])), locked: Object.fromEntries(switches.map((sw) => [sw.key, classSettings.isLocked(settings, sw.key)])) };
     const html = await new Promise((resolve, reject) => req.app.render("partials/classSettingsRows", {
-      r, isAll: false, canLock: isManager(req), shareItems: shareItemsFor(organizationId, svc).map((item) => ({ key: item.key, label: item.label, help: item.help })),
+      r, isAll: false, canLock: isManager(req), shareItems: shareItemsOut(organizationId, svc),
       audiences: classSettings.AUDIENCES, assetUrl: res.locals.assetUrl,
       noticesOn: svc.attendance && require("../utils/shards/features").isOn("attendance_notices", { organizationId }),
     }, (error, out) => (error ? reject(error) : resolve(out))));
@@ -466,7 +476,9 @@ async function save(req, res, db) {
       const { rows } = await db.query("SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND class_id = ANY($2::int[]) ORDER BY class_name", [organizationId, changed]);
       logChange(db, req, { s, on, all, fromClassroom: body.from === "classroom", classes: rows.map((row) => ({ id: Number(row.class_id), name: row.class_name })) });
     }
-    return res.json({ success: true, key, on, classIds: saved, changed: changed.length });
+    // What the class takes now (school and class switches), so an open classroom can redraw its menu without reloading.
+    const services = !all && saved.length === 1 && SERVICE_KEYS.includes(key) ? await schoolServices.classServices(db, organizationId, saved[0]) : null;
+    return res.json({ success: true, key, on, classIds: saved, changed: changed.length, services });
   } catch (error) {
     console.error("[Class settings] save:", error.message);
     return fail(res, 500, "That didn't save. Try again.");

@@ -1,4 +1,4 @@
-// Contact cards for parents and guardians (opened from the Mail Room contact
+// Contact cards for parents and guardians (opened from the Mailroom contact
 // list) and the school's contact template.
 //
 // Every contact has the same base details (name, phone, email, address,

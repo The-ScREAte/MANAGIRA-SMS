@@ -12,6 +12,7 @@ const {
   normalizeColumns,
   normalizeCriteria,
   buildQueries,
+  loadOffClasses,
 } = require("../utils/reportBuilder");
 const { userHasPermission } = require("../middleware/permissionMiddleware");
 const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
@@ -362,6 +363,8 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
       organizationId: identity.organizationId,
       allowedClassIds,
       granted,
+      // Classes that don't take attendance or lunch: left out of those reports (Class settings).
+      offClasses: await loadOffClasses(db, identity.organizationId),
       accessibleReports: new Map(extended),
     };
   }
@@ -383,6 +386,7 @@ function createReportService(db, { hasPermission = userHasPermission } = {}) {
       organizationId: context.organizationId,
       allowedClassIds: context.allowedClassIds,
       ownRowsOf: ownRowsFor(input.report, context.granted, context.identity.userId),
+      offClasses: context.offClasses,
       sort,
       limit,
       offset,

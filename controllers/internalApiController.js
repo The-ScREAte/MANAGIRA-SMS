@@ -316,10 +316,14 @@ async function getStudentAttendance(req, res) {
     }
 
     const student = await db.query(
-      `SELECT student_id, first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2`,
+      `SELECT student_id, first_name, last_name, class_id FROM students WHERE student_id = $1 AND organization_id = $2`,
       [studentId, organizationId]
     );
     if (!student.rows[0]) return res.status(404).json({ error: "Student not found." });
+    // The student's class may not take attendance (Class settings › Take attendance).
+    if (student.rows[0].class_id && !(await require("../utils/schoolServices").classServices(db, organizationId, Number(student.rows[0].class_id))).attendance) {
+      return res.status(404).json({ error: "Attendance isn't taken for this student's class (Class settings › Take attendance is off)." });
+    }
 
     const records = await db.query(
       `SELECT date, status FROM attendance_records
@@ -9535,11 +9539,11 @@ async function sendMessagesApi(req, res) {
       });
     }
 
-    // Mira sends to at most MIRA_MAX_RECIPIENTS families at once; the Mail Room page has no such limit.
+    // Mira sends to at most MIRA_MAX_RECIPIENTS families at once; the Mailroom page has no such limit.
     if (contacts.length > MIRA_MAX_RECIPIENTS) {
       return res.status(413).json({
         code: "TOO_MANY",
-        error: `That's ${contacts.length} guardians, and Mira sends to at most ${MIRA_MAX_RECIPIENTS} at once. Send it from the Mail Room, or ask me for one class or grade at a time.`,
+        error: `That's ${contacts.length} guardians, and Mira sends to at most ${MIRA_MAX_RECIPIENTS} at once. Send it from the Mailroom, or ask me for one class or grade at a time.`,
       });
     }
 

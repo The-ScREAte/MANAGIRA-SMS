@@ -9294,10 +9294,15 @@ const accountController = {
         ? await Promise.all([signInMfa.canSelfServe(db, req), signInMfa.requiredFor(db, req.session)])
           .then(([self, required]) => ({ show: self || required, required })).catch(() => ({ show: false, required: false }))
         : { show: false, required: false };
+      // Settings › Profile links to About me (feature teacher_cards), only for a member of staff
+      // signed in as themselves: the same rule as the About me page (staffAboutController.selfOf).
+      const aboutMe = res.locals.integrationsPage ? null
+        : await require("./staffAboutController").forProfile(req, db).catch(() => null);
       res.render("account/settings", {
         title: res.locals.integrationsPage ? "Integrations" : "Settings",
         passwordWho,
         twoStep,
+        aboutMe,
         isEmbedded,
         isOnHoldRestricted,
         hideGlobalHeader: isEmbedded,

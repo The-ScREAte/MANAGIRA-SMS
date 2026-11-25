@@ -357,10 +357,7 @@
             aria-label="Open search"
             aria-expanded="false"
           >
-            <svg class="search-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <circle cx="11" cy="11" r="7"></circle>
-              <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
-            </svg>
+            <%- navIcon('search', { className: 'search-icon-svg' }) %>
           </button>
           <div class="search-input-shell">
             <input
@@ -430,22 +427,22 @@
       <% const _helpIsStaff = !(session && (session.guardianId || session.studentId)) && String((session && (session.userRole || (session.user && session.user.account_type))) || '').toLowerCase() !== 'driver'; %>
       <div class="help-menu-wrapper" id="help-menu-wrapper">
         <button class="notif-bell-btn help-menu-btn" id="help-menu-btn" type="button" aria-label="Help" aria-haspopup="true" aria-expanded="false" aria-controls="help-menu-panel" title="Help">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          <%- navIcon('help', { size: 20 }) %>
         </button>
         <div class="notif-panel help-menu-panel" id="help-menu-panel" role="menu" aria-label="Help">
           <div class="notif-panel-header"><span class="notif-panel-title">Help</span></div>
           <a class="help-menu-item" role="menuitem" href="/legal/user-documentation" target="_blank" rel="noopener">
-            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span class="help-menu-icon" aria-hidden="true"><%- navIcon('guide') %></span>
             <span class="help-menu-text"><strong>Guides</strong><small>Step-by-step help for every part of Managira</small></span>
           </a>
           <% if (_helpIsStaff) { %>
           <a class="help-menu-item" role="menuitem" href="/account/settings?section=feedback" data-no-spa>
-            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="help-menu-icon" aria-hidden="true"><%- navIcon('feedback') %></span>
             <span class="help-menu-text"><strong>Send feedback</strong><small>Tell us what to fix or what you need</small></span>
           </a>
           <% if (String(req.session.accountType || '').toLowerCase() !== 'organization') { %>
           <a class="help-menu-item" role="menuitem" href="/common/my-access">
-            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+            <span class="help-menu-icon" aria-hidden="true"><%- navIcon('access') %></span>
             <span class="help-menu-text"><strong>Your access</strong><small>Your role, classes and what you can do</small></span>
           </a>
           <% } %>
@@ -453,7 +450,7 @@
           <% const _twoStepSelf = String((session && (session.userRole || session.accountType)) || '').toLowerCase() === 'manager' || (session && session.accountType === 'Organization') || (locals.userPermissions || []).includes('manage_settings'); %>
           <% if (locals.featureOn && featureOn('sign_in_authenticator') && _twoStepSelf) { %>
           <a class="help-menu-item" role="menuitem" href="/account/settings?section=two-step" data-no-spa>
-            <span class="help-menu-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span>
+            <span class="help-menu-icon" aria-hidden="true"><%- navIcon('twoStep') %></span>
             <span class="help-menu-text"><strong>Two-step sign-in</strong><small>Use an authenticator app when you sign in</small></span>
           </a>
           <% } %>
@@ -463,10 +460,7 @@
       <%# ── Notification Bell ──────────────────────────────── %>
       <div class="notif-bell-wrapper" id="notif-bell-wrapper">
         <button class="notif-bell-btn" id="notif-bell-btn" type="button" aria-haspopup="dialog" aria-controls="notif-panel"><span class="sr-only">Notifications</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
+          <%- navIcon('notifications', { size: 20 }) %>
           <% if (typeof notifUnreadCount !== 'undefined' && notifUnreadCount > 0) { %>
             <span class="notif-badge" id="notif-badge"><%= notifUnreadCount > 99 ? '99+' : notifUnreadCount %></span>
           <% } else { %>
@@ -479,19 +473,11 @@
             <div class="notif-header-actions">
               <!-- Mark all read: double-checkmark icon -->
               <button class="notif-mark-all-btn" id="notif-mark-all-btn" type="button" title="Mark all read" aria-label="Mark all read">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="2 12 7 17 22 7"/>
-                </svg>
+                <%- navIcon('checkAll') %>
               </button>
               <!-- Clear all: trash icon -->
               <button class="notif-clear-all-btn" id="notif-clear-all-btn" type="button" title="Clear all" aria-label="Clear all notifications">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                  <path d="M10 11v6"/>
-                  <path d="M14 11v6"/>
-                  <path d="M9 6V4h6v2"/>
-                </svg>
+                <%- navIcon('trash') %>
               </button>
             </div>
           </div>
@@ -548,7 +534,7 @@
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
           <span class="menu-icon"><%- navIcon('website') %></span>
-          School Website
+          School website
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/guardian/activities" class="management-link">
@@ -586,7 +572,7 @@
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
           <span class="menu-icon"><%- navIcon('website') %></span>
-          School Website
+          School website
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/student/activities" class="management-link">
@@ -636,7 +622,7 @@
         <% if (typeof workspaceAccess === 'function' && workspaceAccess().driver.website) { %>
         <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
           <span class="menu-icon"><%- navIcon('website') %></span>
-          School Website
+          School website
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/driver/settings" class="nav-item-link management-link">
@@ -668,7 +654,7 @@
         <li class="nav-item">
           <a href="<%= schoolWebsiteHref %>" class="nav-item-link management-link" target="_blank" rel="noopener noreferrer" data-no-spa>
             <span class="menu-icon"><%- navIcon('website') %></span>
-            School Website
+            School website
           </a>
         </li>
         <% } %>
@@ -697,7 +683,7 @@
         <% if (req.session && menuAccess.admissions.any && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Student and Guadian Profile') || allowedFeatures.includes('Student and Guardian Profile'))) { %>
         <li class="nav-item">
           <a href="/common/admissions" class="nav-item-link management-link">
-            <span class="menu-icon"><%- navIcon('addStudent') %></span>
+            <span class="menu-icon"><%- navIcon('admissions') %></span>
             Admissions
           </a>
         </li>
@@ -938,6 +924,7 @@
 
 <script nonce="<%= locals.cspNonce || '' %>">window.__mgDisplayPrefs = <%- JSON.stringify(typeof displayPreferences !== 'undefined' && displayPreferences ? displayPreferences : {}).replace(/</g, '\\u003c') %>;</script>
 <script nonce="<%= locals.cspNonce || '' %>">window.MG_ASSETS = Object.assign(window.MG_ASSETS || {}, <%- JSON.stringify({ deepSearchJs: assetUrl('/js/deepSearch.js'), deepSearchCss: assetUrl('/css/deepSearch.css'), pageFinderCss: assetUrl('/css/pageFinder.css') }) %>);</script>
+<script src="<%= assetUrl('/js/navIconsClient.js') %>"></script>
 <script src="<%= assetUrl('/js/headerMenu.js') %>"></script>
 <script src="<%= assetUrl('/js/logoGuard.js') %>" defer></script>
 <%# Page finder (feature page_finder): Ctrl+K / Cmd+K, for the school's staff. %>
