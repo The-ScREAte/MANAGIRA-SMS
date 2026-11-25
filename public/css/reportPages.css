@@ -47,6 +47,8 @@ html:has(.gp-page), body:has(.gp-page) { background: var(--ap-page, #f8fafc); }
 .gp-head .gp-title { font-size: 22px !important; line-height: 1.25 !important; }
 .gp-head .gp-sub { font-size: .9rem; }
 .gp-sub { margin: 6px 0 0; max-width: 680px; color: var(--gp-muted); font-size: 0.93rem; line-height: 1.55; }
+.gp-sub a { color: var(--gp-primary, #0f5a66); font-weight: 600; text-decoration: none; }
+.gp-sub a:hover, .gp-sub a:focus-visible { text-decoration: underline; }
 
 /* Buttons (sized to their text) */
 .gp-page .gp-btn {

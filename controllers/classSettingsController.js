@@ -16,6 +16,7 @@ const { todayKeyFor } = require("../utils/localDate");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const permissions = require("../middleware/permissionMiddleware");
+const schoolServices = require("../utils/schoolServices");
 
 const PAGE = "/common/class-settings";
 const LABEL = "Class & notif. settings";
@@ -47,9 +48,14 @@ const offered = (organizationId, key) => (key !== "alerts" || alertsOn(organizat
 // The Student portal switch is offered only where the school has the student portal on (Integrations).
 const portalOffered = (db, organizationId) => require("../utils/studentPortal").getStudentPortalIntegrationStatus(db, organizationId)
   .then((status) => Boolean(status && status.activated)).catch(() => false);
-const switchesFor = (organizationId, { portal = true } = {}) => classSettings.SWITCHES
-  .filter((s) => offered(organizationId, s.item || s.key) && (s.key !== "portal" || portal));
-const shareItemsFor = (organizationId) => classSettings.SHARE_ITEMS.filter((item) => offered(organizationId, item.key));
+// What the school itself turned off (the "School" card on the Management page, utils/schoolServices.js) is left out:
+// no lunch switch, no sharing row and no notices for a service the school doesn't use in Managira.
+const usedItem = (svc, key) => !svc || !((key === "attendance" && !svc.attendance) || (key === "lunch" && !svc.lunch));
+const switchesFor = (organizationId, { portal = true, svc = null } = {}) => classSettings.SWITCHES
+  .filter((s) => offered(organizationId, s.item || s.key) && (s.key !== "portal" || portal) && usedItem(svc, s.item || s.key));
+const shareItemsFor = (organizationId, svc = null) => classSettings.SHARE_ITEMS.filter((item) => offered(organizationId, item.key) && usedItem(svc, item.key));
+// Briefing sections of a service the school turned off stay in the form, hidden (a save keeps their choices), marked `off`.
+const sectionsFor = (briefing, svc) => briefing.SECTIONS.map((section) => ({ ...section, off: !usedItem(svc, section.key) }));
 // A switch's value in a settings object ("lunch", "parents.attendance", "students.lunch").
 const valueAt = (settings, key) => {
   const [first, second] = String(key).split(".");
@@ -173,10 +179,11 @@ async function classroomPanel(db, req, { classId, term } = {}) {
   const granted = await classSettings.access(db, req);
   if (!classSettings.canManage(granted, classId)) return null;
   const ready = await classSettings.ready(db);
-  const settings = ready ? await classSettings.settingsFor(db, organizationId, classId) : classSettings.withDefaults(null);
-  const classSwitches = switchesFor(organizationId, { portal: await portalOffered(db, organizationId) }).filter((s) => s.group === "class")
+  const svc = await schoolServices.services(db, organizationId);
+  const settings = ready ? await classSettings.settingsFor(db, organizationId, classId, { raw: true }) : classSettings.withDefaults(null);
+  const classSwitches = switchesFor(organizationId, { portal: await portalOffered(db, organizationId), svc }).filter((s) => s.group === "class")
     .map((s) => ({ key: s.key, label: s.label, help: s.help, on: valueAt(settings, s.key), locked: classSettings.isLocked(settings, s.key) }));
-  const share = shareItemsFor(organizationId).map((item) => ({
+  const share = shareItemsFor(organizationId, svc).map((item) => ({
     key: item.key,
     label: item.label,
     help: item.help,
@@ -197,7 +204,7 @@ async function classroomPanel(db, req, { classId, term } = {}) {
         own: Boolean(own),
         settings: own || all.school,
         school: all.school,
-        sections: briefing.SECTIONS,
+        sections: sectionsFor(briefing, svc),
         sent: `${briefing.DAYS[all.schedule.day]} at ${briefing.hourLabel(all.schedule.hour)}`,
         url: `/common/briefing/class/${Number(classId)}`,
       };
@@ -205,9 +212,10 @@ async function classroomPanel(db, req, { classId, term } = {}) {
       console.error("[Class settings] weekly briefing:", error.message);
     }
   }
-  const noticesOn = require("../utils/shards/features").isOn("attendance_notices", { organizationId });
+  const noticesOn = svc.attendance && require("../utils/shards/features").isOn("attendance_notices", { organizationId });
   return {
     ready,
+    svc,
     canLock: Boolean(granted.all) && isManager(req),
     classSwitches,
     notices: noticesOn ? { ...settings.notices, max: classSettings.NOTICE_MAX } : null,
@@ -257,10 +265,11 @@ async function managementPage(req, res, db) {
     const ready = await classSettings.ready(db);
     const [classes, calendar] = await Promise.all([classesOf(db, organizationId), calendarCard(db, req, null)]);
     const [byClass, leads] = await Promise.all([
-      ready ? classSettings.settingsForClasses(db, organizationId, classes.map((c) => c.id)) : new Map(),
+      ready ? classSettings.settingsForClasses(db, organizationId, classes.map((c) => c.id), { raw: true }) : new Map(),
       require("../utils/mainTeacher").mainTeachersByClass(db, organizationId).catch(() => new Map()),
     ]);
-    const switches = switchesFor(organizationId, { portal: await portalOffered(db, organizationId) });
+    const svc = await schoolServices.services(db, organizationId);
+    const switches = switchesFor(organizationId, { portal: await portalOffered(db, organizationId), svc });
     const rows = classes.map((c) => {
       const settings = byClass.get(c.id) || classSettings.withDefaults(null);
       const lead = leads.get(c.id);
@@ -272,7 +281,7 @@ async function managementPage(req, res, db) {
         const briefing = require("../utils/weeklyBriefing");
         const all = await briefing.settingsFor(db, organizationId, { fresh: true });
         schoolBriefing = {
-          settings: all.school, schedule: all.schedule, sections: briefing.SECTIONS, days: briefing.DAYS,
+          settings: all.school, schedule: all.schedule, sections: sectionsFor(briefing, svc), days: briefing.DAYS,
           timeZones: briefing.TIME_ZONES, hourLabel: briefing.hourLabel,
           ownClasses: classes.filter((c) => all.classes.has(c.id)).map((c) => c.name),
         };
@@ -282,6 +291,8 @@ async function managementPage(req, res, db) {
     }
     return res.render("common/classSettings", {
       schoolBriefing,
+      svc,
+      canEditSchool: isManager(req),
       title: LABEL,
       isEmbedded,
       hideGlobalHeader: isEmbedded,
@@ -290,12 +301,12 @@ async function managementPage(req, res, db) {
       ready,
       canLock: isManager(req),
       classSwitches: switches.filter((s) => s.group === "class").map((s) => ({ key: s.key, label: s.label, help: s.help })),
-      shareItems: shareItemsFor(organizationId).map((item) => ({ key: item.key, label: item.label, help: item.help })),
+      shareItems: shareItemsFor(organizationId, svc).map((item) => ({ key: item.key, label: item.label, help: item.help })),
       audiences: classSettings.AUDIENCES,
       rows,
       calendar,
       saveUrl: `${PAGE}/save`,
-      noticesOn: require("../utils/shards/features").isOn("attendance_notices", { organizationId }),
+      noticesOn: svc.attendance && require("../utils/shards/features").isOn("attendance_notices", { organizationId }),
     });
   } catch (error) {
     console.error("[Class settings] page:", error.message);
@@ -314,16 +325,17 @@ async function managementRows(req, res, db) {
     const classId = Number.parseInt(req.query.class, 10);
     const classes = (await classesOf(db, organizationId)).filter((c) => c.id === classId);
     if (!classes.length) return res.status(404).json({ success: false, message: "That class wasn't found." });
+    const svc = await schoolServices.services(db, organizationId);
     const [byClass, switches] = await Promise.all([
-      classSettings.settingsForClasses(db, organizationId, [classId]),
-      portalOffered(db, organizationId).then((portal) => switchesFor(organizationId, { portal })),
+      classSettings.settingsForClasses(db, organizationId, [classId], { raw: true }),
+      portalOffered(db, organizationId).then((portal) => switchesFor(organizationId, { portal, svc })),
     ]);
     const settings = byClass.get(classId) || classSettings.withDefaults(null);
     const r = { ...classes[0], notices: settings.notices, on: Object.fromEntries(switches.map((sw) => [sw.key, valueAt(settings, sw.key)])), locked: Object.fromEntries(switches.map((sw) => [sw.key, classSettings.isLocked(settings, sw.key)])) };
     const html = await new Promise((resolve, reject) => req.app.render("partials/classSettingsRows", {
-      r, isAll: false, canLock: isManager(req), shareItems: shareItemsFor(organizationId).map((item) => ({ key: item.key, label: item.label, help: item.help })),
+      r, isAll: false, canLock: isManager(req), shareItems: shareItemsFor(organizationId, svc).map((item) => ({ key: item.key, label: item.label, help: item.help })),
       audiences: classSettings.AUDIENCES, assetUrl: res.locals.assetUrl,
-      noticesOn: require("../utils/shards/features").isOn("attendance_notices", { organizationId }),
+      noticesOn: svc.attendance && require("../utils/shards/features").isOn("attendance_notices", { organizationId }),
     }, (error, out) => (error ? reject(error) : resolve(out))));
     return res.json({ success: true, html });
   } catch (error) {
@@ -339,6 +351,7 @@ async function saveNotices(req, res, db) {
   try {
     if (!organizationId || !classSettings.isOn(organizationId)) return fail(res, 404, "Class settings aren't available for this school.");
     if (!require("../utils/shards/features").isOn("attendance_notices", { organizationId })) return fail(res, 404, "Attendance notices aren't available for this school yet.");
+    if (!(await schoolServices.services(db, organizationId)).attendance) return fail(res, 404, "Attendance isn't used in Managira at this school.");
     const body = req.body || {};
     const patch = {};
     ["absent", "late"].forEach((kind) => {
@@ -412,7 +425,7 @@ async function save(req, res, db) {
     if (!organizationId || !classSettings.isOn(organizationId)) return fail(res, 404, "Class settings aren't available for this school.");
     const body = req.body || {};
     const key = String(body.key || "");
-    const s = switchesFor(organizationId).find((item) => item.key === key);
+    const s = switchesFor(organizationId, { svc: await schoolServices.services(db, organizationId) }).find((item) => item.key === key);
     if (!s) return fail(res, 400, "That setting isn't available.");
     const lockOp = typeof body.lock === "boolean";
     if (!lockOp && typeof body.on !== "boolean") return fail(res, 400, "Choose on or off.");
@@ -441,11 +454,11 @@ async function save(req, res, db) {
     }
     // A switch management locked is theirs alone to change.
     if (!granted.all) {
-      const current = await classSettings.settingsFor(db, organizationId, classIds[0]);
+      const current = await classSettings.settingsFor(db, organizationId, classIds[0], { raw: true });
       if (classSettings.isLocked(current, key)) return fail(res, 403, "Your school locked this setting. Only management can change it.");
     }
 
-    const before = await classSettings.settingsForClasses(db, organizationId, classIds);
+    const before = await classSettings.settingsForClasses(db, organizationId, classIds, { raw: true });
     const saved = await classSettings.save(db, organizationId, classIds, { [key]: on }, { userId: req.session.userId || (req.session.user && req.session.user.user_id) || null });
     if (!saved.length) return fail(res, 404, "That class wasn't found in your school.");
     const changed = saved.filter((id) => valueAt(before.get(id) || classSettings.withDefaults(null), key) !== on);
@@ -460,7 +473,37 @@ async function save(req, res, db) {
   }
 }
 
+// POST /common/class-settings/school { attendance?: bool, lunch?: bool }: JSON only, managers only.
+// Whether the school takes attendance and lunch in Managira (tenant_settings.use_attendance / use_lunch).
+async function saveSchool(req, res, db) {
+  const organizationId = orgOf(req);
+  try {
+    if (!organizationId) return fail(res, 401, "Sign in again.");
+    if (!isManager(req)) return fail(res, 403, "Only a manager can change this.");
+    const body = req.body || {};
+    if (typeof body.attendance !== "boolean" && typeof body.lunch !== "boolean") return fail(res, 400, "Choose on or off.");
+    const tenantSettings = require("../utils/tenantSettings");
+    const { before, after } = await tenantSettings.saveServices(db, organizationId, { use_attendance: body.attendance, use_lunch: body.lunch });
+    const names = { use_attendance: "Attendance", use_lunch: "Lunch" };
+    const changedFields = Object.keys(names).filter((k) => before[k] !== after[k]).map((k) => ({ field: names[k], oldValue: before[k] ? "On" : "Off", newValue: after[k] ? "On" : "Off" }));
+    if (changedFields.length) {
+      const who = actorName(req);
+      logOrganizationActivity({
+        organizationId, userId: req.session.userId || (req.session.user && req.session.user.user_id) || null, userName: who,
+        userRole: req.session.userRole || null, actionType: "Updated", moduleName: LABEL, pagePath: PAGE, recordType: "School", recordId: String(organizationId),
+        recordLabel: "School", description: `${who} ${changedFields.map((c) => `turned ${c.newValue.toLowerCase()} ${c.field.toLowerCase()}`).join(" and ")} for the school.`, changedFields, ipAddress: req.ip,
+      }, db).catch((error) => console.error("[Class settings] activity log:", error.message));
+    }
+    const svc = schoolServices.fromSettings({ use_attendance: after.use_attendance, use_lunch: after.use_lunch });
+    return res.json({ success: true, attendance: svc.attendance, lunch: svc.lunch, name: svc.name });
+  } catch (error) {
+    if (error instanceof require("../utils/tenantSettings").TenantSettingsError) return fail(res, 503, error.message);
+    console.error("[Class settings] school:", error.message);
+    return fail(res, 500, "That didn't save. Try again.");
+  }
+}
+
 module.exports = {
-  PAGE, CALENDAR_SETTINGS_URL, hubUrl, classroomPanel, calendarSummary, managementPage, managementRows, save, saveNotices,
+  saveSchool, PAGE, CALENDAR_SETTINGS_URL, hubUrl, classroomPanel, calendarSummary, managementPage, managementRows, save, saveNotices,
   valueAt, dayKey, switchesFor, shareItemsFor,
 };

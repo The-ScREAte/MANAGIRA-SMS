@@ -565,3 +565,11 @@ html[data-appearance="dark"] :is(.cf, .cfm, .cff, .cfp) { --cf-edge: color-mix(i
 .cff-label { margin: 0 0 5px; color: var(--cf-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 @media (max-width: 860px) { .cf-places { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .cf { padding: 14px 14px 40px; } .cfm .cf-cond { grid-template-columns: minmax(0, 1fr); } }
+/* Opened as Report Settings' right-hand drawer (?embed=drawer): the drawer has its own header, so the editor shows only Report remarks. */
+html.cf-in-drawer .cf-ed__top { display: none; }
+html.cf-in-drawer .cf.cf-ed { padding-top: 14px; }
+.cf-sec.is-builtin .cf-nameinput { border-color: transparent; background: transparent; font-weight: 600; cursor: default; }
+@media (max-width: 560px) {
+  html.cf-in-drawer .cf-sec__bar, html.cf-in-drawer .cf-block__head { flex-wrap: wrap; }
+  html.cf-in-drawer .cf-sec__bar .cf-nameinput { flex: 1 1 120px; min-width: 0; }
+}

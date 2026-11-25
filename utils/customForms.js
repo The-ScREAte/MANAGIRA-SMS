@@ -21,7 +21,6 @@
 // visibility rules.
 
 const crypto = require("crypto");
-const features = require("./shards/features");
 const { BoundedMap } = require("./boundedMap");
 
 // ── What a section can hold ──────────────────────────────────────────────────────────────
@@ -70,6 +69,10 @@ const MAX_FILES = 5;
 // report cards can print as one of the card's remarks: the four built-in ones, or one of the
 // school's own remark types ("custom:principal-remark", Report Settings › Custom Remarks).
 const REMARK_SLOTS = ["teacher", "conduct", "interest", "attitude"];
+// The built-in section every school has (options.builtin), and the names it has had.
+const BUILTIN_REMARKS = "report_remarks";
+const REMARKS_NAME = "Report remarks";
+const REMARKS_OLD_NAMES = ["Report card remarks", "Report remarks"];
 const REMARK_LABELS = { teacher: "Teacher's Remarks", conduct: "Conduct Remarks", interest: "Interest Remarks", attitude: "Attitude Remarks" };
 const remarkSlot = (value) => {
   const slot = String(value || "").trim().toLowerCase();
@@ -447,14 +450,19 @@ function readySync() {
 }
 // Report-card remarks collected with the Custom editor, and forms beside each student in the
 // classroom (feature report_remarks_forms).
-const remarksOn = (organizationId) => features.isOn("report_remarks_forms", { organizationId: Number(organizationId) || null });
+// On for every school: Report remarks is a built-in section (ensureRemarksSection). The feature
+// flag report_remarks_forms is kept so it still lists in the admin, but no longer gates anything.
+const remarksOn = () => true;
 
 // ── Sections ─────────────────────────────────────────────────────────────────────────────
 function fromRow(row) {
   const options = row.options && typeof row.options === "object" ? row.options : {};
+  const builtin = options.builtin === BUILTIN_REMARKS;
   return {
     id: Number(row.section_id),
-    name: row.name,
+    // One name everywhere: a school's older "Report card remarks" shows as Report remarks.
+    name: builtin ? REMARKS_NAME : row.name,
+    builtin,
     icon: row.icon,
     notes: row.notes || "",
     multiple: row.multiple,
@@ -507,13 +515,58 @@ async function getSection(db, organizationId, sectionId) {
   return rows[0] ? fromRow(rows[0]) : null;
 }
 
+// The built-in Report remarks section: always a classroom section answered once per term that
+// prints on report cards, whatever the editor sent. Each field prints as a remark of its own.
+const asBuiltinRemarks = (raw) => ({
+  ...raw, name: REMARKS_NAME, filledBy: "staff", multiple: false, protected: false, reportCard: true,
+  repeat: raw.repeat === "year" ? "year" : "term", classIds: raw.classIds,
+});
+const remarkTypeKey = (label) => {
+  const slug = String(label || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return slug ? `custom:${slug}` : "";
+};
+// A field of Report remarks that prints as no remark yet (a new "Head Teacher remark") gets one:
+// the school's own remark type of that name, made here so Report Settings, the remark pop-up and
+// the report card all know it. A field named like a built-in remark prints as that one.
+async function giveRemarkSlots(db, organizationId, section) {
+  const byLabel = new Map(Object.entries(REMARK_LABELS).flatMap(([key, label]) => [[label.toLowerCase(), key], [label.toLowerCase().replace(/s$/, ""), key]]));
+  for (const field of section.fields) {
+    if (field.printsAs || field.retired || (field.type !== "text" && field.type !== "textarea")) continue;
+    const label = text(field.label, 60).replace(/\s+/g, " ");
+    const builtin = byLabel.get(label.toLowerCase());
+    if (builtin) { field.printsAs = builtin; continue; }
+    const key = remarkTypeKey(label);
+    if (!key || label.length < 2) continue;
+    try {
+      await db.query(
+        `INSERT INTO organization_custom_remark_types (organization_id, type_key, label) VALUES ($1, $2, $3)
+         ON CONFLICT (organization_id, type_key) DO UPDATE SET updated_at = CURRENT_TIMESTAMP`,
+        [organizationId, key, label]
+      );
+      await db.query("UPDATE organization_custom_remark_types SET obsolete_at = NULL WHERE organization_id = $1 AND type_key = $2 AND obsolete_at IS NOT NULL", [organizationId, key]).catch(() => {});
+      field.printsAs = key;
+    } catch (error) { /* the remark types table isn't there yet: the field simply prints under its own name */ }
+  }
+}
+
 // Saves a section (new when there is no id). Returns it with whether it just went live.
-async function saveSection(db, organizationId, raw, actorId) {
-  const clean = normalizeSection(raw);
-  const values = [clean.name, clean.icon, clean.notes || null, clean.multiple, clean.filledBy, clean.classIds, clean.showParents, clean.showStudents,
-    clean.protected, clean.required, clean.dueDate, clean.status, JSON.stringify(clean.fields),
-    JSON.stringify({ repeat: clean.repeat, reportCard: clean.reportCard, beside: clean.beside, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via, ...(clean.origin ? { origin: clean.origin } : {}) }), clean.once];
+// `builtin`: the built-in Report remarks section (made only by ensureRemarksSection).
+async function saveSection(db, organizationId, raw, actorId, { builtin = false } = {}) {
   const id = Number.parseInt(raw.id, 10);
+  let isBuiltin = builtin;
+  let was = null;
+  if (!isBuiltin && Number.isInteger(id) && id > 0) {
+    const { rows } = await db.query("SELECT options->>'builtin' AS b, options->>'beside' AS beside, options->>'besideChosen' AS chosen FROM custom_sections WHERE section_id = $1 AND organization_id = $2", [id, organizationId]);
+    isBuiltin = !!rows[0] && rows[0].b === BUILTIN_REMARKS;
+    if (isBuiltin) was = rows[0];
+  }
+  const clean = normalizeSection(isBuiltin ? asBuiltinRemarks(raw) : raw);
+  if (isBuiltin) await giveRemarkSlots(db, organizationId, clean);
+  const options = { repeat: clean.repeat, reportCard: clean.reportCard, beside: clean.beside, tile: clean.tile, attendance: clean.attendance, tell: clean.tell, via: clean.via, ...(clean.origin ? { origin: clean.origin } : {}), ...(isBuiltin ? { builtin: BUILTIN_REMARKS } : {}),
+    // The school itself unticked "Beside each student" (kept, so it is never switched back on for it).
+    ...(isBuiltin && !clean.beside && was && (was.chosen === "true" || was.beside === "true") ? { besideChosen: true } : {}) };
+  const values = [clean.name, clean.icon, clean.notes || null, clean.multiple, clean.filledBy, clean.classIds, clean.showParents, clean.showStudents,
+    clean.protected, clean.required, clean.dueDate, clean.status, JSON.stringify(clean.fields), JSON.stringify(options), clean.once];
   forget(organizationId);
   if (Number.isInteger(id) && id > 0) {
     const { rows } = await db.query(
@@ -543,8 +596,15 @@ async function saveSection(db, organizationId, raw, actorId) {
   return { section: fromRow(rows[0]), wentLive: rows[0].status === "live" };
 }
 
+// Report remarks is never deleted (its answers print on report cards): "removing" it hides it,
+// and it stays hidden (a marker that it was left out) until the school turns it back on.
 async function deleteSection(db, organizationId, sectionId) {
   forget(organizationId);
+  const { rowCount: hidden } = await db.query(
+    "UPDATE custom_sections SET status = 'draft', updated_at = NOW() WHERE organization_id = $1 AND section_id = $2 AND options->>'builtin' = $3",
+    [organizationId, sectionId, BUILTIN_REMARKS]
+  );
+  if (hidden) return true;
   const { rowCount } = await db.query("DELETE FROM custom_sections WHERE organization_id = $1 AND section_id = $2", [organizationId, sectionId]);
   return rowCount > 0;
 }
@@ -686,7 +746,9 @@ const inSection = (section, classId) => !section.classIds.length || section.clas
 const remarkFields = (section) => (section && section.reportCard && section.filledBy === "staff"
   ? (section.fields || []).filter((field) => field.printsAs && !field.retired && (field.type === "text" || field.type === "textarea"))
   : []);
-const remarkSectionsFor = (sections, classId) => sections.filter((section) => section.status === "live" && inSection(section, classId) && remarkFields(section).length);
+// The built-in Report remarks section takes the remark pop-up over only while it is shown
+// beside each student; unticked, the pop-up asks for the remarks again.
+const remarkSectionsFor = (sections, classId) => sections.filter((section) => section.status === "live" && inSection(section, classId) && !(section.builtin && !section.beside) && remarkFields(section).length);
 
 // Which of a class's remarks come from the Custom editor (the classroom then stops asking for
 // them in its remark pop-up). Read from the school's cached list; nothing where it's off.
@@ -1352,7 +1414,8 @@ async function schoolRemarks(db, organizationId) {
   // The classroom's choice, as the classroom reads it: the newest one that isn't just "teacher".
   const sets = settings.map((row) => (Array.isArray(row.types) ? row.types.map(remarkSlot).filter((key) => key && labelOf(key)) : [])).filter((set) => set.length);
   const asked = sets.find((set) => !(set.length === 1 && set[0] === "teacher")) || sets[0] || ["teacher"];
-  const used = [...new Set([...asked, ...custom.filter((type) => !type.obsolete).map((type) => type.key)])];
+  // Report remarks starts with the four built-in remarks (and every remark the classroom asked for).
+  const used = [...new Set([...REMARK_SLOTS, ...asked, ...custom.filter((type) => !type.obsolete).map((type) => type.key)])];
   return {
     used: used.map((key) => ({
       key,
@@ -1363,18 +1426,91 @@ async function schoolRemarks(db, organizationId) {
   };
 }
 
-// The library's "Report card remarks" (how a school sets its remarks up): a classroom section
-// collected every term that prints on report cards and sits beside each student, one long answer
-// per remark the school uses, its ready-made remarks offered as suggestions.
+// Report remarks, the section every school has: a classroom section collected every term that
+// prints on report cards, one long answer per remark (the four built-in ones, then the school's
+// own remark types), the school's ready-made remarks offered as suggestions. Made live and shown
+// beside each student, so teachers write remarks from the Students list. A school can untick
+// "Beside each student": the remark pop-up is then asked again (see remarkSectionsFor).
 function remarksSection(remarks) {
   return normalizeSection({
-    name: "Report card remarks", icon: "pencil", filledBy: "staff", repeat: "term", reportCard: true, beside: true, status: "draft",
+    name: REMARKS_NAME, icon: "pencil", filledBy: "staff", repeat: "term", reportCard: true, beside: true, status: "live",
     notes: "Each field prints as a remark on the report card, in its usual place.",
     fields: ((remarks && remarks.used) || []).map((type) => ({
       type: "textarea", label: type.label, printsAs: type.key, suggestions: type.suggestions,
       key: REMARK_LABELS[type.key] ? `${type.key}Remarks` : keyFrom(type.key.replace(/^custom:/, "").replace(/[-_]+/g, " ")),
     })),
   });
+}
+
+// The built-in Report remarks section of a school: made the first time the Custom editor or
+// Report Settings reads it, from the school's remark types and ready-made remarks; a school's
+// older "Report card remarks" section is adopted (renamed, answers untouched). A section the
+// school hid stays hidden: it is only made when the school has none at all.
+const ensured = new BoundedMap(500);
+async function ensureRemarksSection(db, organizationId, actorId = null) {
+  const org = Number(organizationId);
+  if (!org || !(await ready(db))) return null;
+  const hit = ensured.get(org);
+  if (hit && Date.now() - hit < 60 * 1000) return true;
+  const { rows } = await db.query("SELECT section_id, options->>'builtin' AS b, name, options->>'beside' AS beside, options->>'besideChosen' AS chosen FROM custom_sections WHERE organization_id = $1 AND (options->>'builtin' = $2 OR name = ANY($3::text[])) ORDER BY (options->>'builtin' = $2) DESC, section_id LIMIT 1", [org, BUILTIN_REMARKS, REMARKS_OLD_NAMES]);
+  if (rows[0] && rows[0].b === BUILTIN_REMARKS) {
+    // Shown beside each student unless the school itself unticked that.
+    if (rows[0].beside !== "true" && rows[0].chosen !== "true") {
+      forget(org);
+      await db.query("UPDATE custom_sections SET options = options || '{\"beside\": true}'::jsonb, updated_at = NOW() WHERE organization_id = $1 AND section_id = $2", [org, rows[0].section_id]);
+    }
+    ensured.set(org, Date.now());
+    return true;
+  }
+  forget(org);
+  if (rows[0]) {
+    // An older section keeps the school's own choice of "Beside each student".
+    await db.query("UPDATE custom_sections SET name = $3, options = options || jsonb_build_object('builtin', $4::text) || CASE WHEN options->>'beside' = 'true' THEN '{}'::jsonb ELSE '{\"besideChosen\": true}'::jsonb END, updated_at = NOW() WHERE organization_id = $1 AND section_id = $2", [org, rows[0].section_id, REMARKS_NAME, BUILTIN_REMARKS]);
+  } else {
+    const remarks = await schoolRemarks(db, org);
+    const seed = remarksSection(remarks);
+    // Fields keep their ids across saves, so answers (stored by field id) stay with them.
+    const clean = JSON.parse(JSON.stringify(seed));
+    const inserted = await db.query(
+      `INSERT INTO custom_sections (name, icon, notes, multiple, filled_by, class_ids, show_parents, show_students, protected, required, due_date, status, fields, options, once, organization_id, created_by, position)
+       SELECT $1,$2,$3,FALSE,'staff','{}',FALSE,FALSE,FALSE,FALSE,NULL,'live',$4::jsonb,$5::jsonb,FALSE,$6,$7,COALESCE((SELECT MAX(position) + 1 FROM custom_sections WHERE organization_id = $6), 0)
+        WHERE NOT EXISTS (SELECT 1 FROM custom_sections WHERE organization_id = $6 AND options->>'builtin' = $8)
+          AND (SELECT COUNT(*) FROM custom_sections WHERE organization_id = $6) < $9
+       ON CONFLICT DO NOTHING RETURNING section_id`,
+      [REMARKS_NAME, clean.icon, clean.notes || null, JSON.stringify(clean.fields), JSON.stringify({ repeat: "term", reportCard: true, beside: true, tile: false, attendance: false, tell: clean.tell, via: clean.via, builtin: BUILTIN_REMARKS }), org, actorId || null, BUILTIN_REMARKS, MAX_SECTIONS]
+    ).catch((error) => { console.error("[Custom forms] report remarks:", error.message); return { rows: [] }; });
+    if (!inserted.rows.length && !(await db.query("SELECT 1 FROM custom_sections WHERE organization_id = $1 AND options->>'builtin' = $2", [org, BUILTIN_REMARKS])).rows.length) return null;
+  }
+  forget(org);
+  ensured.set(org, Date.now());
+  return true;
+}
+
+// Where Report remarks stands for a school, for Report Settings: `state` is "on" (live), "off"
+// (the school left it out), or "unavailable" (the Custom editor isn't set up yet).
+async function remarksCard(db, organizationId) {
+  if (!(await ready(db))) return { state: "unavailable", fields: [] };
+  await ensureRemarksSection(db, organizationId).catch(() => null);
+  const section = (await listSections(db, organizationId, { fresh: true })).find((item) => item.builtin);
+  if (!section) return { state: "unavailable", fields: [] };
+  return {
+    state: section.status === "live" ? "on" : "off",
+    id: section.id,
+    beside: section.beside,
+    fields: (section.fields || []).filter((field) => !field.retired && (field.type === "text" || field.type === "textarea")).map((field) => ({ id: field.id, label: field.label, printsAs: field.printsAs || "" })),
+  };
+}
+
+// "Turn on": the school's Report remarks live again (made if it has none).
+async function turnOnRemarks(db, organizationId, actorId) {
+  if (!(await ready(db))) return null;
+  await ensureRemarksSection(db, organizationId, actorId);
+  forget(organizationId);
+  const section = (await listSections(db, organizationId, { fresh: true })).find((item) => item.builtin);
+  if (!section) return null;
+  if (section.status === "live") return section;
+  const saved = await saveSection(db, organizationId, { ...section, status: "live" }, actorId);
+  return saved && saved.section;
 }
 
 // Report Settings › Advanced (feature report_remarks_forms): the live sections on report cards,
@@ -1423,6 +1559,6 @@ module.exports = {
   afterSave, announce, runReminders, remindMissing, exportRows, reportCardSections, reportCard, studentToDo, studentDashboard,
   quickFields, attendanceColumns, REPEATS, ANSWER_ICONS,
   // Report-card remarks and forms beside each student (feature report_remarks_forms).
-  REMARK_SLOTS, REMARK_LABELS, remarkSlot, remarksOn, remarkFields, remarkSectionsFor, classRemarks, besideFor,
+  REMARK_SLOTS, REMARK_LABELS, REMARKS_NAME, remarkSlot, remarksOn, ensureRemarksSection, remarksCard, turnOnRemarks, remarkFields, remarkSectionsFor, classRemarks, besideFor,
   schoolRemarks, remarksSection, reportSettingsSections,
 };

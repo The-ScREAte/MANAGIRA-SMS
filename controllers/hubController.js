@@ -477,11 +477,13 @@ const hubController = {
         const term = termId ? (termsByOrg.get(o.organization_id) || []).find((t) => t.term_id === termId) : null;
         const dataTerms = dataTermsByOrg.get(o.organization_id) || [];
         // A term with no attendance, enrollment or scores yet has nothing to report.
-        if (!termId || !dataTerms.some((t) => t.term_id === termId)) return { org: o, term, result: null };
-        return { org: o, term, result: await buildOrganizationStats(o.organization_id, termId, dataTerms) };
+        // A school that keeps attendance elsewhere (Class & notif. settings, School) has no attendance figures here.
+        const attendanceOn = await require("../utils/schoolServices").attendanceOn(db, o.organization_id);
+        if (!termId || !dataTerms.some((t) => t.term_id === termId)) return { org: o, term, result: null, attendanceOn };
+        return { org: o, term, result: await buildOrganizationStats(o.organization_id, termId, dataTerms), attendanceOn };
       }));
 
-      const schools = built.map(({ org, term, result }) => {
+      const schools = built.map(({ org, term, result, attendanceOn }) => {
         const base = {
           organizationId: org.organization_id,
           organizationName: org.organization_name,
@@ -508,10 +510,11 @@ const hubController = {
           enrolled: k.enrolled,
           enrolledChange: k.enrolledChange,
           previousTermLabel: k.previousTermLabel,
-          attendanceRate: k.attendanceRate,
-          attendancePresent: k.attendancePresent || 0,
-          attendanceMarked: k.attendanceMarked || 0,
-          lowAttendance: k.lowAttendance,
+          attendanceRate: attendanceOn ? k.attendanceRate : null,
+          attendancePresent: attendanceOn ? (k.attendancePresent || 0) : 0,
+          attendanceMarked: attendanceOn ? (k.attendanceMarked || 0) : 0,
+          lowAttendance: attendanceOn ? k.lowAttendance : 0,
+          attendanceOff: !attendanceOn,
           scoreEntryRate: k.scoreEntryRate,
           scoresEntered: k.scoresEntered,
           scoresExpected: k.scoresExpected,

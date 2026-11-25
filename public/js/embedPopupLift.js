@@ -42,6 +42,8 @@
     for (var i = 0; i < frames.length; i++) {
       var frame = frames[i];
       if (frame.contentWindow !== event.source) continue;
+      // A frame that sits inside a drawer of this page (data-no-lift) stays in it.
+      if (frame.hasAttribute('data-no-lift')) continue;
       if (data.open) {
         if (!saved.has(frame)) { saved.set(frame, frame.getAttribute('style')); lifted += 1; }
         var header = document.getElementById('top-header');

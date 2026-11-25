@@ -211,16 +211,17 @@ test("a section sits beside each student only in the classroom", () => {
   assert.equal(cf.normalizeSection({ filledBy: "staff", beside: "yes" }).beside, false);
 });
 
-test("Report card remarks is made from the remarks the school uses, hidden until made live", () => {
+test("Report remarks is made from the remarks the school uses, live and beside each student from the start", () => {
   const section = cf.remarksSection({ used: [
     { key: "teacher", label: "Teacher's Remarks", suggestions: ["Very hardworking.", "Very hardworking."] },
     { key: "custom:principal-remark", label: "Principal remark", suggestions: [] },
   ] });
-  assert.equal(section.status, "draft");
+  assert.equal(section.name, "Report remarks");
+  assert.equal(section.status, "live");
   assert.equal(section.filledBy, "staff");
   assert.equal(section.repeat, "term");
   assert.equal(section.reportCard, true);
-  assert.equal(section.beside, true);
+  assert.equal(section.beside, true, "shown beside each student from the start");
   assert.deepEqual(section.fields.map((field) => [field.type, field.key, field.printsAs]), [["textarea", "teacherRemarks", "teacher"], ["textarea", "principalRemark", "custom:principal-remark"]]);
   assert.deepEqual(section.fields[0].suggestions, ["Very hardworking."]);
   assert.equal(section.fields[1].suggestions, undefined);
@@ -255,7 +256,7 @@ async function withRemarksFeature(run) {
 }
 
 test("a remark answer prints in its place on the report card, and not again under its section", () => withRemarksFeature(async () => {
-  const remarks = sectionRow(1, { name: "Report card remarks", filledBy: "staff", repeat: "term", reportCard: true, fields: [
+  const remarks = sectionRow(1, { name: "Report remarks", filledBy: "staff", repeat: "term", reportCard: true, fields: [
     { id: "f_teach01", type: "textarea", label: "Teacher's Remarks", printsAs: "teacher" },
     { id: "f_princ01", type: "textarea", label: "Principal remark", printsAs: "custom:principal-remark" },
     { id: "f_effor01", type: "choice", label: "Effort", options: ["Good", "Fair"] },
@@ -267,9 +268,9 @@ test("a remark answer prints in its place on the report card, and not again unde
     { section_id: 2, student_id: 5, term_id: 241, school_year_id: 9, data: { f_skill01: "Fair" } },
   ] });
   const card = await cf.reportCard(db, 9101, { classId: 146, termId: 241, studentIds: [5, 6] });
-  assert.deepEqual(card.remarks.get(5), { teacher: { text: "Works hard.", section: "Report card remarks", sectionId: 1 } });
+  assert.deepEqual(card.remarks.get(5), { teacher: { text: "Works hard.", section: "Report remarks", sectionId: 1 } });
   assert.equal(card.remarks.get(6), undefined, "another term's answer doesn't print: the remark saved on the card does");
-  assert.deepEqual(card.sections.get(5), [{ name: "Report card remarks", rows: [{ label: "Effort", value: "Good" }] }, { name: "Skills", rows: [{ label: "Reading", value: "Fair" }] }],
+  assert.deepEqual(card.sections.get(5), [{ name: "Report remarks", rows: [{ label: "Effort", value: "Good" }] }, { name: "Skills", rows: [{ label: "Reading", value: "Fair" }] }],
     "a remark isn't printed twice; the section's other answers still print");
   cf.forget(9101);
   const unticked = await cf.reportCard(db, 9101, { classId: 146, termId: 241, studentIds: [5], visibility: { 1: false } });
@@ -283,7 +284,7 @@ test("forms beside each student: one read for the class, coloured once this peri
   const db = stubDb({
     seen,
     sections: [
-      sectionRow(1, { name: "Report card remarks", filledBy: "staff", repeat: "term", reportCard: true, beside: true, fields: [{ id: "f_teach01", type: "textarea", label: "Teacher", printsAs: "teacher" }] }),
+      sectionRow(1, { name: "Report remarks", filledBy: "staff", repeat: "term", reportCard: true, beside: true, fields: [{ id: "f_teach01", type: "textarea", label: "Teacher", printsAs: "teacher" }] }),
       sectionRow(2, { name: "Lunch count", filledBy: "staff", repeat: "day", beside: true, classIds: [999], fields: [{ type: "yesno", label: "Lunch" }] }),
       sectionRow(3, { name: "Behavior log", filledBy: "staff", multiple: true, fields: [{ type: "textarea", label: "What happened" }] }),
     ],
@@ -300,3 +301,85 @@ test("forms beside each student: one read for the class, coloured once this peri
   assert.equal(seen.filter((sql) => /custom_section_entries/.test(sql)).length, 1);
   cf.forget(9102);
 }));
+
+// ── Report remarks: the built-in section every school has ───────────────────────────────────
+const builtinRow = (id, raw, extra = {}) => {
+  const row = sectionRow(id, raw);
+  return { ...row, options: { ...row.options, builtin: "report_remarks" }, ...extra };
+};
+
+test("the built-in Report remarks takes over the remark pop-up only once it is shown beside each student", () => withRemarksFeature(async () => {
+  const field = [{ id: "f_teach01", type: "textarea", label: "Teacher's remarks", printsAs: "teacher" }];
+  const make = (beside) => stubDb({ sections: [builtinRow(1, { name: "Report remarks", filledBy: "staff", repeat: "term", reportCard: true, beside, fields: field })] });
+  assert.deepEqual([...(await cf.classRemarks(make(false), 9201, 146)).slots], [], "as first made: the pop-up keeps asking");
+  cf.forget(9201);
+  assert.deepEqual([...(await cf.classRemarks(make(true), 9202, 146)).slots], ["teacher"], "shown beside each student: the pop-up gives way");
+  cf.forget(9202);
+  assert.equal(cf.remarksOn(1), true, "on for every school, no feature switch");
+  const named = cf.remarksSection({ used: [] });
+  assert.equal(named.name, cf.REMARKS_NAME);
+}));
+
+test("every school gets Report remarks once, and one it left out is never made again", async () => {
+  const run = async (org, existing) => {
+    const queries = [];
+    const db = {
+      query: async (sql, params) => {
+        queries.push({ sql, params });
+        if (/information_schema/.test(sql)) return { rows: [{ n: 8 }] };
+        if (/SELECT section_id, options->>'builtin' AS b, name, /.test(sql)) return { rows: existing };
+        if (/INSERT INTO custom_sections/.test(sql)) return { rows: [{ section_id: 7 }] };
+        if (/SELECT 1 FROM custom_sections/.test(sql)) return { rows: [{}] };
+        return { rows: [] };
+      },
+    };
+    await cf.ensureRemarksSection(db, org);
+    cf.forget(org);
+    return queries;
+  };
+  const made = await run(9210, []);
+  const insert = made.find((q) => /INSERT INTO custom_sections/.test(q.sql));
+  assert.ok(insert, "a school with none gets it");
+  assert.equal(insert.params[0], "Report remarks");
+  assert.deepEqual(JSON.parse(insert.params[3]).map((field) => field.printsAs), ["teacher", "conduct", "interest", "attitude"], "the four built-in remarks to start");
+  assert.equal(JSON.parse(insert.params[4]).builtin, "report_remarks");
+  const left = await run(9211, [{ section_id: 3, b: "report_remarks", name: "Report remarks", beside: "true" }]);
+  assert.equal(left.some((q) => /INSERT INTO custom_sections|UPDATE custom_sections/.test(q.sql)), false, "a school that has it (live or hidden) isn't given another");
+  const older = await run(9212, [{ section_id: 4, b: null, name: "Report card remarks" }]);
+  const rename = older.find((q) => /UPDATE custom_sections SET name/.test(q.sql));
+  assert.ok(rename, "an older Report card remarks section is adopted");
+  assert.deepEqual([rename.params[0], rename.params[1], rename.params[2]], [9212, 4, "Report remarks"]);
+  assert.equal(older.some((q) => /INSERT INTO custom_sections/.test(q.sql)), false, "and its answers stay with it");
+});
+
+test("a new remark in Report remarks gets its own remark type; the section can't be renamed or deleted", async () => {
+  const typesMade = [];
+  const db = {
+    query: async (sql, params) => {
+      if (/information_schema/.test(sql)) return { rows: [{ n: 8 }] };
+      if (/SELECT options->>'builtin' AS b, /.test(sql)) return { rows: [{ b: "report_remarks" }] };
+      if (/INSERT INTO organization_custom_remark_types/.test(sql)) { typesMade.push(params); return { rows: [] }; }
+      if (/UPDATE organization_custom_remark_types/.test(sql)) return { rows: [] };
+      if (/UPDATE custom_sections SET name/.test(sql)) {
+        return { rows: [{ section_id: 5, name: params[0], icon: params[1], notes: "", multiple: params[3], once: params[14], filled_by: params[4], class_ids: params[5], show_parents: false, show_students: false,
+          protected: params[8], required: false, due_date: null, status: params[11], fields: JSON.parse(params[12]), options: JSON.parse(params[13]), position: 0, was: "live" }] };
+      }
+      if (/UPDATE custom_sections SET status = 'draft'/.test(sql)) return { rowCount: 1, rows: [] };
+      return { rows: [], rowCount: 0 };
+    },
+  };
+  const saved = await cf.saveSection(db, 9220, { id: 5, name: "Anything", filledBy: "parent", multiple: true, reportCard: false, status: "live", fields: [
+    { id: "f_teach01", type: "textarea", label: "Teacher's remarks", printsAs: "teacher" },
+    { type: "textarea", label: "Head Teacher remark" },
+    { type: "textarea", label: "Conduct remarks" },
+    { type: "choice", label: "Effort", options: ["Good", "Fair"] },
+  ] }, 1);
+  const section = saved.section;
+  assert.equal(section.name, "Report remarks");
+  assert.equal(section.filledBy, "staff");
+  assert.equal(section.reportCard, true);
+  assert.equal(section.builtin, true);
+  assert.deepEqual(section.fields.map((field) => field.printsAs), ["teacher", "custom:head-teacher-remark", "conduct", undefined]);
+  assert.deepEqual(typesMade, [[9220, "custom:head-teacher-remark", "Head Teacher remark"]], "a built-in remark's name makes no new type");
+  assert.equal(await cf.deleteSection(db, 9220, 5), true, "removing it only hides it");
+});

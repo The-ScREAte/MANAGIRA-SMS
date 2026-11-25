@@ -1094,12 +1094,13 @@
 <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body>
+        <style>.attendance-sheet.att-lunch-only .att-pair > input[type="checkbox"] { display: none; }</style>
         <div class="attendance-page <%= isEmbedded ? 'attendance-page-embedded' : '' %>">
             <div class="attendance-toolbar">
             <div class="attendance-header">
                 <div class="attendance-header-top">
                     <div class="attendance-header-copy">
-                        <% if (!isEmbedded) { %><h1 class="attendance-header-title">Attendance for <%= className %></h1><% } %>
+                        <% if (!isEmbedded) { %><h1 class="attendance-header-title"><%= locals.pageName || 'Attendance' %> for <%= className %></h1><% } %>
                         <% if (!isEmbedded) { %>
                         <div class="attendance-meta">School Year: <%= schoolYear.year_label %> &middot; Term: <%= termName %></div>
                         <% } %>
@@ -1232,7 +1233,7 @@
                 </div>
                 <% if (!(attendanceCalendarSummary && attendanceCalendarSummary.enabled)) { %>
                     <div class="att-calendar-note" role="note">
-                        <span>No attendance calendar is set for this term, so every date is shown, weekends included.</span>
+                        <span>No <%= locals.attendanceOn === false ? 'school' : 'attendance' %> calendar is set for this term, so every date is shown, weekends included.</span>
                         <a href="/account/settings?section=customize&calendarTermId=<%= termId %>">Set up the calendar</a>
                     </div>
                 <% } %>
@@ -1338,7 +1339,7 @@
         <% } %>
         <script nonce="<%= locals.cspNonce || '' %>">window.ATT_RENDERED_RANGE = <%- JSON.stringify(locals.attendanceRange || 'd3') %>; window.ATT_MISSED = <%- JSON.stringify(locals.missedDays || []) %>; window.ATT_ALL_DATES = <%- JSON.stringify(locals.allDisplayDates || displayDates || []) %>; window.ATT_OFF = <%- JSON.stringify(locals.offDays || {}) %>;</script>
         <div class="attendance-sheet-container">
-            <table class="attendance-sheet">
+            <table class="attendance-sheet<%= locals.attendanceOn === false ? ' att-lunch-only' : '' %>">
                 <thead>
                     <tr>
                         <th class="student-name">Student Name <button type="button" class="sort-toggle-btn" id="attendanceHeaderSortToggle" data-sort-direction="asc" aria-label="Sort names Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
@@ -1366,9 +1367,9 @@
                                     <%= _formattedDate %>
                                     <% if (students.length > 0 && dateMeta.countable) { %>
                                         <div class="date-actions">
-                                            <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit attendance" title="Edit" data-onclick="common-attendanceCollection.3" data-mga0="<%= date %>">Edit</div>
+                                            <div class="edit-save-link" data-date="<%= date %>" role="button" tabindex="0" aria-label="Edit <%= locals.attendanceOn === false ? 'lunch' : 'attendance' %>" title="Edit" data-onclick="common-attendanceCollection.3" data-mga0="<%= date %>">Edit</div>
                                             <div class="cancel-link" data-date="<%= date %>" role="button" tabindex="0" title="Cancel" aria-label="Cancel changes" style="display: none;" data-onclick="common-attendanceCollection.4" data-mga0="<%= date %>">Cancel</div>
-                                            <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check all</span><span class="ca-row"><input type="checkbox" class="check-all-box" data-onclick="common-attendanceCollection.5" data-mga0="<%= date %>" title="Everyone present" aria-label="Mark everyone present"><% if (locals.lunchOn) { %><button type="button" class="check-all-lunch att-plate-btn" data-onclick="common-attendanceCollection.6" data-mga0="<%= date %>" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false"></button><% } %></span></div>
+                                            <div class="mark-all-link" data-date="<%= date %>" style="display: none;"><span class="ca-title">Check all</span><span class="ca-row"><% if (locals.attendanceOn !== false) { %><input type="checkbox" class="check-all-box" data-onclick="common-attendanceCollection.5" data-mga0="<%= date %>" title="Everyone present" aria-label="Mark everyone present"><% } %><% if (locals.lunchOn) { %><button type="button" class="check-all-lunch att-plate-btn" data-onclick="common-attendanceCollection.6" data-mga0="<%= date %>" title="Everyone had lunch" aria-label="Everyone had lunch" aria-pressed="false"></button><% } %></span></div>
                                         </div>
                                         <% if (locals.lunchOn) { %><div class="lunch-tally" data-lunch-date="<%= date %>" title="Students who had lunch" hidden><span class="att-plate-ico" aria-hidden="true"></span><b>0</b></div><% } %>
                                     <% } %>
@@ -1383,7 +1384,7 @@
                                 </div>
                             </th>
                         <% }); %>
-                        <th class="overall-attendance">Overall<% if (locals.lunchOn) { %><span class="ov-head-sub">Present · Lunch</span><% } %></th>
+                        <th class="overall-attendance">Overall<% if (locals.lunchOn && locals.attendanceOn !== false) { %><span class="ov-head-sub">Present · Lunch</span><% } %></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1408,7 +1409,7 @@
                                 <%_ const dateMeta = (dateMetaMap && dateMetaMap[date]) ? dateMetaMap[date] : { countable: true, markerLabel: null }; _%>
                                 <%_ const showPairedWatermark = (rowIndex % 2) === 0; _%>
                                 <%_ const mark = attendanceMap[student.student_id] && attendanceMap[student.student_id][date]; _%>
-<td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>"><input type="checkbox" aria-label="<%= attendanceStudentName %>, present on <%= date %>" data-date="<%= date %>" data-student-id="<%= student.student_id %>" data-countable="<%= dateMeta.countable ? 'true' : 'false' %>" class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>" <%= mark === 'Present' ? 'checked' : '' %> <%= (!dateMeta.countable || mark) ? 'disabled' : '' %>>
+<td class="<%= isTodayCell ? 'today-col' : '' %> <%= !dateMeta.countable ? 'inactive-day-cell' : '' %> <%= dateMeta.isOfficialTermEnd ? 'term-end-cell' : '' %>"><input type="checkbox" aria-label="<%= attendanceStudentName %>, <%= locals.attendanceOn === false ? 'lunch' : 'present' %> on <%= date %>" data-date="<%= date %>" data-student-id="<%= student.student_id %>" data-countable="<%= dateMeta.countable ? 'true' : 'false' %>" class="<%= !dateMeta.countable ? 'attendance-inactive' : '' %>" <%= mark === 'Present' ? 'checked' : '' %> <%= (!dateMeta.countable || mark) ? 'disabled' : '' %>>
                                 <%_ if (!dateMeta.countable && showPairedWatermark) { _%>
 <span class="inactive-watermark paired-watermark"><%= (dateMeta.markerLabel || 'Excluded').toUpperCase() %></span>
                                 <%_ } _%>
@@ -1417,7 +1418,7 @@
                                 <%_ } _%>
 </td>
                             <%_ }); _%>
-                            <td class="overall-attendance"><% if (locals.lunchOn) { %><span class="ov-pair"><span class="ov-att" title="Days present"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><%= presentCount %>/<%= totalCount %></span><span class="ov-lunch" data-student="<%= student.student_id %>" title="Days with lunch (of the days lunch was taken)"><span class="att-plate-ico" aria-hidden="true"></span><b></b></span></span><% } else { %><%= presentCount %>/<%= totalCount %><% } %></td>
+                            <td class="overall-attendance"><% if (locals.attendanceOn === false) { %><span class="ov-pair"><span class="ov-lunch" data-student="<%= student.student_id %>" title="Days with lunch (of the days lunch was taken)"><span class="att-plate-ico" aria-hidden="true"></span><b></b></span></span><% } else if (locals.lunchOn) { %><span class="ov-pair"><span class="ov-att" title="Days present"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><%= presentCount %>/<%= totalCount %></span><span class="ov-lunch" data-student="<%= student.student_id %>" title="Days with lunch (of the days lunch was taken)"><span class="att-plate-ico" aria-hidden="true"></span><b></b></span></span><% } else { %><%= presentCount %>/<%= totalCount %><% } %></td>
                         </tr>
                     <% }); %>
                 </tbody>
@@ -1891,6 +1892,7 @@
             let maleAbsent = 0, femaleAbsent = 0;
             // Lunch, when the school takes it: plates chosen on the days shown.
             const LUNCH = <%= locals.lunchOn ? 'true' : 'false' %>;
+            const ATTENDANCE = <%= locals.attendanceOn === false ? 'false' : 'true' %>;
             let maleLunch = 0, femaleLunch = 0;
 
             rows.forEach(row => {
@@ -1930,14 +1932,16 @@
             if (summaryContainer) {
                 const lunchTh = LUNCH ? '<th>Had lunch</th>' : '';
                 const lunchTd = (n) => (LUNCH ? `<td>${n}</td>` : '');
+                const attTh = ATTENDANCE ? '<th>Days present</th><th>Days absent</th>' : '';
+                const attTd = (p, a) => (ATTENDANCE ? `<td>${p}</td><td>${a}</td>` : '');
                 summaryContainer.innerHTML = `
                     <thead>
-                        <tr><th>Students</th><th>Total</th><th>Days present</th><th>Days absent</th>${lunchTh}</tr>
+                        <tr><th>Students</th><th>Total</th>${attTh}${lunchTh}</tr>
                     </thead>
                     <tbody>
-                        <tr><td>Male</td><td>${maleCount}</td><td>${malePresent}</td><td>${maleAbsent}</td>${lunchTd(maleLunch)}</tr>
-                        <tr><td>Female</td><td>${femaleCount}</td><td>${femalePresent}</td><td>${femaleAbsent}</td>${lunchTd(femaleLunch)}</tr>
-                        <tr><td>Class</td><td>${maleCount + femaleCount}</td><td>${malePresent + femalePresent}</td><td>${maleAbsent + femaleAbsent}</td>${lunchTd(maleLunch + femaleLunch)}</tr>
+                        <tr><td>Male</td><td>${maleCount}</td>${attTd(malePresent, maleAbsent)}${lunchTd(maleLunch)}</tr>
+                        <tr><td>Female</td><td>${femaleCount}</td>${attTd(femalePresent, femaleAbsent)}${lunchTd(femaleLunch)}</tr>
+                        <tr><td>Class</td><td>${maleCount + femaleCount}</td>${attTd(malePresent + femalePresent, maleAbsent + femaleAbsent)}${lunchTd(maleLunch + femaleLunch)}</tr>
                     </tbody>
                 `;
             }
@@ -2082,6 +2086,23 @@
         }
 
         function saveAttendanceForDate(date, checkboxes, link) {
+            // The school doesn't take attendance here: only the day's lunch is saved, and the day goes back to "Edit".
+            if (<%= locals.attendanceOn === false ? 'true' : 'false' %>) {
+                const finish = function () {
+                    if (window.attToast) window.attToast('Saved');
+                    link.textContent = 'Edit';
+                    checkboxes.forEach(function (checkbox) { checkbox.disabled = true; });
+                    const cancelLink = document.querySelector(`.cancel-link[data-date='${date}']`);
+                    if (cancelLink) cancelLink.style.display = 'none';
+                    const markAllLink = document.querySelector(`.mark-all-link[data-date='${date}']`);
+                    if (markAllLink) markAllLink.style.display = 'none';
+                    const lastEditedElement = document.getElementById(`last-edited-${date}`);
+                    if (lastEditedElement) renderLastEdited(lastEditedElement, new Date());
+                    setTimeout(updateAttendanceSummary, 50);
+                };
+                if (window.saveLunchForDate) window.saveLunchForDate(date, finish); else finish();
+                return;
+            }
             if (window.saveLunchForDate) window.saveLunchForDate(date);
             const attendanceData = {};
             const classId = '<%= classId %>';
@@ -2445,8 +2466,8 @@
             refresh(date);
         };
         // Called by the day's Save: lunch goes with attendance (had lunch / no lunch for each student).
-        window.saveLunchForDate = function (date) {
-            if (!touched[date]) return;
+        window.saveLunchForDate = function (date, done) {
+            if (!touched[date]) { if (done) done(); return; }
             var lunch = {};
             picks(date).forEach(function (b) { lunch[b.dataset.student] = b.dataset.v === 'yes' ? 'yes' : 'no'; });
             fetch('/common/saveLunch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ lunch: lunch, classId: CLASS_ID, termId: TERM_ID, date: date }) })
@@ -2456,6 +2477,7 @@
                     Object.keys(lunch).forEach(function (id) { saved[id] = saved[id] || {}; saved[id][date] = lunch[id] === 'yes'; });
                     touched[date] = false;
                     overall(); refresh(date);
+                    if (done) done();
                 })
                 .catch(function () { alert('Lunch wasn\'t saved. Please try again.'); });
         };

@@ -48,6 +48,7 @@ async function loadOrgDashboardInsights(db, opts) {
     todayLabel = "",
     role = "",
     actorId = 0,
+    attendanceUsed = true, // the school takes attendance in Managira (utils/schoolServices.js)
   } = opts;
   const roleKey = String(role || "").trim().toLowerCase();
   // Recent activity is role based: managers see everyone, supervisors see everyone
@@ -70,7 +71,7 @@ async function loadOrgDashboardInsights(db, opts) {
   const show = {
     staff: can("manage_employees"),
     admissions: can("approve_admissions") && hasFeature("Student and Guardian Profile", "Student and Guadian Profile"),
-    attendance: can("mark_attendance") && hasFeature("Attendance Tracking", "Attendance tracking feature") && termActive && attendanceClassIds.length > 0,
+    attendance: attendanceUsed && can("mark_attendance") && hasFeature("Attendance Tracking", "Attendance tracking feature") && termActive && attendanceClassIds.length > 0,
     fees: can("paygira_overview") && hasFeature("PayGira"),
     activity: activityScope !== "mine" || Number(actorId) > 0,
     // School-wide transport is for managers and supervisors, not teachers/drivers.

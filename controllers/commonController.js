@@ -3355,7 +3355,7 @@ function computeAssessmentEditability(control, now = new Date()) {
 
 async function recomputeSubjectTotalsForStudent(db, { studentId, subjectId, classId, termId, organizationId }) {
   const resultsRes = await db.query(
-    `SELECT ar.score, ar.category, a.max_score
+    `SELECT ar.score, COALESCE(a.category, ar.category) AS category, a.max_score
      FROM assessment_results ar
      JOIN assessments a ON a.assessment_id = ar.assessment_id
      WHERE ar.student_id = $1 AND ar.subject_id = $2 AND ar.term_id = $3 AND ar.class_id = $4
@@ -3374,7 +3374,8 @@ async function recomputeSubjectTotalsForStudent(db, { studentId, subjectId, clas
     categoryScoresMap[category] = (categoryScoresMap[category] || 0) + score;
   });
 
-  const totalPercentage = maxTotalScore > 0 ? (totalScore / maxTotalScore) * 100 : null;
+  // Two decimals, as kept and shown everywhere; the grade is looked up from that number.
+  const totalPercentage = termTotals.percentOf(totalScore, maxTotalScore);
   const grade =
     totalPercentage !== null
       ? await getGradeLabelFromScoreRemark(db, organizationId, classId, termId, totalPercentage)
@@ -3384,7 +3385,7 @@ async function recomputeSubjectTotalsForStudent(db, { studentId, subjectId, clas
     `UPDATE assessment_results
      SET total_subject_score = $1, total_percentage = $2, grade = $3
      WHERE student_id = $4 AND subject_id = $5 AND term_id = $6 AND class_id = $7`,
-    [totalScore, totalPercentage, grade, studentId, subjectId, termId, classId]
+    [termTotals.round2(totalScore), totalPercentage, grade, studentId, subjectId, termId, classId]
   );
 
   for (const category in categoryScoresMap) {
@@ -3393,9 +3394,16 @@ async function recomputeSubjectTotalsForStudent(db, { studentId, subjectId, clas
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
        DO UPDATE SET total_score = EXCLUDED.total_score`,
-      [studentId, classId, subjectId, organizationId, category, categoryScoresMap[category], termId]
+      [studentId, classId, subjectId, organizationId, category, termTotals.round2(categoryScoresMap[category]), termId]
     );
   }
+  // A category whose scores were all removed (a score taken back) leaves no total behind.
+  await db.query(
+    `DELETE FROM category_scores
+      WHERE student_id = $1 AND class_id = $2 AND subject_id = $3 AND organization_id = $4 AND term_id = $5
+        AND NOT (category = ANY($6::text[]))`,
+    [studentId, classId, subjectId, organizationId, termId, Object.keys(categoryScoresMap)]
+  );
 }
 
 async function notifyTeachersForAssessmentControl({
@@ -4320,6 +4328,7 @@ const commonController = {
           todayLabel: todayAttendanceStatus?.label || (isWeekendFallback ? "Weekend" : "School Day"),
           role: isOrgAccount ? "organization" : effectiveDashboardRole,
           actorId: resolveWorkspaceActor(req).id,
+          attendanceUsed: (res.locals.schoolServices || {}).attendance !== false,
         }).catch(() => null);
       }
 
@@ -8505,7 +8514,9 @@ const commonController = {
             subject.totalMaxScore += parseFloat(assessment.max_score);
           }
           if (assessment.scale_base) {
-            subject.scaleBase = parseInt(assessment.scale_base) || 100;
+            // The largest among the subject's assessments, as the gradebook and report card take it.
+            subject.scaleBase = subject.scaleBaseSeen ? Math.max(subject.scaleBase, parseInt(assessment.scale_base) || 100) : (parseInt(assessment.scale_base) || 100);
+            subject.scaleBaseSeen = true;
           }
         }
       });
@@ -8536,7 +8547,8 @@ const commonController = {
           continue;
         }
 
-        subject.totalPercentage = (subject.totalScore / subject.totalMaxScore) * 100;
+        // Two decimals (halves up), as on the gradebook, report card and merit sheet; the grade follows.
+        subject.totalPercentage = termTotals.percentOf(subject.totalScore, subject.totalMaxScore);
         subject.grade = resolveGradeLabel(subject.totalPercentage);
         subject.position = positions[subject.subject_id] || "-";
       }
@@ -9698,23 +9710,26 @@ const commonController = {
       // Attendance: the drawn days' marks, the overall figures for the whole term (one aggregate), and
       // which of the past week's school days nobody has marked yet. Lunch the same way. All side by side.
       const lunchOn = (await require("../utils/classSettings").settingsFor(db, organizationId, classId).catch(() => ({ lunch: true }))).lunch !== false;
+      // What the school takes in Managira (Management, Class & notif. settings): with attendance off the page is the lunch plates only.
+      const svc = await require("../utils/schoolServices").services(db, organizationId);
+      const attendanceOn = svc.attendance;
       const newestDay = allDisplayDates.length ? allDisplayDates[allDisplayDates.length - 1] : attendanceTodayKey;
       const weekFrom = new Date(new Date(`${newestDay}T00:00:00Z`).getTime() - 6 * 86400000).toISOString().slice(0, 10);
       const weekDays = countableDates.filter((d) => d >= weekFrom && d !== newestDay && d !== attendanceTodayKey && !offDays[d]);
       // Notes (why a student was absent) need attendance_records.note (2027-01-08_attendance_notes.sql); without it nothing is offered.
-      const notesOn = await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] });
+      const notesOn = attendanceOn && await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] });
       // Late arrivals (feature attendance_notices, attendance_records.late): a present student can be marked late.
-      const lateOn = require("../utils/shards/features").isOn("attendance_notices", { organizationId: Number(organizationId) })
+      const lateOn = attendanceOn && require("../utils/shards/features").isOn("attendance_notices", { organizationId: Number(organizationId) })
         && await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] });
       const [attendanceResult, overallResult, markedWeekResult, lunchRows, lunchTotalRows, lunchDaysRows] = await Promise.all([
-        displayDates.length
+        attendanceOn && displayDates.length
           ? db.query(
               `SELECT student_id, date::text AS date, status, updated_at${notesOn ? ", note" : ""}${lateOn ? ", late" : ""} FROM attendance_records
                 WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND date = ANY($4::date[])`,
               [classId, termId, organizationId, displayDates]
             )
           : { rows: [] },
-        countableDates.length
+        attendanceOn && countableDates.length
           ? db.query(
               `SELECT student_id, COUNT(*)::int AS present FROM attendance_records
                 WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND status::text = 'Present' AND date = ANY($4::date[])
@@ -9722,7 +9737,7 @@ const commonController = {
               [classId, termId, organizationId, countableDates]
             )
           : { rows: [] },
-        weekDays.length
+        attendanceOn && weekDays.length
           ? db.query(
               `SELECT DISTINCT date::text AS day FROM attendance_records
                 WHERE class_id = $1 AND term_id = $2 AND organization_id = $3 AND date = ANY($4::date[])`,
@@ -9765,7 +9780,7 @@ const commonController = {
       });
       const overallPresent = Object.fromEntries(overallResult.rows.map((r) => [r.student_id, r.present]));
       const marked = new Set(markedWeekResult.rows.map((r) => r.day));
-      const missedDays = weekDays.filter((d) => !marked.has(d));
+      const missedDays = attendanceOn ? weekDays.filter((d) => !marked.has(d)) : [];
 
       // Lunch taken each day: student -> day -> true / false, for the drawn days;
       // the overall figure comes from the whole term's totals.
@@ -9778,11 +9793,12 @@ const commonController = {
         classId: Number(classId), day: attendanceTodayKey, builder: (res.locals.userPermissions || []).includes(PERMISSIONS.CUSTOM_FORMS),
       }).catch(() => []);
       // Lunch is taken beside each day now, so a school's own old "Lunch" column isn't shown twice.
-      const attendanceFormsShown = lunchOn
-        ? attendanceForms.filter((form) => !/lunch/i.test(`${form.name || ""} ${(form.fields || []).map((f) => f.label).join(" ")}`))
-        : attendanceForms;
+      // Lunch is built in (never a custom form), so an old custom "Lunch" column is never offered, lunch on or off.
+      const attendanceFormsShown = attendanceForms.filter((form) => !/lunch/i.test(`${form.name || ""} ${(form.fields || []).map((f) => f.label).join(" ")}`));
       res.render("common/attendanceCollection", {
         lunchOn,
+        attendanceOn,
+        pageName: svc.name,
         lunchMap,
         notesOn,
         notesMap,
@@ -9795,9 +9811,9 @@ const commonController = {
         offDays,
         allDisplayDates,
         attendanceRange,
-        attendanceForms: attendanceFormsShown,
+        attendanceForms: attendanceOn ? attendanceFormsShown : [],
         attendanceTodayKey,
-        title: "Attendance Records",
+        title: attendanceOn ? "Attendance Records" : "Lunch",
         classId,
         className,
         termId,
@@ -11762,7 +11778,8 @@ const commonController = {
       );
       for (const summary of Object.values(studentScores)) {
         if (summary.max_total_score > 0) {
-          summary.total_percentage = (summary.total_subject_score / summary.max_total_score) * 100;
+          // Two decimals, as kept with the scores and shown on every page; the grade follows that number.
+          summary.total_percentage = termTotals.percentOf(summary.total_subject_score, summary.max_total_score);
           summary.grade = resolveGradeLabel(summary.total_percentage);
         }
       }
@@ -11804,7 +11821,8 @@ const commonController = {
 
       const employees = employeesResult.rows;
 
-      const scaleBase = assessments.length > 0 ? (assessments[0].scale_base || 100) : 100;
+      // The largest scale base among the subject's assessments, as the report card takes it.
+      const scaleBase = assessments.reduce((best, row) => Math.max(best, parseInt(row.scale_base, 10) || 100), assessments.length ? 0 : 100) || 100;
       const maxPossibleScore = assessments.reduce((sum, a) => sum + parseFloat(a.max_score || 0), 0);
       const questionSetEnabledAssessmentIds = assessments
         .filter((row) => Boolean(row.show_question_set_on_dashboard))
@@ -11937,14 +11955,23 @@ const commonController = {
             WITH RankedScores AS (
                 -- Rank within this class and term only; readers look positions
                 -- up by term, so mixing terms produced wrong positions.
+                -- Ranked by the percentage (two decimals, as shown) of what each student was
+                -- scored on: a score that was never entered is left out of the total and of
+                -- what it is out of (utils/termTotals.js), so it must not cost anyone a place.
+                -- Equal percentages share a place.
                 SELECT
-                    student_id,
-                    subject_id,
-                    SUM(score) AS total_subject_score,
-                    RANK() OVER (PARTITION BY subject_id ORDER BY SUM(score) DESC) AS position
-                FROM assessment_results
-                WHERE subject_id = $1 AND organization_id = $2 AND class_id = $3 AND term_id = $4
-                GROUP BY student_id, subject_id
+                    ar.student_id,
+                    ar.subject_id,
+                    SUM(ar.score) AS total_subject_score,
+                    RANK() OVER (
+                        PARTITION BY ar.subject_id
+                        ORDER BY ROUND(SUM(ar.score) * 100 / NULLIF(SUM(a.max_score), 0), 2) DESC NULLS LAST
+                    ) AS position
+                FROM assessment_results ar
+                JOIN assessments a ON a.assessment_id = ar.assessment_id
+                WHERE ar.subject_id = $1 AND ar.organization_id = $2 AND ar.class_id = $3 AND ar.term_id = $4
+                  AND ar.score IS NOT NULL
+                GROUP BY ar.student_id, ar.subject_id
             )
             INSERT INTO student_positions (student_id, subject_id, organization_id, total_subject_score, position, class_id, term_id)
             SELECT 
@@ -11966,6 +11993,19 @@ const commonController = {
 
     try {
       await db.query(updateQuery, [subjectId, organizationId, classId, termId]);
+      // A student whose scores were all taken back no longer holds a place.
+      for (const table of ["student_positions", "student_term_positions"]) {
+        await db.query(
+          `DELETE FROM ${table} sp
+            WHERE sp.subject_id = $1 AND sp.organization_id = $2 AND sp.class_id = $3 AND sp.term_id = $4
+              AND NOT EXISTS (
+                SELECT 1 FROM assessment_results ar
+                 WHERE ar.student_id = sp.student_id AND ar.subject_id = sp.subject_id
+                   AND ar.class_id = sp.class_id AND ar.term_id = sp.term_id AND ar.score IS NOT NULL
+              )`,
+          [subjectId, organizationId, classId, termId]
+        ).catch(() => {});
+      }
     } catch (error) {
             throw error;
     }
@@ -12155,7 +12195,7 @@ const commonController = {
           // Same allowance as the input: 0 to max score + 10.
           // Scores are stored as NUMERIC(5,2), so round to 2 decimals and
           // never exceed 999.99.
-          const numericScore = Math.round(Number(rawScore) * 100) / 100;
+          const numericScore = termTotals.round2(rawScore);
           const allowedMax = Math.min(Number(assessmentControl.max_score || 0) + 10, 999.99);
           if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > allowedMax) {
             outOfRangeTitles.add(`${assessmentControl.title} (0-${allowedMax})`);
@@ -12303,19 +12343,21 @@ const commonController = {
           for (const studentId of changedStudentIds) {
             // Only scores that were entered count, in the total and in what it is out of (utils/termTotals.js):
             // the report card, the merit sheet and the report builder count the same way.
-            const { total, max, categories, percentage } = termTotals.subjectTotals(
+            const { total, max, categories } = termTotals.subjectTotals(
               Array.from(sheetByStudent.get(studentId).values()).map((cell) => ({ score: cell.score, max: cell.maxScore, category: cell.category }))
             );
             // Round like the NUMERIC(…,2) columns so unchanged totals compare
-            // equal and are not rewritten.
-            const round2 = (value) => Math.round(value * 100) / 100;
+            // equal and are not rewritten. The grade is looked up from the percentage as kept
+            // and shown (two decimals), so 89.995 shown as 90.00 gets the grade of 90.00.
+            const round2 = termTotals.round2;
             for (const [category, categoryScore] of categories) {
               categories.set(category, round2(categoryScore));
             }
+            const roundedPercentage = termTotals.percentOf(total, max);
             totalsByStudent.set(studentId, {
               total: round2(total),
-              percentage: percentage === null ? null : round2(percentage),
-              grade: resolveGradeLabel(percentage),
+              percentage: roundedPercentage,
+              grade: resolveGradeLabel(roundedPercentage),
               categories,
             });
           }
@@ -15569,6 +15611,14 @@ NUMBERING:
              AND student_id = ANY($3::int[])`,
           [organizationId, assessmentId, unlockedStudentIds]
         );
+        // The score taken away leaves the student's other scores in this subject: their total,
+        // percentage, grade and everyone's place follow, as when a score is cleared on the sheet.
+        for (const unlockedId of unlockedStudentIds) {
+          await recomputeSubjectTotalsForStudent(client, {
+            studentId: unlockedId, subjectId: scope.subject_id, classId, termId, organizationId,
+          });
+        }
+        await commonController.updateStudentPositions(client, scope.subject_id, organizationId, classId, termId);
       }
 
       await client.query("COMMIT");
@@ -16496,7 +16546,7 @@ NUMBERING:
                 s.term_id,
                 s.total_subject_score,
                 CASE
-                  WHEN s.max_total_score > 0 THEN (s.total_subject_score / s.max_total_score) * 100
+                  WHEN s.max_total_score > 0 THEN ROUND((s.total_subject_score / s.max_total_score) * 100, 2)
                   ELSE NULL
                 END AS total_percentage
               FROM summarized s
@@ -16512,8 +16562,14 @@ NUMBERING:
                       AND sr.class_id = $2
                       AND sr.term_id = $4
                       AND d.total_percentage IS NOT NULL
-                      AND d.total_percentage BETWEEN sr.from_percentage AND sr.to_percentage
-                    ORDER BY sr.from_percentage DESC
+                      AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
+                    -- The band holding the percentage, else the nearest one (as when scores are saved).
+                    ORDER BY CASE
+                               WHEN d.total_percentage BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
+                               WHEN d.total_percentage < sr.from_percentage THEN sr.from_percentage - d.total_percentage
+                               ELSE d.total_percentage - sr.to_percentage
+                             END ASC,
+                             sr.from_percentage DESC
                     LIMIT 1
                   ),
                   CASE
@@ -16538,19 +16594,22 @@ NUMBERING:
         await queryable.query(
           `
             WITH ranked_scores AS (
+              -- Ranked by percentage of what was scored (see updateStudentPositions).
               SELECT
-                student_id,
-                subject_id,
-                class_id,
-                term_id,
-                SUM(score) AS total_subject_score,
+                ar.student_id,
+                ar.subject_id,
+                ar.class_id,
+                ar.term_id,
+                SUM(ar.score) AS total_subject_score,
                 RANK() OVER (
-                  PARTITION BY subject_id, class_id, term_id
-                  ORDER BY SUM(score) DESC
+                  PARTITION BY ar.subject_id, ar.class_id, ar.term_id
+                  ORDER BY ROUND(SUM(ar.score) * 100 / NULLIF(SUM(a.max_score), 0), 2) DESC NULLS LAST
                 ) AS position
-              FROM assessment_results
-              WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
-              GROUP BY student_id, subject_id, class_id, term_id
+              FROM assessment_results ar
+              JOIN assessments a ON a.assessment_id = ar.assessment_id
+              WHERE ar.subject_id = $1 AND ar.class_id = $2 AND ar.organization_id = $3 AND ar.term_id = $4
+                AND ar.score IS NOT NULL
+              GROUP BY ar.student_id, ar.subject_id, ar.class_id, ar.term_id
             )
             INSERT INTO student_positions (student_id, subject_id, organization_id, total_subject_score, position, class_id, term_id)
             SELECT student_id, subject_id, $3, total_subject_score, position, class_id, term_id
@@ -23407,11 +23466,13 @@ NUMBERING:
       const student = (await db.query("SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2", [studentId, organizationId])).rows[0];
       if (!student) return res.status(404).json({ success: false, error: "Student not found." });
       if (!(await require("../utils/studentDocuments").inScope(db, req, studentId))) return res.status(403).json({ success: false, error: "Not available." });
+      const svc = await require("../utils/schoolServices").services(db, organizationId);
       const overallLunch = require("../utils/overallLunch");
       const dayOffset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
       const lateReady = await require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "late"]] });
+      const none = { rows: [] };
       const [totals, recent, classShare, lunch] = await Promise.all([
-        db.query(
+        !svc.attendance ? none : db.query(
           `SELECT COUNT(*)::int AS total,
                   COUNT(*) FILTER (WHERE status::text ILIKE 'present')::int AS present,
                   ${lateReady ? "COUNT(*) FILTER (WHERE late AND status::text ILIKE 'present')" : "COUNT(*) FILTER (WHERE status::text ILIKE 'late')"}::int AS late,
@@ -23419,7 +23480,7 @@ NUMBERING:
              FROM attendance_records WHERE organization_id = $1 AND term_id = $2 AND student_id = $3`,
           [organizationId, termId, studentId]
         ),
-        require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] }).then((notesOn) => db.query(
+        !svc.attendance ? none : require("../utils/schemaHas").alreadyThere(db, { columns: [["attendance_records", "note"]] }).then((notesOn) => db.query(
           `SELECT date::text AS day, status::text AS status${notesOn ? ", note" : ""}${lateReady ? ", late" : ""} FROM attendance_records
             WHERE organization_id = $1 AND term_id = $2 AND student_id = $3 ORDER BY date DESC LIMIT 11 OFFSET $4`,
           [organizationId, termId, studentId, dayOffset]
@@ -23432,6 +23493,7 @@ NUMBERING:
       const lunchShown = classShare.lunch !== false;
       return res.json({
         success: true,
+        attendanceOn: svc.attendance,
         // "Present" counts everyone who came (a late arrival is a present student marked late).
         total: t.total, present: lateReady ? t.present : t.present + t.late, late: t.late, absent: t.absent,
         other: Math.max(0, t.total - t.present - t.late - t.absent),

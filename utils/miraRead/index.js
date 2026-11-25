@@ -75,6 +75,14 @@ function cap(list, max = ROW_MAX) {
   return { rows: rows.slice(0, max), truncated: rows.length > max };
 }
 
+// A tool about something the school turned off in Managira (Class & notif. settings, School) says so.
+const SERVICE_TOOLS = { get_attendance_summary: "attendance", get_lunch: "lunch" };
+const serviceGuard = (service, run) => async (db, actor, query) => {
+  const svc = await require("../schoolServices").services(db, actor.organizationId);
+  if (!svc[service]) throw new ReadError("PLAN_FEATURE_OFF", `${service === "lunch" ? "Lunch" : "Attendance"} isn't used in Managira at this school (the school keeps it elsewhere).`);
+  return run(db, actor, query);
+};
+
 // ── The registry: every group file in this folder ──
 let TOOLS = null;
 // MIRA_READ_RELOAD (set only by the local test copy) reads the group files afresh on every call.
@@ -91,7 +99,7 @@ function tools() {
       Object.entries(group).forEach(([name, tool]) => {
         if (TOOLS[name]) throw new Error(`miraRead: ${name} is defined twice`);
         if (!tool || typeof tool.run !== "function") throw new Error(`miraRead: ${name} has no run()`);
-        TOOLS[name] = tool;
+        TOOLS[name] = SERVICE_TOOLS[name] ? { ...tool, run: serviceGuard(SERVICE_TOOLS[name], tool.run) } : tool;
       });
     });
   return TOOLS;

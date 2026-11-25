@@ -84,6 +84,7 @@ module.exports = (db) => {
     router.post('/saveScoreRemarksAjax', isAuthenticated, canManageReports, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
 // Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, canManageReports, printController.saveRemarks); // Save remarks
+    router.get('/reportRemarksState', isAuthenticated, canManageReports, printController.reportRemarksState); // Report remarks: on or off, and its remarks
     router.post('/createCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
     router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, canManageReports, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
     router.post('/saveClassroomRemarkTypes', isAuthenticated, canManageReports, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls

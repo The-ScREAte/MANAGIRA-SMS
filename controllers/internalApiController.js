@@ -308,6 +308,7 @@ async function getStudentAttendance(req, res) {
       return sendPermissionError(res, permissionError);
     }
     const organizationId = parseInt(req.query.organizationId, 10);
+    if (!(await require("../utils/schoolServices").attendanceOn(db, organizationId))) return res.status(404).json({ error: "Attendance isn't used in Managira at this school." });
     const studentId = parseInt(req.params.studentId, 10);
     const days = Math.min(parseInt(req.query.days, 10) || 30, 180);
     if (!Number.isInteger(organizationId) || !Number.isInteger(studentId)) {
@@ -8346,6 +8347,8 @@ async function getOrganizationStatisticsApi(req, res) {
 
     const k = stats.kpis;
     const a = stats.academic;
+    // A school that keeps attendance elsewhere (Class & notif. settings, School) is told no attendance figures.
+    const attOn = await require("../utils/schoolServices").attendanceOn(db, organizationId);
     const { protocol, host } = publicBaseUrlParts();
     const pageUrl = `${protocol}://${host}/stats/organization?selectedTermId=${currentTerm.term_id}`;
     const entryByClass = new Map(stats.scoreEntry.map((row) => [row.class_name, row]));
@@ -8355,7 +8358,7 @@ async function getOrganizationStatisticsApi(req, res) {
     if (a?.classes.length) chartSpecs.averageScoreByClass = horizontalBarChart("Average score by class (%)", a.classes.map((c) => c.class_name), a.classes.map((c) => c.average_score), { max: 100 });
     if (a?.subjects.length) chartSpecs.subjectPerformance = horizontalBarChart("Average score by subject (%)", a.subjects.slice(0, 12).map((s) => s.subject_name), a.subjects.slice(0, 12).map((s) => s.average_score), { max: 100 });
     const attendanceClasses = stats.classes.filter((c) => c.attendance_rate !== null);
-    if (attendanceClasses.length) chartSpecs.attendanceByClass = horizontalBarChart("Attendance rate by class (%)", attendanceClasses.map((c) => c.class_name), attendanceClasses.map((c) => c.attendance_rate), { max: 100 });
+    if (attOn && attendanceClasses.length) chartSpecs.attendanceByClass = horizontalBarChart("Attendance rate by class (%)", attendanceClasses.map((c) => c.class_name), attendanceClasses.map((c) => c.attendance_rate), { max: 100 });
     if (stats.enrollmentTrend.length > 1) {
       chartSpecs.enrollmentOverTerms = {
         config: {
@@ -8381,9 +8384,7 @@ async function getOrganizationStatisticsApi(req, res) {
         passRate: a ? a.passRate : null,
         studentsWithScores: a ? a.studentsWithScores : 0,
         studentsNeedingSupport: a ? a.needsSupportCount : null,
-        attendanceRate: k.attendanceRate,
-        studentsBelowAttendanceThreshold: k.lowAttendance,
-        attendanceThreshold: statsController.LOW_ATTENDANCE_RATE,
+        ...(attOn ? { attendanceRate: k.attendanceRate, studentsBelowAttendanceThreshold: k.lowAttendance, attendanceThreshold: statsController.LOW_ATTENDANCE_RATE } : {}),
         scoreEntryRate: k.scoreEntryRate,
         scoresEntered: k.scoresEntered,
         scoresExpected: k.scoresExpected,
@@ -8400,7 +8401,7 @@ async function getOrganizationStatisticsApi(req, res) {
           enrolled: c.enrolled,
           averageScore: academic ? academic.average_score : null,
           passRate: academic ? academic.pass_rate : null,
-          attendanceRate: c.attendance_rate,
+          ...(attOn ? { attendanceRate: c.attendance_rate } : {}),
           scoreEntryRate: entry ? entry.rate : null,
         };
       }),
@@ -8438,7 +8439,8 @@ async function compareClassesApi(req, res) {
     const term = await getTermContext(organizationId, req.query.termName, req.query.schoolYearLabel);
     const rows = await statsController.compareClasses(organizationId, term.term_id, classes.map((c) => c.class_id));
 
-    const metrics = [["Average score (%)", "average_score"], ["Pass rate (%)", "pass_rate"], ["Attendance (%)", "attendance_rate"]];
+    const attOn = await require("../utils/schoolServices").attendanceOn(db, organizationId);
+    const metrics = [["Average score (%)", "average_score"], ["Pass rate (%)", "pass_rate"], ...(attOn ? [["Attendance (%)", "attendance_rate"]] : [])];
     const chartUrl = await shortChartUrl({
       type: "bar",
       data: {
@@ -8457,7 +8459,7 @@ async function compareClassesApi(req, res) {
         enrolled: r.enrolled,
         averageScore: r.average_score,
         passRate: r.pass_rate,
-        attendanceRate: r.attendance_rate,
+        ...(attOn ? { attendanceRate: r.attendance_rate } : {}),
       })),
       note: "A null value means nothing has been saved for that class in this term yet.",
       chartUrl,

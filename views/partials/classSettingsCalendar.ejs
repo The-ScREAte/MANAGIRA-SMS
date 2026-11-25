@@ -6,7 +6,7 @@
 <div class="cset-card" id="cs-calendar">
   <div class="cset-card__head">
     <div>
-      <h3 class="cset-card__title">School attendance calendar</h3>
+      <h3 class="cset-card__title"><%= locals.svc && !svc.attendance ? 'School calendar' : 'School attendance calendar' %></h3>
     </div>
     <% if (calendar && calendar.settingsUrl) { %>
       <a class="cset-link" href="<%= calendar.settingsUrl %>" data-no-spa<% if (locals.fromHub) { %> target="_top"<% } %>>Change in Settings</a>
@@ -31,7 +31,7 @@
         <% } else if (_sum.publicHolidays) { %>
           <dd>Days off<small><%= _sum.country ? 'Holidays of ' + _sum.country : 'Country not chosen' %></small></dd>
         <% } else { %>
-          <dd>School days<small>Attendance is counted on them</small></dd>
+          <dd>School days<small><%= locals.svc && !svc.attendance ? 'Lunch is taken on them' : 'Attendance is counted on them' %></small></dd>
         <% } %>
       </div>
     </dl>

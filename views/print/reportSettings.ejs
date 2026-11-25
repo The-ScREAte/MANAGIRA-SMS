@@ -1992,6 +1992,28 @@
       margin-bottom: 8px;
     }
 
+    /* Report remarks: its "+ Add remark" opens the Custom editor as a right-hand drawer. */
+    .rr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .rr-head h2 { margin: 0; min-width: 0; }
+    .rr-head .rr-add { flex: none; width: auto; height: 32px; margin: 0 0 0 auto; padding: 0 12px; white-space: nowrap; border: 1px solid var(--primary); border-radius: 8px; background: var(--primary); color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+    .rr-head .rr-add:hover:not(:disabled) { filter: brightness(1.08); }
+    .rr-head .rr-add:disabled { opacity: .5; cursor: default; }
+    .rr-add[hidden], .rr-state[hidden] { display: none; }
+    .rr-line { margin: 0 0 8px; font-size: 14px; color: #475569; }
+    .rr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .rr-chip { padding: 3px 10px; border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; color: #334155; font-size: 12.5px; font-weight: 500; }
+    .rr-link { margin: 0; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+    .rr-link:disabled { opacity: .5; cursor: default; text-decoration: none; }
+    .rr-drawer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10070; display: none; justify-content: flex-end; background: rgba(10, 20, 30, 0.55); }
+    .rr-drawer.is-open { display: flex; }
+    .rr-panel { display: flex; flex-direction: column; width: min(760px, 100vw); max-width: 100%; height: 100%; background: #fff; box-shadow: -8px 0 40px rgba(0,0,0,0.18); animation: rrIn .28s cubic-bezier(0.22, 1, 0.36, 1); }
+    @keyframes rrIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .rr-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 12px 18px; border-bottom: 1px solid #e2e8f0; background: #fff; }
+    .rr-bar h3 { margin: 0; color: #0f172a; font-size: 16px; font-weight: 600; line-height: 1.3; }
+    .rr-x { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin: 0; padding: 0; border: 1.5px solid #8ea3b6; border-radius: 9px; background: transparent; color: #334155; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+    .rr-x:hover { background: rgba(100, 116, 139, .14); }
+    .rr-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #fff; }
+
     .gr-remark-title {
       margin: 0;
       font-size: 0.8rem;
@@ -2422,7 +2444,7 @@
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub"><% var _canPromote = typeof workspaceAccess === 'function' && workspaceAccess().management.promotion; %><% if (_canPromote) { %><a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Promotion</a><% } %></p>
+        <p class="gp-sub"><% var _canPromote = typeof workspaceAccess === 'function' && workspaceAccess().management.promotion; %><% if (_canPromote) { %><a href="/common/management?panel=promotion&page=%2Fpromotion%2Fapply&label=Promotion" data-no-spa target="_top">Go to Promotion &rarr;</a><% } %></p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
@@ -2854,11 +2876,26 @@
         })();
       </script>
 
-      <%# Remarks are set up and collected in the Custom editor where feature report_remarks_forms is on
-          (customFormSections is then a list): this card isn't shown. It stays in the page unseen, so the
-          page's scripts that reach into it keep working. %>
-      <div class="card" id="globalRemarksCard"<%= Array.isArray(locals.customFormSections) ? ' hidden' : '' %>>
-        <h2>Global Remarks</h2>
+      <%# Report remarks: every school has this built-in Custom editor section. Its "+ Add remark" opens the
+          Custom editor as a drawer on that section (public/js ... inline script below). reportRemarks.state:
+          on, off (the school left it out) or unavailable (the Custom editor isn't set up yet). %>
+      <% const rr = locals.reportRemarks || { state: 'unavailable', fields: [] }; %>
+      <div class="card" id="globalRemarksCard">
+        <div class="rr-head">
+          <h2>Report remarks</h2>
+          <% if (rr.state !== 'unavailable') { %>
+          <button type="button" class="rr-add" id="rrAddBtn"<%= rr.state === 'on' ? '' : ' hidden' %><%= locals.canBuildForms ? '' : ' disabled title="Ask your admin for access"' %> data-section="<%= rr.id || '' %>">+ Add remark</button>
+          <% } %>
+        </div>
+        <% if (rr.state !== 'unavailable') { %>
+        <div class="rr-state" id="rrOn"<%= rr.state === 'on' ? '' : ' hidden' %>>
+          <p class="rr-line">Teachers write these each term. Each one prints on the report card.</p>
+          <div class="rr-chips" id="rrChips"><% rr.fields.forEach(function (f) { %><span class="rr-chip"><%= f.label %></span><% }); %></div>
+        </div>
+        <div class="rr-state" id="rrOff"<%= rr.state === 'off' ? '' : ' hidden' %>>
+          <p class="rr-line">Report remarks is off. <button type="button" class="rr-link" id="rrTurnOn"<%= locals.canBuildForms ? '' : ' disabled title="Ask your admin for access"' %>>Turn on</button></p>
+        </div>
+        <% } %>
         <div class="notice">Ready-made remarks teachers can pick on report cards.</div>
         <div class="gr-toolbar">
           <div class="gr-toolbar-item">
@@ -2892,9 +2929,9 @@
         </div>
         <form id="globalRemarksForm" action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
           <div class="gr-remark-head">
-            <div class="gr-remark-title">Remark Entries</div>
+            <div class="gr-remark-title">Ready-made remarks</div>
             <div class="rs-action-links">
-              <a href="#" data-noop id="add-remark-btn" class="rs-action-link gr-remark-add-link">+ Add remark</a>
+              <a href="#" data-noop id="add-remark-btn" class="rs-action-link gr-remark-add-link">+ Add another</a>
             </div>
           </div>
           <div id="remarks-container">
@@ -3578,6 +3615,95 @@
     });
 
     syncRemarkItemRemoveState();
+
+    // ── Report remarks: the Custom editor in a right-hand drawer, on the Report remarks section ──
+    (function () {
+      const addBtn = document.getElementById('rrAddBtn');
+      const turnOn = document.getElementById('rrTurnOn');
+      if (!addBtn && !turnOn) return;
+      let drawer = null;
+      let frame = null;
+      let closeTimer = null;
+      const sectionId = () => (addBtn && addBtn.getAttribute('data-section')) || '';
+      const headerBottom = () => {
+        // Inside a frame the page around it already puts the frame under its header.
+        if (window.parent !== window) return 0;
+        const header = document.getElementById('top-header');
+        return header ? Math.round(header.getBoundingClientRect().bottom) : 0;
+      };
+      function openDrawer(sectionIdValue) {
+        if (drawer) return;
+        drawer = document.createElement('div');
+        drawer.className = 'rr-drawer';
+        drawer.setAttribute('data-popup-lift', '');
+        drawer.style.top = headerBottom() + 'px';
+        drawer.innerHTML = '<div class="rr-panel" role="dialog" aria-modal="true" aria-labelledby="rrTitle">'
+          + '<div class="rr-bar"><h3 id="rrTitle">Report remarks</h3><button type="button" class="rr-x" aria-label="Close">&times;</button></div>'
+          + '<iframe class="rr-frame" data-no-lift title="Report remarks"></iframe></div>';
+        document.body.appendChild(drawer);
+        frame = drawer.querySelector('iframe');
+        frame.src = '/common/custom-forms?section=' + encodeURIComponent(sectionIdValue || '') + '&addField=1&embed=drawer';
+        drawer.querySelector('.rr-x').addEventListener('click', askClose);
+        requestAnimationFrame(() => drawer && drawer.classList.add('is-open'));
+      }
+      // The editor asks about unsaved changes itself; if it doesn't answer, the drawer closes anyway.
+      function askClose() {
+        if (!drawer) return;
+        try { frame.contentWindow.postMessage({ type: 'managira:report-remarks-close-request' }, window.location.origin); } catch (e) { return closeDrawer(); }
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(closeDrawer, 1500);
+      }
+      function closeDrawer() {
+        clearTimeout(closeTimer);
+        if (!drawer) return;
+        drawer.remove();
+        drawer = null;
+        frame = null;
+        refreshReportRemarks();
+      }
+      async function refreshReportRemarks() {
+        try {
+          const response = await fetch('/print/reportRemarksState', { headers: { Accept: 'application/json' } });
+          const state = await response.json();
+          if (!response.ok || !state || !state.success) return;
+          const on = state.state === 'on';
+          const off = state.state === 'off';
+          if (addBtn) { addBtn.hidden = !on; if (state.id) addBtn.setAttribute('data-section', state.id); }
+          const onEl = document.getElementById('rrOn');
+          const offEl = document.getElementById('rrOff');
+          if (onEl) onEl.hidden = !on;
+          if (offEl) offEl.hidden = !off;
+          const chips = document.getElementById('rrChips');
+          if (chips) chips.innerHTML = (state.fields || []).map((f) => '<span class="rr-chip">' + escapeHtmlText(f.label) + '</span>').join('');
+          customRemarkTypesState.length = 0;
+          (state.customRemarkTypes || []).forEach((item) => customRemarkTypesState.push({ type_key: String(item.type_key || '').trim(), label: String(item.label || '').trim(), obsolete: Boolean(item.obsolete) }));
+          refreshCustomRemarkTypeTags();
+          refreshRemarkTypeSelectOptions();
+          refreshClassroomRemarkTypeOptions();
+        } catch (e) { /* the list stays as it was; a reload shows the latest */ }
+      }
+      window.addEventListener('message', (event) => {
+        const data = event.data || {};
+        if (event.origin !== window.location.origin || data.type !== 'managira:report-remarks' || !frame || event.source !== frame.contentWindow) return;
+        if (data.action === 'saved') refreshReportRemarks();
+        if (data.action === 'close') closeDrawer();
+      });
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && drawer) { event.preventDefault(); askClose(); } });
+      if (addBtn) addBtn.addEventListener('click', () => { if (!addBtn.disabled) openDrawer(sectionId()); });
+      if (turnOn) turnOn.addEventListener('click', async () => {
+        if (turnOn.disabled) return;
+        turnOn.disabled = true;
+        try {
+          const response = await fetch('/common/custom-forms/report-remarks/on', { method: 'POST', headers: { Accept: 'application/json' } });
+          const result = await response.json();
+          if (!response.ok || !result || !result.success) throw new Error((result && result.message) || 'Report remarks could not be turned on.');
+          await refreshReportRemarks();
+          if (typeof showToast === 'function') showToast('Report remarks is on.');
+        } catch (e) {
+          if (typeof showToast === 'function') showToast(e.message || 'Report remarks could not be turned on.', true);
+        } finally { turnOn.disabled = false; }
+      });
+    })();
 
     document.getElementById('customRemarkTypeList')?.addEventListener('click', async (event) => {
       const deleteBtn = event.target.closest('.gr-type-delete-btn');
@@ -7444,11 +7570,15 @@
         gpa: ['GPA', '4.0 scale: A 4 · B 3 · C 2 · D 1 · F 0.'],
       };
       const secKeys = new Set(secRows.map((row) => row[0]));
+      // What the school takes in Managira: a service it doesn't use is left out of the report card, so its choices are
+      // hidden here (they stay as saved).
+      const SCHOOL_SVC = <%- JSON.stringify(locals.schoolServices || { attendance: true, lunch: true }) %>;
+      const svcHidden = (key) => (key === 'attendance' && !SCHOOL_SVC.attendance) || (key === 'lunch' && !SCHOOL_SVC.lunch);
       const secRow = (key) => {
         if (!secKeys.has(key)) return '';
         const words = SECTION_WORDS[key] || [secRows.find((row) => row[0] === key)[2], ''];
         return `
-        <label class="ds-adv-flat-lbl rs-opt">
+        <label class="ds-adv-flat-lbl rs-opt"${svcHidden(key) ? ' style="display:none"' : ''}>
           <input type="checkbox" class="ds-adv-sec" data-key="${key}" ${ds.sections[key] ? 'checked' : ''}>
           <span class="rs-opt__text"><b>${words[0]}</b>${words[1] ? `<small>${words[1]}</small>` : ''}</span>
         </label>`;
@@ -7663,7 +7793,7 @@
           </div>
           <div class="rs-col">
             ${group('Promotion', '', activatePromotionRow + secRow('promotion'))}
-            ${group('Attendance &amp; lunch', '', secRow('attendance') + secRow('lunch') + attendanceManualRow)}
+            ${(SCHOOL_SVC.attendance || SCHOOL_SVC.lunch) ? group(SCHOOL_SVC.attendance && SCHOOL_SVC.lunch ? 'Attendance &amp; lunch' : (SCHOOL_SVC.lunch ? 'Lunch' : 'Attendance'), '', secRow('attendance') + secRow('lunch') + (SCHOOL_SVC.attendance ? attendanceManualRow : `<div style="display:none">${attendanceManualRow}</div>`)) : `<div style="display:none">${secRow('attendance') + secRow('lunch') + attendanceManualRow}</div>`}
             ${group('Remarks', 'Which remarks print.', secRow('teacherRemarks') + secRow('conductRemarks') + secRow('attitudeRemarks') + secRow('interestRemarks') + customRows)}
             ${group('Also on the report card', '', secRow('gradeKey') + secRow('choiceResults') + secRow('gpa') + secRow('customSections') + cfSectionsHtml)}
           </div>

@@ -842,13 +842,14 @@
         var _reportHref = (_isStaff && _cid && workspaceAccess().reports.terminal) ? ('/print/printStudentReport?classId=' + _cid + '&termId=' + currentTerm + '&studentIds=' + student.student_id) : '';
         // Messages: Mail Room people, and a class's own staff (a teacher sees their classes' parents' conversations).
         var _hasMessages = _isStaff && _active && (_canMessage || ['Teacher', 'Supervisor'].includes(req.session.userRole));
-        var _hasAttendance = _isStaff && _perms.includes('mark_attendance');
+        var _svc = locals.schoolServices || { attendance: true, lunch: true, name: 'Attendance and lunch' };
+        var _hasAttendance = _isStaff && _perms.includes('mark_attendance') && (_svc.attendance || _svc.lunch);
         var _attendanceHref = (_active && _cid) ? ('/common/classDashboard/' + _cid + '/attendance') : '';
         var _hasBills = _isStaff && !!workspaceAccess().paygira.students;
         var _billsHref = '/account/settings/finance?section=students&openStudent=' + student.student_id;
         var _hasFiles = !!locals.studentDocuments;
         var _hasPortfolio = !!(locals.studentDocuments && studentDocuments.portfolio);
-        var _hasRecords = !!(locals.oldSystem && ((oldSystem.history.length || oldSystem.attendance.length || oldSystem.sourceGpa) || (oldSystem.forms.length || oldSystem.archives.length || (oldSystem.documents || []).length || (oldSystem.extras || []).length)));
+        var _hasRecords = !!(locals.oldSystem && ((oldSystem.history.length || (_svc.attendance && oldSystem.attendance.length) || oldSystem.sourceGpa) || (oldSystem.forms.length || oldSystem.archives.length || (oldSystem.documents || []).length || (oldSystem.extras || []).length)));
       %>
       <header class="sd-head">
         <div class="sd-head__photo">
@@ -886,7 +887,7 @@
       <div class="sd-tabs" role="tablist" aria-label="Student sections" id="sd-tabs">
         <button type="button" role="tab" class="sd-tab" id="sd-tab-overview" data-sd-tab="overview" aria-controls="sd-panel-overview" aria-selected="true">Overview</button>
         <button type="button" role="tab" class="sd-tab" id="sd-tab-grades" data-sd-tab="grades" aria-controls="sd-panel-grades" aria-selected="false" tabindex="-1">Grades</button>
-        <% if (_hasAttendance) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-attendance" data-sd-tab="attendance" aria-controls="sd-panel-attendance" aria-selected="false" tabindex="-1">Attendance</button><% } %>
+        <% if (_hasAttendance) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-attendance" data-sd-tab="attendance" aria-controls="sd-panel-attendance" aria-selected="false" tabindex="-1"><%= _svc.name %></button><% } %>
         <% if (_hasMessages) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-messages" data-sd-tab="messages" aria-controls="sd-panel-messages" aria-selected="false" tabindex="-1">Messages <span class="sd-tab__n sd-tab__n--alert" id="sdMsgBadge" hidden></span></button><% } %>
         <% if (_hasBills) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-bills" data-sd-tab="bills" aria-controls="sd-panel-bills" aria-selected="false" tabindex="-1">Bills</button><% } %>
         <% if (_hasFiles) { %><button type="button" role="tab" class="sd-tab" id="sd-tab-files" data-sd-tab="files" aria-controls="sd-panel-files" aria-selected="false" tabindex="-1">Files <span class="sd-tab__n"><%= studentDocuments.list.length %></span></button><% } %>
@@ -1013,7 +1014,7 @@
       <section class="sd-card" id="sdAtt" data-student="<%= student.student_id %>" data-term="<%= currentTerm %>">
         <div class="sd-bar">
           <span class="sd-bar__note">This term</span>
-          <% if (_attendanceHref) { %><a class="sd-track" href="<%= _attendanceHref %>" target="_blank" rel="noopener" data-no-spa title="Open the class attendance (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h9"/></svg>Take attendance</a><% } %>
+          <% if (_attendanceHref) { %><a class="sd-track" href="<%= _attendanceHref %>" target="_blank" rel="noopener" data-no-spa title="Open the class <%= _svc.name.toLowerCase() %> (opens in a new tab)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h9"/></svg>Take attendance</a><% } %>
         </div>
         <div id="sdAttBody" aria-live="polite"><div class="sd-loading" role="status" aria-label="Loading"><span class="sd-spin"></span></div></div>
       </section>
@@ -1191,7 +1192,7 @@
       <% } %>
       <% if (_hasRecords) { %>
       <div class="sd-panel" id="sd-panel-records" role="tabpanel" aria-labelledby="sd-tab-records" data-sd-panel="records" hidden>
-      <% if (locals.oldSystem && (oldSystem.history.length || oldSystem.attendance.length || oldSystem.sourceGpa)) { %>
+      <% if (locals.oldSystem && (oldSystem.history.length || ((locals.schoolServices || {}).attendance !== false && oldSystem.attendance.length) || oldSystem.sourceGpa)) { %>
       <%# Final grades and attendance totals from the school's old system (data migration). %>
       <section class="sd-card">
         <h3 class="sd-card__title">Academic record before Managira</h3>
@@ -1212,7 +1213,7 @@
           </table>
         </div>
         <% } %>
-        <% if (oldSystem.attendance.length) { %>
+        <% if (oldSystem.attendance.length && (locals.schoolServices || {}).attendance !== false) { %>
         <h4 style="margin:14px 0 6px;font-size:14px">Attendance</h4>
         <div class="table-container">
           <table>
@@ -1366,14 +1367,14 @@
                   return;
                 }
                 body.textContent = '';
-                if (!d.total && !(d.lunch && d.lunch.taken)) { body.appendChild(el('p', 'sd-empty', 'No attendance has been taken for this term yet.')); return; }
+                if (!d.total && !(d.lunch && d.lunch.taken)) { body.appendChild(el('p', 'sd-empty', d.attendanceOn === false ? 'No lunch has been taken for this term yet.' : 'No attendance has been taken for this term yet.')); return; }
                 var grid = el('div', 'sd-stats');
-                grid.appendChild(stat('Overall attendance', d.rate == null ? '—' : d.rate + '%', d.total ? d.present + ' of ' + d.total + ' days' : ''));
+                if (d.attendanceOn !== false) grid.appendChild(stat('Overall attendance', d.rate == null ? '—' : d.rate + '%', d.total ? d.present + ' of ' + d.total + ' days' : ''));
                 if (d.lunch) grid.appendChild(stat('Overall lunch', d.lunch.taken ? d.lunch.days + ' of ' + d.lunch.taken : '—', d.lunch.taken ? 'days with lunch' : 'Lunch not taken yet'));
-                grid.appendChild(stat('Absent', String(d.absent), 'days', d.absent > 0));
-                grid.appendChild(stat('Late', String(d.late), 'days'));
+                if (d.attendanceOn !== false) { grid.appendChild(stat('Absent', String(d.absent), 'days', d.absent > 0));
+                grid.appendChild(stat('Late', String(d.late), 'days')); }
                 body.appendChild(grid);
-                if (d.recent && d.recent.length) {
+                if (d.attendanceOn !== false && d.recent && d.recent.length) {
                   body.appendChild(el('p', 'sd-sub', 'Recent days'));
                   attList = el('ul', 'sd-days');
                   d.recent.forEach(function (r) { attList.appendChild(dayItem(r)); });

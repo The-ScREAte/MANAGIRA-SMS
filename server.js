@@ -1144,19 +1144,62 @@ app.get("/public-image", async (req, res) => {
     return res.sendStatus(503);
   }
 
+  // A picture seen before is answered from the server's own copy: a slow or broken connection to
+  // storage (or none at all) must never turn a logo into a broken image.
+  const imageCache = require("./utils/imageCache");
+  const width = [128, 256, 512].includes(Number(req.query.w)) ? Number(req.query.w) : null;
+  const cacheKey = `${key}|${width || 0}`;
+  const sendCached = (entry) => {
+    res.set({
+      "Content-Type": entry.type,
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${Math.max(300, Math.min(3600, Number(expires) - Math.floor(Date.now() / 1000)))}`,
+    });
+    if (!isPublic) res.set("Vary", "Cookie");
+    return res.end(entry.body);
+  };
+  const cached = await imageCache.get(cacheKey);
+  if (cached) return sendCached(cached);
+
   try {
     const { s3Client, GetObjectCommand } = require("./config/s3");
-    const object = await s3Client.send(
-      new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key })
-    );
+    let object;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        object = await s3Client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key }));
+        break;
+      } catch (error) {
+        const missing = error.name === "NoSuchKey" || error.name === "NotFound" || error.$metadata?.httpStatusCode === 404;
+        if (missing || attempt >= 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 250)); // one more try for a passing network hiccup
+      }
+    }
     if (!object.Body) return res.sendStatus(404);
     if (Number(object.ContentLength) > 20 * 1024 * 1024) {
       object.Body.destroy();
       return res.sendStatus(413);
     }
+    const type = publicImageUrl.imageContentType(key);
+    const resize = width && /^image\/(jpeg|png|webp)$/i.test(type || "");
+
+    // Small pictures are read whole, kept, and sent: the next request needs no storage at all.
+    if (Number(object.ContentLength) <= imageCache.MAX_BYTES && typeof object.Body.transformToByteArray === "function") {
+      let body = Buffer.from(await object.Body.transformToByteArray());
+      let outType = type;
+      if (resize) {
+        // A phone showing a small round photo shouldn't download a 2 MB picture. Only these sizes,
+        // so nobody can make the server produce endless versions.
+        body = await require("sharp")(body, { failOn: "none" }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+        outType = "image/webp";
+      }
+      const entry = { type: outType, body };
+      await imageCache.set(cacheKey, outType, body);
+      return sendCached(entry);
+    }
 
     res.set({
-      "Content-Type": publicImageUrl.imageContentType(key),
+      "Content-Type": type,
       "Content-Disposition": "inline",
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${Math.max(300, Math.min(3600, Number(expires) - Math.floor(Date.now() / 1000)))}`,
@@ -1167,10 +1210,7 @@ app.get("/public-image", async (req, res) => {
       if (!res.headersSent) res.status(502).end("Image could not be loaded.");
       else res.destroy();
     });
-    // A phone showing a small round photo shouldn't download a 2 MB picture. Only these sizes,
-    // so nobody can make the server produce endless versions.
-    const width = [128, 256, 512].includes(Number(req.query.w)) ? Number(req.query.w) : null;
-    if (width && /^image\/(jpeg|png|webp)$/i.test(publicImageUrl.imageContentType(key) || "")) {
+    if (resize) {
       const smaller = require("sharp")({ failOn: "none" }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 80 });
       smaller.once("error", (error) => {
         console.error("[Public image] couldn't make a smaller copy:", error.message);

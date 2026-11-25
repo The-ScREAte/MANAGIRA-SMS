@@ -3551,7 +3551,7 @@
             <div class="settings-subcard" id="school-calendar">
               <div class="cz-intro">
                 <h4>School calendar</h4>
-                <small>Which days count for attendance across the school.</small>
+                <small><%= locals.schoolServices && !schoolServices.attendance ? (schoolServices.lunch ? 'Which days lunch is taken across the school. Attendance is turned off for this school.' : 'Attendance and lunch are turned off for this school, so this calendar is not used.') : 'Which days count for attendance across the school.' %></small>
               </div>
               <div class="cz-body">
                 <form action="/account/settings/calendar/profile" method="POST">

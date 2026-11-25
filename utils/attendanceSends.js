@@ -34,6 +34,8 @@ async function mayTellFamilies(db, organizationId) {
 // The three ways a family hears about an absence, as they were when a save sent them at once.
 async function tellFamilies(db, organizationId, studentIds, date) {
   if (!studentIds || !studentIds.length) return;
+  // A school that keeps attendance elsewhere tells nobody about it.
+  if (!(await require("./schoolServices").attendanceOn(db, organizationId))) return;
   const { triggerAbsenceAlertsForStudents } = require("./notificationDigestService");
   await Promise.all([
     triggerAbsenceAlertsForStudents(db, organizationId, studentIds).catch((error) => console.error("[Attendance] Absence-threshold notification failed:", error.message)),
@@ -46,6 +48,7 @@ async function tellFamilies(db, organizationId, studentIds, date) {
 async function onSaved(db, organizationId, { classId, date, studentIds, now = new Date() }) {
   const day = dayKey(date);
   if (!day || !studentIds || !studentIds.length) return { held: false, confirmed: false };
+  if (!(await require("./schoolServices").attendanceOn(db, organizationId))) return { held: false, confirmed: false };
   try {
     if (!(await ready(db)) || !classId) throw new Error("not ready");
     const { rows } = await db.query(

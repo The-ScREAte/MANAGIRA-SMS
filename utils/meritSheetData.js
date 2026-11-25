@@ -257,7 +257,8 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
     const maxPossibleTotal = studentScores.reduce((total, subject) => total + subject.maxScore, 0);
     const scoredSubjects = studentScores.filter((subject) => subject.entered > 0).length;
     const averageScore = scoredSubjects > 0 ? totalScore / scoredSubjects : 0;
-    const percentageValue = maxPossibleTotal > 0 ? (totalScore / maxPossibleTotal) * 100 : null;
+    // Two decimals (halves up), as on the gradebook and report card; the grade band is looked up from it.
+    const percentageValue = termTotals.percentOf(totalScore, maxPossibleTotal);
     const hasRecordedScore = studentScores.some((subject) =>
       subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)
     );
@@ -271,9 +272,10 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
         formatDisplayName(student, nameDisplayFormat) ||
         [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
       scores: studentScores,
-      totalScore: totalScore.toFixed(2),
-      averageScore: averageScore.toFixed(2),
+      totalScore: termTotals.round2(totalScore).toFixed(2),
+      averageScore: termTotals.round2(averageScore).toFixed(2),
       percentage: percentageValue === null ? "-" : `${percentageValue.toFixed(2)}%`,
+      percentageValue,
       gender: genderText ? genderText.charAt(0).toUpperCase() + genderText.slice(1).toLowerCase() : "-",
       overallGrade: formatMeritSheetGrade(scoreBand?.grade_label, gradeMode),
       remark: scoreBand?.remark || "-",
@@ -281,7 +283,11 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
   });
 
   // Sort students by total score and assign positions
-  meritSheetData.sort((a, b) => b.totalScore - a.totalScore);
+  // Ranked by the percentage of what each student was scored on (a score never entered is left out of
+  // the total and of what it is out of, so it must not cost a place); students scored on everything
+  // rank as they would by total. Without a percentage, last.
+  const rankKey = (student) => (student.percentageValue === null ? -Infinity : student.percentageValue);
+  meritSheetData.sort((a, b) => rankKey(b) - rankKey(a) || Number(b.totalScore) - Number(a.totalScore));
   const hasAnyRecordedScore = meritSheetData.some((student) =>
     Array.isArray(student.scores) &&
     student.scores.some((subject) =>
@@ -295,11 +301,12 @@ async function buildMeritSheetData(db, { organizationId, classId, termId, subjec
   let previousRoundedTotal = null;
   let previousPosition = 0;
   meritSheetData.forEach((student, index) => {
-    const roundedTotal = Math.round((Number(student.totalScore) || 0) * 100) / 100;
+    const roundedTotal = rankKey(student);
     const position = roundedTotal === previousRoundedTotal ? previousPosition : index + 1;
     previousRoundedTotal = roundedTotal;
     previousPosition = position;
-    student.position = hasAnyRecordedScore
+    // A student with no scores yet holds no place (the gradebook and report card show "-").
+    student.position = hasAnyRecordedScore && student.percentageValue !== null
       ? `${position}${getOrdinalSuffix(position)}`
       : "-";
   });

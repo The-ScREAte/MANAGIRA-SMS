@@ -28,7 +28,7 @@ const TYPES = [
   { key: "announcements", label: "Announcements", group: "Notes & communication" },
   { key: "classes", label: "Classes & subjects", group: "Academics" },
   { key: "assessments", label: "Assessments", group: "Academics" },
-  { key: "remarks", label: "Report card remarks", group: "Academics" },
+  { key: "remarks", label: "Report remarks", group: "Academics" },
   { key: "buses", label: "Buses & drivers", group: "Transport" },
   { key: "bills", label: "Bills", group: "Finance" },
   { key: "activities", label: "Class activities", group: "Calendar & tasks" },

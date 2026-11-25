@@ -27,6 +27,46 @@
     <p class="cset-status" data-cs-status role="status" aria-live="polite"></p>
   </div>
 
+  <% if (locals.canEditSchool && locals.svc) { const _svc = svc; %>
+  <%# What the school uses Managira for. A service turned off is left out of the classroom, report cards, portals, briefings and everything below. %>
+  <div class="cset-card" id="cset-school" data-school-url="/common/class-settings/school">
+    <div class="cset-card__head">
+      <h2 class="cset-card__title">School</h2>
+      <span class="cset-msg" data-school-msg role="status" aria-live="polite"></span>
+    </div>
+    <ul class="cset-list cset-list--first">
+      <% [['attendance', 'Attendance', 'Take attendance in Managira. Off if your school keeps it elsewhere.'], ['lunch', 'Lunch', 'Take lunch in Managira.']].forEach((row) => { %>
+      <li class="cset-row" data-cs-row>
+        <span style="flex:1;min-width:0;"><label class="cset-row__label" for="cset-school-<%= row[0] %>"><%= row[1] %></label><span class="cset-row__help"><%= row[2] %></span></span>
+        <span class="cset-cells"><span class="cset-cell">
+          <span class="cset-switch">
+            <input type="checkbox" role="switch" id="cset-school-<%= row[0] %>" data-school-key="<%= row[0] %>" <%= _svc[row[0]] ? 'checked' : '' %> />
+            <span class="cset-switch__track" aria-hidden="true"></span>
+          </span>
+        </span></span>
+        <span class="cset-lockslot"></span>
+      </li>
+      <% }) %>
+    </ul>
+    <% if (!_svc.attendance || !_svc.lunch) { %><p class="cset-card__sub" style="padding:10px 20px 14px;"><%= !_svc.attendance && !_svc.lunch ? 'Attendance and lunch are off, so they are left out everywhere.' : (!_svc.attendance ? 'Attendance is off, so it is left out everywhere, including report cards and portals.' : 'Lunch is off, so it is left out everywhere.') %></p><% } %>
+  </div>
+  <script nonce="<%= locals.cspNonce || '' %>">
+  (function () {
+    var card = document.getElementById('cset-school'); if (!card) return;
+    var msg = card.querySelector('[data-school-msg]');
+    card.addEventListener('change', function (e) {
+      var box = e.target.closest('[data-school-key]'); if (!box) return;
+      var body = {}; body[box.getAttribute('data-school-key')] = box.checked;
+      box.disabled = true; msg.className = 'cset-msg'; msg.textContent = 'Saving…';
+      fetch(card.getAttribute('data-school-url'), { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.success) throw new Error(j.message || ''); return j; }); })
+        .then(function () { msg.className = 'cset-msg is-saved'; msg.textContent = 'Saved'; setTimeout(function () { window.location.reload(); }, 350); })
+        .catch(function (err) { box.checked = !box.checked; box.disabled = false; msg.className = 'cset-msg is-error'; msg.textContent = (err && err.message) || 'Not saved'; });
+    });
+  })();
+  </script>
+  <% } %>
+
   <div class="cset-card">
     <div class="cset-card__head">
       <h2 class="cset-card__title">Classes</h2>
@@ -110,7 +150,7 @@
         </span><span class="cset-lockslot"></span>
       </li>
       <% _b.sections.forEach((section) => { %>
-      <li class="cset-row" title="<%= section.hint %>">
+      <li class="cset-row" title="<%= section.hint %>"<%- section.off ? ' hidden style="display:none"' : '' %>>
         <span class="cset-row__label"><%= section.label %></span>
         <span class="cset-cells">
           <% ['parents', 'students'].forEach((a) => { %>
@@ -139,7 +179,7 @@
   </script>
   <% } %>
 
-  <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true }) %>
+  <%- include('../partials/classSettingsCalendar', { calendar, fromHub: true, svc: locals.svc }) %>
 </div>
 <script nonce="<%= locals.cspNonce || '' %>" type="application/json" data-cs-state><%- JSON.stringify(_state).replace(/</g, '\\u003c') %></script>
 <script src="<%= assetUrl('/js/classSettings.js') %>" defer></script>

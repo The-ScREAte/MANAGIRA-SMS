@@ -315,6 +315,7 @@ module.exports = (db) => {
   router.get("/class-settings/rows", isAuthenticated, blockGuardians, (req, res) => classSettingsPages.managementRows(req, res, db));
   router.post("/class-settings/notices", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.saveNotices(req, res, db));
   router.post("/class-settings/save", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.save(req, res, db));
+  router.post("/class-settings/school", isAuthenticated, blockGuardians, express.json(), (req, res) => classSettingsPages.saveSchool(req, res, db));
   router.get("/failedEmails", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.getFailedEmails(req, res, db)
   );
@@ -368,7 +369,7 @@ module.exports = (db) => {
   // Parent messages: one link for notifications, Mail Room's inbox, and status.
   router.get("/parent-messages/:id(\\d+)", isAuthenticated, (req, res) => commonController.parentMessageOpen(req, res, db));
   router.post("/parent-messages/:id(\\d+)/status", isAuthenticated, express.json(), (req, res) => commonController.parentMessageStatus(req, res, db));
-  router.get("/student-attendance", isAuthenticated, (req, res) => commonController.studentAttendance(req, res, db));
+  router.get("/student-attendance", isAuthenticated, require("../utils/schoolServices").requireService(db, "either"), (req, res) => commonController.studentAttendance(req, res, db));
   router.get("/student-messages", isAuthenticated, (req, res) => commonController.studentMessages(req, res, db));
   router.get("/mailroom/inbox", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) => commonController.mailroomInbox(req, res, db));
 
@@ -435,6 +436,7 @@ module.exports = (db) => {
     "/attendanceCollection",
     checkFeatureAccess,
     isAuthenticated,
+    require("../utils/schoolServices").requireService(db, "either"),
     require("../utils/classScope").requireLeadsClass(db),
     require("../utils/classScope").requireClassDashboardAccess(db),
     (req, res) => commonController.attendanceCollection(req, res, db)
@@ -992,13 +994,13 @@ module.exports = (db) => {
   router.post("/setMainEmployee", isAuthenticated, requirePermission(PERMISSIONS.EMPLOYEES_EDIT), (req, res) =>
     commonController.setMainEmployee(req, res, db)
   );
-  router.post("/saveLunch", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
+  router.post("/saveLunch", isAuthenticated, require("../utils/schoolServices").requireService(db, "lunch"), requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveLunch(req, res, db)
   );
-  router.post("/confirmAttendanceDone", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
+  router.post("/confirmAttendanceDone", isAuthenticated, require("../utils/schoolServices").requireService(db, "attendance"), requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.confirmAttendanceDone(req, res, db)
   );
-  router.post("/saveSingleAttendance", isAuthenticated, requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
+  router.post("/saveSingleAttendance", isAuthenticated, require("../utils/schoolServices").requireService(db, "attendance"), requirePermission(PERMISSIONS.MARK_ATTENDANCE), require("../utils/classScope").requireLeadsClass(db), (req, res) =>
     commonController.saveSingleAttendance(req, res, db)
   );
   router.get("/createTest", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
@@ -1400,6 +1402,7 @@ module.exports = (db) => {
   router.get("/migration/old-records", isAuthenticated, (req, res) => migration.oldRecords(req, res, db));
   router.get("/migration/documents/:documentId(\\d+)", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) => migration.documentFile(req, res, db));
   router.post("/custom-forms/save", ...formBuilders, express.json({ limit: "1mb" }), (req, res) => customForms.saveSection(req, res, db));
+  router.post("/custom-forms/report-remarks/on", ...formBuilders, (req, res) => customForms.remarksOn(req, res, db));
   router.post("/custom-forms/:id(\\d+)/delete", ...formBuilders, (req, res) => customForms.deleteSection(req, res, db));
   router.post("/custom-forms/order", ...formBuilders, express.json(), (req, res) => customForms.order(req, res, db));
   // A notification's link: to the classroom's Forms tab or the Custom editor, whichever is theirs.

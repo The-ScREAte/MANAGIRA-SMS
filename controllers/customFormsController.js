@@ -120,6 +120,8 @@ async function editorPage(req, res, db) {
   const isEmbedded = isEmbeddedRequest(req, "customForms");
   // The Custom editor has no page of its own: it opens inside Management Tools.
   if (!isEmbedded && String(req.get("Sec-Fetch-Dest") || "") !== "iframe") return res.redirect(`/common/management?panel=custom-forms&page=${encodeURIComponent(req.originalUrl)}&label=${encodeURIComponent("Custom editor")}`);
+  // Report remarks is every school's own section: made here the first time it is read.
+  await cf.ensureRemarksSection(db, organizationId, resolveActor(req).id).catch((error) => console.error("[Custom forms] report remarks:", error.message));
   const [sections, counts, classes, channels, remarks] = await Promise.all([
     cf.listSections(db, organizationId, { fresh: true }),
     cf.entryCounts(db, organizationId),
@@ -127,8 +129,11 @@ async function editorPage(req, res, db) {
     require("../utils/guardianMessaging").getMessagingChannelStatus(db, organizationId).catch(() => ({})),
     // Report-card remarks (feature report_remarks_forms): the remarks a field can print as, and
     // the library's Report card remarks made from the school's remark types and ready-made remarks.
-    cf.remarksOn(organizationId) ? cf.schoolRemarks(db, organizationId).catch(() => null) : null,
+    cf.schoolRemarks(db, organizationId).catch(() => null),
   ]);
+  // The deep link from Report Settings: ?section=<id>&addField=1&embed=drawer opens that section
+  // with a new remark field ready to name; the drawer has no list or title of its own.
+  const drawer = String(req.query.embed || "") === "drawer";
   res.render("common/customForms", {
     title: "Custom editor",
     isEmbedded: true,
@@ -144,8 +149,12 @@ async function editorPage(req, res, db) {
       icons: cf.ICONS,
       answerIcons: cf.ANSWER_ICONS,
       remarks: remarks ? { slots: remarks.slots, template: cf.remarksSection(remarks) } : null,
+      drawer,
+      addField: drawer && String(req.query.addField || "") === "1",
       // Lunch is built into attendance: the library doesn't offer a lunch count.
       builtInLunch: true,
+      // A school that keeps attendance elsewhere has no attendance page to put a daily column on.
+      attendanceUsed: (res.locals.schoolServices || {}).attendance !== false,
     },
   });
 }
@@ -154,7 +163,8 @@ async function saveSectionApi(req, res, db) {
   if (!(await available(db, req))) return notAvailable(req, res, db);
   try {
     const organizationId = orgOf(req);
-    const saved = await cf.saveSection(db, organizationId, req.body || {}, resolveActor(req).id);
+    const { builtin, ...body } = req.body || {}; // the built-in section is never made from the editor
+    const saved = await cf.saveSection(db, organizationId, body, resolveActor(req).id);
     if (!saved) return fail(res, 404, "That section no longer exists.");
     if (saved.error) return fail(res, 400, saved.error);
     let announced = 0;
@@ -169,6 +179,20 @@ async function saveSectionApi(req, res, db) {
   } catch (error) {
     console.error("[Custom forms] save:", error.message);
     return fail(res, 500, "The section could not be saved. Try again.");
+  }
+}
+
+// Report remarks turned on again after the school left it out (made if it has none).
+async function remarksOnApi(req, res, db) {
+  if (!(await available(db, req))) return notAvailable(req, res, db);
+  try {
+    const section = await cf.turnOnRemarks(db, orgOf(req), resolveActor(req).id);
+    if (!section) return fail(res, 404, "Report remarks could not be turned on.");
+    const counts = await cf.entryCounts(db, orgOf(req));
+    return res.json({ success: true, section: { ...section, entries: (counts.get(section.id) || {}).entries || 0 } });
+  } catch (error) {
+    console.error("[Custom forms] report remarks on:", error.message);
+    return fail(res, 500, "Report remarks could not be turned on. Try again.");
   }
 }
 
@@ -516,6 +540,7 @@ module.exports = {
   editorPage: wrap(editorPage),
   saveSection: wrap(saveSectionApi),
   deleteSection: wrap(deleteSectionApi),
+  remarksOn: wrap(remarksOnApi),
   order: wrap(orderApi),
   data: wrap(dataApi),
   exportCsv: wrap(exportApi),

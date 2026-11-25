@@ -15,7 +15,14 @@ function isBlank(value) {
   return !Number.isFinite(Number(value));
 }
 
-const round2 = (value) => Math.round(value * 100) / 100;
+// Two decimals, halves up, the way a person rounds 89.995 (to 90.00) even though the machine holds
+// 89.99499999999999: the digits past what a double can hold are dropped first.
+const round2 = (value) => Math.round(Number((Number(value) * 100).toPrecision(12))) / 100;
+
+// A score as a percentage of what it is out of, to two decimals (what every page shows and what
+// is kept with the scores); null when there is no maximum. Grades are looked up from this number,
+// so a page never shows 90.00 % beside the grade for 89.99.
+const percentOf = (total, max) => (Number(max) > 0 ? round2((Number(total) / Number(max)) * 100) : null);
 
 // items: [{ score, max, category }] for one student in one subject. Returns what was scored:
 //   entered     how many scores count
@@ -37,6 +44,7 @@ function subjectTotals(items) {
     categories.set(key, (categories.get(key) || 0) + score);
   });
   return { entered, total, max, percentage: max > 0 ? (total / max) * 100 : null, categories };
+  // percentage is the exact ratio; use percentOf(total, max) for the number that is shown and kept.
 }
 
-module.exports = { isBlank, subjectTotals, round2 };
+module.exports = { isBlank, subjectTotals, round2, percentOf };

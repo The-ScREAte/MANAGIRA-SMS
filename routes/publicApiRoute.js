@@ -232,7 +232,12 @@ router.get("/guardians", ...listRoute("guardians.read",
 
 // ---------- attendance ----------
 // One day (?date=), or everything marked/changed since (?updated_since=).
-router.get("/attendance", needs("attendance.read"), (req, res, next) => {
+// A school that keeps attendance elsewhere (Class & notif. settings, School) answers 404 here: its stored marks aren't served.
+const attendanceUsed = async (req, res, next) => {
+  const on = await require("../utils/schoolServices").attendanceOn(require("../config/db"), req.api.organizationId);
+  return on ? next() : fail(res, 404, "not_available", "Attendance isn't used in Managira at this school.");
+};
+router.get("/attendance", needs("attendance.read"), attendanceUsed, (req, res, next) => {
   if (req.query.date == null && req.query.updated_since) return next();
   return dateParam(req.query.date) ? next() : fail(res, 400, "invalid_request", "Pass a real date as YYYY-MM-DD, or updated_since.");
 }, ...listRoute("attendance.read",
@@ -374,7 +379,7 @@ router.patch("/guardians/:id", ...sendIn("guardians.write", (req) => {
   if (!guardianId) throw new writes.ApiInputError(404, "not_found", "No such parent or guardian.");
   return writes.updateGuardian(req.api, guardianId, req.body || {});
 }));
-router.post("/attendance", ...sendIn("attendance.write", (req) => writes.markAttendance(req.api, req.body || {})));
+router.post("/attendance", attendanceUsed, ...sendIn("attendance.write", (req) => writes.markAttendance(req.api, req.body || {})));
 router.post("/grades", ...sendIn("grades.write", (req) => writes.enterScores(req.api, req.body || {})));
 router.post("/paygira/payments", ...sendIn("paygira.write", (req) => writes.recordPayment(req.api, req.body || {}), true));
 

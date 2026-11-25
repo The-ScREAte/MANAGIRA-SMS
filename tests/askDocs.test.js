@@ -39,7 +39,7 @@ const QUESTIONS = [
   ["class settings", "class-settings"],
   ["can students see their report cards", "class-settings"],
   ["how do I add teacher remarks", "custom-editor"],
-  ["where are report card remarks set up", "custom-editor"],
+  ["where are report card remarks set up", ["custom-editor", "report-settings"]],
   ["how do I show a form beside each student", "custom-editor"],
   ["can I report on lunch", "report-builder"],
   ["how do I add a teacher", "create-and-add-employee-accounts-and-permissions"],

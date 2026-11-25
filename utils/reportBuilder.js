@@ -467,8 +467,8 @@ function subjectTotals(bind, criteria) {
                   ELSE LEAST(b.base, r.scaled_sum / NULLIF(r.total_weight, 0) * b.base) END AS total,
              COALESCE(b.base, r.present_max) AS max_total, sub.subject_name,
              RANK() OVER (PARTITION BY r.class_id, r.term_id, r.subject_id
-                          ORDER BY ROUND(CASE WHEN b.base IS NULL THEN r.raw_total
-                                              ELSE r.scaled_sum / NULLIF(r.total_weight, 0) * b.base END, 2) DESC NULLS LAST) AS subject_rank
+                          ORDER BY ROUND(CASE WHEN b.base IS NULL THEN r.raw_total * 100.0 / NULLIF(r.present_max, 0)
+                                              ELSE r.scaled_sum / NULLIF(r.total_weight, 0) * 100.0 END, 2) DESC NULLS LAST) AS subject_rank
         FROM (
           SELECT k.organization_id, k.student_id, k.class_id, k.term_id, k.subject_id,
                  SUM(k.cat_total) AS raw_total, SUM(k.cat_scaled) AS scaled_sum, MAX(k.total_weight) AS total_weight,
@@ -788,7 +788,7 @@ const REPORTS = {
     stableOrderExpressions: ["m.student_id"],
     from: (bind, criteria) => `FROM (
         SELECT g.*,
-               RANK() OVER (PARTITION BY g.class_id, g.term_id ORDER BY ROUND(g.total, 2) DESC) AS position,
+               RANK() OVER (PARTITION BY g.class_id, g.term_id ORDER BY ROUND(g.total * 100.0 / NULLIF(g.max_total, 0), 2) DESC NULLS LAST) AS position,
                COUNT(*) OVER (PARTITION BY g.class_id, g.term_id) AS class_size
           FROM (
             SELECT ss.organization_id, ss.student_id, ss.class_id, ss.term_id,
@@ -807,7 +807,7 @@ const REPORTS = {
       LEFT JOIN student_reports srp ON srp.organization_id = m.organization_id AND srp.class_id = m.class_id
         AND srp.term_id = m.term_id AND srp.student_id = m.student_id
       LEFT JOIN classes pc ON pc.class_id = srp.promotion_class_id AND pc.organization_id = m.organization_id
-      ${gradeBand("m", "m.total * 100.0 / NULLIF(m.max_total, 0)")}`,
+      ${gradeBand("m", "ROUND(m.total * 100.0 / NULLIF(m.max_total, 0), 2)")}`,
     joins: STUDENT_JOINS,
     defaultColumns: ["position", "student_name", "student_id", "class_name", "total", "average", "percentage", "overall_grade", "remark"],
     defaultSort: { key: "position", dir: "asc" },
@@ -821,7 +821,7 @@ const REPORTS = {
       total: { label: "Total score", expression: "ROUND(m.total, 2)", type: "number" },
       max_total: { label: "Out of", expression: "ROUND(m.max_total, 2)", type: "number" },
       average: { label: "Average", expression: "ROUND(m.total / NULLIF(m.subjects, 0), 2)", type: "number" },
-      percentage: { label: "Percentage", expression: "ROUND(m.total * 100.0 / NULLIF(m.max_total, 0), 1)", type: "number" },
+      percentage: { label: "Percentage", expression: "ROUND(m.total * 100.0 / NULLIF(m.max_total, 0), 2)", type: "number" },
       overall_grade: { label: "Overall grade", expression: "band.grade" },
       remark: { label: "Grade remark", expression: "band.remark" },
       best_subject: { label: "Best subject", expression: "m.best_subject" },
@@ -902,7 +902,7 @@ const REPORTS = {
       LEFT JOIN student_term_positions stp ON stp.organization_id = ss.organization_id AND stp.student_id = ss.student_id
         AND stp.subject_id = ss.subject_id AND stp.term_id = ss.term_id
         AND ${scaleValue(criteria.scale) || criteria.assessments || criteria.categories ? "FALSE" : "TRUE"}
-      ${gradeBand("ss", "ss.total * 100.0 / NULLIF(ss.max_total, 0)")}`,
+      ${gradeBand("ss", "ROUND(ss.total * 100.0 / NULLIF(ss.max_total, 0), 2)")}`,
     joins: STUDENT_JOINS,
     defaultColumns: ["subject_name", "subject_position", "student_name", "class_name", "total", "max_total", "percentage", "grade", "remark"],
     defaultSort: { key: "subject_name", dir: "asc" },
@@ -915,7 +915,7 @@ const REPORTS = {
       term_name: { label: "Term", expression: "t.term_name" },
       total: { label: "Subject total", expression: "ROUND(ss.total, 2)", type: "number" },
       max_total: { label: "Out of", expression: "ROUND(ss.max_total, 2)", type: "number" },
-      percentage: { label: "Percentage", expression: "ROUND(ss.total * 100.0 / NULLIF(ss.max_total, 0), 1)", type: "number" },
+      percentage: { label: "Percentage", expression: "ROUND(ss.total * 100.0 / NULLIF(ss.max_total, 0), 2)", type: "number" },
       grade: { label: "Grade", expression: "band.grade" },
       remark: { label: "Grade remark", expression: "band.remark" },
       ...PARENT_COLUMNS,
@@ -2601,11 +2601,15 @@ const FEATURES = {
   merit: (db, organizationId) => planHas(db, organizationId, ["Class Base Merit Sheet", "Class Base Merrit sheet"]),
   profile: (db, organizationId) => planHas(db, organizationId, ["Student and Guardian Profile", "Student and Guadian Profile"]),
   assessments: (db, organizationId) => planHas(db, organizationId, ["Assessment Tracking", "Assessment tracking feature"]),
-  attendance: (db, organizationId) => planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
+  // Attendance and lunch the school turned off in Managira (Class & notif. settings, School) have no reports or columns.
+  attendance: async (db, organizationId) => (await require("./schoolServices").attendanceOn(db, organizationId))
+    && planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   // The attendance calendar's tables (made on the first visit to attendance pages).
-  attendanceCalendar: tableExists("organization_attendance_calendars", "organization_attendance_calendar_days"),
+  attendanceCalendar: async (db, organizationId) => (await require("./schoolServices").attendanceOn(db, organizationId))
+    && tableExists("organization_attendance_calendars", "organization_attendance_calendar_days")(db),
   // Lunch is taken on the class attendance page: its table made, and attendance in the plan.
-  lunch: async (db, organizationId) => (await tableExists("class_lunch")(db))
+  lunch: async (db, organizationId) => (await require("./schoolServices").lunchOn(db, organizationId))
+    && (await tableExists("class_lunch")(db))
     && planHas(db, organizationId, ["Attendance Tracking", "Attendance tracking feature"]),
   website: (db, organizationId) => planHas(db, organizationId, ["School Website", "SchoolWebsite"]),
   // Open in Managira link columns (released by report_builder_more).

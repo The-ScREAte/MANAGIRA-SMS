@@ -939,6 +939,7 @@
 <script nonce="<%= locals.cspNonce || '' %>">window.__mgDisplayPrefs = <%- JSON.stringify(typeof displayPreferences !== 'undefined' && displayPreferences ? displayPreferences : {}).replace(/</g, '\\u003c') %>;</script>
 <script nonce="<%= locals.cspNonce || '' %>">window.MG_ASSETS = Object.assign(window.MG_ASSETS || {}, <%- JSON.stringify({ deepSearchJs: assetUrl('/js/deepSearch.js'), deepSearchCss: assetUrl('/css/deepSearch.css'), pageFinderCss: assetUrl('/css/pageFinder.css') }) %>);</script>
 <script src="<%= assetUrl('/js/headerMenu.js') %>"></script>
+<script src="<%= assetUrl('/js/logoGuard.js') %>" defer></script>
 <%# Page finder (feature page_finder): Ctrl+K / Cmd+K, for the school's staff. %>
 <% if (locals.featureOn && featureOn('page_finder') && !locals.isGuardianPage && typeof session !== 'undefined' && session && session.organizationId && !['guardian', 'student'].includes(String(session.userRole || session.accountType || '').toLowerCase())) { %>
 <script src="<%= assetUrl('/js/pageFinder.js') %>" defer></script>

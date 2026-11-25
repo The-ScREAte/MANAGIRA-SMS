@@ -57,7 +57,8 @@ function renderPage(req, res, view) {
     hideGlobalHeader: isEmbedded,
     hideGlobalFooter: isEmbedded,
     hideGlobalChatbot: isEmbedded,
-    sections: briefing.SECTIONS,
+    // Sections of attendance or lunch the school turned off stay in the form, hidden, so a save keeps their choices.
+    sections: briefing.SECTIONS.map((section) => ({ ...section, off: (section.key === "attendance" && res.locals.schoolServices && !res.locals.schoolServices.attendance) || (section.key === "lunch" && res.locals.schoolServices && !res.locals.schoolServices.lunch) })),
     days: briefing.DAYS,
     timeZones: briefing.TIME_ZONES,
     hourLabel: briefing.hourLabel,

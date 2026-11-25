@@ -535,7 +535,7 @@
       const items = [];
       const lowAtt = rows.filter((s) => s.attendanceRate !== null && s.attendanceRate < data.lowAttendanceRate);
       if (lowAtt.length) items.push(['fa-calendar-xmark', '', `${plural(lowAtt.length, 'school has', 'schools have')} attendance below ${data.lowAttendanceRate}%`]);
-      const noAtt = rows.filter((s) => !s.attendanceMarked);
+      const noAtt = rows.filter((s) => !s.attendanceMarked && !s.attendanceOff);
       if (noAtt.length) items.push(['fa-clipboard-question', ' hub-alert--info', `${plural(noAtt.length, 'school hasn’t', 'schools haven’t')} marked attendance this term`]);
       const lowMarks = rows.filter((s) => s.scoreEntryRate !== null && s.scoreEntryRate < 50);
       if (lowMarks.length) items.push(['fa-pen-to-square', ' hub-alert--info', `${plural(lowMarks.length, 'school has', 'schools have')} entered less than half of their marks`]);

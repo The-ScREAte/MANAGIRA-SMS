@@ -17,7 +17,7 @@ module.exports = [
         title: "Class Room",
         text: [
           "Every student in the class. Select a student to open their page, with tabs for their details, grades, attendance, messages, bills, files, portfolio and transport. See <a href=\"/legal/user-documentation/student-page\">A student's page</a>.",
-          "If your school has remarks in the Custom editor, a form set to show beside each student, such as Report card remarks, has its icon beside every student: grey until it's filled in for this term, then your school's color. Tap it to open that student's form. The remark pencil then asks only for remarks no form covers, and goes away once forms cover them all. See <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
+          "If your school has remarks in the Custom editor, a form set to show beside each student, such as Report remarks, has its icon beside every student: grey until it's filled in for this term, then your school's color. Tap it to open that student's form. The remark pencil then asks only for remarks no form covers, and goes away once forms cover them all. See <a href=\"/legal/user-documentation/custom-editor\">Custom editor</a>.",
         ],
         image: "class-page.webp",
         caption: "Class Room: the class at a glance, with Class Tools on the left.",

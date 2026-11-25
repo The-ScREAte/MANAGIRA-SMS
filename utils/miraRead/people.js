@@ -662,24 +662,34 @@ async function studentProfile(db, actor, q) {
   // This term's attendance (and lunch): Mark Attendance or Manage Students as on get_attendance; a
   // teacher only for a class they lead (main or assistant), as the class attendance page.
   const tScope = await classScope.teacherScope(db, ctx.req);
+  const svcOn = await require("../schoolServices").services(db, organizationId);
   const attendanceOk = (await holds(db, actor, P.MARK_ATTENDANCE)) || (!tScope && (await holds(db, actor, P.MANAGE_STUDENTS)));
   const leads = !tScope || (student.class_id && tScope.mainClasses.has(Number(student.class_id)));
-  if (!term) {
+  if (!svcOn.attendance && !svcOn.lunch) {
+    // The school keeps both elsewhere: nothing to show, and nothing to ask permission for.
+  } else if (!term) {
     data.attendance = null;
     hidden.push({ section: "attendance", needs: "a current term (none is set)" });
   } else if (attendanceOk && leads) {
-    const { rows } = await db.query(
-      `SELECT COUNT(*)::int AS days, COUNT(*) FILTER (WHERE present)::int AS present
-         FROM (SELECT date, BOOL_OR(status::text = 'Present') AS present FROM attendance_records
-                WHERE organization_id = $1 AND student_id = $2 AND term_id = $3 GROUP BY date) d`,
-      [organizationId, sid, term.id]
-    );
-    const days = Number(rows[0].days) || 0;
-    const present = Number(rows[0].present) || 0;
-    data.attendance = { term: term.name, days_taken: days, present, absent: days - present, percent_present: days ? Math.round((present / days) * 1000) / 10 : null };
-    const lunch = require("../overallLunch");
-    const total = (await lunch.totalsFor(db, organizationId, term.id, [sid]).catch(() => new Map())).get(sid);
-    data.attendance.lunch = total ? { days_with_lunch: total.days, days_taken: total.taken, label: lunch.label(total) } : null;
+    data.attendance = {};
+    if (svcOn.attendance) {
+      const { rows } = await db.query(
+        `SELECT COUNT(*)::int AS days, COUNT(*) FILTER (WHERE present)::int AS present
+           FROM (SELECT date, BOOL_OR(status::text = 'Present') AS present FROM attendance_records
+                  WHERE organization_id = $1 AND student_id = $2 AND term_id = $3 GROUP BY date) d`,
+        [organizationId, sid, term.id]
+      );
+      const days = Number(rows[0].days) || 0;
+      const present = Number(rows[0].present) || 0;
+      data.attendance = { term: term.name, days_taken: days, present, absent: days - present, percent_present: days ? Math.round((present / days) * 1000) / 10 : null };
+    } else {
+      data.attendance = { term: term.name };
+    }
+    if (svcOn.lunch) {
+      const lunch = require("../overallLunch");
+      const total = (await lunch.totalsFor(db, organizationId, term.id, [sid]).catch(() => new Map())).get(sid);
+      data.attendance.lunch = total ? { days_with_lunch: total.days, days_taken: total.taken, label: lunch.label(total) } : null;
+    }
   } else {
     hidden.push({ section: "attendance", needs: attendanceOk ? "leading the student's class (main or assistant teacher)" : "Mark Attendance" });
   }

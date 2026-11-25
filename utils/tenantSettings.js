@@ -14,6 +14,9 @@ const DEFAULTS = Object.freeze({
   // Two-step sign-in with an authenticator app (utils/signInMfa.js): "off" (each person chooses),
   // "admins" (required for managers and supervisors) or "staff" (required for all staff).
   mfa_required: "off",
+  // Whether the school takes attendance and lunch in Managira (utils/schoolServices.js). Both on until a school turns one off.
+  use_attendance: true,
+  use_lunch: true,
 });
 // The choices the page offers; nothing else is saved.
 const CHOICES = Object.freeze({
@@ -103,6 +106,28 @@ async function saveSettings(db, organizationId, body, actorName) {
   return { before: current, after: next };
 }
 
+// A school's two service switches (Management, Class & notif. settings): Attendance and Lunch. Saved apart
+// (2027-01-15_attendance_lunch_switches.sql), so the sign-in rules still save on a database without it.
+async function saveServices(db, organizationId, { use_attendance, use_lunch }) {
+  const current = await settingsFor(db, organizationId);
+  const next = {
+    use_attendance: typeof use_attendance === "boolean" ? use_attendance : current.use_attendance,
+    use_lunch: typeof use_lunch === "boolean" ? use_lunch : current.use_lunch,
+  };
+  try {
+    await db.query(
+      `INSERT INTO tenant_settings (organization_id, use_attendance, use_lunch, updated_at) VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (organization_id) DO UPDATE SET use_attendance = EXCLUDED.use_attendance, use_lunch = EXCLUDED.use_lunch, updated_at = NOW()`,
+      [organizationId, next.use_attendance, next.use_lunch]
+    );
+  } catch (error) {
+    if (error.code === "42703") throw new TenantSettingsError("This choice needs a database update first. Ask Managira support.");
+    throw error;
+  }
+  cache.delete(Number(organizationId));
+  return { before: current, after: next };
+}
+
 // How long this sign-in may last, from when it started: the school's session time, or its
 // Keep me logged in time when the person ticked it (and the school allows it).
 function sessionLimitMs(settings, keepSignedIn) {
@@ -110,4 +135,4 @@ function sessionLimitMs(settings, keepSignedIn) {
   return settings.session_hours * 60 * 60 * 1000;
 }
 
-module.exports = { DEFAULTS, CHOICES, WORD_CHOICES, settingsFor, saveSettings, sessionLimitMs, TenantSettingsError };
+module.exports = { saveServices, DEFAULTS, CHOICES, WORD_CHOICES, settingsFor, saveSettings, sessionLimitMs, TenantSettingsError };

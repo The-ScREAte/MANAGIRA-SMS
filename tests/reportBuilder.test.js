@@ -301,7 +301,7 @@ test("Excel export puts the school header above the table", async () => {
 test("merit sheet ranks within class and term and adds the school's own columns", async () => {
   const report = getReport("merit_ranking");
   const queries = buildQueries(report, { columns: ["position", "student_name", "overall_grade"], criteria: { class: [7], term: [9], position: "top5" }, organizationId: 63 });
-  assert.match(queries.data.sql, /RANK\(\) OVER \(PARTITION BY g\.class_id, g\.term_id ORDER BY ROUND\(g\.total, 2\) DESC\)/);
+  assert.match(queries.data.sql, /RANK\(\) OVER \(PARTITION BY g\.class_id, g\.term_id ORDER BY ROUND\(g\.total \* 100\.0 \/ NULLIF\(g\.max_total, 0\), 2\) DESC NULLS LAST\)/);
   assert.match(queries.data.sql, /ar\.class_id = ANY\(\$2::int\[\]\) AND ar\.term_id = ANY\(\$3::int\[\]\)/);
   assert.match(queries.data.sql, /m\.position <= 5/);
   assert.match(queries.data.sql, /FROM score_remarks b/);

@@ -770,9 +770,11 @@ const get_class_settings = {
     let picked = allowed ? classes.filter((c) => allowed.has(c.id)) : classes;
     if (q.class) picked = pickClasses(classes, q.class, allowed, "class settings (the classes you lead)").visible;
     const ready = await classSettings.ready(db);
-    const byClass = ready ? await classSettings.settingsForClasses(db, org, picked.map((c) => c.id)) : new Map();
-    const lunchOffered = page.switchesFor(org).some((s) => s.key === "lunch");
-    const items = page.shareItemsFor(org);
+    const byClass = ready ? await classSettings.settingsForClasses(db, org, picked.map((c) => c.id), { raw: true }) : new Map();
+    // What the school turned off (Class & notif. settings, School) isn't offered.
+    const svc = await require("../schoolServices").services(db, org);
+    const lunchOffered = page.switchesFor(org, { svc }).some((s) => s.key === "lunch");
+    const items = page.shareItemsFor(org, svc);
     const all = picked.map((c) => {
       const s = byClass.get(c.id) || classSettings.withDefaults(null);
       return {

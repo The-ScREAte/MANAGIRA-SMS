@@ -107,7 +107,7 @@
               <span class="cset-lockslot"></span>
             </li>
             <% _wb.sections.forEach((section) => { %>
-            <li class="cset-row" data-cs-row>
+            <li class="cset-row" data-cs-row<%- section.off ? ' hidden style="display:none"' : '' %>>
               <span class="cset-row__label"><%= section.label %></span>
               <p class="cset-msg" data-cs-msg role="status" aria-live="polite"></p>
               <span class="cset-cells">
@@ -130,7 +130,7 @@
           </ul>
         </div>
         <% } %>
-        <%- include('classSettingsCalendar', { calendar: _cs.calendar, fromHub: false }) %>
+        <%- include('classSettingsCalendar', { calendar: _cs.calendar, fromHub: false, svc: _cs.svc }) %>
       </div>
     </div>
     <% } %>

@@ -134,6 +134,16 @@
     object-fit: contain;
   }
 
+  /* While a logo loads or if it can't, never show its alt text in large type. */
+  .siteName img.logo { font-size: 0; color: transparent; }
+  /* The school's initials, shown in place of a logo that can't load. */
+  header#top-header .siteName .logo-fallback, .siteName .logo-fallback {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 44px !important; width: 44px !important; max-height: 44px !important; flex: 0 0 auto; border-radius: 50%;
+    background: var(--org-primary-color, #01535b); color: #fff;
+    font-size: 16px; font-weight: 700; letter-spacing: .02em; line-height: 1;
+  }
+
   .org-names {
     margin: 0;
     display: flex;

@@ -162,7 +162,7 @@ const statsController = {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
       res.setHeader("Cache-Control", "no-store");
-      return res.send(`\uFEFF${statsToCsv(currentTerm, stats)}`);
+      return res.send(`\uFEFF${statsToCsv(currentTerm, stats, { attendance: (res.locals.schoolServices || {}).attendance !== false })}`);
     } catch (error) {
       console.error("[stats/exportOrganizationStats]", error);
       return res.status(500).send("Failed to export organization stats.");
@@ -536,7 +536,7 @@ function csvCell(value) {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-function statsToCsv(term, stats) {
+function statsToCsv(term, stats, { attendance: attendanceOn = true } = {}) {
   const lines = [];
   const row = (...cells) => lines.push(cells.map(csvCell).join(","));
   const pct = (value) => (value === null || value === undefined ? "" : `${value}%`);
@@ -551,8 +551,10 @@ function statsToCsv(term, stats) {
   if (k.enrolledChange !== null) row(`Change vs ${k.previousTermLabel}`, k.enrolledChange);
   row(`Average score${a && a.isFallback ? ` (${a.term.label})` : ""}`, pct(a && a.averageScore));
   row(`Pass rate at ${PASS_MARK}%${a && a.isFallback ? ` (${a.term.label})` : ""}`, pct(a && a.passRate));
-  row("Attendance rate", pct(k.attendanceRate));
-  row(`Students below ${LOW_ATTENDANCE_RATE}% attendance`, k.lowAttendance);
+  if (attendanceOn) {
+    row("Attendance rate", pct(k.attendanceRate));
+    row(`Students below ${LOW_ATTENDANCE_RATE}% attendance`, k.lowAttendance);
+  }
   row("Scores entered", `${k.scoresEntered} of ${k.scoresExpected}`);
   row("Score entry", pct(k.scoreEntryRate));
   row(`Students averaging below ${PASS_MARK}%`, a ? a.needsSupportCount : "");
@@ -581,11 +583,11 @@ function statsToCsv(term, stats) {
   }
 
   row();
-  row("Class", "Enrolled", "Attendance rate", "Scores entered", "Scores expected", "Score entry");
+  row("Class", "Enrolled", ...(attendanceOn ? ["Attendance rate"] : []), "Scores entered", "Scores expected", "Score entry");
   const entryByClass = new Map(stats.scoreEntry.map((e) => [e.class_name, e]));
   stats.classes.forEach((c) => {
     const e = entryByClass.get(c.class_name) || {};
-    row(c.class_name, c.enrolled, pct(c.attendance_rate), e.entered ?? "", e.expected ?? "", pct(e.rate));
+    row(c.class_name, c.enrolled, ...(attendanceOn ? [pct(c.attendance_rate)] : []), e.entered ?? "", e.expected ?? "", pct(e.rate));
   });
   row();
   row("Term", "Enrolled students");

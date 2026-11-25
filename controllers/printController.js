@@ -1790,6 +1790,8 @@ const printController = (db) => ({
       const paygiraManualTotals = normalizePaygiraManualTotals(paygiraManualTotalsRaw, paygiraManualFields.map((field) => field.key));
       const gradePresentation = normalizeGradePresentationConfig(secVis.gradePresentation);
       const uniformSubjectScaling = normalizeUniformSubjectScaling(secVis.uniformSubjectScaling);
+      // What the school takes in Managira: attendance or lunch it doesn't use is never printed (stored choices stay).
+      const schoolSvc = res.locals.schoolServices || { attendance: true, lunch: true };
       const displaySettings = {
         columns: {
           classScore:      colVis.classScore      !== false,
@@ -1811,7 +1813,7 @@ const printController = (db) => ({
           gradeKey:        secVis.gradeKey        !== false,
           gradePresentation,
           uniformSubjectScaling,
-          attendance:      secVis.attendance      !== false,
+          attendance:      secVis.attendance      !== false && schoolSvc.attendance,
           turnOffAutoAttendance: secVis.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
             ? Number(secVis.manualAttendanceOutOf)
@@ -1850,7 +1852,7 @@ const printController = (db) => ({
           // GPA: off until the school turns it on.
           gpa:             secVis.gpa === true,
           // Overall lunch: off until the school turns it on.
-          lunch:           secVis.lunch === true,
+          lunch:           secVis.lunch === true && schoolSvc.lunch,
         },
       };
 
@@ -2151,9 +2153,8 @@ const printController = (db) => ({
           }
 
           // Recalculate percentage from enabled max scores
-          const totalPercentage = filteredMaxScore > 0
-            ? parseFloat((totalScore / filteredMaxScore * 100).toFixed(2))
-            : 0;
+          // Two decimals (halves up) like the gradebook, merit sheet and report builder; the grade follows.
+          const totalPercentage = termTotals.percentOf(totalScore, filteredMaxScore) ?? 0;
 
           // Recalculate grade from score remarks
           const matchingRule = resolveClosestScoreRemarkRule(totalPercentage, scoreRemarks);
@@ -2195,7 +2196,7 @@ const printController = (db) => ({
             otherAssessmentScore: otherEntered ? otherScore.toFixed(2) : "-",
             totalScore: hasScores ? totalScore.toFixed(2) : "-",
             scaledScore,
-            totalPercentage: hasScores ? `${totalPercentage} %` : "-",
+            totalPercentage: hasScores ? `${totalPercentage.toFixed(2)} %` : "-",
             grade: gradeDisplay,
             gradeRaw: grade,
             gradeNumeric: Number.isFinite(parsedGradeParts.number) ? Number(parsedGradeParts.number) : null,
@@ -2229,7 +2230,7 @@ const printController = (db) => ({
         student.totalMaxScoreSum = Number(totalMaxScoreSum.toFixed(2));
         student.overallPercentage =
           subjectCount > 0
-            ? (totalPercentageSum / subjectCount).toFixed(2)
+            ? termTotals.round2(totalPercentageSum / subjectCount).toFixed(2)
             : "0.00";
         student.totalGradeNumericScore = Number(
           calculateTotalGradeNumericScore(
@@ -3297,12 +3298,18 @@ const printController = (db) => ({
       // are set up and collected there, so the remarks card isn't shown, and Advanced ticks which
       // Custom editor sections each class prints.
       const customFormSections = await require("../utils/customForms").reportSettingsSections(db, organizationId).catch(() => null);
+      // Report remarks (the school's built-in Custom editor section): on, off or not set up, and
+      // whether this person may open the Custom editor to change it.
+      const reportRemarks = await require("../utils/customForms").remarksCard(db, organizationId).catch(() => ({ state: "unavailable", fields: [] }));
+      const canBuildForms = (res.locals.userPermissions || []).includes("custom_forms");
 
       // Transcript design (utils/transcriptDesign.js): which one the school prints.
       const transcriptDesignUtil = require("../utils/transcriptDesign");
       const transcriptDesign = await transcriptDesignUtil.designFor(db, organizationId).catch(() => transcriptDesignUtil.DEFAULT);
 
       res.render("print/reportSettings", {
+        reportRemarks,
+        canBuildForms,
         transcriptDesign,
         transcriptDesigns: transcriptDesignUtil.DESIGNS,
         customFormSections,
@@ -4251,6 +4258,18 @@ const printController = (db) => ({
       console.error('[saveRemarks] error', error);
       req.flash("error", "Failed to save remarks.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+    }
+  },
+
+  // Report Settings › Report remarks: where the section stands and its remarks, read again after
+  // the Custom editor drawer closes.
+  reportRemarksState: async (req, res) => {
+    try {
+      const state = await require("../utils/customForms").remarksCard(db, req.session.organizationId);
+      const types = await getOrganizationCustomRemarkTypes(db, req.session.organizationId).catch(() => []);
+      return res.json({ success: true, ...state, customRemarkTypes: types.map((type) => ({ type_key: type.type_key, label: type.label, obsolete: Boolean(type.obsolete) })) });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Report remarks could not be read." });
     }
   },
 

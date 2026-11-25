@@ -25,6 +25,7 @@ const when = (key) => new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", {
 async function run(db, organizationId, { studentIds = [], date = null } = {}) {
   try {
     if (!features.isOn("attendance_notices", { organizationId: Number(organizationId) }) || !classSettings.isOn(organizationId)) return 0;
+    if (!(await require("./schoolServices").attendanceOn(db, organizationId))) return 0;
     const ids = [...new Set((studentIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
     const dateKey = /^\d{4}-\d{2}-\d{2}/.test(String(date || "")) ? String(date).slice(0, 10) : keyOf(new Date());
     if (!ids.length) return 0;

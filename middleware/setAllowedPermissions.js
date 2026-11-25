@@ -14,6 +14,7 @@ const {
 const { workspaceAccess } = require('../utils/workspaceAccess');
 const features = require("../utils/shards/features");
 const integrationSwitches = require("../utils/integrationSwitches");
+const schoolServices = require("../utils/schoolServices");
 
 /**
  * Global middleware: sets res.locals.userPermissions to an array of permission
@@ -32,6 +33,8 @@ const ALL_PERMISSION_KEYS = PERMISSION_OPTIONS.map((o) => o.key);
 const setAllowedPermissions = async (req, res, next) => {
   res.locals.userPermissions = [];
   res.locals.integrationSwitches = {};
+  // Whether the school takes attendance and lunch in Managira, and what to call the page (utils/schoolServices.js).
+  res.locals.schoolServices = schoolServices.fromSettings(null);
   // What the plan doesn't include is never in this list, for anyone; nor is anything of an
   // integration the school has switched off (a driver, there for transportation alone, then
   // holds nothing). Menus and pages read this list, so they show a school as it is.
@@ -50,6 +53,7 @@ const setAllowedPermissions = async (req, res, next) => {
     const stamp = crypto.createHash('md5')
       .update(JSON.stringify([req.session?.user?.user_id || req.session?.userId, res.locals.userPermissions, res.locals.allowedFeatures]
         .concat(res.locals.customFormsReady() ? ['custom_forms'] : [])
+        .concat(res.locals.schoolServices && res.locals.schoolServices.name !== 'Attendance and lunch' ? ['services:' + res.locals.schoolServices.name] : [])
         .concat(features.isOn('class_settings', { organizationId: req.session?.organizationId }) ? ['class_settings'] : [])))
       .digest('base64url')
       .slice(0, 12);
@@ -76,6 +80,7 @@ const setAllowedPermissions = async (req, res, next) => {
     if (!organizationId) {
       return next();
     }
+    res.locals.schoolServices = await schoolServices.services(db, organizationId);
     // Known before the page is drawn, so Forms is in the menu from the very first page after a
     // restart (one small check per process, then remembered; it never throws).
     await require('../utils/customForms').ready(db);

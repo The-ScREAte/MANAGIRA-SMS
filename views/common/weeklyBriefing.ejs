@@ -138,7 +138,7 @@
               <% }) %>
             </tr>
             <% sections.forEach((section) => { %>
-              <tr>
+              <tr<%- section.off ? ' hidden style="display:none"' : '' %>>
                 <td class="wb-section"><strong><%= section.label %></strong><small><%= section.hint %></small></td>
                 <% ['parents', 'students'].forEach((audience) => { %>
                   <td class="wb-col" data-column="<%= audience %>">

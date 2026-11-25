@@ -368,7 +368,7 @@
   </header>
 
   <% if (!stats) { %>
-    <div class="os-card"><div class="os-empty"><%- icon('info') %>Statistics appear here once students are enrolled or scores and attendance are saved for a term.</div></div>
+    <div class="os-card"><div class="os-empty"><%- icon('info') %>Statistics appear here once students are enrolled or scores<%= (locals.schoolServices ? schoolServices.attendance : true) ? ' and attendance' : '' %> are saved for a term.</div></div>
   <% } else {
        const k = stats.kpis;
        const a = stats.academic;
@@ -378,17 +378,17 @@
   <% if (canCompareClasses) { %>
   <section class="os-compare os-card" id="osCompare" aria-labelledby="osCompareTitle">
     <h3 id="osCompareTitle">Compare classes · <%= currentTerm.term_name %></h3>
-    <p class="os-card-note">Pick two or more classes to compare their average score, pass rate and attendance this term.</p>
+    <p class="os-card-note">Pick two or more classes to compare their average score, pass rate<%= (locals.schoolServices ? schoolServices.attendance : true) ? ' and attendance' : '' %> this term.</p>
     <div class="os-class-options" id="osClassOptions"><span class="os-card-note">Loading classes…</span></div>
     <p class="os-compare-message" id="osCompareMessage" hidden></p>
     <button type="button" class="os-primary-btn" id="osCompareBtn">Compare</button>
     <div id="osCompareResult" hidden>
       <div class="os-chart" style="height: 300px; margin-top: 16px;"><canvas id="osCompareChart" aria-label="Class comparison chart" role="img"></canvas></div>
       <table class="os-table" id="osCompareTable">
-        <thead><tr><th>Class</th><th class="num">Enrolled</th><th class="num">Average score</th><th class="num">Pass rate</th><th class="num">Attendance</th></tr></thead>
+        <thead><tr><th>Class</th><th class="num">Enrolled</th><th class="num">Average score</th><th class="num">Pass rate</th><% if (locals.schoolServices ? schoolServices.attendance : true) { %><th class="num">Attendance</th><% } %></tr></thead>
         <tbody></tbody>
       </table>
-      <p class="os-card-note">— means no scores or attendance have been saved for that class this term.</p>
+      <p class="os-card-note">— means no scores<%= (locals.schoolServices ? schoolServices.attendance : true) ? ' or attendance' : '' %> have been saved for that class this term.</p>
     </div>
   </section>
   <% } %>
@@ -417,12 +417,14 @@
       <div class="os-kpi-note">Subject results at <%= passMark %>% or above</div>
       <% if (academicTag) { %><span class="os-kpi-tag">Latest results · <%= academicTag %></span><% } %>
     </div>
+    <% if (locals.schoolServices ? schoolServices.attendance : true) { %>
     <div class="os-kpi" style="--chip:#4a3aa7">
       <div class="os-kpi-top"><span class="os-kpi-icon"><%- icon('calendar') %></span><span class="os-kpi-label">Attendance rate</span></div>
       <div class="os-kpi-value"><%= fmtPct(k.attendanceRate) %></div>
       <% if (k.attendanceRate !== null) { %><div class="os-meter"><span style="width: <%= barWidth(k.attendanceRate) %>%"></span></div><% } %>
       <div class="os-kpi-note"><%= k.attendanceRate === null ? 'No attendance marked this term yet' : `${k.lowAttendance} student${k.lowAttendance === 1 ? '' : 's'} below ${lowAttendanceRate}%` %></div>
     </div>
+    <% } %>
     <div class="os-kpi" style="--chip:#eda100">
       <div class="os-kpi-top"><span class="os-kpi-icon"><%- icon('edit') %></span><span class="os-kpi-label">Score entry</span></div>
       <div class="os-kpi-value"><%= fmtPct(k.scoreEntryRate) %></div>
@@ -530,11 +532,13 @@
           </ul>
           <% } else { %><div class="os-empty"><%- icon('info') %>No assessments have been set up for this term yet.</div><% } %>
         </div>
+        <% if (locals.schoolServices ? schoolServices.attendance : true) { %>
         <div class="os-card" style="--series:#4a3aa7">
           <h3>Attendance rate by class</h3>
           <p class="os-card-note">Present marks as a share of all marks this term.</p>
           <div data-chart="classAttendance"></div>
         </div>
+        <% } %>
         <div class="os-card" style="--series:#2a78d6">
           <h3>Students per class</h3>
           <p class="os-card-note">Students enrolled in each class this term.</p>
@@ -570,6 +574,7 @@
 </div>
 
 <script nonce="<%= locals.cspNonce || '' %>">
+    const ATT_ON = <%= (locals.schoolServices ? schoolServices.attendance : true) ? 'true' : 'false' %>;
   (function () {
     const termSelect = document.getElementById("osTermSelect");
     if (termSelect) {
@@ -956,8 +961,8 @@
           const rows = await response.json();
           if (!response.ok) throw new Error(rows.error || "Comparison failed.");
           result.hidden = false;
-          result.querySelector("tbody").innerHTML = rows.map((r) => `<tr><td>${escapeHtml(r.class_name)}</td><td class="num">${r.enrolled}</td><td class="num">${pct(r.average_score)}</td><td class="num">${pct(r.pass_rate)}</td><td class="num">${pct(r.attendance_rate)}</td></tr>`).join("");
-          const metrics = [["Average score", "average_score"], ["Pass rate", "pass_rate"], ["Attendance", "attendance_rate"]];
+          result.querySelector("tbody").innerHTML = rows.map((r) => `<tr><td>${escapeHtml(r.class_name)}</td><td class="num">${r.enrolled}</td><td class="num">${pct(r.average_score)}</td><td class="num">${pct(r.pass_rate)}</td>${ATT_ON ? `<td class="num">${pct(r.attendance_rate)}</td>` : ""}</tr>`).join("");
+          const metrics = [["Average score", "average_score"], ["Pass rate", "pass_rate"]].concat(ATT_ON ? [["Attendance", "attendance_rate"]] : []);
           if (chart) chart.destroy();
           chart = new Chart(document.getElementById("osCompareChart"), {
             type: "bar",

@@ -139,20 +139,34 @@ async function ready(db) {
   }
 }
 
+// What the school itself turned off (Class & notif. settings, "School": utils/schoolServices.js) wins over every class:
+// no attendance or lunch is shown, shared or sent, whatever a class's own switches say. { raw: true } gives the
+// class's own switches as saved (the settings pages draw those).
+function overlay(settings, svc) {
+  if (svc.attendance && svc.lunch) return settings;
+  const next = { ...settings, parents: { ...settings.parents }, students: { ...settings.students }, notices: { absent: { ...settings.notices.absent }, late: { ...settings.notices.late } } };
+  if (!svc.lunch) { next.lunch = false; next.parents.lunch = false; next.students.lunch = false; }
+  if (!svc.attendance) {
+    next.parents.attendance = false; next.students.attendance = false;
+    next.notices.absent.on = false; next.notices.late.on = false;
+  }
+  return next;
+}
+const servicesOf = (db, organizationId) => require("./schoolServices").services(db, organizationId);
+
 // One class's settings.
-async function settingsFor(db, organizationId, classId) {
-  if (!isOn(organizationId)) return everythingOn();
-  const rows = await schoolRows(db, organizationId);
-  return withDefaults(rows.get(Number(classId)));
+async function settingsFor(db, organizationId, classId, { raw = false } = {}) {
+  const base = isOn(organizationId) ? withDefaults((await schoolRows(db, organizationId)).get(Number(classId))) : everythingOn();
+  return raw ? base : overlay(base, await servicesOf(db, organizationId));
 }
 
 // Many classes at once: Map(classId -> settings).
-async function settingsForClasses(db, organizationId, classIds) {
+async function settingsForClasses(db, organizationId, classIds, { raw = false } = {}) {
   const out = new Map();
   const ids = [...new Set((classIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
-  if (!isOn(organizationId)) { ids.forEach((id) => out.set(id, everythingOn())); return out; }
-  const rows = await schoolRows(db, organizationId);
-  ids.forEach((id) => out.set(id, withDefaults(rows.get(id))));
+  const rows = isOn(organizationId) ? await schoolRows(db, organizationId) : null;
+  const svc = raw ? null : await servicesOf(db, organizationId);
+  ids.forEach((id) => { const base = rows ? withDefaults(rows.get(id)) : everythingOn(); out.set(id, svc ? overlay(base, svc) : base); });
   return out;
 }
 
@@ -160,6 +174,8 @@ async function settingsForClasses(db, organizationId, classIds) {
 // attendance, lunch, reportCards, transport), decided by the student's class (students.class_id).
 // A student without a class: the defaults.
 async function shared(db, organizationId, studentId, audience, key) {
+  const svc = await servicesOf(db, organizationId);
+  if ((key === "attendance" && !svc.attendance) || (key === "lunch" && !svc.lunch)) return false;
   if (!isOn(organizationId)) return true;
   const { rows } = await db.query("SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2", [Number(studentId), Number(organizationId)]);
   const classId = rows[0] && rows[0].class_id;
@@ -172,11 +188,12 @@ async function sharedFor(db, organizationId, studentIds, audience) {
   const out = new Map();
   const ids = [...new Set((studentIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
   if (!ids.length) return out;
-  if (!isOn(organizationId)) { ids.forEach((id) => out.set(id, everythingOn()[audience])); return out; }
+  if (!isOn(organizationId)) { const all = overlay(everythingOn(), await servicesOf(db, organizationId))[audience]; ids.forEach((id) => out.set(id, all)); return out; }
   const { rows } = await db.query("SELECT student_id, class_id FROM students WHERE student_id = ANY($1::int[]) AND organization_id = $2", [ids, Number(organizationId)]);
   const byClass = await settingsForClasses(db, organizationId, rows.map((r) => r.class_id));
+  const fallback = overlay(withDefaults(null), await servicesOf(db, organizationId));
   const classOf = new Map(rows.map((r) => [Number(r.student_id), Number(r.class_id) || null]));
-  ids.forEach((id) => out.set(id, (byClass.get(classOf.get(id)) || withDefaults(null))[audience]));
+  ids.forEach((id) => out.set(id, (byClass.get(classOf.get(id)) || fallback)[audience]));
   return out;
 }
 
