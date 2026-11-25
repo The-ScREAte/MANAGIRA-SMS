@@ -5,6 +5,8 @@ const path = require("node:path");
 
 const root = path.join(__dirname, "..");
 const childEnv = (extra) => ({ PATH: process.env.PATH, HOME: process.env.HOME, DB_CONNECTION_STRING: process.env.DB_CONNECTION_STRING || "postgres://postgres@127.0.0.1:55432/postgres", DB_SSL: "false", ...extra });
+// A few tests need the local test database (postgres on :55432); CI has none, so they skip there.
+const needsDb = { skip: /127\.0\.0\.1:55432|localhost:55432/.test(process.env.DB_CONNECTION_STRING || "") ? false : "needs the local test database (DB_CONNECTION_STRING on :55432)" };
 function inChild(code, env) {
   const run = spawnSync(process.execPath, ["-e", code], { cwd: root, env: childEnv(env), encoding: "utf8", timeout: 60000 });
   assert.equal(run.status, 0, run.stderr);
@@ -128,7 +130,7 @@ test("RUN_JOBS=false or RUN_SCHEDULED_JOBS=false turns this server's jobs off; t
   assert.equal(jobsEnabled({ RUN_SCHEDULED_JOBS: "false" }), false);
 });
 
-test("two servers can't run the same job at once; the second skips it", async () => {
+test("two servers can't run the same job at once; the second skips it", needsDb, async () => {
   const { withJobLock } = require("../utils/dbLock");
   const { Client } = require("pg");
   const url = process.env.DB_CONNECTION_STRING || "postgres://postgres@127.0.0.1:55432/postgres";
@@ -152,7 +154,7 @@ test("two servers can't run the same job at once; the second skips it", async ()
   await second.end();
 });
 
-test("DB_DIRECT_CONNECTION_STRING gives locks their own connection, and a taken lock stays taken", async () => {
+test("DB_DIRECT_CONNECTION_STRING gives locks their own connection, and a taken lock stays taken", needsDb, async () => {
   const out = inChild(`
     const { tryAdvisoryLock } = require("./utils/dbLock");
     (async () => {
@@ -213,7 +215,7 @@ test("health detail reports event-loop lag, pool and memory", () => {
 });
 
 // ---- A database connection that dies ----
-test("a killed database connection never becomes an error for a read, or for the next transaction", () => {
+test("a killed database connection never becomes an error for a read, or for the next transaction", needsDb, () => {
   const out = inChild(`
     const db = require("./config/db");
     const { Client } = require("pg");
