@@ -105,7 +105,7 @@
     "connect-livereload": "^0.6.1",
     "livereload": "^0.10.3",
     "node-gyp": "^13.1.0",
-    "nodemon": "^3.1.0",
+    "nodemon": "^3.1.14",
     "png-to-ico": "^3.0.1"
   },
   "engines": {
