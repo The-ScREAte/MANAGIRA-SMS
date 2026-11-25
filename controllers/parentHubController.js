@@ -243,13 +243,43 @@ module.exports = {
         : [],
     ]);
     const total = totals.get(child.id) || null;
+    const mine = await db.query("SELECT note FROM lunch_notes WHERE student_id = $1 AND guardian_id = $2 AND organization_id = $3", [child.id, req.session.guardianId, organizationId])
+      .then((r) => (r.rows[0] && r.rows[0].note) || "").catch(() => "");
     res.set("Cache-Control", "private, no-store");
     res.render("guardian/childLunch", {
       title: "Lunch",
       child,
+      lunchNote: mine,
       total: { days: total ? total.days : 0, taken: total ? total.taken : 0, label: overallLunch.label(total) },
       days: days.map((row) => ({ day: row.day, had: row.had_lunch === true })),
     });
+  })),
+
+  // A parent's note about their child's lunch (a special request, an allergy): saved for the class's
+  // staff to see on the attendance sheet, who are told when it changes. An empty note clears it.
+  lunchNote: guard(withChild(async (req, res, db, child) => {
+    const organizationId = req.session.organizationId;
+    if (!(await lunchShownFor(db, organizationId, child))) return res.status(403).json({ success: false, message: "Not available." });
+    const note = String((req.body && req.body.note) || "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ").trim().slice(0, 500);
+    try {
+      if (note) {
+        await db.query(
+          `INSERT INTO lunch_notes (organization_id, student_id, guardian_id, note) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (student_id, guardian_id) DO UPDATE SET note = EXCLUDED.note, updated_at = NOW() WHERE lunch_notes.note IS DISTINCT FROM EXCLUDED.note`,
+          [organizationId, child.id, req.session.guardianId, note]
+        );
+        require("../utils/notificationService").notifyPerClassTeachers(db, {
+          orgId: organizationId, classIds: [child.classId], type: "lunch_note", permission: "mark_attendance",
+          title: `Lunch note for ${child.name}`, body: note.slice(0, 200), linkTemplate: "/common/classDashboard?classId={classId}", refId: child.id,
+        }).catch(() => {});
+      } else {
+        await db.query("DELETE FROM lunch_notes WHERE student_id = $1 AND guardian_id = $2 AND organization_id = $3", [child.id, req.session.guardianId, organizationId]);
+      }
+      return res.json({ success: true, note });
+    } catch (error) {
+      console.error("[parentHub] lunch note:", error.message);
+      return res.status(500).json({ success: false, message: "That didn't save. Try again." });
+    }
   })),
 
   // Alerts for one child (feature alert_rules): a score below or above a percentage, absences.

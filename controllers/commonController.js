@@ -9786,6 +9786,12 @@ const commonController = {
       // the overall figure comes from the whole term's totals.
       const lunchMap = {};
       lunchRows.forEach((row) => { (lunchMap[row.student_id] = lunchMap[row.student_id] || {})[String(row.day).slice(0, 10)] = row.had_lunch; });
+      // What parents wrote about their children's lunch (a special request, an allergy).
+      const lunchNotes = {};
+      if (lunchOn) {
+        const noteRows = await db.query("SELECT student_id, note FROM lunch_notes WHERE organization_id = $1 AND student_id IN (SELECT student_id FROM students WHERE class_id = $2 AND organization_id = $1) ORDER BY updated_at", [organizationId, classId]).then((r) => r.rows).catch(() => []);
+        noteRows.forEach((row) => { lunchNotes[row.student_id] = lunchNotes[row.student_id] ? `${lunchNotes[row.student_id]} / ${row.note}` : row.note; });
+      }
       const lunchTotals = { days: (lunchDaysRows[0] && lunchDaysRows[0].days) || 0, byStudent: Object.fromEntries(lunchTotalRows.map((r) => [r.student_id, r.yes])) };
       // Render the attendance collection page
       // Classroom sections collected every day that asked for a column here (a lunch count).
@@ -9800,6 +9806,7 @@ const commonController = {
         attendanceOn,
         pageName: svc.name,
         lunchMap,
+        lunchNotes,
         notesOn,
         notesMap,
         lateOn,
