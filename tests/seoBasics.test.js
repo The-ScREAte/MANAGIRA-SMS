@@ -111,12 +111,14 @@ test("the daily update works when the state table cannot be made, and when off",
   assert.equal((await runSearchIndexSync(broken, { env: {} })).skipped, "off");
 });
 
-test("verification tags show only when their env vars are set, escaped", async () => {
+test("verification tags: Google/Yandex only when set, Bing's built-in token always, all escaped", async () => {
   const file = path.join(ROOT, "views/partials/siteVerification.ejs");
   const saved = { ...process.env };
   try {
     delete process.env.GOOGLE_SITE_VERIFICATION; delete process.env.BING_SITE_VERIFICATION; delete process.env.YANDEX_SITE_VERIFICATION;
-    assert.ok(!/<meta/.test(await ejs.renderFile(file, {})));
+    const bare = await ejs.renderFile(file, {});
+    assert.ok(!/google-site-verification|yandex-verification/.test(bare));
+    assert.match(bare, /name="msvalidate\.01" content="146B7F9A25824DB80293855FC4DF338E"/);
     process.env.GOOGLE_SITE_VERIFICATION = 'g"><script>1</script>'; process.env.BING_SITE_VERIFICATION = "b1"; process.env.YANDEX_SITE_VERIFICATION = "y1";
     const html = await ejs.renderFile(file, {});
     assert.match(html, /name="google-site-verification" content="g&#34;&gt;&lt;script&gt;/);

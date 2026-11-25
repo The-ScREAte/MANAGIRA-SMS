@@ -1,6 +1,9 @@
 <%# Search engine ownership tokens, from Render env vars (absent when not set):
-    GOOGLE_SITE_VERIFICATION, BING_SITE_VERIFICATION, YANDEX_SITE_VERIFICATION. Public marketing pages only. %>
+    GOOGLE_SITE_VERIFICATION, BING_SITE_VERIFICATION, YANDEX_SITE_VERIFICATION. Public marketing pages only.
+    Bing's token for managira.com is built in (a public value, shown to every visitor) so verification never depends on
+    a setting; BING_SITE_VERIFICATION overrides it. %>
+<% const _bingToken = process.env.BING_SITE_VERIFICATION || '146B7F9A25824DB80293855FC4DF338E'; %>
 <% if (process.env.GOOGLE_SITE_VERIFICATION) { %><meta name="google-site-verification" content="<%= process.env.GOOGLE_SITE_VERIFICATION %>">
-<% } %><% if (process.env.BING_SITE_VERIFICATION) { %><meta name="msvalidate.01" content="<%= process.env.BING_SITE_VERIFICATION %>">
+<% } %><% if (_bingToken) { %><meta name="msvalidate.01" content="<%= _bingToken %>">
 <% } %><% if (process.env.YANDEX_SITE_VERIFICATION) { %><meta name="yandex-verification" content="<%= process.env.YANDEX_SITE_VERIFICATION %>">
 <% } %>
