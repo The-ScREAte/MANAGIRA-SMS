@@ -376,8 +376,10 @@
         var body = new URLSearchParams({ email: email.value.trim() });
         var nextField = form.querySelector('input[name="next"]');
         if (nextField) body.set('next', nextField.value);
-        fetch('/account/login/continue', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: body })
-          .then(function (answer) { return answer.json(); })
+        var abort = window.AbortController ? new AbortController() : null;
+        var timer = setTimeout(function () { if (abort) abort.abort(); }, 15000);
+        fetch('/account/login/continue', { method: 'POST', credentials: 'same-origin', signal: abort ? abort.signal : undefined, headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: body })
+          .then(function (answer) { clearTimeout(timer); return answer.json(); })
           .then(function (data) {
             submit.disabled = false;
             if (data.step === 'sso' && data.sso) { show('sso', data.sso, data.password); return; }
@@ -386,7 +388,13 @@
             emailError.hidden = false;
             email.focus();
           })
-          .catch(function () { submit.disabled = false; form.submit(); });
+          .catch(function () {
+            clearTimeout(timer);
+            submit.disabled = false;
+            // Too slow: say so and let the person try again; any other failure falls back to a full page load.
+            if (abort && abort.signal.aborted) { if (window.showAuthTooLong) window.showAuthTooLong(); return; }
+            form.submit();
+          });
       }
       form.addEventListener('submit', function (event) {
         emailError.hidden = true;

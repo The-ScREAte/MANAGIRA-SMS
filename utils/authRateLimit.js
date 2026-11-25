@@ -85,7 +85,8 @@ const FREE_WRONG_PER_ACCOUNT = 10;
 const FREE_WRONG_PER_NETWORK = 300; // A whole school often signs in from one address.
 const TURN_PER_ACCOUNT_MS = 2000;
 const TURN_PER_NETWORK_MS = 500;
-const LONGEST_WAIT_MS = 15000;
+// Shorter than the sign-in page's own 15-second patience, so a wait never looks like a hang.
+const LONGEST_WAIT_MS = 8000;
 const tries = new BoundedMap(20000);
 
 function trackOf(key, now) {

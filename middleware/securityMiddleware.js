@@ -81,6 +81,11 @@ const EMAIL_UNSUBSCRIBE = /^\/email\/unsubscribe$/;
 // callbacks (signatures or a secret).
 const OWN_AUTH_POSTS = /^\/csp-report$|^\/api\/v1\/|^\/internal\/(api|shard)\/|^\/account\/(webhook|paystack-webhook|whatsapp\/webhook|sms\/webhook\/[a-z]+|settings\/finance\/webhooks\/.*)$/i;
 
+// Signing in (and its code, reset and password-setting steps) must never fail just because a
+// browser sent no Origin or Referer (a privacy setting, a home-screen app, an old stale cookie): there
+// is no signed-in session to ride yet. Only a request that names ANOTHER site is refused there.
+const SIGN_IN_POSTS = /^\/account\/(login|guardian-login|student-login|login\/(continue|verify-code|resend-code)|reset-password|set-password|forgot-password|forgot-username)\/?$|^\/hub\/(login|forgot-password|reset-password)\/?$|^\/common\/set-password\/?$/i;
+
 const hasSessionCookie = (req) => /(?:^|;\s*)connect\.sid=/.test(String(req.get("cookie") || ""));
 const hostOf = (value) => { try { return new URL(value).hostname; } catch (_) { return ""; } };
 
@@ -92,10 +97,11 @@ function crossSiteReason(req) {
   const origin = req.get("origin");
   if (origin && origin !== "null") return isOwnHost(hostOf(origin), host) ? null : "origin";
   const cookie = hasSessionCookie(req);
-  if (origin === "null") return cookie ? "origin" : null;
+  if (origin === "null") return cookie && !SIGN_IN_POSTS.test(String(req.path || "")) ? "origin" : null;
   const referer = req.get("referer");
   if (referer) return isOwnHost(hostOf(referer), host) ? null : "referer";
   if (!cookie) return null;
+  if (SIGN_IN_POSTS.test(String(req.path || ""))) return null;
   if (req.get("sec-fetch-site") === "same-origin") return null;
   return "no-origin";
 }

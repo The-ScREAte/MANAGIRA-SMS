@@ -26,15 +26,37 @@
     var words = loader.querySelector('[data-loader-text]');
     var message = <%- JSON.stringify(typeof loaderText !== 'undefined' ? loaderText : 'Signing you in').replace(/</g, '\\u003c') %>;
     var slow, stuck;
+    var TOO_LONG = 'That took too long. Check your connection and try again.';
     function hide() { loader.hidden = true; clearTimeout(slow); clearTimeout(stuck); }
+    // No endless spinner: when nothing came back in time, say so and let the person try again.
+    function tooLong() {
+      hide();
+      var note = document.getElementById('authTooLong');
+      if (!note) {
+        note = document.createElement('div');
+        note.id = 'authTooLong';
+        note.setAttribute('role', 'alert');
+        note.style.cssText = 'position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2147483001;max-width:420px;margin:0 auto;padding:14px 16px;border-radius:12px;background:#991b1b;color:#fff;font:600 15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;box-shadow:0 10px 30px rgba(15,23,42,.3)';
+        document.body.appendChild(note);
+      }
+      note.textContent = TOO_LONG;
+      note.hidden = false;
+      setTimeout(function () { note.hidden = true; }, 12000);
+      document.querySelectorAll('button[disabled]').forEach(function (b) { b.disabled = false; });
+    }
     function show(text) {
       words.textContent = text || message;
       loader.hidden = false;
       clearTimeout(slow); clearTimeout(stuck);
       slow = setTimeout(function () { words.textContent = 'Almost there'; }, 5000);
-      stuck = setTimeout(hide, 30000);
+      stuck = setTimeout(tooLong, 15000);
     }
     window.showAuthLoader = show;
+    window.showAuthTooLong = tooLong;
+    // A second tap while the first sign-in is still on its way does nothing (no double submit).
+    document.addEventListener('submit', function (event) {
+      if (!loader.hidden && event.target && String(event.target.method).toLowerCase() === 'post') event.preventDefault();
+    }, true);
     document.addEventListener('submit', function (event) {
       var form = event.target;
       if (event.defaultPrevented || !form || String(form.method).toLowerCase() !== 'post') return;

@@ -14,7 +14,9 @@ test("the Content-Security-Policy is enforced, names its sources and has no catc
   assert.deepEqual(parts["default-src"], ["'self'"]);
   assert.deepEqual(parts["object-src"], ["'none'"]);
   assert.deepEqual(parts["base-uri"], ["'self'"]);
-  assert.deepEqual(parts["form-action"], ["'self'"]);
+  // A form post is often redirected to the school's own address or to another site (single
+  // sign-on, payments); form-action would cancel that redirect and leave the page loading forever.
+  assert.equal(parts["form-action"], undefined, "no form-action: it blocks the sign-in redirect to the school's address");
   assert.ok(parts["frame-ancestors"].includes("'self'"));
   assert.ok(parts["img-src"].includes("https://my-bucket.s3.us-east-1.amazonaws.com"), "the school storage bucket");
   assert.ok(parts["frame-src"].includes("https://mira.managira.com"), "Mira's panel");
@@ -104,6 +106,18 @@ test("a post that carries a sign-in cookie must come from our own site", () => {
   assert.equal(crossSiteReason(request({ host: "school.managira.com" })), null);
   assert.equal(crossSiteReason(request({ host: "school.managira.com", origin: "null" })), null);
   assert.equal(crossSiteReason(request({ host: "school.managira.com", origin: "https://evil.example" })), "origin", "another site is refused with or without a cookie");
+});
+
+test("sign-in posts are never refused for a missing Origin or Referer, only for another site", () => {
+  const cookie = "connect.sid=s%3Aabc";
+  const post = (path, headers) => ({ path, get: (name) => ({ host: "managira.com", cookie, ...headers })[String(name).toLowerCase()] });
+  for (const path of ["/account/login", "/account/login/continue", "/account/login/verify-code", "/account/login/resend-code", "/account/guardian-login", "/account/student-login", "/account/reset-password", "/hub/login"]) {
+    assert.equal(crossSiteReason(post(path, {})), null, `${path} with no Origin or Referer`);
+    assert.equal(crossSiteReason(post(path, { origin: "null" })), null, `${path} with Origin: null`);
+    assert.equal(crossSiteReason(post(path, { origin: "https://evil.example" })), "origin", `${path} from another site`);
+    assert.equal(crossSiteReason(post(path, { referer: "https://evil.example/x" })), "referer", `${path} from another site (Referer)`);
+  }
+  assert.equal(crossSiteReason(post("/account/settings/save", {})), "no-origin", "other posts still need a header");
 });
 
 test("SMS delivery callbacks need the shared secret, or Twilio's signature", async () => {

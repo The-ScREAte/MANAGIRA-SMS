@@ -50,7 +50,10 @@ function directives({ env = process.env, miraOrigin = "", nonce = "" } = {}) {
     "manifest-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
-    "form-action": ["'self'"],
+    // No "form-action": browsers also apply it to where a form post is REDIRECTED. Signing in posts
+    // to managira.com and is sent on to the school's own address (https://<school>.managira.com),
+    // single sign-on and payments post to us and are sent to another site, so "'self'" left the
+    // sign-in page spinning forever with no error (the browser silently cancels the redirect).
     "frame-ancestors": FRAME_ANCESTORS,
   };
   return list;
