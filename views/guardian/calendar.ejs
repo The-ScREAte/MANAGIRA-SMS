@@ -1,11 +1,81 @@
-<link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
-<div class="ph ph--calendar">
-  <%- include('../partials/flash') %>
-  <% if (String(locals.calendarBase || '').startsWith('/student')) { %>
-  <%- include('../partials/portalHead', { title: 'Calendar', icon: 'calendar', sub: 'Classes, activities and school events.' }) %>
-  <% } else { %>
-  <%- include('../partials/portalHead', { title: 'Calendar', icon: 'calendar', sub: 'Your children’s classes, activities and school events.', back: { href: '/guardian/dashboard', label: 'Dashboard' } }) %>
-  <% } %>
-  <div id="parentCalendar" data-children="<%= JSON.stringify(children) %>" data-date="<%= initialDate %>" data-child="<%= initialChild %>" data-base="<%= locals.calendarBase || '/guardian/calendar' %>"></div>
+<%# The calendar for parents and students: the same layout and look as the school calendar
+    (views/common/calendar.ejs), with their children's classes, activities, school events and
+    what's due. public/js/familyCalendar.js draws it. %>
+<%
+  const _student = String(locals.calendarBase || '').startsWith('/student');
+  const _kids = Array.isArray(locals.children) ? children : [];
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/calendar.css') %>" />
+<div class="cal-flash"><%- include('../partials/flash') %></div>
+
+<div class="cal-page" id="familyCalendar"
+  data-base="<%= locals.calendarBase || '/guardian/calendar' %>"
+  data-children="<%= JSON.stringify(_kids) %>"
+  data-initial-date="<%= locals.initialDate || '' %>"
+  data-child="<%= locals.initialChild || '' %>">
+  <aside class="cal-side">
+    <div class="cal-side__head">
+      <h1>Calendar</h1>
+    </div>
+    <div class="cal-side__actions">
+      <button type="button" class="ws-btn cal-sync" data-cal-sync>
+        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync
+      </button>
+    </div>
+
+    <% if (!_student && _kids.length > 1) { %>
+    <div class="cal-card">
+      <h2 class="cal-card__title">Children</h2>
+      <div data-cal-children></div>
+    </div>
+    <% } %>
+
+    <div class="cal-card">
+      <h2 class="cal-card__title">My calendars</h2>
+      <label class="cal-layer" style="--dot:#0f766e"><input type="checkbox" data-cal-layer="event" checked><span class="cal-layer__box"></span>School events<small data-cal-count="event"></small></label>
+      <label class="cal-layer" style="--dot:#12883f"><input type="checkbox" data-cal-layer="activity" checked><span class="cal-layer__box"></span>Activities<small data-cal-count="activity"></small></label>
+      <label class="cal-layer" style="--dot:#b45309"><input type="checkbox" data-cal-layer="class" checked><span class="cal-layer__box"></span>Classes<small data-cal-count="class"></small></label>
+      <label class="cal-layer" style="--dot:#d92d20"><input type="checkbox" data-cal-layer="work" checked><span class="cal-layer__box"></span>Due<small data-cal-count="work"></small></label>
+    </div>
+
+    <div class="cal-card">
+      <h2 class="cal-card__title">Coming up</h2>
+      <ul class="cal-up" data-cal-upcoming><li class="cal-empty">Loading…</li></ul>
+    </div>
+  </aside>
+
+  <main class="cal-main">
+    <div id="calendar" class="no-global-sort" data-no-global-sort aria-label="Calendar"></div>
+  </main>
 </div>
-<script src="<%= assetUrl('/js/parentCalendar.js') %>" defer></script>
+
+<dialog class="ws-dialog" data-cal-peek aria-labelledby="fc-peek-title">
+  <form method="dialog" novalidate>
+    <div class="ws-dialog__head">
+      <div><h2 class="ws-dialog__title" id="fc-peek-title" data-peek-title></h2><p class="sync-sub" data-peek-meta></p></div>
+      <button type="button" class="ws-close" data-peek-close aria-label="Close">×</button>
+    </div>
+    <div class="ws-dialog__body">
+      <p data-peek-details style="white-space:pre-line;margin:0"></p>
+      <p style="margin:12px 0 0"><a class="ws-btn ws-btn--primary" data-peek-link data-no-spa hidden>Open</a></p>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="ws-dialog sync-dialog" data-sync-dialog aria-labelledby="fc-sync-title">
+  <form method="dialog" novalidate>
+    <div class="ws-dialog__head">
+      <div><h2 class="ws-dialog__title" id="fc-sync-title">Calendar sync</h2></div>
+      <button type="button" class="ws-close" data-sync-close aria-label="Close">×</button>
+    </div>
+    <div class="ws-dialog__body">
+      <div class="sync-rows" data-sync-apps><p class="ws-hint">Loading…</p></div>
+      <p class="ws-error" data-sync-error role="alert"></p>
+      <p style="margin:10px 0 0"><button type="button" class="ws-btn" data-sync-reset style="color:#b42318">Make a new link</button></p>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="<%= assetUrl('/js/familyCalendar.js') %>"></script>

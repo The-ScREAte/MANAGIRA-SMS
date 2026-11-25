@@ -27,6 +27,7 @@ module.exports = (db) => {
   router.get("/child/activities", isGuardianAuthenticated, (req, res) => parentHub.activities(req, res, db));
   router.get("/child/teachers", isGuardianAuthenticated, (req, res) => parentHub.teachers(req, res, db));
   router.get("/child/lunch", isGuardianAuthenticated, (req, res) => parentHub.lunch(req, res, db));
+  router.post("/child/lunch/note", isGuardianAuthenticated, express.json({ limit: "4kb" }), (req, res) => parentHub.lunchNote(req, res, db));
   router.get("/child/alerts", isGuardianAuthenticated, (req, res) => parentHub.alerts(req, res, db));
   // One sign-in for children at several schools (feature family_link, utils/familyLink.js).
   const familyLinkController = require("../controllers/familyLinkController");

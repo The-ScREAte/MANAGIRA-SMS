@@ -64,7 +64,7 @@
     "node-cron": "^4.2.1",
     "node-ical": "0.27.1",
     "node-schedule": "^2.1.1",
-    "nodemailer": "10.4.1",
+    "nodemailer": "10.6.1",
     "openid-client": "^6.8.9",
     "papaparse": "5.7.1",
     "passport": "^0.6.0",
@@ -102,7 +102,7 @@
     "concurrently": "^10.0.5",
     "connect-livereload": "^0.6.1",
     "livereload": "^0.10.3",
-    "node-gyp": "^11.1.0",
+    "node-gyp": "^13.1.0",
     "nodemon": "^3.1.0",
     "png-to-ico": "^3.0.1"
   },
