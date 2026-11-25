@@ -305,7 +305,7 @@ module.exports = [
   },
   {
     slug: "hub-settings-and-contacts",
-    title: "Hub settings: your profile, the hub's details, contact people and emails",
+    title: "Hub settings: profile, details, contacts and emails",
     topic: "Districts & hubs",
     order: 5,
     summary: "Change your profile and look, update the hub's logo, phone and address, list the people schools can contact, and choose which hub emails you get.",

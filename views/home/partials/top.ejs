@@ -4,7 +4,7 @@
   const _description = locals.description || '';
   const _keywords = locals.keywords || '';
   const _canonical = locals.canonicalUrl || 'https://managira.com/';
-  const _share = locals.shareImage ? { url: locals.shareImage, width: locals.shareImageWidth || 512, height: locals.shareImageHeight || 512 } : { url: 'https://managira.com/images/image.png', width: 804, height: 461 };
+  const _share = locals.shareImage ? { url: locals.shareImage, width: locals.shareImageWidth || 512, height: locals.shareImageHeight || 512 } : { url: 'https://managira.com/images/image.png', width: 811, height: 463 };
 %><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,6 +15,7 @@
   <% if (_keywords) { %><meta name="keywords" content="<%= _keywords %>"><% } %>
   <meta name="robots" content="<%= locals.robots || 'index, follow' %>">
   <meta name="author" content="Managira">
+  <%- include("../../partials/siteVerification") %>
   <meta name="theme-color" content="#040a0b">
   <link rel="canonical" href="<%= _canonical %>">
   <meta property="og:type" content="website">

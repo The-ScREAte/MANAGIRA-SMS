@@ -275,7 +275,7 @@ module.exports = [
   },
   {
     slug: "transportation-settings",
-    title: "Transportation settings: school location, units and arrival checks",
+    title: "Transportation settings: location, units, arrival checks",
     topic: "Transportation",
     order: 6,
     summary: "Set the school's address for every route, choose miles or kilometers, and decide whether parents confirm their child arrived.",
@@ -310,7 +310,7 @@ module.exports = [
   },
   {
     slug: "live-bus-tracking",
-    title: "Live bus tracking: what staff, teachers, families and drivers see",
+    title: "Live bus tracking for staff, teachers, families and drivers",
     topic: "Transportation",
     order: 7,
     summary: "While a driver is on a trip, staff watch every bus on the Transportation map, teachers see their class's route live, and families follow their own bus.",

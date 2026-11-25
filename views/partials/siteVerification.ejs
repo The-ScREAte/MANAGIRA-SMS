@@ -1,0 +1,6 @@
+<%# Search engine ownership tokens, from Render env vars (absent when not set):
+    GOOGLE_SITE_VERIFICATION, BING_SITE_VERIFICATION, YANDEX_SITE_VERIFICATION. Public marketing pages only. %>
+<% if (process.env.GOOGLE_SITE_VERIFICATION) { %><meta name="google-site-verification" content="<%= process.env.GOOGLE_SITE_VERIFICATION %>">
+<% } %><% if (process.env.BING_SITE_VERIFICATION) { %><meta name="msvalidate.01" content="<%= process.env.BING_SITE_VERIFICATION %>">
+<% } %><% if (process.env.YANDEX_SITE_VERIFICATION) { %><meta name="yandex-verification" content="<%= process.env.YANDEX_SITE_VERIFICATION %>">
+<% } %>

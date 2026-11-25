@@ -221,8 +221,8 @@ test("a job lock held elsewhere skips the run", async () => {
 test("job locks are named after the job, not its position", () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../jobs/scheduler.js"), "utf8");
   const names = [...source.matchAll(/cron\.schedule\('[^']+', '([a-z-]+)', async/g)].map((m) => m[1]);
-  assert.equal(names.length, 23);
-  assert.equal(new Set(names).size, 23, "each name is unique");
+  assert.equal(names.length, 24);
+  assert.equal(new Set(names).size, 24, "each name is unique");
   assert.ok(names.includes("keep-students-enrolled"), "every student is kept in a term by a nightly job");
   assert.ok(names.includes("database-backup"), "the nightly backup is a job");
   assert.ok(names.includes("custom-form-reminders"), "custom form reminders go out from a job");

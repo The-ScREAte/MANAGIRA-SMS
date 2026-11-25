@@ -18,7 +18,14 @@
   %>
   <meta name="robots" content="<%= _shouldNoindex ? 'noindex, nofollow' : 'index, follow' %>">
   <meta name="author" content="Managira">
+  <% const _pubPath = req && req.originalUrl ? String(req.originalUrl).split('?')[0] : ''; if (_pubPath === "/account/service-plan" || _pubPath.startsWith("/legal/")) { %><%- include("siteVerification") %><% } %>
   
+  <%# Breadcrumb trail for the public inner pages (search results show it under the title). %>
+  <% if (typeof canonicalUrl !== 'undefined' && canonicalUrl && req && req.originalUrl && ['/account/service-plan', '/legal/faq', '/legal/about-us', '/legal/request-demo', '/legal/privacy-policy', '/legal/terms-of-service', '/legal/security', '/legal/subprocessors'].includes(String(req.originalUrl).split('?')[0])) {
+       const _crumbs = [{ name: 'Managira', url: 'https://managira.com/' }, { name: String(title).replace(/ \| Managira.*$/, ''), url: canonicalUrl }]; %>
+  <script type="application/ld+json" nonce="<%= locals.cspNonce || '' %>"><%- JSON.stringify({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: _crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })) }).replace(/</g, '\\u003c') %></script>
+  <% } %>
+
   <!-- Open Graph Meta Tags -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="<%= title %>">
@@ -35,8 +42,8 @@
     const _schoolLogoPath = req && req.schoolDetails ? req.schoolDetails.logo_path : null;
 
     let _shareImage = 'https://managira.com/images/image.png';
-    let _shareImageWidth = '804';
-    let _shareImageHeight = '461';
+    let _shareImageWidth = '811';
+    let _shareImageHeight = '463';
     let _shareImageType = 'image/png';
 
     // Per-page override (e.g. the Mira AI Assistant page using the Mira

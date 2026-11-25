@@ -309,7 +309,7 @@ body .cal-main .fc .fc-list-day > * { background: #f8fafc; }
   .cal-main .fc .fc-toolbar { flex-direction: column; align-items: stretch; }
   .cal-main .fc .fc-toolbar-chunk { display: flex; justify-content: center; }
   .cal-main .fc .fc-toolbar-title { font-size: 1.1rem; text-align: center; }
-  .ws-row, .ws-row--3 { grid-template-columns: minmax(0, 1fr); }
+  .ws-row, .ws-row--3, .ws-dialog .ws-row.ws-row--3 { grid-template-columns: minmax(0, 1fr); }
   .ws-dialog__foot { flex-wrap: wrap; }
   /* Four tabs (Event, Announcement, Task, Activity) fit a phone, and swipe if needed. */
   .ws-tabs { gap: 0; padding: 10px 12px 0; overflow-x: auto; scrollbar-width: none; }

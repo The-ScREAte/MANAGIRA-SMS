@@ -2325,6 +2325,14 @@
           margin-right: 8px !important;
         }
       }
+
+      /* Phones: one field per row at a comfortable touch height, so dates and dropdowns are never squeezed. */
+      @media (max-width: 480px) {
+        .student-form-card-body .form-field-row { grid-template-columns: minmax(0, 1fr) !important; }
+        .student-form-card-body .form-field-row > .form-field-group > .form-input,
+        .guardians-container .guardian-row > .form-field-group > .form-input { min-height: 44px !important; height: 44px !important; line-height: 1.2 !important; }
+        .student-form-card-body input.form-input[type="date"] { line-height: 1.2 !important; padding: 0 12px !important; }
+      }
     </style>
 <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>

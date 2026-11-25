@@ -432,7 +432,7 @@ module.exports = [
   },
   {
     slug: "paygira-settings",
-    title: "PayGira settings: invoice note, online payment methods and the service fee",
+    title: "PayGira settings: invoice note, payment methods, service fee",
     topic: "PayGira & payments",
     order: 8,
     summary: "Add a note to every invoice, choose how parents can pay online and decide who covers the service fee.",

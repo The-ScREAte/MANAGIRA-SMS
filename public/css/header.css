@@ -1613,6 +1613,13 @@
       gap: 0;
     }
 
+    /* Closed, the search form is only as wide as its icon, so it never reaches past the screen's left edge. */
+    .search-bar-container.is-mobile-collapsible:not(.is-expanded) .search-bar {
+      width: var(--mobile-search-collapsed-width);
+      min-width: var(--mobile-search-collapsed-width);
+      max-width: var(--mobile-search-collapsed-width);
+    }
+
     .search-bar-container.is-mobile-collapsible .search-input-shell {
       width: calc(var(--mobile-search-expanded-width) - var(--mobile-search-collapsed-width) + 4px);
       max-width: 0;

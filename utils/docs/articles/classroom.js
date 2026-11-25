@@ -192,7 +192,7 @@ module.exports = [
   },
   {
     slug: "attendance-notices",
-    title: "Attendance notices: tell parents about repeated absences and late arrivals",
+    title: "Attendance notices for repeated absences and late arrivals",
     topic: "Classroom & attendance",
     order: 2.5,
     summary: "Parents are told once when a student has been absent or late several times in a week. Each class chooses whether to send them and after how many.",

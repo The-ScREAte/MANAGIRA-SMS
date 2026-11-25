@@ -131,7 +131,7 @@ module.exports = [
   },
   {
     slug: "customize-your-school",
-    title: "Customize your school: logo, name, colors, calendar and formats",
+    title: "Customize your school: logo, colors, calendar and formats",
     topic: "School setup",
     order: 1,
     summary: "Settings › Customize school: your logo, name, address, short name, brand color, font, how names and dates show, and the school calendar.",

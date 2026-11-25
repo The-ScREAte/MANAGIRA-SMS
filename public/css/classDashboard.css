@@ -22,8 +22,8 @@ body {
 }
 
 #className {
-  text-align: center;
-  margin-bottom: 20px;
+  text-align: left;
+  margin-bottom: 0;
 }
 
 .employee-list {
@@ -116,11 +116,6 @@ body {
   .class-dashboard-container {
     width: 95%;
     padding: 10px;
-  }
-
-  #className {
-    font-size: 1.4rem;
-    margin-bottom: 10px;
   }
 
   .school-year-term-info h2,

@@ -43,6 +43,8 @@
 }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/classWorkspace.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/classroomPhone.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/classroomPages.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" />
 
 <body>
@@ -193,7 +195,7 @@
                   <span class="nav-icon" aria-hidden="true"><%- navIcon('grading') %></span>
                   <span class="nav-link-label">Gradebook</span>
                   <span class="nav-count-pill"><%= subjects.length %></span>
-                  <span class="nav-section-icon" aria-hidden="true">›</span>
+                  <span class="nav-section-icon" aria-hidden="true"><%- navIcon('chevronRight', 18) %></span>
                 </button>
               </li>
               <li class="nav-section-children" id="subjects-section-list" hidden>
@@ -267,7 +269,7 @@
                   <span class="workspace-cohort"><%= graduationYearGroup %></span>
                 <% } %>
                 <button type="button" class="workspace-meta-toggle" aria-expanded="false" aria-controls="workspace-meta-inline" aria-label="Show class details" title="Show class details" data-onclick="common-classDashboard.19">
-                  <svg class="workspace-meta-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="14" y2="6"/><circle cx="18" cy="6" r="2"/><line x1="4" y1="12" x2="10" y2="12"/><circle cx="14" cy="12" r="2"/><line x1="4" y1="18" x2="14" y2="18"/><circle cx="18" cy="18" r="2"/></svg>
+                  <%- navIcon('info', { className: 'workspace-meta-toggle-icon' }) %>
                 </button>
               </span>
             </div>
@@ -1177,6 +1179,11 @@
             '</div>';
         }).join('');
         tabBar.innerHTML = tabsMarkup;
+        // Phones: the row scrolls sideways; keep the open tab in view (the row only, never the page).
+        var activeChip = tabBar.querySelector('.workspace-tab.is-active');
+        if (activeChip && tabBar.scrollWidth > tabBar.clientWidth) {
+          tabBar.scrollLeft = Math.max(0, activeChip.offsetLeft - (tabBar.clientWidth - activeChip.offsetWidth) / 2);
+        }
       }
 
       function showWorkspacePanel(panelId) {
@@ -2596,7 +2603,13 @@
         if (!card) return;
         var collapsed = card.getAttribute('data-meta-collapsed') === 'true';
         card.setAttribute('data-meta-collapsed', collapsed ? 'false' : 'true');
-        btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+        window.syncWorkspaceMetaLabel(btn, collapsed);
+      };
+      window.syncWorkspaceMetaLabel = function (btn, open) {
+        var label = open ? 'Hide class details' : 'Show class details';
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
       };
 
       // "Assess other school year": the ⋮ menu turns Year and Term into pickers.
@@ -2628,7 +2641,7 @@
           if (on) {
             card.setAttribute('data-meta-collapsed', 'false');
             var metaToggle = card.querySelector('.workspace-meta-toggle');
-            if (metaToggle) metaToggle.setAttribute('aria-expanded', 'true');
+            if (metaToggle) window.syncWorkspaceMetaLabel(metaToggle, true);
           }
         }
         // Reload the class (same open tab) so everything follows the term.

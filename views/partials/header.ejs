@@ -970,7 +970,6 @@
 .help-menu-text { display: grid; gap: 2px; min-width: 0; }
 .help-menu-text strong { font-size: 0.9rem; font-weight: 700; }
 .help-menu-text small { font-size: 0.78rem; color: #64748b; line-height: 1.35; }
-@media (max-width: 600px) { .help-menu-panel { width: calc(100vw - 16px); right: -90px; } }
 /* Bell button */
 .notif-bell-wrapper {
   position: relative;
@@ -1180,8 +1179,13 @@
   white-space: nowrap;
 }
 
-@media (max-width: 480px) {
-  .notif-panel { width: calc(100vw - 16px); right: -50px; }
+/* Phones: the notification and Help panels are sheets under the header, 8px from both edges, scrolling inside when tall. */
+@media (max-width: 600px) {
+  .notif-panel, .help-menu-panel {
+    position: fixed; left: 8px; right: 8px; top: calc(var(--header-height, 64px) + 6px); width: auto; max-width: none;
+    max-height: calc(100vh - var(--header-height, 64px) - 20px); max-height: calc(100dvh - var(--header-height, 64px) - 20px - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; box-sizing: border-box;
+  }
 }
 
   @media (max-width: 1099px) {

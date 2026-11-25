@@ -10,6 +10,8 @@
     "worker": "node worker.js",
     "edge": "node edge.js",
     "migrate": "node scripts/migrate.js",
+    "indexnow": "node scripts/submitIndexNow.js",
+    "seo:check": "node scripts/seoCheck.js",
     "security:check": "node scripts/securityCheck.js",
     "build:vendor": "node scripts/buildVendor.js",
     "security:cross-school": "node scripts/crossSchoolCheck.js",

@@ -8,7 +8,7 @@ const WHO = "Managers, and staff given <strong>Manage Organization Settings › 
 module.exports = [
   {
     slug: "school-website",
-    title: "Your school website: open it, check it and see what visitors see",
+    title: "Your school website and what visitors see",
     topic: "School website",
     order: 1,
     summary: "Every school gets a public website on its own address, built from what you already keep in Managira. Learn where to manage it and what visitors see.",

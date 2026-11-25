@@ -1,0 +1,63 @@
+/* Classroom pages on a phone (<= 640px): Attendance, Schedule, Pickup, Transportation, Portfolio tiles and the drawers
+   (Review, Reuse, Edit, Rubric, Mark, Report remarks, Parent Messages thread, Add/Edit student).
+   Builds on classroomPhone.css: card padding 12px, gaps 8px, body 14px, headings 16/600. tests/classroomPages.test.js scans this file. */
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden; max-width: 100%; }
+  body :is(.card, .rp-card, .assessment-header, .attendance-header) { padding: 12px; box-sizing: border-box; max-width: 100%; }
+  body :is(.card-title, .section-title, h2) { font-size: 16px; font-weight: 600; }
+  body :is(.card, main) :is(table) { max-width: none; }
+
+  /* Attendance: names stay on one line, header and first column stay put, plates and boxes are 44px targets. */
+  body .attendance-sheet-container { max-width: 100%; overflow: auto; max-height: 70dvh; border: 1px solid var(--ap-line, #e2e8f0); border-radius: 10px; }
+  body .attendance-sheet th.student-name, body .attendance-sheet td.student-name { position: sticky; left: 0; z-index: 2; background: var(--ap-surface, #fff); }
+  body .attendance-sheet thead th.student-name { z-index: 5; }
+  body .attendance-sheet td.student-name { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+  body .attendance-sheet :is(input[type="checkbox"], input[type="radio"]) { min-width: 24px; min-height: 24px; }
+  body .attendance-sheet :is(label, button, .att-btn, .lunch-plate, .att-cell-btn) { min-width: 44px; min-height: 44px; }
+  body .attendance-header input[type="date"], body .attendance-header .cal-pill { width: 100%; max-width: 100%; min-height: 44px; box-sizing: border-box; font-size: 16px; }
+  body .attendance-header-actions :is(button, .btn) { height: 40px; min-height: 40px; width: auto; padding: 0 12px; font-size: 13.5px; font-weight: 600; }
+  body .attendance-header-actions .header-save-btn, body .attendance-header-actions [data-att-save] { height: 40px; min-height: 40px; width: auto; flex: 0 0 auto; }
+  body .att-done, body .att-missed, body [class*="att-done"] { box-sizing: border-box; max-width: 100vw; max-height: 100dvh; overflow-y: auto; }
+
+  /* Tables on class pages: own scroll box, one-line names. */
+  body :is(.schedule-table-wrap, .pickup-wrap, .transport-table-wrap, .cw-table-wrap, .table-wrap) { max-width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; }
+  body :is(.panel, .workspace-panel) table td:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  body table tbody tr { min-height: 44px; }
+
+  /* Portfolio tiles: the text wraps instead of being cut off. */
+  body :is(.sd-tile, .pf-tile, .portfolio-tile, [class*="portfolio"] [class*="tile"]) { min-width: 0; overflow: visible; }
+  body :is(.sd-tile, .pf-tile, .portfolio-tile) :is(span, small, p, div) { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+
+  /* Drawers: inside the screen under the header, body scrolls, footer reachable, fields 16px. */
+  body :is(.af-drawer__panel, .reuse-modal, .students-modal, .question-modal, .qm-preview-panel, .student-remark-modal, .md-drawer__panel) {
+    max-width: 100vw; box-sizing: border-box; max-height: 100dvh; overscroll-behavior: contain;
+    padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+  }
+  body .af-drawer__body, body .qm-body { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: 16px; }
+  body :is(.af-drawer__foot, .qm-footer, .qm-actions, .student-remark-modal-actions) {
+    position: sticky; bottom: 0; z-index: 4; display: flex; gap: 8px; flex-wrap: wrap; padding: 12px calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
+    background: var(--ap-surface, #fff); border-top: 1px solid var(--ap-line, #e2e8f0);
+  }
+  body :is(.af-drawer__foot, .qm-footer, .qm-actions, .student-remark-modal-actions) :is(button, .btn) { min-height: 40px; width: auto; flex: 0 0 auto; }
+  body :is(.af-drawer__panel, .reuse-modal, .students-modal, .question-modal, .student-remark-modal, .rp-detail, .sd-drawer__panel) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; }
+  body :is(.student-remark-modal-close, .reuse-modal-x, .af-drawer__close, .md-drawer__close) { min-width: 40px; min-height: 40px; }
+
+  /* Tap targets: at least 40px on a phone. */
+  body :is(.doc-delete-btn, .mp-close-btn, .cset-lock, .student-transport-btn, .student-form-btn, .student-remark-btn, .card-post-score-toggle, .post-grades-btn, .qm-options-layout-btn, .qm-preview-trigger) { min-width: 40px; min-height: 40px; }
+  body :is(.student-row, .overview-count-chip, .overview-count-toggle) { min-height: 44px; }
+  body summary { min-height: 40px; display: flex; align-items: center; }
+  /* Student page tables scroll inside their own box. */
+  body .sd-table-wrap, body .sd-card :is(.table-wrap, .table-container) { max-width: 100%; overflow-x: auto; }
+
+  /* More tap targets found by the phone audit (kept compact: 36px+ with padding, icons unchanged). */
+  body :is(.cset-lock, .menu-arrange-btn, .form-menu-button, .nav-toggle) { min-width: 36px; min-height: 36px; }
+  body .nav-toggle { min-height: 40px; }
+  body a.sd-view { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; min-width: 60px; }
+  body :is(.add-form-btn, .bulk-import-btn, .save-form-btn, .clear-import-btn) { min-height: 36px; padding-left: 14px; padding-right: 14px; }
+  /* The small "?" help button keeps its icon size but gets a bigger touch area. */
+  body .fh__btn { position: relative; }
+  body .fh__btn::after { content: ""; position: absolute; inset: -9px; }
+  /* Checkbox rows: the whole label is the target. */
+  body :is(.dob-unknown-toggle, #esDateOfBirthUnknown) { min-height: 20px; }
+  body label:has(> input[type="checkbox"]) { min-height: 36px; display: inline-flex; align-items: center; gap: 8px; }
+}

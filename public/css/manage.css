@@ -152,7 +152,7 @@ body.manage-records-page .date-fields input[type="date"] { width: 100%; height: 
   body.manage-records-page .school-year-header .current-label, body.manage-records-page .term-section-header > label:not(.year-label) { order: 3; }
   body.manage-records-page .date-fields { gap: 10px; }
   body.manage-records-page .date-fields input[type="date"] { padding: 0 6px; font-size: .8rem; }
-  body.manage-records-page .date-fields > div { flex: 1 1 calc(50% - 5px); min-width: 0; }
+  body.manage-records-page .date-fields > div { flex: 1 1 100%; min-width: 0; }
   body.manage-records-page .year-form-actions { flex-wrap: wrap; }
   body.manage-records-page .term-fieldset .term-completed-badge { position: static; margin: 0 0 8px; }
 }

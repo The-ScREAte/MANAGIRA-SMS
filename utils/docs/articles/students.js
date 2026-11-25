@@ -382,7 +382,7 @@ module.exports = [
   },
   {
     slug: "admission-settings",
-    title: "Admission Settings: online admission and the fields you collect",
+    title: "Admission settings: online admission and fields",
     topic: "Students & admissions",
     order: 4,
     summary: "One place to open online admission, set the application fee, and choose the fields on student forms and on parents' records.",

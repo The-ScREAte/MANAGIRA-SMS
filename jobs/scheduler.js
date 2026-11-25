@@ -374,4 +374,21 @@ if (shouldRunScheduledHolds) {
   });
 }
 
+// Search engines: after a start/deploy and then daily, tell IndexNow (Bing, Yandex ...) about public
+// pages that are new or changed, in one request (utils/searchIndexSync.js). Off in dev and with SEARCH_NOTIFY=off.
+if (shouldRunScheduler && require('../utils/searchNotify').enabled()) {
+  const runSearchSync = async () => {
+    try {
+      await require('../utils/searchIndexSync').runSearchIndexSync(require('../config/db'), { reason: 'daily update' });
+    } catch (error) {
+      console.error('[SearchNotify] Update failed:', error.message);
+    }
+  };
+  cron.schedule('40 4 * * *', 'search-index-sync', async () => runSearchSync());
+  const { withJobLock: lockJob } = require('../utils/dbLock');
+  setTimeout(() => {
+    lockJob('scheduler-job:search-index-sync', runSearchSync).catch(() => {});
+  }, 120000).unref();
+}
+
 module.exports = { stopAll: () => scheduledTasks.forEach((scheduled) => scheduled.stop()) };

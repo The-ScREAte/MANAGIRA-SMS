@@ -460,8 +460,8 @@ const legalController = {
 
     aboutUs: (req, res) => {
         res.render('legal&Compliance/AboutUs', {
-            title: 'About Managira - School Management That Actually Works',
-            description: 'Real school management software built for schools tired of spreadsheets and disconnected systems. Simple setup, reliable operations, and actual support from people who understand schools.',
+            title: 'About Managira SIS | Our Story and Mission',
+            description: 'Managira is school management software for schools tired of spreadsheets: simple setup, reliable daily operations and real support from people who know schools.',
             keywords: 'managira about us, school management software, education management system, student information system, school administration',
             canonicalUrl: 'https://managira.com/legal/about-us',
             showFooterTopSection: true
@@ -471,7 +471,7 @@ const legalController = {
     miraAiAssistant: (req, res) => {
         const seo = {
             title: 'Mira - The Educational Intelligence for Easy Management',
-            description: 'Mira is Managira\'s built-in AI assistant - an educational intelligence that looks things up, drafts messages, and carries out real school-management tasks through a simple conversation, scoped to your own school and your own real permissions.',
+            description: 'Mira is the AI assistant built into Managira. Ask in plain language and it looks things up, drafts messages and does real school tasks within your permissions.',
             keywords: 'mira ai assistant, school ai assistant, education ai, managira ai, ai school management',
             canonicalUrl: 'https://managira.com/legal/mira-ai-assistant',
             shareImage: 'https://managira.com/images/miralogo.png',
@@ -498,8 +498,8 @@ const legalController = {
             console.error('FAQ knowledge load failed:', err);
         }
         res.render('legal&Compliance/FAQ', {
-            title: 'Managira FAQ - School Management Software & Mira AI Questions Answered',
-            description: 'Answers to common questions about Managira school management software and Mira, its built-in AI assistant - admissions, attendance, grading, billing, parent communication, and what Mira can do.',
+            title: 'Managira FAQ | School Software and Mira AI Answers',
+            description: 'Answers to common questions about Managira school management software and Mira, its AI assistant: admissions, attendance, grading, billing and parent messages.',
             keywords: 'managira faq, mira ai faq, school management software questions, education ai assistant faq',
             canonicalUrl: 'https://managira.com/legal/faq',
             showFooterTopSection: true,
@@ -822,8 +822,8 @@ const legalController = {
 
     requestDemoPage: (req, res) => {
         res.render('legal&Compliance/requestDemo', {
-            title: 'Request a Demo - Managira',
-            description: 'Request a personalised live demo of Managira and see how it can transform your school operations.',
+            title: 'Request a Demo | Managira SIS',
+            description: 'Request a personalised live demo of Managira and see how one student information system can run admissions, attendance, grading, fees and family messages.',
             keywords: 'managira demo request, schedule demo, school management demo, book a demo',
             canonicalUrl: 'https://managira.com/legal/request-demo',
             success: req.flash('success'),
@@ -971,7 +971,9 @@ const legalController = {
         
     privacyPolicy: (req, res) => {
         res.render('legal&Compliance/PrivacyPolicy', { 
-            title: 'Privacy Policy',
+            title: 'Privacy Policy | Managira',
+            description: 'How Managira collects, uses, protects and shares school, student and family information, and the choices and rights that schools and families have.',
+            canonicalUrl: 'https://managira.com/legal/privacy-policy',
             showFooterTopSection: true
         });
     },
@@ -979,7 +981,9 @@ const legalController = {
     // How to report a security problem (vulnerability disclosure), linked from /.well-known/security.txt.
     securityPolicy: (req, res) => {
         res.render('legal&Compliance/securityPolicy', {
-            title: 'Security and Vulnerability Disclosure',
+            title: 'Security and Vulnerability Disclosure | Managira',
+            description: 'How Managira protects school data and how to report a security problem or vulnerability to the Managira team responsibly.',
+            canonicalUrl: 'https://managira.com/legal/security',
             showFooterTopSection: true
         });
     },
@@ -987,14 +991,18 @@ const legalController = {
     // The outside services that process school data (Privacy Policy, section 8).
     subprocessors: (req, res) => {
         res.render('legal&Compliance/subprocessors', {
-            title: 'Subprocessors',
+            title: 'Subprocessors | Managira',
+            description: 'The outside services that process school data for Managira, what each one does and where, as described in the Managira Privacy Policy.',
+            canonicalUrl: 'https://managira.com/legal/subprocessors',
             showFooterTopSection: true
         });
     },
 
     termsOfService: (req, res) => {
         res.render('legal&Compliance/TermsofService', { 
-            title: 'Terms of Service',
+            title: 'Terms of Service | Managira',
+            description: 'The terms that apply when a school or person uses Managira school management software: accounts, subscriptions, acceptable use and responsibilities.',
+            canonicalUrl: 'https://managira.com/legal/terms-of-service',
             showFooterTopSection: true
         });
     },

@@ -611,10 +611,30 @@ Sitemap: https://managira.com/sitemap-schools.xml`
   );
 });
 
+// ── IndexNow key file: https://<any address>/<INDEXNOW_KEY>.txt holds just the key ──
+// Served from the environment on every address (managira.com and school subdomains), so it always
+// matches the key the search notifier sends. Only registered when the key looks valid.
+if (/^[A-Za-z0-9-]{8,128}$/.test(process.env.INDEXNOW_KEY || "")) {
+  app.get(`/${process.env.INDEXNOW_KEY}.txt`, (req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("X-Robots-Tag", "noindex");
+    res.send(process.env.INDEXNOW_KEY);
+  });
+}
+
+// Bing Webmaster Tools XML-file verification, only when BING_SITE_AUTH_USER is set (a 32-hex token).
+if (/^[A-Fa-f0-9]{16,64}$/.test(process.env.BING_SITE_AUTH_USER || "")) {
+  app.get("/BingSiteAuth.xml", (req, res) => {
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.send(`<?xml version="1.0"?>\n<users>\n\t<user>${process.env.BING_SITE_AUTH_USER}</user>\n</users>`);
+  });
+}
+
 // ── Per-school sitemap at the subdomain level ─────────────────────────────────
 // Googlebot looks for /sitemap.xml on every host it crawls. Serving a
 // school-specific sitemap here makes the school page get indexed faster.
-app.get("/sitemap.xml", async (req, res, next) => {
+app.get("/sitemap.xml", compression(), async (req, res, next) => {
   const host = String(req.hostname || "").toLowerCase();
   const isRootHost = host === "managira.com" || host === "www.managira.com" ||
                      host === "localhost" || host.startsWith("127.");
@@ -632,7 +652,7 @@ app.get("/sitemap.xml", async (req, res, next) => {
   }
 
   const nickname = req.schoolDetails.nickname;
-  const today = new Date().toISOString().split("T")[0];
+  const lastmod = req.schoolDetails.updated_at ? new Date(req.schoolDetails.updated_at).toISOString().split("T")[0] : null;
   const schoolUrl = `https://${escapeXml(nickname)}.managira.com/`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -642,13 +662,10 @@ app.get("/sitemap.xml", async (req, res, next) => {
           http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   <url>
     <loc>${schoolUrl}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
+${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}  </url>
 </urlset>`;
 
-  res.setHeader("Content-Type", "application/xml");
+  res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.send(xml);
 });
@@ -1525,54 +1542,16 @@ app.use("/notices", require("./routes/noticesRoute"));
 // site) gets crawled and ranked. This mirrors checkFeatureAccess.js's own
 // feature-gate lookup for the /common/publicDashboard route exactly, rather
 // than hardcoding a specific feature id/name that could drift out of sync.
-const fetchSitemapOrganizations = async () => {
-  const result = await db.query(
-    `SELECT o.organization_id, o.nickname, o.updated_at
-       FROM organizations o
-       LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
-      WHERE o.deleted = false
-        AND o.nickname IS NOT NULL
-        AND o.nickname <> ''
-        -- Test schools ("(TEST)" in the name, or "test" as a word of the address) aren't listed for search engines.
-        AND o.organization_name !~* '\\(test\\)'
-        AND o.nickname !~* '(^|-)test(-|$)'
-        AND COALESCE(mh.on_hold, false) = false
-        AND (
-          NOT EXISTS (
-            SELECT 1 FROM feature_routes fr
-            WHERE fr.route_path = '/common/publicDashboard'
-          )
-          OR EXISTS (
-            SELECT 1 FROM feature_routes fr
-            JOIN plan_features pf ON pf.feature_id = fr.feature_id
-            WHERE fr.route_path = '/common/publicDashboard'
-              AND pf.plan_id = (
-                CASE
-                  WHEN o.is_hub_member AND COALESCE(o.hub_assigned_plan_id, mh.plan_id) IS NOT NULL THEN COALESCE(o.hub_assigned_plan_id, mh.plan_id)
-                  ELSE o.plan_id
-                END
-              )
-          )
-        )
-      ORDER BY o.organization_name ASC
-      LIMIT 5000`
-  );
-  return result.rows;
-};
+const fetchSitemapOrganizations = () => require("./utils/publicSchools").listPublicSchools(db);
 
 // Sitemap index for school subdomain sitemaps. This is an extra discovery layer
 // that helps crawlers find each school sitemap quickly.
-app.get("/sitemap-schools-index.xml", async (req, res) => {
+app.get("/sitemap-schools-index.xml", compression(), async (req, res) => {
   try {
     const organizations = await fetchSitemapOrganizations();
-    const today = new Date().toISOString().split("T")[0];
-
     const sitemapEntries = organizations.map((org) => {
-      const lastmod = org.updated_at
-        ? new Date(org.updated_at).toISOString().split("T")[0]
-        : today;
-
-      return `  <sitemap>\n    <loc>https://${escapeXml(org.nickname)}.managira.com/sitemap.xml</loc>\n    <lastmod>${lastmod}</lastmod>\n  </sitemap>`;
+      const lastmod = org.updated_at ? new Date(org.updated_at).toISOString().split("T")[0] : null;
+      return `  <sitemap>\n    <loc>https://${escapeXml(org.nickname)}.managira.com/sitemap.xml</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}\n  </sitemap>`;
     });
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1580,7 +1559,7 @@ app.get("/sitemap-schools-index.xml", async (req, res) => {
 ${sitemapEntries.join("\n")}
 </sitemapindex>`;
 
-    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300");
     res.send(xml);
   } catch (err) {
@@ -1590,20 +1569,14 @@ ${sitemapEntries.join("\n")}
 });
 
 // Dynamic sitemap for all school public pages
-app.get("/sitemap-schools.xml", async (req, res) => {
+app.get("/sitemap-schools.xml", compression(), async (req, res) => {
   try {
     const organizations = await fetchSitemapOrganizations();
 
-    const today = new Date().toISOString().split("T")[0];
     const urls = organizations.map((org) => {
-      const lastmod = org.updated_at
-        ? new Date(org.updated_at).toISOString().split("T")[0]
-        : today;
+      const lastmod = org.updated_at ? new Date(org.updated_at).toISOString().split("T")[0] : null;
       return `  <url>
-    <loc>https://${escapeXml(org.nickname)}.managira.com/</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://${escapeXml(org.nickname)}.managira.com/</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ""}
   </url>`;
     });
 
@@ -1612,7 +1585,7 @@ app.get("/sitemap-schools.xml", async (req, res) => {
 ${urls.join("\n")}
 </urlset>`;
 
-    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300");
     res.send(xml);
   } catch (err) {
@@ -1649,9 +1622,9 @@ app.get("/", async (req, res) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isRenderDomain = req.hostname && req.hostname.endsWith(".onrender.com");
   const homeSeo = {
-    title: "Managira | K-12 Student Information System",
+    title: "Managira SIS | K-12 Student Information System",
     description:
-      "Managira is the cloud student information system for K-12 schools and districts: one secure record for every student, connected classrooms, engaged families and Mira, a built-in AI assistant.",
+      "Managira is the cloud student information system for K-12 schools: records, attendance, grading, fees, family messages and Mira, a built-in AI assistant.",
     keywords:
       "school management system, school management software, management system for schools, student information system, school ERP, school portal, enrollment management, class management, attendance tracking, assessment management, school billing, school reports, education management software, Managira",
     canonicalUrl: "https://managira.com/",

@@ -8,6 +8,7 @@
   <style>
   /* The questions page: a quiet header, one small Filters button after New questions. */
   .top-bar { position: relative; z-index: 200; }
+  .top-bar.top-bar--end { justify-content: flex-end; }
   .ws-filters { position: relative; display: inline-block; }
   .ws-filters__btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 9px; background: transparent; color: inherit; font-size: .86rem; font-weight: 600; cursor: pointer; list-style: none; white-space: nowrap; }
   .ws-filters__btn::-webkit-details-marker { display: none; }
@@ -2985,21 +2986,21 @@
   <div class="page-wrap">
     <%# In Management the page has no frame of its own, so it names itself; inside a class workspace the class already says where you are. %>
     <% const _inHub = isEmbedded && !Number(selectedClassId || 0); %>
-    <div class="top-bar"<%- (isEmbedded && !_inHub) ? ' style="justify-content:flex-end"' : '' %>>
+    <div class="top-bar<%= (isEmbedded && !_inHub) ? ' top-bar--end' : '' %>">
       <% if (_inHub) { %>
         <div class="qh">
           <h1 class="qh__title">Assessment questions</h1>
         </div>
       <% } else if (!isEmbedded) { %><h1>Assessment Question Sets</h1><% } %>
       <% const _simpleFilters = isEmbedded && Number(selectedClassId || 0) > 0; %>
-      <div class="top-bar-actions">
+      <div class="top-bar-actions cw-toolbar">
         <button type="button" class="btn btn-outline" id="all-class-set-questions">New questions</button>
         <details class="ws-filters" id="workspace-filters-card">
-          <summary class="ws-filters__btn" title="Filter the question sets">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z"/></svg>
-            <span>Filters</span>
+          <summary class="ws-filters__btn cw-filter-btn" title="Filters" aria-label="Filters">
+            <%- navIcon('filter', { className: 'cw-filter-ico' }) %>
+            <span class="cw-filter-text">Filters</span>
             <span id="workspace-filters-hint" hidden>Expand</span>
-            <svg class="ws-filters__chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <%- navIcon('chevronDown', { size: 16, className: 'ws-filters__chev cw-filter-chev' }) %>
           </summary>
           <div class="collapsible-content ws-filters__pop<%= _simpleFilters ? ' ws-filters--simple' : '' %>">
         <div class="filter-panel">
@@ -8662,7 +8663,7 @@
 <%# Resources & recommendations and help on each question: setResources.js takes the place of the older parent-only box. %>
 <link rel="stylesheet" href="<%= assetUrl('/css/learningResources.css') %>" /><script src="<%= assetUrl('/js/setResources.js') %>" defer></script><script src="<%= assetUrl('/js/questionHelp.js') %>" defer></script><link rel="stylesheet" href="<%= assetUrl('/css/questionRubric.css') %>" /><script nonce="<%= locals.cspNonce || '' %>">window.QuestionRubricConfig = { on: <%= locals.rubricAvailable ? 'true' : 'false' %> };</script><script src="<%= assetUrl('/js/questionRubric.js') %>" defer></script>
 <link rel="stylesheet" href="<%= assetUrl('/css/parentResources.css') %>" /><script src="<%= assetUrl('/js/parentResources.js') %>" defer></script>
-<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionMarks.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
+<link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/questionBuilderFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/classroomPhone.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/classroomPages.css') %>" /><script src="<%= assetUrl('/js/assessmentFlow.js') %>" defer></script><script src="<%= assetUrl('/js/questionMarks.js') %>" defer></script><script src="<%= assetUrl('/js/questionBuilderFlow.js') %>" defer></script>
 </body>
 </html>
 

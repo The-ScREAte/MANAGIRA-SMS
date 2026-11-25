@@ -2433,7 +2433,8 @@ const accountController = {
       });
 
       res.render("account/servicePlan", {
-        title: "Choose Your Plan",
+        title: "Managira Pricing | School Software Plans",
+        canonicalUrl: "https://managira.com/account/service-plan",
         description: `Managira pricing: school management software priced per school, per month, in local currency by country and number of students.${freeTrialEnabled && freeTrialLengthLabel ? ` Free trial: ${freeTrialLengthLabel}.` : ""}`,
 
         plans: planLadder(plansWithDefaultDisplayPrice),

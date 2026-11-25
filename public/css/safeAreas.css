@@ -1,0 +1,12 @@
+/* Phone safe areas and header pop-up clamps (notch, home bar, landscape side insets).
+   Needs viewport-fit=cover (head.ejs viewportContent); without it every inset is 0 and this changes nothing. */
+@media (max-width: 600px) {
+  .notif-panel, .help-menu-panel { max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--header-height, 64px) - 16px); }
+  header#top-header .header-nav-menu:not(.public-header-nav-menu) { max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--header-height, 64px) - 16px); overflow-y: auto; }
+  .search-bar-container.is-mobile-collapsible .search-results-dropdown { max-width: calc(100vw - 16px); }
+}
+header#top-header { border-top: env(safe-area-inset-top, 0px) solid transparent; }
+@media (max-width: 1024px) {
+  .notif-panel, .help-menu-panel { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); }
+}
+.chatbot-toggle { bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important; right: calc(20px + env(safe-area-inset-right, 0px)) !important; }

@@ -3082,8 +3082,9 @@
       .cz-day span { display: inline-grid; place-items: center; min-width: 52px; height: 36px; padding: 0 12px; border: 1px solid var(--border, #d1d5db); border-radius: 999px; font-size: 13px; font-weight: 600; color: inherit; background: #fff; transition: all .15s ease; }
       .cz-day input:checked + span { background: var(--org-primary-color, #01535b); border-color: var(--org-primary-color, #01535b); color: #fff; }
       .cz-day input:focus-visible + span { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
-      .cz-check { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; font-size: 14px; font-weight: 500; cursor: pointer; }
-      .cz-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--org-primary-color, #01535b); flex: 0 0 auto; }
+      .cz-check { display: flex; align-items: flex-start; gap: 12px; margin: 8px 0 0; padding: 4px 0; min-width: 0; line-height: 1.4; font-size: 14px; font-weight: 500; cursor: pointer; }
+      .cz-check > span { min-width: 0; overflow-wrap: anywhere; }
+      .cz-check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--org-primary-color, #01535b); flex: 0 0 auto; }
 
       /* Special days: add form and list. */
       .cz-special { display: grid; gap: 4px; margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--border, #e5e7eb); min-width: 0; }

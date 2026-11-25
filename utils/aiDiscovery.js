@@ -10,16 +10,20 @@ const SITE = "https://managira.com";
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new BoundedMap(500);
 
+const HOME_FILES = ["views/home/landing.ejs", "views/home/partials", "views/partials/homeStructuredData.ejs", "utils/landing.js"];
+const LEGAL = (name) => `views/legal&Compliance/${name}.ejs`;
 const KEY_PAGES = [
-  { path: "/", title: "Managira home", priority: "1.0", changefreq: "weekly" },
-  { path: "/account/service-plan", title: "Pricing and service plans", priority: "0.9", changefreq: "weekly" },
-  { path: "/legal/mira-ai-assistant", title: "Mira, the AI assistant built into Managira", priority: "0.9", changefreq: "monthly" },
-  { path: "/legal/faq", title: "Frequently asked questions", priority: "0.8", changefreq: "monthly" },
-  { path: "/legal/user-documentation", title: "Help center and user documentation", priority: "0.8", changefreq: "weekly" },
-  { path: "/legal/about-us", title: "About Managira", priority: "0.6", changefreq: "monthly" },
-  { path: "/legal/request-demo", title: "Request a demo", priority: "0.7", changefreq: "monthly" },
-  { path: "/legal/privacy-policy", title: "Privacy policy", priority: "0.3", changefreq: "yearly" },
-  { path: "/legal/terms-of-service", title: "Terms of service", priority: "0.3", changefreq: "yearly" },
+  { path: "/", title: "Managira home", files: HOME_FILES },
+  { path: "/account/service-plan", title: "Pricing and service plans", files: ["views/account/servicePlan.ejs"] },
+  { path: "/legal/mira-ai-assistant", title: "Mira, the AI assistant built into Managira", files: ["views/home/mira.ejs", "views/home/partials"] },
+  { path: "/legal/faq", title: "Frequently asked questions", files: [LEGAL("FAQ"), "utils/managiraFAQ.js"] },
+  { path: "/legal/user-documentation", title: "Help center and user documentation", files: [LEGAL("userDocumentation")], newestArticle: true },
+  { path: "/legal/about-us", title: "About Managira", files: [LEGAL("AboutUs")] },
+  { path: "/legal/request-demo", title: "Request a demo", files: [LEGAL("requestDemo")] },
+  { path: "/legal/privacy-policy", title: "Privacy policy", files: [LEGAL("PrivacyPolicy")] },
+  { path: "/legal/terms-of-service", title: "Terms of service", files: [LEGAL("TermsofService")] },
+  { path: "/legal/security", title: "Security and vulnerability disclosure", files: [LEGAL("securityPolicy")] },
+  { path: "/legal/subprocessors", title: "Subprocessors", files: [LEGAL("subprocessors")] },
 ];
 
 const escapeXml = (value) =>
@@ -72,23 +76,30 @@ async function publishedArticles(db, withContent) {
 const articleUrl = (slug) => `${SITE}/legal/user-documentation/${encodeURIComponent(slug)}`;
 
 // ---------- sitemap ----------
+// Every public managira.com page with its real last-change date: a help article's own updated_at, a
+// static page's newest template commit (utils/siteLastmod.js). The dates only move when the page does.
+async function publicUrls(db) {
+  const { lastmodFor } = require("./siteLastmod");
+  const articles = await publishedArticles(db, false).catch(() => []);
+  const newest = articles.reduce((max, a) => (a.updated_at && new Date(a.updated_at) > max ? new Date(a.updated_at) : max), new Date(0));
+  const pages = [];
+  for (const p of KEY_PAGES) {
+    let when = await lastmodFor(p.files);
+    if (p.newestArticle && newest.getTime() > 0 && (!when || newest > when)) when = newest;
+    pages.push({ loc: SITE + p.path, lastmod: when || new Date(0) });
+  }
+  const guides = articles.map((a) => ({ loc: articleUrl(a.slug), lastmod: a.updated_at ? new Date(a.updated_at) : new Date(0) }));
+  return pages.concat(guides);
+}
+
 async function rootSitemap(db) {
   return cached("sitemap", async () => {
-    const articles = await publishedArticles(db, false).catch(() => []);
-    const newest = articles.reduce((max, a) => (a.updated_at && a.updated_at > max ? a.updated_at : max), null);
-    const urls = KEY_PAGES.map((p) => ({
-      loc: SITE + p.path,
-      lastmod: p.path === "/legal/user-documentation" ? day(newest) : day(),
-      changefreq: p.changefreq,
-      priority: p.priority,
-    })).concat(articles.map((a) => ({ loc: articleUrl(a.slug), lastmod: day(a.updated_at), changefreq: "monthly", priority: "0.6" })));
+    const urls = await publicUrls(db);
     return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `  <url>
     <loc>${escapeXml(u.loc)}</loc>
-    <lastmod>${u.lastmod}</lastmod>
-    <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
+    <lastmod>${u.lastmod.getTime() > 0 ? day(u.lastmod) : day()}</lastmod>
   </url>`).join("\n")}
 </urlset>
 `;
@@ -227,4 +238,4 @@ ${body}
   });
 }
 
-module.exports = { rootSitemap, llmsTxt, llmsFullTxt };
+module.exports = { publicUrls, rootSitemap, llmsTxt, llmsFullTxt };

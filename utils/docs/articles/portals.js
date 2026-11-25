@@ -274,7 +274,7 @@ module.exports = [
   },
   {
     slug: "parent-calendar-and-activities",
-    title: "Calendar and activities",
+    title: "Your child's calendar and activities",
     topic: "Parent portal",
     order: 6,
     summary: "See school events, classes, clubs and trips for your children, and add them to your phone's calendar.",
@@ -828,7 +828,7 @@ module.exports = [
   },
   {
     slug: "student-calendar-and-activities",
-    title: "Calendar and activities",
+    title: "Your calendar and activities",
     topic: "Student portal",
     order: 4,
     summary: "See your classes, events, clubs and trips, and add them to your phone's calendar.",

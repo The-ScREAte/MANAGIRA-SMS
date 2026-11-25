@@ -839,3 +839,40 @@ function initHeaderMenu() {
 
   // Re-initialize logo SPA navigation after SPA page loads
   window.addEventListener('spa:pageLoaded', initLogoSPANavigation);
+
+// Phones: keep every header pop-up (Help, notifications, main menu, expanded search) fully on screen, 8px from each edge.
+(function () {
+  if (window.__mgHeaderClamp) return;
+  window.__mgHeaderClamp = true;
+  var M = 8;
+  function clamp(el) {
+    if (!el) return;
+    el.style.translate = "";
+    var vw = document.documentElement.clientWidth, r = el.getBoundingClientRect();
+    if (!r.width) return;
+    var dx = 0;
+    if (r.right > vw - M) dx = vw - M - r.right;
+    if (r.left + dx < M) dx = M - r.left;
+    if (dx) el.style.translate = Math.round(dx) + "px 0";
+  }
+  function clampSearch() {
+    var c = document.querySelector(".search-bar-container.is-mobile-collapsible");
+    if (!c) return;
+    var room = Math.floor(c.getBoundingClientRect().right - M);
+    if (c.classList.contains("is-expanded") && room > 60) c.style.setProperty("--mobile-search-expanded-width", "min(62vw, 220px, " + room + "px)");
+    else c.style.removeProperty("--mobile-search-expanded-width");
+  }
+  function run() {
+    ["notif-panel", "help-menu-panel", "header-nav-menu"].forEach(function (id) { clamp(document.getElementById(id)); });
+    clampSearch();
+  }
+  function init() {
+    var ids = ["notif-panel", "help-menu-panel", "header-nav-menu"];
+    var obs = new MutationObserver(function () { requestAnimationFrame(run); });
+    ids.forEach(function (id) { var e = document.getElementById(id); if (e) obs.observe(e, { attributes: true, attributeFilter: ["class", "aria-hidden"] }); });
+    var h = document.getElementById("header-hamburger"); if (h) obs.observe(h, { attributes: true, attributeFilter: ["class", "aria-expanded"] });
+    var s = document.querySelector(".search-bar-container"); if (s) obs.observe(s, { attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", run);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();

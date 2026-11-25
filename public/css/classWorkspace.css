@@ -3990,3 +3990,110 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
 
 /* Attendance & lunch: both icons side by side in the menu's tile (the tile grows to fit them). */
 .workspace-sidebar .nav-link .nav-icon.nav-icon--pair { width: auto; min-width: 36px; padding: 0 8px; gap: 4px; }
+
+/* ===== Phone classroom (<= 768px): header, tab chips and the Class Tools drawer, one tidy set =====
+   Title on the first line; the details toggle (info) and the options menu (three dots) are 40px buttons on its
+   right; Year / Term / Dates open as a grid of tiles under the toggle. Nothing is clipped or overlaps. */
+@media (max-width: 768px) {
+  .workspace-header-card { padding: 10px 12px; overflow: visible; }
+  .workspace-header-card:has(.term-view-pop:not([hidden])) { z-index: 30; }
+  .workspace-header-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "title info menu" "meta meta meta";
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 0;
+  }
+  .workspace-header-copy, .workspace-title-row, .workspace-meta-wrap { display: contents; }
+  .workspace-header-copy .eyebrow, .workspace-cohort { display: none !important; }
+  .workspace-header-copy .page-title {
+    grid-area: title; min-width: 0; margin: 0; text-align: left; font-size: 22px; font-weight: 700; line-height: 1.2;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
+  }
+  .workspace-meta-toggle, .term-view-dots {
+    width: 40px; height: 40px; min-width: 40px; margin: 0; padding: 0; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--ap-line, #e2e8f0); background: var(--ap-surface, #fff); color: var(--text, #0f172a);
+  }
+  .workspace-meta-toggle { grid-area: info; }
+  .term-view-menu { grid-area: menu; }
+  .workspace-meta-toggle[aria-expanded="true"], .term-view-dots[aria-expanded="true"] {
+    border-color: var(--primary, #01535b); color: var(--primary, #01535b);
+    background: color-mix(in srgb, var(--primary, #01535b) 8%, var(--ap-surface, #fff));
+  }
+  .workspace-meta-toggle .workspace-meta-toggle-icon, .term-view-dots svg { width: 20px; height: 20px; }
+  .workspace-meta-inline { grid-area: meta; display: none; width: auto; max-width: none; margin: 10px 0 0; padding: 0; gap: 8px; }
+  .workspace-header-card[data-meta-collapsed="false"] .workspace-meta-inline { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-meta-pair {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 40px;
+    margin: 0; padding: 6px 12px; border-radius: 10px; box-sizing: border-box;
+  }
+  .workspace-meta-pair:last-child { grid-column: 1 / -1; }
+  .workspace-header-card.is-term-picking[data-meta-collapsed="false"] .workspace-meta-inline { grid-template-columns: minmax(0, 1fr); }
+  .workspace-meta-pair .meta-label { flex: 0 0 auto; font-size: 11px; }
+  .workspace-meta-pair .meta-value, .is-term-picking .term-view-select { min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .is-term-picking .term-view-select { max-width: 100%; flex: 1 1 auto; text-align: right; font-size: 16px; }
+  .term-view-pop {
+    position: absolute; top: calc(100% + 8px); right: 0; left: auto; z-index: 40;
+    width: min(300px, calc(100vw - 32px)); max-height: min(60vh, 420px); overflow-y: auto; overscroll-behavior: contain;
+    padding: 6px; border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  }
+  .term-view-pop__item { min-height: 48px; padding: 8px 10px; gap: 12px; font-size: 14px; border-radius: 8px; }
+
+  /* Tab chips: one scrollable row, the active chip snapped into view, finger-sized close buttons. */
+  .workspace-tabbar-shell { position: static; overflow: hidden; }
+  .workspace-tabbar {
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-height: 44px; padding: 4px 8px;
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-padding: 0 10px;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .workspace-tabbar::-webkit-scrollbar { display: none; }
+  .workspace-tab { flex: 0 0 auto; min-height: 36px; max-width: 70vw; padding: 0 2px 0 2px; scroll-snap-align: center; }
+  .workspace-tab-activate { min-height: 34px; padding: 0 4px 0 12px; }
+  .workspace-tab-label { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+  .workspace-tab-close { flex: 0 0 32px; width: 32px; min-width: 32px; height: 32px; margin: 0; font-size: 18px; border-radius: 8px; }
+  .workspace-tab-close::after { display: none; }
+  .workspace-tab-add { flex: 0 0 auto; width: 32px; height: 32px; margin: 0; }
+  .workspace-stage, .workspace-main, .workspace-panel { max-width: 100%; min-width: 0; }
+}
+
+/* The Class Tools drawer: every row 48px, icon tile + label + badge / chevron on one line; the Gradebook
+   subjects indent the same way and open in place. */
+@media (max-width: 900px) {
+  .workspace-sidebar.nav-card { width: min(320px, 88vw); }
+  .workspace-sidebar .side-nav { padding: 4px 8px 12px; gap: 0; }
+  .workspace-sidebar .nav-list { gap: 0; }
+  .workspace-sidebar .nav-list > li { margin: 0; padding: 0; }
+  .workspace-sidebar .nav-link, .workspace-sidebar .nav-section-toggle {
+    min-height: 48px; height: 48px; margin: 0; padding: 0 10px 0 8px; gap: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; box-sizing: border-box;
+  }
+  .workspace-sidebar .nav-link-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .workspace-sidebar .nav-link-label small { display: none; }
+  .workspace-sidebar .nav-link.is-locked { height: auto; min-height: 48px; }
+  .workspace-sidebar .nav-link.is-locked .nav-link-label { white-space: normal; }
+  .workspace-sidebar .nav-link.is-locked .nav-link-label small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .workspace-sidebar .nav-list > li.nav-section-label { margin: 14px 8px 4px; padding: 0; font-size: 11px; }
+  .workspace-sidebar .nav-link .nav-icon.nav-icon--pair { width: 36px; min-width: 36px; padding: 0; gap: 0; }
+  .workspace-sidebar .nav-link .nav-icon.nav-icon--pair svg { width: 16px; height: 16px; }
+  .workspace-sidebar .files-badge, .workspace-sidebar .nav-count-pill {
+    flex: 0 0 auto; min-width: 24px; height: 22px; padding: 0 8px; margin: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1;
+  }
+  .workspace-sidebar .nav-section-icon { flex: 0 0 auto; display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 0; }
+  .workspace-sidebar .nav-section-icon svg { width: 18px; height: 18px; }
+  .workspace-sidebar .nav-sublist { margin: 0 0 4px 28px; padding: 0 0 0 8px; gap: 0; border-left: 1px solid var(--ap-line, #e2e8f0); }
+  .workspace-sidebar .nav-sublink {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 0 10px; border-radius: 10px; font-size: 14px; font-weight: 500; text-align: left;
+  }
+  .workspace-sidebar .nav-sublink:hover, .workspace-sidebar .nav-sublink.active { background: color-mix(in srgb, var(--primary, #01535b) 8%, transparent); }
+  .workspace-sidebar .nav-sub-empty { padding: 12px 10px; font-size: 13px; }
+  .workspace-sidebar .nav-close { width: 40px; height: 40px; font-size: 22px; }
+  .workspace-sidebar .menu-arrange-btn { width: 40px; height: 40px; }
+}
+
+/* "Viewing another term" banner on a phone: text first, the button under it, full width, nothing cut off. */
+@media (max-width: 768px) {
+  .workspace-header-card .term-view-banner:not([hidden]) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 12px; font-size: 13px; box-sizing: border-box; max-width: 100%; }
+  .workspace-header-card .term-view-banner__text { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+  .workspace-header-card .term-view-banner .term-view-banner__btn { flex: 1 1 100%; width: 100%; height: 40px; font-size: 13.5px; font-weight: 600; }
+}

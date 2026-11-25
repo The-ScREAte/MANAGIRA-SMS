@@ -42,6 +42,18 @@ function buildDocumentationHeaderIdentity(req, documentationAdmin) {
   };
 }
 
+// Home › Help Center › topic › guide, for search engines (every crumb with its address).
+const topicAnchor = (name) => docsPresent.plain(name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+function breadcrumbItems(trail) {
+  return [['Home', 'https://managira.com/'], ...trail].map(([name, item], index) => ({ '@type': 'ListItem', position: index + 1, name, item }));
+}
+
+// A guide's page title: "<guide> | Managira Help Center", shortened so it stays within 60 characters.
+function pageTitleFor(title) {
+  for (const suffix of [' | Managira Help Center', ' | Managira']) if ((title + suffix).length <= 60) return title + suffix;
+  return title;
+}
+
 function buildStructuredData(article) {
   if (!article) {
     return {
@@ -76,11 +88,11 @@ function buildStructuredData(article) {
     isPartOf: { '@type': 'WebSite', name: 'Managira Documentation', url: buildCanonicalDocumentationUrl() },
   }, {
     '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Documentation', item: buildCanonicalDocumentationUrl() },
-      ...(article.topic ? [{ '@type': 'ListItem', position: 2, name: article.topic }] : []),
-      { '@type': 'ListItem', position: article.topic ? 3 : 2, name: article.title, item: url },
-    ],
+    itemListElement: breadcrumbItems([
+      ['Help Center', buildCanonicalDocumentationUrl()],
+      ...(article.topic ? [[article.topic, `${buildCanonicalDocumentationUrl()}#topic-${topicAnchor(article.topic)}`]] : []),
+      [article.title, url],
+    ]),
   }];
   const faqAt = html.search(/<h2[^>]*>\s*Frequently asked questions\s*<\/h2>/i);
   if (faqAt !== -1) {
@@ -293,8 +305,8 @@ async function renderPublicIndex(req, res, pageData) {
   const live = new Set(pageData.articles.map((article) => article.slug));
   return res.render('docs/index', {
     ...locals,
-    title: 'Managira Help Center: Guides for the K-12 Student Information System',
-    description: 'Step-by-step guides with screenshots for Managira: school setup, students and admissions, families, grades and report cards, transportation, payments, school websites, integrations and Mira.',
+    title: 'Managira Help Center: guides for K-12 schools',
+    description: 'Step-by-step guides with screenshots for Managira: set up your school, students, attendance, grades, report cards, families, buses and payments.',
     keywords: 'managira help center, managira documentation, student information system guide, k-12 sis help, school software how to',
     canonicalUrl: 'https://managira.com/legal/user-documentation',
     robots: 'index, follow, max-snippet:-1, max-image-preview:large',
@@ -302,6 +314,7 @@ async function renderPublicIndex(req, res, pageData) {
       '@context': 'https://schema.org',
       '@graph': [
         buildStructuredData(null),
+        { '@type': 'BreadcrumbList', itemListElement: breadcrumbItems([['Help Center', buildCanonicalDocumentationUrl()]]) },
         {
           '@type': 'ItemList',
           name: 'Managira guides',
@@ -325,7 +338,7 @@ async function renderPublicArticle(req, res, pageData, article) {
   const prepared = docsPresent.prepareArticle(article.contentHtml);
   return res.render('docs/article', {
     ...locals,
-    title: `${article.title} | Managira Help Center`,
+    title: pageTitleFor(article.title),
     description: buildExcerpt(article),
     keywords: (article.tags || []).join(', '),
     canonicalUrl: buildCanonicalDocumentationUrl(article.slug),

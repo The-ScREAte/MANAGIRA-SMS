@@ -11,11 +11,11 @@
   <% } %>
 <% } else if (gbPlace === 'end') { %>
   <div class="gb-menu-wrap">
-    <button type="button" class="gb-chip" id="gb-filter-btn" aria-haspopup="true" aria-expanded="false" aria-controls="gb-filter-menu" title="Filter students and assessments">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z"/></svg>
-      <span>Filters</span>
+    <button type="button" class="gb-chip cw-filter-btn" id="gb-filter-btn" aria-haspopup="true" aria-expanded="false" aria-controls="gb-filter-menu" aria-label="Filters" title="Filters">
+      <%- navIcon('filter', { className: 'cw-filter-ico' }) %>
+      <span class="cw-filter-text">Filters</span>
       <span class="gb-range" id="gb-filter-label"></span>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      <%- navIcon('chevronDown', { size: 16, className: 'cw-filter-chev' }) %>
     </button>
     <div class="gb-menu gb-menu--right gb-filter-pop" id="gb-filter-menu" role="dialog" aria-label="Filters" hidden>
       <label class="gb-field">Students

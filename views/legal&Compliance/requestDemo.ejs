@@ -1,13 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0' %>">
-  <title><%= title %></title>
-  <meta name="description" content="<%= typeof description !== 'undefined' ? description : 'Request a personalised live demo of Managira.' %>">
-  <% if (typeof keywords !== 'undefined') { %><meta name="keywords" content="<%= keywords %>"><% } %>
-  <% if (typeof canonicalUrl !== 'undefined') { %><link rel="canonical" href="<%= canonicalUrl %>"><% } %>
-  <style>
+<%# The page head (title, description, canonical, viewport) comes from the layout (views/partials/head.ejs). %>
+<style>
     :root {
       --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
       --primary: #01535b;

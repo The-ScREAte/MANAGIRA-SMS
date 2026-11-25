@@ -1,0 +1,210 @@
+/* The classroom on a phone: ONE toolbar, ONE menu and ONE table look for every page of the class workspace
+   (Gradebook, Assessments, Assessment Questions, Attendance, Parent Messages, Schedule, student pages ...).
+   Loaded by the class workspace and by the pages it shows in its frames. Phones only (<= 640px);
+   tests/classroomPhone.test.js scans these rules.
+   Type scale: body 14px, buttons 13.5px / 600, headings 16px / 600, titles 22px / 700. */
+
+/* Filters buttons: icon, label, current choice and chevron on a wide screen. */
+.cw-filter-ico { width: 16px; height: 16px; flex: 0 0 auto; }
+.cw-filter-chev { width: 14px; height: 14px; flex: 0 0 auto; }
+.gb-out-short { display: none; }
+/* Gradebook totals: the same minimum width everywhere. */
+.table-container th[data-gb-sum] { min-width: 90px; white-space: normal; }
+
+@media (max-width: 640px) {
+  /* The page itself never scrolls sideways; wide things scroll inside their own box. */
+  html { overflow-x: hidden; }
+  body { max-width: 100%; }
+
+  /* ---- Toolbar: 40px buttons, 8px gap, wraps onto a second row, nothing cut off ---- */
+  .cw-toolbar, .assessment-compact-actions, .gb-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px;
+    width: 100%; max-width: 100%; margin: 0; box-sizing: border-box;
+  }
+  .cw-toolbar > *, .assessment-compact-actions > * { min-width: 0; max-width: 100%; }
+  .cw-toolbar button, .cw-toolbar .btn, .cw-toolbar a.btn, .cw-toolbar select,
+  .assessment-compact-actions button, .assessment-compact-actions .gb-add, .assessment-compact-actions .gb-chip,
+  .gb-toolbar button {
+    height: 40px; min-height: 40px; margin: 0; padding: 0 12px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 10px; font-size: 13.5px; font-weight: 600; line-height: 1; white-space: nowrap; width: auto;
+  }
+  .cw-toolbar svg, .assessment-compact-actions svg, .gb-toolbar svg { width: 20px; height: 20px; flex: 0 0 auto; }
+  .assessment-compact-actions .gb-chip svg:last-child, .assessment-compact-actions .gb-chip svg:first-child { width: 18px; height: 18px; }
+  .assessment-compact-actions .gb-chip, .assessment-compact-actions .teachers-btn { max-width: 100%; }
+  .assessment-compact-actions .gb-chip > span:not(.gb-range) { overflow: hidden; text-overflow: ellipsis; max-width: none; }
+  .assessment-compact-actions .gb-chip .gb-range { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .assessment-compact-actions .gb-menu-wrap { position: static; flex: 0 1 auto; min-width: 0; }
+  /* Save is the main action: last, takes the room that is left, always inside the card. */
+  .assessment-compact-actions .header-save-btn { order: 9; flex: 1 1 120px; min-width: 120px; }
+  .assessment-compact-actions .gb-add:not(.gb-add--quiet) { flex: 0 0 auto; }
+  .assessment-compact-heading { flex: 1 1 100%; }
+  .assessment-header.compact { padding: 12px; gap: 10px; }
+  .assessment-compact-title { font-size: 22px; font-weight: 700; }
+
+  /* ---- Menus and pop-ups: one panel look, always inside the screen ---- */
+  .cw-menu, .gb-menu, .teachers-popover, .term-view-pop, .dr-menu__pop, .set-actions-dropdown {
+    box-sizing: border-box; max-width: calc(100vw - 24px); max-height: min(70vh, 440px); overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--ap-line, #e2e8f0); border-radius: 12px; background: var(--ap-surface, #fff); box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+  }
+  .gb-menu, .gb-menu--right { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; min-width: 0; z-index: 13050; }
+  .teachers-popover { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; min-width: 0; z-index: 13050; }
+  .gb-sum-pop { max-width: calc(100vw - 16px); max-height: 60vh; overflow-y: auto; }
+  .cw-menu button, .cw-menu a, .gb-menu button[data-gb-last], .gb-menu button[data-gb-students], .term-view-pop__item {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 12px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  }
+  .cw-menu svg { width: 20px; height: 20px; flex: 0 0 auto; }
+  .gb-filter-pop { padding: 14px; }
+  .gb-filter-pop .gb-field select { height: 44px; font-size: 16px; }
+  .teachers-popover-list li { min-height: 40px; font-size: 14px; }
+
+  /* ---- Tables: each one scrolls inside its own box, header and first columns stay put ---- */
+  .table-container, .cw-table-wrap {
+    max-width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    border: 1px solid var(--ap-line, #e2e8f0); border-radius: 10px; box-sizing: border-box;
+  }
+  .table-container { max-height: var(--cw-table-max, 70vh); }
+  .table-container table, .cw-table-wrap table { border-collapse: separate; border-spacing: 0; table-layout: auto; }
+  body main .table-container table th, body main .table-container table td, body main .cw-table-wrap table th, body main .cw-table-wrap table td {
+    height: 48px; padding: 6px 10px; font-size: 13px; line-height: 1.25; vertical-align: middle; font-variant-numeric: tabular-nums;
+  }
+  body main .table-container table thead th, body main .cw-table-wrap table thead th {
+    position: sticky; top: 0; z-index: 3; height: 44px; padding: 6px 10px; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap;
+  }
+  body main .table-container table thead th .gb-weight, body main .table-container table thead th small { text-transform: none; letter-spacing: 0; }
+  /* Gradebook: # and Student stay at the left while the scores scroll under them. */
+  body main .table-container table th:first-child, body main .table-container table td:first-child {
+    left: 0; width: 44px; min-width: 44px; max-width: 44px; padding: 6px 4px; z-index: 2; box-shadow: none;
+  }
+  body main .table-container table th:nth-child(2), body main .table-container table td:nth-child(2) {
+    left: 44px; width: 132px; min-width: 132px; max-width: 132px; padding: 6px 10px; font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; box-shadow: 2px 0 4px rgba(15, 23, 42, .08); z-index: 2;
+  }
+  body main .table-container table thead th:first-child, body main .table-container table thead th:nth-child(2) { z-index: 5; }
+  .table-container thead .student-name-heading { display: table-cell; }
+  .table-container .student-name-heading .table-sort-btn { margin-left: 4px; }
+  body main .table-container table th.gb-col { min-width: 132px; white-space: normal; padding: 6px 10px; line-height: 1.25; text-align: left; vertical-align: top; }
+  body main .table-container table th.gb-col hr { display: none; }
+  body main .table-container table th.gb-col .assessment-status { display: flex; margin: 2px 0; }
+  body main .table-container table th.gb-col, body main .table-container table th[data-gb-sum] { height: auto; text-transform: none; letter-spacing: 0; font-size: 12px; }
+  body main .table-container table th[data-gb-sum] { min-width: 96px; white-space: normal; }
+  body main .table-container table td.gb-cell { min-width: 96px; }
+  body main .table-container table td input[type="number"], body main .table-container table td select { width: 72px; min-width: 0; height: 36px; font-size: 16px; text-align: center; }
+  .table-sort-btn, .section-sort-btn, .sort-toggle-btn { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* ---- Every pop-up menu on a phone is the same bottom sheet, inside the screen, scrolling when tall ---- */
+  body :is(.gb-menu, .gb-menu--right, .gb-sum-pop, .teachers-popover, .ws-filters__pop, .cw-menu) {
+    position: fixed !important; left: 12px !important; right: 12px !important; top: auto !important; bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important; min-width: 0 !important; max-width: none !important; margin: 0 !important; transform: none !important;
+    max-height: min(70dvh, 460px) !important; overflow-y: auto; overscroll-behavior: contain; z-index: 13050 !important;
+    padding: 6px; box-sizing: border-box; border: 1px solid var(--ap-line, #e2e8f0); border-radius: 14px; background: var(--ap-surface, #fff); box-shadow: 0 16px 40px rgba(15, 23, 42, .22);
+  }
+  body :is(.gb-filter-pop, .ws-filters__pop) { padding: 14px; }
+  /* Short menus (the class ⋮ options, a card's or row's ⋮) drop down right under their button, inside the screen. */
+  body .term-view-menu .term-view-pop { position: absolute; top: calc(100% + 6px); right: 0; left: auto; bottom: auto; width: min(280px, calc(100vw - 16px)); max-height: min(60dvh, 360px); z-index: 40; }
+  body :is(.dr-menu__pop, .set-actions-dropdown) { width: min(240px, calc(100vw - 16px)); max-height: min(60dvh, 360px); overflow-y: auto; }
+  body .dr-menu__pop { position: absolute; right: 0; left: auto; top: calc(100% + 6px); }
+  body :is(.dr-menu__item, .set-action-link, .term-view-pop__item, .gb-menu button[data-gb-last], .gb-menu button[data-gb-students]) {
+    display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; margin: 0; padding: 0 12px; box-sizing: border-box;
+    border-radius: 8px; font-size: 14px; font-weight: 600; text-align: left; text-decoration: none;
+  }
+  /* The three-dot buttons on cards and rows: 40px, the same everywhere. */
+  body :is(.dr-icon-btn, .set-actions-trigger, .student-row-menu .dr-icon-btn) { min-width: 40px; min-height: 40px; width: 40px; height: 40px; }
+  body .set-actions-menu { opacity: 1; transform: none !important; top: 6px; right: 6px; }
+  body .set-actions-trigger { color: #475569; border-color: var(--ap-line, #e2e8f0); border-radius: 10px; background: var(--ap-surface, #fff); }
+  /* Assessment Questions: its toolbar is the same row of 40px buttons. */
+  body .top-bar-actions #all-class-set-questions, body .ws-filters__btn {
+    height: 40px; min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+  }
+  body .top-bar.top-bar--end { justify-content: flex-start; }
+  body .top-bar-actions { justify-content: flex-start; gap: 8px; }
+  body .ws-filters { position: static; }
+
+  /* Student page: the two header buttons share the row, then wrap; 40px tall like every toolbar. */
+  body .sd-head .sd-head__edit { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+  body .sd-head .sd-head__edit .sd-btn { height: 40px; min-width: 0; max-width: 100%; font-size: 13.5px !important; white-space: normal; text-align: left; }
+
+  /* ---- Attendance & lunch: the same toolbar, menus and table rules ---- */
+  body .attendance-header-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
+  body .attendance-header .filter-toggle-btn { height: 40px; min-height: 40px; padding: 0 12px; border-radius: 10px; font-size: 13.5px; font-weight: 600; max-width: 100%; }
+  body .attendance-header .filter-toggle-btn .filter-range { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  body .attendance-header .filter-controls-content:not(.collapsed), body .cal-pill-popover.open {
+    position: fixed !important; left: 12px !important; right: 12px !important; top: auto !important; bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important; max-width: none !important; margin: 0 !important; transform: none !important; max-height: min(70dvh, 460px) !important; overflow-y: auto;
+    overscroll-behavior: contain; z-index: 13050 !important; box-sizing: border-box; padding: 14px; border-radius: 14px;
+  }
+  body .attendance-header .cal-pill { min-height: 40px; font-size: 13.5px; font-weight: 600; }
+  body .attendance-sheet { --att-ctl: 44px; }
+  body .attendance-sheet th.student-name, body .attendance-sheet td.student-name {
+    width: 104px; min-width: 104px; max-width: 104px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal;
+  }
+  body .attendance-sheet td, body .attendance-sheet th { height: 56px; }
+  body .attendance-sheet thead th { position: sticky; top: 0; }
+  body .attendance-sheet-container { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  body .att-done { padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  body .att-done .att-done-btn { min-height: 44px; }
+  body .att-missed-close { min-width: 40px; min-height: 40px; }
+
+  /* ---- Drawers (Review, Reuse, Edit, Preview, Mark, Students list): full width, scroll inside, the buttons always reachable ---- */
+  body .reuse-modal { width: 100vw; max-width: 100vw; overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  body .reuse-modal .row-actions, body .students-modal .row-actions {
+    position: sticky; bottom: 0; z-index: 3; display: flex; gap: 8px; margin: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--ap-surface, #fff); border-top: 1px solid var(--ap-line, #e2e8f0);
+  }
+  body .reuse-modal .row-actions .btn { flex: 1 1 0; min-height: 44px; }
+  body .reuse-modal input, body .reuse-modal select, body .reuse-modal textarea,
+  body .students-modal input, body .students-modal select, body .students-modal textarea,
+  body .question-modal input:not([type="checkbox"]):not([type="radio"]), body .question-modal select, body .question-modal textarea,
+  body .qm-preview-panel input:not([type="checkbox"]):not([type="radio"]), body .qm-preview-panel select, body .qm-preview-panel textarea { font-size: 16px; }
+  /* Sticky bars and drawers keep clear of the iPhone notch and home bar. */
+  body :is(.question-modal, .qm-preview-panel, .students-modal, .af-drawer__panel) { padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; }
+  body :is(.qm-footer, .qm-actions, .af-drawer__foot, .qm-sticky-actions) { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  body .qm-preview-topbar { flex-wrap: wrap; gap: 8px; padding-left: 16px; padding-right: 16px; }
+  body .qm-preview-topbar .qm-preview-actions { flex-wrap: wrap; flex: 1 1 100%; min-width: 0; }
+  body .qm-preview-topbar .qm-preview-title { flex: 1 1 100%; }
+  body .qm-preview-print, body .qm-preview-close { min-height: 40px; min-width: 40px; font-size: 13.5px; font-weight: 600; }
+
+  /* ---- Filters on a phone: just the funnel, 40px square, a dot when a choice is on; the name stays for screen readers ---- */
+  body .cw-filter-btn.cw-filter-btn { position: relative; width: 40px; min-width: 40px; max-width: 40px; height: 40px; padding: 0; gap: 0; justify-content: center; flex: 0 0 40px; }
+  body .cw-filter-btn .cw-filter-ico { width: 20px; height: 20px; }
+  body .cw-filter-btn :is(.cw-filter-text, .gb-range, .filter-range, .cw-filter-chev, .filter-chevron, #workspace-filters-hint) { display: none !important; }
+  body .cw-filter-btn.is-active::after, body details[open] > .cw-filter-btn::after {
+    content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary, #01535b); box-shadow: 0 0 0 2px var(--ap-surface, #fff);
+  }
+  body .cw-filter-btn .filter-count:not([hidden]) {
+    position: absolute; top: -5px; right: -5px; display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1;
+  }
+  /* Save: 20px icon centred with the label, 8px apart, comfortable padding. */
+  body .assessment-compact-actions .header-save-btn { gap: 8px; padding: 0 14px; flex: 0 0 auto; min-width: 88px; margin-left: auto; }
+  body .assessment-compact-actions .header-save-btn .cw-save-ico { width: 18px; height: 18px; }
+  body .assessment-compact-actions .header-save-btn .unsaved-dot { margin-left: -2px; }
+
+  /* ---- Gradebook on a phone: compact card, compact header cells, a lock icon instead of the pill, small score boxes ---- */
+  body .assessment-header.compact { padding: 10px 12px; gap: 8px; }
+  body .assessment-compact-titles { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 0; }
+  body main .assessment-compact-title { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body .assessment-compact-subtitle { margin: 0; font-size: 12px; color: var(--muted, #64748b); }
+  body .gb-legend { margin: 6px 2px; gap: 4px 12px; font-size: 12px; color: var(--muted, #64748b); }
+  body main .table-container table th.gb-col { position: relative; width: 104px; min-width: 104px; max-width: 112px; height: 72px; padding: 6px 8px; vertical-align: middle; }
+  body main .table-container table th.gb-col br { display: none; }
+  body main .table-container table th.gb-col .gb-th__name { display: block; padding-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; line-height: 1.3; }
+  body main .table-container table th.gb-col .gb-th__meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; color: var(--muted, #64748b); }
+  body main .table-container table th.gb-col .gb-th__meta .gb-weight { font-size: 12px; opacity: 1; }
+  body main .table-container table th.gb-col .gb-th__out { display: block; font-size: 12px; font-weight: 500; }
+  body .gb-out-long { display: none; }
+  body .gb-out-short { display: inline; }
+  body main .table-container table th.gb-col .choice-kind { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  body main .table-container table th.gb-col .assessment-status {
+    position: absolute; top: 2px; right: 2px; margin: 0; width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 50%; box-sizing: border-box;
+  }
+  body main .table-container table th.gb-col .assessment-status .gb-status__txt { display: none; }
+  body main .table-container table th.gb-col .assessment-status svg { width: 18px; height: 18px; }
+  body main .table-container table th.gb-col .gb-approve { height: 22px; margin: 2px 0 0; }
+  body main .table-container table td.gb-cell { width: 104px; min-width: 104px; padding: 6px 8px; }
+  body main .table-container table td.gb-cell input[type="number"], body main .table-container table td.gb-cell select {
+    width: 76px; max-width: 100%; height: 36px; padding: 0 6px; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; box-sizing: border-box;
+  }
+  /* Row 1: + Assessment, Review, students. Row 2: the filter icon at the left, Save at the right. */
+  body .assessment-compact-actions::before { content: ""; order: 7; flex: 0 0 100%; height: 0; }
+  body .assessment-compact-actions .gb-menu-wrap { order: 8; }
+}
