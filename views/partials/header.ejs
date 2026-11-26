@@ -436,7 +436,7 @@
             <span class="help-menu-text"><strong>Guides</strong><small>Step-by-step help for every part of Managira</small></span>
           </a>
           <% if (_helpIsStaff) { %>
-          <a class="help-menu-item" role="menuitem" href="/account/settings?section=feedback" data-no-spa>
+          <a class="help-menu-item" role="menuitem" href="/account/settings?section=feedback">
             <span class="help-menu-icon" aria-hidden="true"><%- navIcon('feedback') %></span>
             <span class="help-menu-text"><strong>Send feedback</strong><small>Tell us what to fix or what you need</small></span>
           </a>
@@ -449,7 +449,7 @@
           <%# Two-step sign-in is set up in Settings by managers and people with Settings access (utils/signInMfa.js canSelfServe). %>
           <% const _twoStepSelf = String((session && (session.userRole || session.accountType)) || '').toLowerCase() === 'manager' || (session && session.accountType === 'Organization') || (locals.userPermissions || []).includes('manage_settings'); %>
           <% if (locals.featureOn && featureOn('sign_in_authenticator') && _twoStepSelf) { %>
-          <a class="help-menu-item" role="menuitem" href="/account/settings?section=two-step" data-no-spa>
+          <a class="help-menu-item" role="menuitem" href="/account/settings?section=two-step">
             <span class="help-menu-icon" aria-hidden="true"><%- navIcon('twoStep') %></span>
             <span class="help-menu-text"><strong>Two-step sign-in</strong><small>Use an authenticator app when you sign in</small></span>
           </a>
@@ -603,18 +603,18 @@
           <span class="menu-icon"><%- navIcon('dashboard') %></span>
           Dashboard
         </a></li>
-        <li class="nav-item"><a href="/common/calendar" class="management-link" data-no-spa>
+        <li class="nav-item"><a href="/common/calendar" class="management-link">
           <span class="menu-icon"><%- navIcon('calendar') %></span>
           Calendar
         </a></li>
         <% if (typeof workspaceAccess === 'function' && workspaceAccess().management.any) { %>
-        <li class="nav-item"><a href="/common/management" class="nav-item-link management-link" data-no-spa>
+        <li class="nav-item"><a href="/common/management" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('management') %></span>
           Management
         </a></li>
         <% } %>
         <% if (typeof workspaceAccess === 'function' && workspaceAccess().reports.builder) { %>
-        <li class="nav-item"><a href="/common/reports" class="nav-item-link management-link" data-no-spa>
+        <li class="nav-item"><a href="/common/reports" class="nav-item-link management-link">
           <span class="menu-icon"><%- navIcon('reports') %></span>
           Reports
         </a></li>
@@ -668,7 +668,7 @@
         <% } %>
         <% if (req.session && req.session.organizationId && !['guardian', 'student'].includes(String(req.session.userRole || '').toLowerCase())) { %>
         <li class="nav-item">
-          <a href="/common/calendar" class="nav-item-link management-link" data-no-spa>
+          <a href="/common/calendar" class="nav-item-link management-link">
             <span class="menu-icon"><%- navIcon('calendar') %></span>
             Calendar
           </a>

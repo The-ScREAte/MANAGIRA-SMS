@@ -1,0 +1,47 @@
+/* Teachers on a phone (student Teachers sheet, parent Teachers page): compact cards of 130-190px.
+   Header row (40px photo, name, role pill, subjects), icon + text contact rows, About me clamped to
+   3 lines with a More toggle, photos as a small scrolling strip that opens a larger preview.
+   Tablet and desktop keep the roomy cards in teacherCards.css. */
+@media (max-width: 640px) {
+  html body .tc-list { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  html body .tc-card { gap: 4px; padding: 10px 12px; border-radius: 12px; }
+  html body .tc-card .tc-top { align-items: flex-start; gap: 10px; }
+  html body .tc-card .tc-avatar { width: 40px; height: 40px; font-size: 13px; }
+  html body .tc-card .tc-who { flex: 1 1 0; gap: 2px 8px; }
+  html body .tc-card .tc-who h3 { font-size: 15px; font-weight: 700; line-height: 1.3; }
+  html body .tc-card .tc-role { font-size: 11px; padding: 0 8px; }
+  html body .tc-card .tc-subjects { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11.5px; line-height: 1.35; color: #64748b; }
+  html body .tc-card .tc-contact { display: grid; gap: 0; margin-top: 0; font-size: 13px; }
+  html body .tc-card .tc-contact a { min-height: 36px; gap: 8px; font-size: 13px; text-decoration: none; }
+  html body .tc-card .tc-contact svg { width: 16px; height: 16px; }
+  html body .tc-card .tc-contact a span { text-decoration: none; }
+  html body .tc-card .tc-contact a:is(:hover, :focus-visible) span { text-decoration: underline; }
+  html body .tc-card .tc-about { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label more" "text text" "photos photos"; gap: 2px 8px; align-items: center; padding: 6px 10px 8px; border-radius: 10px; }
+  html body .tc-card .tc-about__label { grid-area: label; }
+  html body .tc-card .tc-about__text { grid-area: text; }
+  html body .tc-card .tc-more { grid-area: more; }
+  html body .tc-card .tc-photos { grid-area: photos; }
+  html body .tc-card .tc-about__label { font-size: 10.5px; }
+  html body .tc-card .tc-about__text { font-size: 13px; line-height: 1.4; }
+  html body .tc-card .tc-about:has(.tc-more) .tc-about__text:not(.is-open) { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  html body .tc-card .tc-more { display: inline-flex; align-items: center; align-self: flex-start; min-height: 36px; margin: -10px -4px -10px 0; padding: 0 4px; border: 0; background: none; color: var(--org-primary-color, #0f766e); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
+  html body .tc-card .tc-photos { display: flex; gap: 8px; margin: 4px -10px 0; padding: 0 10px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  html body .tc-card .tc-photos::-webkit-scrollbar { display: none; }
+  html body .tc-card .tc-photos a { flex: none; width: 72px; height: 72px; aspect-ratio: auto; border-radius: 10px; scroll-snap-align: start; }
+  html body .tc-card .tc-message { height: 36px; min-height: 36px; margin-top: 2px; font-size: 13px; }
+
+  /* The student's Teachers sheet: starts under the app header (top is set when it opens),
+     full width, sticky title row with a 36px close button, scrolls to the last teacher. */
+  html body .sp-modal:has(.tc-list) { padding: 0; align-items: stretch; justify-content: stretch; }
+  html body .sp-modal:has(.tc-list) .sp-modal-card { box-sizing: border-box; width: 100%; max-width: none; height: 100%; max-height: none; padding: 0 12px calc(16px + env(safe-area-inset-bottom, 0px)); border: 0; border-radius: 0; box-shadow: none; overscroll-behavior: contain; }
+  html body .sp-modal:has(.tc-list) .sp-modal-head { position: sticky; top: 0; z-index: 3; margin: 0 -12px 8px; padding: 6px 12px; background: #fff; }
+  html body .sp-modal:has(.tc-list) .sp-modal-title { font-size: 14.5px; font-weight: 600; }
+  html body .sp-modal:has(.tc-list) .sp-modal-close { width: 36px; height: 36px; font-size: 18px; border-radius: 10px; }
+  html body .sp-modal:has(.tc-list) .tc-card { box-shadow: none; }
+}
+
+/* Larger preview of a teacher's photo (opened from the strip on a phone). */
+.tc-lb { position: fixed; inset: 0; z-index: 13000; display: grid; place-items: center; padding: 12px; background: rgba(15, 23, 42, .86); }
+.tc-lb[hidden] { display: none; }
+.tc-lb img { max-width: 100%; max-height: calc(100% - 56px); border-radius: 12px; object-fit: contain; background: #0f172a; }
+.tc-lb__x { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border: 0; border-radius: 12px; background: rgba(255, 255, 255, .92); color: #0f172a; font-size: 22px; line-height: 1; cursor: pointer; }

@@ -1,5 +1,5 @@
 <%#
-  A student's own settings: how the portal looks for them (Light, Classic or Dark). Saved for
+  A student's own settings: their notifications, then how the portal looks for them (Light, Classic or Dark). Saved for
   this student only (POST /appearance, handled by the layout).
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/portalsPhone.css') %>" />
@@ -13,13 +13,13 @@
 </style>
 <div class="st-settings">
   <%- include('../partials/portalHead', { title: 'Settings', icon: 'settings', sub: 'Just for you.' }) %>
-  <section class="st-card" id="appearance" aria-labelledby="stAppearance">
-    <h2 id="stAppearance">Appearance</h2>
-    <%- include('../partials/appearancePicker') %>
-  </section>
-  <section class="st-card" style="margin-top:14px" id="notifications" data-alert-card data-ns-scope>
+  <section class="st-card" id="notifications" data-alert-card data-ns-scope>
     <h2>Notifications</h2>
     <%- include('../partials/alertRules', { bare: true }) %>
     <%- include('../partials/notificationSaveBar') %>
+  </section>
+  <section class="st-card" style="margin-top:14px" id="appearance" aria-labelledby="stAppearance">
+    <h2 id="stAppearance">Appearance</h2>
+    <%- include('../partials/appearancePicker') %>
   </section>
 </div>

@@ -2,6 +2,8 @@
     Teachers page and the student portal. Locals: teachers, messageHref (optional: the address of
     a message about this child, parents only), emptyText. Styles: public/css/teacherCards.css. %>
 <link rel="stylesheet" href="<%= assetUrl('/css/teacherCards.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/teachersPhone.css') %>" />
+<script src="<%= assetUrl('/js/teacherCards.js') %>" defer></script>
 <% if (!teachers.length) { %>
   <p class="tc-empty"><%= locals.emptyText || 'No teachers have been assigned yet.' %></p>
 <% } else { %>
@@ -16,7 +18,8 @@
       <% } %>
       <div class="tc-who">
         <h3><%= t.name %></h3>
-        <p><span class="tc-role"><%= t.role %></span><% if (t.subjects.length) { %> · <%= t.subjects.join(', ') %><% } %></p>
+        <span class="tc-role"><%= t.role %></span>
+        <% if (t.subjects.length) { %><p class="tc-subjects" title="<%= t.subjects.join(', ') %>"><%= t.subjects.join(', ') %></p><% } %>
       </div>
     </div>
     <% if (t.email || t.phone) { %>
@@ -32,10 +35,11 @@
     <% if (t.funFact || t.photos.length) { %>
     <div class="tc-about">
       <span class="tc-about__label">About me</span>
-      <% if (t.funFact) { %><p><%= t.funFact %></p><% } %>
+      <% if (t.funFact) { %><p class="tc-about__text"><%= t.funFact %></p>
+      <% if (t.funFact.length > 90 || t.funFact.indexOf('\n') !== -1) { %><button type="button" class="tc-more" data-tc-more aria-expanded="false">More</button><% } %><% } %>
       <% if (t.photos.length) { %>
       <div class="tc-photos tc-photos--<%= t.photos.length %>">
-        <% t.photos.forEach((p) => { %><a href="<%= p.url %>" target="_blank" rel="noopener"><img src="<%= p.url %>" alt="A photo <%= t.name %> shared" loading="lazy" /></a><% }) %>
+        <% t.photos.forEach((p) => { %><a href="<%= p.url %>" target="_blank" rel="noopener" data-tc-photo aria-label="Open photo from <%= t.name %>"><img src="<%= p.url %>" alt="A photo <%= t.name %> shared" loading="lazy" /></a><% }) %>
       </div>
       <% } %>
     </div>

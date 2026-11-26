@@ -1204,7 +1204,7 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/portalHead.css') %>" />
 <div class="academic-container">
   <%# Back to the child's page, as on every other parent page. %>
-  <div class="pt-head" style="margin:0 0 10px"><a class="pt-back" href="/guardian/child?studentId=<%= student.student_id %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()) %></a></div>
+  <div class="pt-head" style="margin:0 0 10px"><a class="pt-back" data-back href="/guardian/child?studentId=<%= student.student_id %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()) %></a></div>
   <!-- Student Header -->
   <div class="student-header">
     <div class="student-header-content">

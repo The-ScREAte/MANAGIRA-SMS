@@ -789,6 +789,30 @@
 
   <div class="settings-grid">
     <div class="settings-column">
+      <%# Notifications: alerts and emails, one switch each (alerts need the feature; emails need the list). %>
+      <% const _hasEmails = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length);
+         const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
+      <link rel="stylesheet" href="/css/alertRules.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
+      <details id="notifications" class="settings-card settings-accordion">
+        <summary class="accordion-summary">
+          <span class="accordion-badge"><%- navIcon('notifications') %></span>
+          <span class="accordion-copy">
+            <span class="accordion-title">Notifications</span>
+          </span>
+          <span class="accordion-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="accordion-body" data-ns-scope>
+          <div data-alert-rules-wrap>
+            <%- include('../partials/alertRules', { hideTitle: true, bare: true }) %>
+          </div>
+          <% if (_hasEmails) { %>
+          <h3 class="ns-group__title" style="margin:18px 0 8px;">Emails</h3>
+          <%- include('../partials/notificationSwitches', { prefs: notificationPrefs, saved: _saved, action: '/guardian/settings/notifications', name: 'preferences', idPrefix: 'g' }) %>
+          <% } %>
+          <%- include('../partials/notificationSaveBar') %>
+        </div>
+      </details>
+
       <section class="settings-card ap-card">
         <h2 class="ap-card__title">Appearance</h2>
         <p class="ap-card__sub">Light, Classic or Dark, just for you.</p>
@@ -937,31 +961,6 @@
     </div>
 
     <div class="settings-column">
-      <%# Notifications: alerts and emails, one switch each (alerts need the feature; emails need the list). %>
-      <% const _hasEmails = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length);
-         const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
-      <link rel="stylesheet" href="/css/alertRules.css?v=<%= typeof assetV !== 'undefined' ? assetV : '1' %>">
-      <details id="notifications" class="settings-card settings-accordion">
-        <summary class="accordion-summary">
-          <span class="accordion-badge"><%- navIcon('notifications') %></span>
-          <span class="accordion-copy">
-            <span class="accordion-title">Notifications</span>
-          </span>
-          <span class="accordion-chevron" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="accordion-body" data-ns-scope>
-          <div data-alert-rules-wrap>
-            <%- include('../partials/alertRules', { hideTitle: true, bare: true }) %>
-          </div>
-          <% if (_hasEmails) { %>
-          <h3 class="ns-group__title" style="margin:18px 0 8px;">Emails</h3>
-          <%- include('../partials/notificationSwitches', { prefs: notificationPrefs, saved: _saved, action: '/guardian/settings/notifications', name: 'preferences', idPrefix: 'g' }) %>
-          <% } %>
-          <%- include('../partials/notificationSaveBar') %>
-        </div>
-      </details>
-
-
       <details id="cards" class="settings-card settings-accordion">
         <summary class="accordion-summary">
           <span class="accordion-badge"><%- navIcon('billing') %></span>

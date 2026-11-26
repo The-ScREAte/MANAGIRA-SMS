@@ -1,5 +1,6 @@
 <%- include('../partials/flash') %>
 <link rel="stylesheet" href="<%= assetUrl('/css/driverPhone.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/portalsPhone2.css') %>" />
 <%# A driver's own settings, the same page as a student's or a parent's: header, then one card each for
     appearance, details and notifications. Built for a phone first. %>
 <style>
@@ -34,6 +35,12 @@
 <div class="drv-set">
   <%- include('../partials/portalHead', { title: 'Settings', icon: 'settings', sub: 'Just for you.', back: { href: '/driver/dashboard', label: 'Dashboard' } }) %>
 
+  <section class="drv-card" id="notifications" aria-labelledby="drvNotifications" data-alert-card data-ns-scope>
+    <h2 id="drvNotifications">Notifications</h2>
+    <%- include('../partials/alertRules', { bare: true }) %>
+    <%- include('../partials/notificationSaveBar') %>
+  </section>
+
   <section class="drv-card" aria-labelledby="drvAppearance">
     <h2 id="drvAppearance">Appearance</h2>
     <%- include('../partials/appearancePicker') %>
@@ -64,12 +71,6 @@
       </div>
       <div class="drv-save"><button type="submit">Save</button></div>
     </form>
-  </section>
-
-  <section class="drv-card" id="notifications" aria-labelledby="drvNotifications" data-alert-card data-ns-scope>
-    <h2 id="drvNotifications">Notifications</h2>
-    <%- include('../partials/alertRules', { bare: true }) %>
-    <%- include('../partials/notificationSaveBar') %>
   </section>
 </div>
 

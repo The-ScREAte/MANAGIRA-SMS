@@ -30,7 +30,7 @@
   var LIVE = /(attendance|testing-room|online-test|bus|trip|tracker|notification|mailroom|inbox|finance|paygira|payout|billing|balance|invoice|orgDashboard|\/guardian\/dashboard|\/student\/dashboard|messages|chat|live)/i;
 
   // Never cached, never fetched ahead: they change state on GET, hand over files, print, or take money.
-  var DENY = /(logout|logoff|sign-?out|login|register|forget-password|reset-password|setup-password|set-password|accept-hub-invitation|\/sso|\/r\/|delete|remove|approve|reject|unlock|lock\b|send|post\b|reverse|export|download|print|\/pdf|\.pdf|\.csv|\.xlsx|checkout|payment|pay\b|charge|refund|session-extend|mark-?read|notifications\/|switch|impersonat|toggle|enable|disable|archive|unarchive|obsolete|exit-org|new=1|\/api\/|\/internal\/|\/admin\/org\/|transcript|meritSheet|emailreports|testing-room\/|\/driver\/|trip|navigation|upload|import|sync|backup|restore|reset|start-over|confirm-password)/i;
+  var DENY = /(logout|logoff|sign-?out|login|register|forget-password|reset-password|setup-password|set-password|accept-hub-invitation|\/sso|\/r\/|delete|remove|approve|reject|unlock|lock\b|send|post\b|reverse|export|download|print|\/pdf|\.pdf|\.csv|\.xlsx|checkout|payment|pay\b|charge|refund|session-extend|mark-?read|notifications\/|switch|impersonat|toggle|enable|disable|archive|unarchive|obsolete|exit-org|new=1|\/api\/|\/internal\/|\/admin\/org\/|transcript|meritSheet|emailreports|testing-room\/|trip|navigation|upload|import|sync|backup|restore|reset|start-over|confirm-password)/i;
 
   // The only pages fetched ahead while idle: menu destinations and hub shells (read-only listings).
   var PREFETCH_ALLOW = [
@@ -39,7 +39,8 @@
     /^\/common\/classDashboard(\/\d+)?$/,
     /^\/common\/(manageEmployees|guardians|archivedStudents|manageClassSubjectAndGradYr|manageEventsAnnouncements)$/,
     /^\/guardian\/(dashboard|settings)$/,
-    /^\/student\/dashboard$/,
+    /^\/guardian\/(child(\/(schedule|teachers|lunch|forms|portfolio|alerts|homework|documents|activities))?|academic-details|student|reports|calendar|activities)$/,
+    /^\/student\/(dashboard|settings|forms|portfolio|calendar|activities|requests)$/,
     /^\/legal\/(user-documentation|help|faq)$/,
     /^\/hub\/(dashboard|settings|organizations)$/
   ];

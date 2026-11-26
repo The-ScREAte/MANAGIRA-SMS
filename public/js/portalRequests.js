@@ -62,7 +62,7 @@
     var late = r.status === 'new' && r.dueDate && new Date(r.dueDate + 'T23:59:59') < new Date();
     var pill = r.status === 'new' ? '<span class="gdr-pill pr-pill--todo' + (late ? ' is-late' : '') + '">' + (late ? 'Overdue' : 'To do') + '</span>' : '<span class="gdr-pill gdr-pill--approved">Sent</span>';
     var action = r.href
-      ? '<a class="pr-go' + (r.status === 'new' ? ' is-primary' : '') + '" href="' + esc(r.href) + '" data-no-spa>' + (r.status === 'new' ? 'Fill in' : 'View') + '</a>'
+      ? '<a class="pr-go' + (r.status === 'new' ? ' is-primary' : '') + '" href="' + esc(r.href) + '">' + (r.status === 'new' ? 'Fill in' : 'View') + '</a>'
       : '';
     return '<li class="gdr-item pr-item"><span class="pr-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5M10 13h6M10 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>'
       + '<div class="pr-body"><div class="gdr-item__top"><strong>' + esc(r.title) + '</strong>' + pill + '</div>'

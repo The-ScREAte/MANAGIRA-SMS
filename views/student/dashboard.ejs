@@ -1254,6 +1254,8 @@
     var h = modalBody.querySelector('.sp-section-title');
     if (h) h.remove();
     modalTitle.textContent = label || 'Details';
+    var head = document.getElementById('top-header');
+    modal.style.top = window.matchMedia('(max-width: 640px)').matches && head ? head.offsetHeight + 'px' : '';
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
   }
@@ -1303,6 +1305,7 @@
   function closeModal() {
     if (!modal) return;
     modal.classList.remove('is-open');
+    modal.style.top = '';
     document.body.style.overflow = '';
   }
 

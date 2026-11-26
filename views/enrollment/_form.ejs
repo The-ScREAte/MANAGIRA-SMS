@@ -13,7 +13,7 @@
 <div class="ef<%= _embedded ? ' ef--embedded' : '' %>" id="ef" data-mode="<%= mode %>" data-enrollment="<%= enrollmentId || '' %>" data-embedded="<%= _embedded ? '1' : '' %>">
   <% if (!_embedded) { %>
     <header class="ef-head">
-      <a class="ef-back" href="/enrollment/manageEnrollment"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Enrollment</a>
+      <a class="ef-back" data-back href="/enrollment/manageEnrollment"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Enrollment</a>
       <h1><%= _edit ? 'Edit enrollment' : 'Enroll students' %></h1>
     </header>
   <% } %>

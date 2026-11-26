@@ -51,7 +51,7 @@ test("deny-list: nothing that changes state, downloads, prints or pays is cached
     "/common/approveApplication?id=2", "/common/rejectApplication", "/common/unlockAssessment", "/common/sendReminders",
     "/common/exportStudents", "/common/download/file", "/print/printStudentReport", "/print/meritSheetPage", "/common/report.pdf",
     "/account/payment", "/checkout/start", "/notifications/markRead", "/notifications/count", "/account/session-extend",
-    "/common/reverseCharge", "/student/testing-room/12", "/driver/dashboard", "/driver/trip/start", "/transcript/12", "/api/anything",
+    "/common/reverseCharge", "/student/testing-room/12", "/driver/trip/start", "/transcript/12", "/api/anything",
     "/account/switch-school", "/common/toggleThing", "/common/archiveStudent", "/common/emailreports",
   ];
   denied.forEach((p) => {

@@ -298,9 +298,11 @@
   <script src="<%= assetUrl('/js/pageLoading.js') %>" defer></script>
   <% /* Who this page was drawn for (not a secret): the in-app page cache keeps one copy per person and school. */ %>
   <% /* Kill switch for kept-alive menu and class pages (NAV_KEEP_PANELS=off in the environment). */ %>
+  <% if (process.env.NAV_SPA_BROAD === 'off') { %><meta name="managira-spa-broad" content="0"><% } %>
   <% if (process.env.NAV_KEEP_PANELS === 'off') { %><meta name="managira-keep-panels" content="0"><% } %>
   <% if (session && (session.userId || session.guardianId || session.studentId || session.hubId)) { %><meta name="managira-identity" content="<%= [session.userRole || session.accountType || '', session.userId || session.guardianId || session.studentId || session.hubId || '', session.organizationId || '', session.superAdminOrgSwitch ? 'sw' : ''].join(':') %>"><% } %>
   <script src="<%= assetUrl('/js/navCache.js') %>"></script>
+  <script src="<%= assetUrl('/js/spaRules.js') %>"></script>
   <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>
   <script src="<%= assetUrl('/js/spa-user-info.js') %>" defer></script>
   <script src="<%= assetUrl('/js/phoneField.js') %>" defer></script>

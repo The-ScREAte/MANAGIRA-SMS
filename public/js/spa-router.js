@@ -39,6 +39,8 @@
     TYPING_QUIET_MS: 3000       // a page is not swapped under someone who just typed
   };
   const NC = window.ManagiraNavCache || null; // public/js/navCache.js
+  const RULES = window.ManagiraSpaRules || null; // public/js/spaRules.js: which links are handled, Back resolution
+  const nextState = (path) => { const st = window.history.state || {}; return { path: path, scroll: 0, prev: st.path || null, idx: (typeof st.idx === 'number' ? st.idx : 0) + 1 }; };
   const G = window.__managiraGate || null;    // public/js/navGate.js: keeps parked pages quiet
   const CLASS_PAGE = /^\/common\/classDashboard\/(\d+)/;
   // Menu pages (their sidebar): one copy for every ?panel=... address, the page picks its panel from the address.
@@ -380,6 +382,14 @@
       const href = link.getAttribute('href');
       if (!href) return;
 
+      // Back links (data-back): go back when the page before this one is the page they point to, else open it in-app.
+      if (link.hasAttribute('data-back') && !link.hasAttribute('target') && href.charAt(0) === '/' && href.charAt(1) !== '/' && !(RULES && RULES.isDenied(href))) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.goBack(href);
+        return;
+      }
+
       // In-page hash links (e.g. sticky nav sections)
       if (href.startsWith('#')) {
         const hashTarget = href.substring(1);
@@ -500,6 +510,8 @@
       // Cancel any in-flight navigation
       this._abortFetch();
       this._noteLeaving(true);
+      // Back/Forward to a page that is kept: shown at once, no fade.
+      this._skipFade = this._hasFresh(targetPath) || !!this._peekParked(targetPath);
 
       // Load page immediately — no pushState (browser already updated the URL)
       this._loadPage(targetPath, false).then(() => {
@@ -576,7 +588,7 @@
           await this._loadPage(normalizedPath, true);
           if (!this._pushed) {
             window.history.pushState(
-              { path: normalizedPath, scroll: 0 },
+              nextState(normalizedPath),
               '',
               `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
             );
@@ -651,7 +663,7 @@
 
         // The new page's own scripts read the address (which panel to open): it is in place before they run.
         if (isForwardNav) {
-          window.history.pushState({ path: normalizedPath, scroll: 0 }, '', `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`);
+          window.history.pushState(nextState(normalizedPath), '', `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`);
           this._pushed = true;
         }
 
@@ -1979,7 +1991,16 @@
 
     // ── Route Matching ────────────────────────────────────────────────
 
+    // A Back link: the page before this one (instant, from the kept copy, scroll restored) or, when that is
+    // not the page it points to, the page it points to (from the cache when it is there).
+    goBack(href) {
+      const how = RULES ? RULES.resolveBack(window.history.state, href) : 'navigate';
+      if (how === 'history') { window.history.back(); return; }
+      this.navigate(href);
+    }
+
     _shouldHandle(path) {
+      if (RULES && RULES.isBroadType(this.userType)) return RULES.shouldHandle(this.userType, this._normalizePath(path), null);
       const clean = this._normalizePath(path).split('?')[0];
       return this.routes.some(route => clean === route || clean.startsWith(route + '/'));
     }

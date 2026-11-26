@@ -29,6 +29,35 @@
   html body .academic-container .info-value--gpa { font-size: 18px; }
   html body .academic-container .info-note { font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
 
+  /* Academic info, flatter: no card around the header or the sections, one row for the picker. */
+  html body .academic-container .student-header { padding: 0 !important; margin: 0 0 6px; border: 0 !important; background: none !important; box-shadow: none !important; }
+  html body .academic-container .student-subtitle { display: none; }
+  html body .academic-container :is(.student-header-content, .student-identity) { padding: 0; border: 0; background: none; box-shadow: none; }
+  html body .academic-container .student-identity { gap: 10px; grid-template-columns: 44px minmax(0, 1fr); align-items: center; }
+  html body .academic-container .student-avatar-large { margin: 0; }
+  html body .academic-container .student-header-info h1 { margin: 0; }
+  html body .academic-container .section-card > h2 { gap: 8px; }
+  html body .academic-container .ad-ico { margin-right: 0; }
+  html body .academic-container :is(table.assessment-table) :is(th, td) { padding-left: 10px; }
+  html body .academic-container .student-header-info { min-width: 0; flex: 1; }
+  html body .academic-container .student-meta-details { margin: 0; border: 0; background: none; box-shadow: none; padding: 0; }
+  html body .academic-container .student-meta-summary { min-height: 28px; padding: 0; border: 0; background: none; box-shadow: none; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; justify-content: flex-start; gap: 4px; }
+  html body .academic-container .term-selector { flex-wrap: nowrap; align-items: center; margin-top: 4px; }
+  html body .academic-container .term-selector form { flex: 1 1 0; }
+  html body .academic-container .term-selector label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  html body .academic-container .term-pick select { height: 40px; }
+  html body .academic-container .term-selector .term-show, html body .academic-container .term-selector .report-cards-trigger { height: 40px; min-height: 40px; padding: 0 10px; font-size: 12.5px; box-shadow: none; }
+  html body .academic-container .term-selector .report-cards-trigger { background: #fff !important; color: var(--org-primary-color, #0f766e) !important; border: 1px solid var(--org-primary-color, #0f766e) !important; }
+  html body .academic-container .section-card { padding: 0; margin: 0 0 12px; border: 0; background: none; box-shadow: none; border-radius: 0; }
+  html body .academic-container .section-card > h2 { padding: 0 0 6px; margin: 0 0 6px; font-size: 14px; }
+  html body .academic-container .info-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  html body .academic-container .info-grid.info-grid--gpa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body .academic-container .info-item { padding: 6px 8px; }
+  html body .academic-container .info-label { font-size: 9.5px; letter-spacing: 0; line-height: 1.2; }
+  html body .academic-container .info-value { font-size: 14px; }
+  html body :is(table.assessment-table, table.sp-table) :is(th, td) { height: 34px; }
+  html body :is(table.assessment-table, table.sp-table) thead th { height: 42px; }
+
   /* ---------- Grades tables (parent Academic info, student Grades sheet) ---------- */
   html body :is(.academic-container .section-card > div:has(> table.assessment-table), .sp-table-wrap) { max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 10px; scroll-snap-type: x proximity; }
   html body :is(table.assessment-table, table.sp-table) { border-collapse: separate !important; border-spacing: 0 !important; width: max-content; min-width: 100%; table-layout: auto; }
@@ -88,4 +117,35 @@
   html body .tr .tr-btn { height: 44px; min-height: 44px; }
   html body .tr .tr-empty { padding: 12px; }
   html body .tr .tr-section { margin-bottom: 10px; }
+
+  /* ---------- Settings pages (parent, student, driver): Notifications first, then Appearance ---------- */
+  html body :is(.st-settings, .drv-set) { padding: 8px 12px 28px; }
+  html body :is(.st-card, .drv-card, .settings-card) { margin-top: 8px; padding: 10px 12px; border-radius: 12px; }
+  html body :is(.st-card, .drv-card) h2, html body .ap-card__title { margin: 0 0 6px; font-size: 14.5px; font-weight: 600; }
+  html body .ap-card__sub { margin: 0 0 6px; font-size: 11.5px; }
+  html body .settings-page { display: grid; gap: 8px; }
+  html body .settings-grid, html body .settings-column { gap: 8px; }
+  html body .settings-page .settings-card { border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; box-shadow: none; overflow: hidden; }
+  html body .settings-card.settings-accordion { padding: 0; }
+  html body .settings-card > .accordion-summary, html body .settings-card.settings-accordion > .accordion-summary { min-height: 44px; padding: 8px 12px; gap: 10px; }
+  html body .settings-card .accordion-body { padding: 4px 12px 12px; }
+  html body .settings-card .accordion-badge { width: 32px; height: 32px; font-size: 15px; border-radius: 9px; }
+  html body .settings-card .accordion-badge svg { width: 18px; height: 18px; }
+  html body .settings-card .accordion-title { font-size: 14.5px; font-weight: 600; }
+  html body .settings-card .accordion-subtitle { font-size: 11.5px; line-height: 1.3; }
+  html body :is(.st-settings, .drv-set, .settings-page) :is(.ap-picker) { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: none; margin-top: 6px; }
+  html body .ap-choice { gap: 4px; min-height: 36px; padding: 5px 5px 6px; border-radius: 10px; font-size: 12.5px; }
+  html body .ap-choice__preview { height: 30px; padding: 4px; gap: 3px; border-radius: 6px; }
+  html body .ap-choice__name small { font-size: 10.5px; line-height: 1.2; }
+  html body .ap-choice__check { top: 8px; right: 8px; width: 16px; height: 16px; font-size: 9px; }
+  html body :is(.st-settings, .drv-set) .ns-row { padding: 10px 12px; }
+  html body :is(.st-settings, .drv-set) .ns-cell { min-height: 36px; }
+  html body :is(.st-settings, .drv-set) .ns-switch input { inset: -10px -6px; width: auto; height: auto; }
+  html body :is(.st-settings, .drv-set) .ns-cell[data-label]::after { font-size: 11.5px; }
+  html body :is(.st-settings, .drv-set) .ns-threshold input { height: 36px; font-size: 16px; }
+  html body :is(.st-settings, .drv-set) .ns-savebar { position: sticky; bottom: 0; z-index: 5; margin: 8px -12px -10px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #eef1f5; }
+  html body :is(.st-settings, .drv-set) .ns-save { height: 44px; padding: 0 20px; font-size: 14px; }
+  html body .drv-set .drv-fields { gap: 10px; }
+  html body .drv-set .drv-field input, html body .drv-set .drv-field .phone-combo select { height: 40px; font-size: 16px; }
+  html body .drv-set .drv-avatar { width: 56px; height: 56px; }
 }

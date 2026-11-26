@@ -7,11 +7,16 @@
 .tc-avatar--initials { display: grid; place-items: center; color: var(--org-primary-color, #0f766e); background: color-mix(in srgb, var(--org-primary-color, #0f766e) 12%, #fff); font-weight: 700; font-size: 1.05rem; }
 .tc-who { min-width: 0; }
 .tc-who h3 { margin: 0; color: #0f172a; font-size: 1.02rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.tc-who p { margin: 3px 0 0; color: #64748b; font-size: .85rem; line-height: 1.4; }
-.tc-role { color: var(--org-primary-color, #0f766e); font-weight: 600; }
+.tc-who { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.tc-who h3 { flex: 0 1 auto; }
+.tc-subjects { flex: 1 0 100%; margin: 0; color: #64748b; font-size: .85rem; line-height: 1.4; }
+.tc-role { display: inline-block; padding: 1px 8px; border-radius: 999px; color: var(--org-primary-color, #0f766e); background: color-mix(in srgb, var(--org-primary-color, #0f766e) 10%, #fff); font-size: .74rem; font-weight: 650; line-height: 1.5; white-space: nowrap; }
+.tc-card:not(.is-main) .tc-role { color: #475569; background: #f1f5f9; }
+.tc-more { display: none; }
 .tc-contact { display: grid; gap: 6px; }
 .tc-contact a { display: flex; align-items: center; gap: 8px; min-width: 0; color: #334155; font-size: .88rem; text-decoration: none; }
-.tc-contact a:hover span { text-decoration: underline; }
+.tc-contact a span { text-decoration: none; }
+.tc-contact a:is(:hover, :focus-visible) span { text-decoration: underline; }
 .tc-contact svg { flex: none; width: 17px; height: 17px; color: #94a3b8; }
 .tc-contact span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tc-about { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: color-mix(in srgb, var(--org-primary-color, #0f766e) 6%, #f8fafc); }

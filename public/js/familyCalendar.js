@@ -181,7 +181,7 @@
         + '<div style="flex:1;min-width:0;"><div class="ws-peek__kind">' + esc(LABEL[item.kind] || '') + '</div><h3 class="ws-peek__title">' + esc(item.title) + '</h3></div>'
         + '<button type="button" class="ws-close" data-peek-close aria-label="Close">\u00d7</button></div>'
         + '<div class="ws-peek__rows">' + rows.join('') + '</div>'
-        + (item.link ? '<div class="ws-peek__actions"><a class="ws-btn ws-btn--primary" data-no-spa href="' + esc(item.link) + '">Open</a></div>' : '');
+        + (item.link ? '<div class="ws-peek__actions"><a class="ws-btn ws-btn--primary"' + (String(item.link).charAt(0) === '/' ? '' : ' data-no-spa') + ' href="' + esc(item.link) + '">Open</a></div>' : '');
       sheet.hidden = false;
       if (anchor) {
         var r = anchor.getBoundingClientRect(), w = sheet.offsetWidth, h = sheet.offsetHeight;

@@ -23,7 +23,7 @@
   const _faNav = (name) => _faNavMap[name] || String(name || 'alert');
   const _wsMember = typeof workspaceMember === 'undefined' ? true : !!workspaceMember;
   // Events, announcements and activities are managed in the Management workspace's right-hand panel.
-  // These links load Management as a full page (data-no-spa): it reads which panel to open from the address.
+  // These links open Management in-app: it reads which panel to open from the address.
   const _eventsPanel = (tab) => '/common/management?panel=announcements-events&page=' + encodeURIComponent('/common/manageEventsAnnouncements' + (tab ? '?tab=' + tab : '')) + '&label=' + encodeURIComponent('Events, announcements & activities');
   if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'task', 'New task', 'task');
   _addAction('calendar', '/common/calendar', 'calendar', 'Calendar');
@@ -575,7 +575,7 @@
         Get started by setting up a school year and a term/semester. It's simple
         and intuitive!
       </p>
-      <a href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" class="start-link" data-no-spa>Begin Your Journey Here</a>
+      <a href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" class="start-link">Begin Your Journey Here</a>
     </div>
   </div>
 <% } else { %>
@@ -763,7 +763,7 @@
                             <span class="od-noteacher"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No teacher yet</span>
                           <% } %>
                           <%# Teachers but nobody in charge: said to whoever manages staff, who chooses one. %>
-                          <% if (_canEditStaff && teachers.length && !teachers.some((emp) => emp.main)) { %><a class="od-nolead" href="/common/management?panel=employees&page=<%= encodeURIComponent('/common/manageEmployees?lead=' + cls.class_id) %>&label=<%= encodeURIComponent('Users / Employees') %>" data-no-spa title="No main teacher yet. Choose who is in charge of <%= cls.class_name %>" aria-label="No main teacher for <%= cls.class_name %>. Choose one"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></a><% } %>
+                          <% if (_canEditStaff && teachers.length && !teachers.some((emp) => emp.main)) { %><a class="od-nolead" href="/common/management?panel=employees&page=<%= encodeURIComponent('/common/manageEmployees?lead=' + cls.class_id) %>&label=<%= encodeURIComponent('Users / Employees') %>" title="No main teacher yet. Choose who is in charge of <%= cls.class_name %>" aria-label="No main teacher for <%= cls.class_name %>. Choose one"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></a><% } %>
                           <% if (_canEditStaff) { %>
                             <a class="od-crow__edit" href="/common/createEmployee?classId=<%= cls.class_id %>" title="<%= teachers.length ? 'Add another teacher to ' : 'Add a teacher to ' %><%= cls.class_name %>" aria-label="Add a teacher to <%= cls.class_name %>"><i class="fa-solid fa-pencil" aria-hidden="true"></i></a>
                           <% } %>
@@ -844,7 +844,7 @@
             <div class="od-next">
               <% if (nextTermSuggestion && canManageTermSwitch) { %>
                 <span class="od-next__text">This term has ended. Make the next term current in Manage Records.</span>
-                <a class="od-btn od-btn--primary" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" data-no-spa title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
+                <a class="od-btn od-btn--primary" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
                   Switch to <%= nextTermSuggestion.term_name %> · <%= nextTermSuggestion.year_label %>
                   <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </a>
@@ -938,7 +938,7 @@
         <section class="od-card" data-od-section="events" data-od-label="Events" aria-label="Events">
           <div class="od-card__head">
             <h2 class="od-card__title"><%- navIcon('calendar') %> Events <span class="od-count"><%= _allEvents.length %></span></h2>
-            <% if (_canPublish) { %><span class="od-card__links"><a class="od-link" href="<%= _eventsPanel() %>" data-no-spa>Manage</a></span><% } %>
+            <% if (_canPublish) { %><span class="od-card__links"><a class="od-link" href="<%= _eventsPanel() %>">Manage</a></span><% } %>
           </div>
           <% if (_upcomingAll.length) { %>
             <h3 class="od-sublabel">Upcoming</h3>
@@ -1176,7 +1176,7 @@
             <% } else { %>
               <p class="od-empty">No announcements yet.</p>
             <% } %>
-            <% if (_canPublish) { %><a class="od-link od-ann-manage" href="<%= _eventsPanel('announcements') %>" data-no-spa>Manage announcements</a><% } %>
+            <% if (_canPublish) { %><a class="od-link od-ann-manage" href="<%= _eventsPanel('announcements') %>">Manage announcements</a><% } %>
           </div>
         </section>
       </div>
@@ -1221,7 +1221,7 @@
               <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
             <%# The activity log is a Report Builder report: Report Builder to open it, Organization Records to see it. %>
             <% if (_perm('reports_builder') && _perm('manage_records')) { %>
-              <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder" data-no-spa>View all</a>
+              <a class="od-link" href="/common/reports?panel=report-builder&page=%2Fcommon%2Freport-builder%3Ftype%3Dactivity_log&label=Report%20Builder">View all</a>
             <% } %>
           </div>
           <% if (_activity.length) { %>
