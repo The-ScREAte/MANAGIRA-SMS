@@ -3881,9 +3881,11 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
 }
 
 @media (max-width: 420px) {
-  .overview-counts-row { gap: 4px; }
-  #panel-overview .overview-count-chip { padding: 4px 2px; }
-  #panel-overview .overview-count-chip .count-num { font-size: 11.5px; }
+  .overview-counts-row { gap: 6px; }
+  /* Padding INSIDE each chip (icon, label, number, arrow): it was 4px 2px, which put the icon 3px from the border. */
+  #panel-overview .overview-count-chip { padding: 8px 10px; gap: 8px; }
+  #panel-overview .overview-count-chip .count-text { gap: 6px; }
+  #panel-overview .overview-count-chip .count-num { font-size: 12.5px; }
 }
 
 /* ---------- Overview: calm, aligned controls (no hover colours) ---------- */
@@ -3971,13 +3973,13 @@ a.teacher-chip:hover { border-color: var(--primary, #0f766e); box-shadow: 0 1px 
 
 /* Phones: the Class Tools button shows its name (it was white on white), subjects come before the
    long student list (a teacher goes from the class to a subject's gradebook), and the overview
-   breathes under its tab. */
+   sits directly under its tab (no extra top padding). */
 @media (max-width: 980px) {
   body .workspace-shell > .nav-toggle { background: #fff; color: var(--org-primary-color, #01535b) !important; border: 1px solid #e2e8f0; font-weight: 600; }
   body .workspace-shell > .nav-toggle span { color: inherit !important; }
   #panel-overview .subjects-overview-section { display: block !important; }
   .overview-split > .section-card:not(.students-overview-section) { order: -1; }
-  #panel-overview .workspace-overview-grid { padding-top: 8px; }
+  #panel-overview .workspace-overview-grid { padding-top: 0; }
 }
 
 

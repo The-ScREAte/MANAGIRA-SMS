@@ -13,7 +13,7 @@ test("safeAreas.css clamps header pop-ups and uses safe-area insets", () => {
   assert.match(css, /env\(safe-area-inset-top/);
 });
 test("safeAreas.css is in the shared bundle", () => {
-  assert.match(read("utils/cssBundle.js"), /"safeAreas", "guardian", "a11y"/);
+  assert.match(read("utils/cssBundle.js"), /"safeAreas", "flatPhone", "guardian", "a11y"/);
 });
 test("headerMenu.js clamps panels to 8px from each edge", () => {
   const js = read("public/js/headerMenu.js");

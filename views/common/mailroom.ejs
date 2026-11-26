@@ -199,6 +199,7 @@
   .mr-message-actor { font-size: 11px; color: var(--mr-muted); word-break: break-word; }
   .mr-message-contact { font-size: 12px; color: var(--mr-muted); }
   .mr-message-subject { flex-basis: 100%; font-size: 12px; color: var(--mr-muted); }
+  .mr-message-meta-phone { display: none; }
 
   /* Confirm-and-send dialog */
   /* Above the site header (13001), or the card's name and Save sit under it on a laptop screen. */
@@ -334,6 +335,7 @@
     .mr-message-main { gap: 8px; }
   }
 </style>
+<link rel="stylesheet" href="<%= assetUrl('/css/mailroomPhone.css') %>">
 
 <div id="mailroomRoot" data-can-see-contacts="<%= typeof canSeeContacts !== 'undefined' && canSeeContacts ? '1' : '0' %>">
   <div class="mr-header mr-header--tabs">
@@ -921,6 +923,7 @@
       </div>` : ''}
       ${status === 'failed' && errorText ? `<div class="mr-message-error">${escapeHtml(errorText)}</div>` : ''}
       <span class="mr-message-when">${escapeHtml(fmtDate(row.updated_at || row.created_at))}</span>
+      <div class="mr-message-meta-phone">${name ? `<span class="mr-mm-contact">${escapeHtml(contact)}</span>` : ''}<span class="mr-mm-actor">by ${escapeHtml(row.actor_name || '-')}</span><span class="mr-mm-when">${escapeHtml(fmtDate(row.updated_at || row.created_at))}</span></div>
     </div>`;
   }
 

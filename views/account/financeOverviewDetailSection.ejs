@@ -51,7 +51,7 @@
         <tbody>
           <% (bills.slice(0,8)).forEach(b => { %>
             <tr>
-              <td><%= b.title %></td>
+              <td><span class="fin-clip" title="<%= b.title %>"><%= b.title %></span></td>
               <td><span class="badge <%= b.status %>"><%= billWords[b.status] || b.status %></span></td>
               <td class="num"><%= fmt(b.total_amount) %></td>
               <td class="num"><%= fmt(b.total_paid) %></td>

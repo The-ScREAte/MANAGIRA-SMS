@@ -1,0 +1,119 @@
+/* ===== Mailroom on a phone (640px and narrower) ====================================
+   Title row with Contacts on the right, a compact Send/Inbox switch, a compact compose
+   card, flat History (one dense row per message, nothing clipped) and compact Inbox.
+   Inputs stay 16px so iOS does not zoom. Desktop and tablet are unchanged. */
+@media (max-width: 640px) {
+  #mailroomRoot { position: relative; padding: 8px 12px 24px; overflow-x: clip; font-size: 13px; }
+
+  /* Header: title + subtitle left, Contacts on the title row, tabs under it. */
+  #mailroomRoot .mr-header { margin-bottom: 10px; }
+  #mailroomRoot .mr-header--tabs { display: block; }
+  #mailroomRoot .mr-header h1 { font-size: 19px; line-height: 24px; font-weight: 700; margin: 0 0 2px; }
+  #mailroomRoot .mr-header p { font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-tabs { display: inline-flex; width: auto; margin-top: 8px; padding: 1px; gap: 2px; border-radius: 10px; }
+  #mailroomRoot .mr-tab { justify-content: center; height: 36px; padding: 0 16px; font-size: 13px; border-radius: 8px; }
+  #mailroomRoot .mr-tab-badge { height: 16px; min-width: 16px; font-size: 10.5px; }
+
+  #mailroomRoot .mr-directory-open-row { position: absolute; top: 58px; right: 12px; margin: 0; }
+  #mailroomRoot .mr-directory-toggle { height: 38px; padding: 0 10px 0 12px; border-radius: 10px; box-shadow: none; gap: 4px; }
+  #mailroomRoot .mr-directory-toggle-label { font-size: 13px; gap: 6px; }
+  #mailroomRoot .mr-directory-toggle-icon { width: 14px; height: 14px; }
+  #mailroomRoot .mr-setup-banner { margin-bottom: 10px; }
+
+  /* Compose card: title left, count muted, Compose button 36px. */
+  #mailroomRoot .mr-right { gap: 10px; }
+  #mailroomRoot .mr-compose { padding: 5px 10px; border-radius: 12px; box-shadow: none; }
+  #mailroomRoot .mr-compose-head { min-height: 36px; gap: 8px; }
+  #mailroomRoot .mr-compose-heading { font-size: 14px; font-weight: 600; }
+  #mailroomRoot .mr-compose-summary { margin-left: 0; flex: 1 1 auto; min-width: 0; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-collapse-toggle { min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+  #mailroomRoot .mr-compose-fields { padding-top: 8px; }
+  #mailroomRoot .mr-subject, #mailroomRoot .mr-compose-textarea, #mailroomRoot .mr-search,
+  #mailroomRoot .mr-class-filter, #mailroomRoot #mrReplyForm.mr-reply textarea { font-size: 16px; }
+  #mailroomRoot .mr-subject { padding: 8px 10px; }
+  #mailroomRoot .mr-compose-textarea { min-height: 88px; padding: 8px 10px; }
+  #mailroomRoot .mr-channel-check { font-size: 13px; min-height: 32px; }
+  #mailroomRoot .mr-channel-check input { width: 18px; height: 18px; }
+  #mailroomRoot .mr-channel-hint { font-size: 11.5px; padding: 7px 10px; }
+  #mailroomRoot .mr-compose-meta { position: sticky; bottom: 0; z-index: 4; margin: 8px -10px -5px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--mr-panel); border-top: 1px solid var(--mr-line); border-radius: 0 0 12px 12px; gap: 10px; flex-wrap: nowrap; }
+  #mailroomRoot .mr-recipient-count { flex: 1 1 auto; min-width: 0; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-send-btn { order: 2; flex: none; height: 36px; padding: 0 20px; border-radius: 10px; font-size: 13px; }
+
+  /* Contacts drawer: full width, starts under the site header (belowHeaderPanels sets
+     top), search full width, 16px fields, tall tap rows. */
+  #mailroomRoot .mr-directory-head { padding: 8px 10px; }
+  #mailroomRoot .mr-directory-controls { padding-top: 8px; }
+  #mailroomRoot .mr-search { padding: 8px 10px; }
+  #mailroomRoot .mr-class-filter { padding: 7px 9px; min-height: 36px; }
+  #mailroomRoot .mr-contact-list { padding: 2px 6px; }
+  #mailroomRoot .mr-contact { padding: 8px 6px; gap: 10px; }
+  #mailroomRoot .mr-contact-name, #mailroomRoot .mr-contact-open { font-size: 13px; }
+  #mailroomRoot .mr-select-row button { min-height: 32px; font-size: 12px; }
+  #mailroomRoot .mr-directory-close { width: 36px; height: 36px; top: 6px; right: 8px; }
+  #mailroomRoot .mr-directory-head-top { min-height: 36px; padding-right: 48px; }
+  #mailroomRoot .mr-empty { padding: 14px 10px; font-size: 12px; }
+
+  /* History: no outer card; filters in one scrollable row; one compact grid per message. */
+  #mailroomRoot .mr-history { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; gap: 8px; }
+  #mailroomRoot .mr-history-header { flex-wrap: nowrap; gap: 8px; }
+  #mailroomRoot .mr-history-title { font-size: 11.5px; flex: none; }
+  #mailroomRoot .mr-history-filters { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; justify-content: flex-end; }
+  #mailroomRoot .mr-history-filters::-webkit-scrollbar { display: none; }
+  #mailroomRoot .mr-filter-chip { height: 32px; padding: 0 12px; font-size: 12px; white-space: nowrap; }
+  #mailroomRoot .mr-history-rows { gap: 6px; }
+  #mailroomRoot .mr-history { margin-top: 0; }
+  #mailroomRoot .mr-message-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; row-gap: 2px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--mr-panel); }
+  #mailroomRoot .mr-message-main { display: contents; }
+  #mailroomRoot .mr-message-main > .mr-badge-channel { grid-row: 1; grid-column: 1; }
+  #mailroomRoot .mr-message-recipient { grid-row: 1; grid-column: 2; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-message-main > .mr-badge:not(.mr-badge-channel) { grid-row: 1; grid-column: 3; justify-self: end; }
+  #mailroomRoot .mr-message-main > .mr-badge-channel { justify-self: start; }
+  #mailroomRoot .mr-message-card:has(.mr-message-subject) .mr-message-text-wrap { display: none; }
+  #mailroomRoot .mr-resend-btn { grid-row: 4; grid-column: 3; justify-self: end; min-height: 24px; }
+  #mailroomRoot .mr-badge { padding: 1px 7px; font-size: 10px; line-height: 1.5; }
+  #mailroomRoot .mr-message-subject { grid-row: 2; grid-column: 1 / -1; font-size: 12.5px; font-weight: 600; color: var(--mr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-message-text-wrap { grid-row: 3; grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; }
+  #mailroomRoot .mr-message-text { flex: 1 1 auto; min-width: 0; display: block; font-size: 12px; color: var(--mr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
+  #mailroomRoot .mr-message-text.mr-expanded { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
+  #mailroomRoot .mr-readmore { flex: none; margin: 0; font-size: 11.5px; padding: 6px 0; }
+  #mailroomRoot .mr-message-error { grid-row: 4; grid-column: 1 / -1; font-size: 11.5px; }
+  #mailroomRoot .mr-message-contact, #mailroomRoot .mr-message-actor, #mailroomRoot .mr-message-when { display: none; }
+  #mailroomRoot .mr-message-meta-phone { display: flex; gap: 8px; grid-row: 5; grid-column: 1 / -1; min-width: 0; font-size: 11.5px; color: var(--mr-muted); white-space: nowrap; }
+  #mailroomRoot .mr-mm-contact { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #mailroomRoot .mr-mm-actor { flex: none; }
+  #mailroomRoot .mr-mm-when { flex: none; margin-left: auto; }
+  #mailroomRoot .mr-more-btn { min-height: 36px; margin: 4px 0 8px; width: 100%; }
+
+  /* Inbox: list then conversation, compact. */
+  #mailroomRoot .mr-inbox { gap: 10px; }
+  #mailroomRoot .mr-inbox-list { min-height: 0; }
+  #mailroomRoot .mr-inbox-head { padding: 8px 10px; gap: 8px; }
+  #mailroomRoot .mr-inbox-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  #mailroomRoot .mr-inbox-filters::-webkit-scrollbar { display: none; }
+  #mailroomRoot .mr-inbox-row { padding: 8px 10px; gap: 1px; min-height: 36px; }
+  #mailroomRoot .mr-inbox-top strong { font-size: 13px; }
+  #mailroomRoot .mr-inbox-subject, #mailroomRoot .mr-inbox-snippet { font-size: 12px; }
+  #mailroomRoot .mr-inbox-meta { margin-top: 1px; }
+  #mailroomRoot .mr-inbox-rows { max-height: 60vh; }
+  #mailroomRoot .mr-thread { min-height: 0; }
+  #mailroomRoot .mr-thread-head { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+  #mailroomRoot .mr-thread-head h2 { font-size: 14.5px; font-weight: 600; }
+  #mailroomRoot .mr-thread-head p { font-size: 11.5px; }
+  #mailroomRoot .mr-thread-actions a, #mailroomRoot .mr-thread-actions button { height: 36px; }
+  #mailroomRoot .mr-thread-msgs { padding: 10px 12px; gap: 8px; }
+  #mailroomRoot .mr-msg { max-width: 92%; padding: 8px 10px; }
+  #mailroomRoot .mr-msg p { font-size: 13px; line-height: 1.45; }
+  #mailroomRoot #mrReplyForm.mr-reply { padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  #mailroomRoot #mrReplyForm.mr-reply button { height: 40px; }
+
+  /* Dialogs (confirm, contact card): fit the phone. */
+  .mr-modal-backdrop { padding: 10px; }
+  .mr-modal { padding: 14px; }
+  .mr-modal input[type="password"] { font-size: 16px; }
+  .mr-modal-actions { position: sticky; bottom: -14px; padding: 8px 0 env(safe-area-inset-bottom, 0px); background: #fff; }
+  .mr-modal-actions button { min-height: 40px; }
+
+  /* The two floating buttons are smaller and tucked into the corners here. */
+  html body:has(#mailroomRoot) #ssRoot { transform: scale(.72); transform-origin: left bottom; bottom: 10px; opacity: .9; }
+  html body:has(#mailroomRoot) .chatbot-toggle { transform: scale(.74); transform-origin: right bottom; bottom: 10px; opacity: .9; }
+}

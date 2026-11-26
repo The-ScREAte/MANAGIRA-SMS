@@ -21,7 +21,7 @@ test("pageHead.css defines the shared classes and the phone row", () => {
 
 test("pageHead.css is in both shared bundles, before a11y.css", () => {
   const b = read("utils/cssBundle.js");
-  assert.match(b, /"safeAreas", "guardian", "a11y"\]/);
+  assert.match(b, /"safeAreas", "flatPhone", "guardian", "a11y"\]/);
   assert.strictEqual((b.match(/"pageHead"/g) || []).length, 2);
 });
 

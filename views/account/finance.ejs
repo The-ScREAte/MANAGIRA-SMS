@@ -1675,7 +1675,9 @@
   .fin-btn.danger::before { content:''; display:none; }
 
   /* End alignment fix */
+  .fin-ico-phone { display:none; }
 </style>
+<link rel="stylesheet" href="/css/flatPhone.css">
 
 <script nonce="<%= locals.cspNonce || '' %>">
   (function () {
@@ -1744,8 +1746,8 @@
         </div>
         <div class="fin-head-tools">
         <% if (sec === 'overview') { %>
-          <details class="fin-filter-fold" data-fin-filter>
-            <summary title="Choose the period"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span>Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(ovYearSel, ovTermSel, ovAllYears) %></span></summary>
+          <details class="fin-filter-fold" data-fin-filter<%= (_finQuery.year || _finQuery.term) ? ' data-filtered' : '' %>>
+            <summary aria-label="Filter" title="Filter: <%= finPeriodLabel(ovYearSel, ovTermSel, ovAllYears) %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span class="fin-filter-label">Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(ovYearSel, ovTermSel, ovAllYears) %></span></summary>
             <form method="GET" action="/account/settings/finance" class="fin-filter-pop" aria-label="Filter the overview">
               <input type="hidden" name="section" value="overview">
               <p class="fin-filter-title">Period</p>
@@ -2108,7 +2110,7 @@
             <div class="fin-head-tools">
               <span class="fin-section-count"><%= bills.length %> bill<%= bills.length === 1 ? '' : 's' %></span>
               <details class="fin-filter-fold" data-fin-filter>
-                <summary title="Choose the billing period"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span>Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(billYearFilter, billTermFilter) %></span></summary>
+                <summary aria-label="Filter" title="Filter: <%= finPeriodLabel(billYearFilter, billTermFilter) %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span class="fin-filter-label">Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(billYearFilter, billTermFilter) %></span></summary>
                 <form method="GET" action="/account/settings/finance" class="fin-filter-pop" aria-label="Filter bills">
                   <input type="hidden" name="section" value="bills">
                   <p class="fin-filter-title">Billing period</p>
@@ -2228,7 +2230,7 @@
             <h2>What each student owes</h2>
             <div class="fin-head-tools">
               <details class="fin-filter-fold" data-fin-filter>
-                <summary title="Choose the billing period"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span>Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(studentYearFilter, studentTermFilter) %></span></summary>
+                <summary aria-label="Filter" title="Filter: <%= finPeriodLabel(studentYearFilter, studentTermFilter) %>"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v5l-4 2v-7z"/></svg><span class="fin-filter-label">Filter</span><span class="fin-filter-summary"><%= finPeriodLabel(studentYearFilter, studentTermFilter) %></span></summary>
                 <form method="GET" action="/account/settings/finance" class="fin-filter-pop" aria-label="Filter students' bills">
                   <input type="hidden" name="section" value="students">
                   <p class="fin-filter-title">Billing period</p>
@@ -2544,7 +2546,7 @@
                       <td class="num" style="color:var(--fin-success);font-weight:600;"><%= fmt(r.amount) %></td>
                       <td>
                         <div class="fin-actions-cell">
-                          <a class="fin-btn sm quiet" href="/account/settings/my-paygira/receipt/<%= r.payment_id %>" target="_blank" rel="noopener">Receipt</a>
+                          <a class="fin-btn sm quiet" href="/account/settings/my-paygira/receipt/<%= r.payment_id %>" target="_blank" rel="noopener" aria-label="Receipt" title="Receipt"><svg class="fin-ico-phone" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"></path><path d="M9 7h6M9 11h6"></path></svg><span class="fin-btn-text">Receipt</span></a>
                           <% if (paygiraAccess.canCorrectPayments) { %><form method="POST" action="/account/settings/finance/payments/<%= r.payment_id %>/delete" style="margin:0;" data-onsubmit="account-finance.18">
                             <button class="fin-btn fin-icon-btn danger" title="Remove this payment (recorded by mistake)" aria-label="Remove this payment">
                               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>

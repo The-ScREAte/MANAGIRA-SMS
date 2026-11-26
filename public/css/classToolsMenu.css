@@ -1,0 +1,135 @@
+/* Class Tools on phones and tablets: the SAME menu as the Management hub (views/common/managementTools.ejs,
+   public/css/workspace-shell.css). A "Class Tools" bar with the hamburger / X, and a full-width dropdown under it:
+   header row (title + arrange button), 44px rows with a 32px icon tile, 18px icon, 13px label, the same active row,
+   the same open / close motion. No sheet, no scrim: the shared close logic in views/partials/head.ejs (outside tap,
+   Escape, page scroll lock) does the rest. Desktop (wider than 960px) keeps its sidebar. Loads last. */
+@media (max-width: 960px) {
+  html.menu-scroll-lock, html.menu-scroll-lock body { overflow: hidden !important; overscroll-behavior: none; }
+
+  body .workspace-shell { padding-top: 12px; padding-left: 10px; padding-right: 10px; }
+
+  /* The bar */
+  body .workspace-shell > .nav-toggle {
+    display: flex !important; align-items: center; justify-content: space-between; gap: 8px;
+    box-sizing: border-box; width: calc(100vw - 20px); height: auto; min-height: 0; margin: 0 0 8px; padding: 8px 12px !important;
+    border-radius: 8px; border: 1px solid var(--border, #e5e7eb); background: #fff;
+    font: inherit; font-weight: 600; font-size: 13px; color: var(--primary, #01535b) !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); cursor: pointer;
+    position: relative; top: auto; z-index: 12101 !important;
+    transition: border-radius 140ms ease, box-shadow 140ms ease;
+  }
+  body .workspace-shell > .nav-toggle[aria-expanded="true"] { border-radius: 8px 8px 0 0 !important; box-shadow: none !important; }
+  body .workspace-shell > .nav-toggle span { color: inherit !important; }
+  .class-nav-toggle-label { display: inline-flex; align-items: center; gap: 8px; }
+  .nav-toggle .hamburger-icon, .nav-toggle .hamburger-icon::before, .nav-toggle .hamburger-icon::after {
+    display: inline-block; width: 18px; height: 2px; background: currentColor;
+    transition: transform 140ms ease, top 140ms ease, opacity 140ms ease, background-color 140ms ease;
+  }
+  .nav-toggle .hamburger-icon { position: relative; flex-shrink: 0; }
+  .nav-toggle .hamburger-icon::before, .nav-toggle .hamburger-icon::after { content: ""; position: absolute; left: 0; transform-origin: center; }
+  .nav-toggle .hamburger-icon::before { top: -6px; }
+  .nav-toggle .hamburger-icon::after { top: 6px; }
+  .nav-toggle[aria-expanded="true"] .hamburger-icon { background: transparent; }
+  .nav-toggle[aria-expanded="true"] .hamburger-icon::before { top: 0; transform: rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] .hamburger-icon::after { top: 0; transform: rotate(-45deg); }
+
+  /* The panel: under the bar, closed until opened */
+  body #class-tools-panel.workspace-sidebar.nav-card {
+    display: block !important; position: fixed !important;
+    top: calc(var(--class-nav-top, var(--side-menu-top, 120px)) - 1px) !important; bottom: 0 !important;
+    left: 10px !important; right: auto !important; width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important;
+    height: auto !important; max-height: none !important; box-sizing: border-box !important; margin: 0 !important;
+    padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid var(--border, #e5e7eb) !important; border-top: 0 !important; border-radius: 0 12px 12px 0 !important;
+    background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+    overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;
+    transform: translateY(-6px) !important;
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    z-index: 12100 !important;
+  }
+  body #class-tools-panel.workspace-sidebar.nav-card.open {
+    opacity: 1 !important; visibility: visible !important; pointer-events: auto !important;
+    transform: translateY(0) !important; transition-delay: 0s;
+  }
+
+  /* Header row: title + arrange button */
+  body #class-tools-panel .nav-header {
+    display: flex !important; align-items: center; justify-content: space-between; gap: 8px; box-sizing: border-box;
+    position: sticky; top: 0; z-index: 2; margin: 0 !important; padding: 10px 14px !important;
+    border-bottom: 1px solid var(--border, #e5e7eb); border-radius: 0; background: #fff;
+  }
+  body #class-tools-panel .nav-header h3 { margin: 0 !important; font-size: var(--fs-head, 14.5px); font-weight: 600; letter-spacing: 0.02em; color: var(--text, #0f172a); white-space: nowrap; }
+  body #class-tools-panel .nav-header .card-subtext, body #class-tools-panel .nav-close { display: none !important; }
+
+  body #class-tools-panel .menu-arrange-btn { min-width: 26px; min-height: 26px; }
+
+  /* Rows */
+  body #class-tools-panel .side-nav { padding: 0; display: block; }
+  body #class-tools-panel .nav-list { list-style: none; padding: 8px 8px 10px !important; margin: 0 !important; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; justify-items: stretch; }
+  body #class-tools-panel .nav-list > li { margin: 0; padding: 0; justify-self: stretch; }
+  body #class-tools-panel .nav-list > li.nav-section-label { display: none !important; }
+  body #class-tools-panel .nav-link, body #class-tools-panel .nav-section-toggle {
+    position: relative; display: flex !important; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px;
+    box-sizing: border-box; width: 100%; height: auto; min-height: 0; margin: 0; padding: 4px 10px 4px 8px !important;
+    border: 1px solid transparent !important; border-radius: 8px !important; background: transparent;
+    color: #475569 !important; font: inherit; font-size: 13px !important; font-weight: 500 !important; line-height: 1.2; text-align: left; text-decoration: none; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  body #class-tools-panel .nav-link .nav-link-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  body #class-tools-panel .nav-link .nav-icon {
+    flex: 0 0 auto; width: 36px; height: 36px; min-width: 36px; padding: 0; gap: 0; border-radius: 10px;
+    display: inline-flex !important; align-items: center; justify-content: center;
+    color: #475569; background: color-mix(in srgb, var(--text, #0f172a) 6%, transparent);
+  }
+  body #class-tools-panel .nav-link .nav-icon svg { width: 20px; height: 20px; display: block; stroke: currentColor; }
+  /* Attendance & lunch: two icons share the same tile (16px on the tablet tile, 14px on the phone tile) */
+  body #class-tools-panel .nav-link .nav-icon.nav-icon--pair { padding: 0; gap: 0; }
+  body #class-tools-panel .nav-link .nav-icon.nav-icon--pair svg { width: 16px; height: 16px; }
+  body #class-tools-panel .nav-link.active {
+    background: var(--org-primary-soft-strong, rgba(1, 83, 91, 0.10)) !important; color: var(--primary, #01535b) !important; font-weight: 600 !important;
+  }
+  body #class-tools-panel .nav-link.active::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--primary, #01535b); }
+  body #class-tools-panel .nav-link.active .nav-icon { color: var(--primary, #01535b); background: color-mix(in srgb, var(--primary, #01535b) 15%, transparent); }
+  body #class-tools-panel .nav-link.is-locked { height: auto; }
+  body #class-tools-panel .nav-link.is-locked .nav-link-label { white-space: normal; }
+  body #class-tools-panel .nav-link.is-locked .nav-link-label small { display: block; margin-top: 1px; font-size: 11px; font-weight: 400; color: var(--muted, #64748b); }
+
+  /* Badges: compact pills, right-aligned */
+  body #class-tools-panel .files-badge, body #class-tools-panel .nav-count-pill {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; margin: 0 0 0 auto;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1;
+  }
+  body #class-tools-panel .nav-section-toggle .nav-count-pill { margin-left: 0; }
+  body #class-tools-panel .nav-sublink .nav-count-pill { margin-left: 8px; }
+  body #class-tools-panel .nav-section-icon { flex: 0 0 auto; display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; font-size: 0; }
+  body #class-tools-panel .nav-section-icon svg { width: 18px; height: 18px; }
+
+  /* Gradebook subjects open in place, indented under the row */
+  body #class-tools-panel .nav-sublist { margin: 0 0 4px 28px; padding: 0 0 0 8px; gap: 1px; border-left: 1px solid var(--border, #e5e7eb); }
+  body #class-tools-panel .nav-sublist > li { margin: 0; padding: 0; }
+  body #class-tools-panel .nav-sublink {
+    margin: 0; line-height: 1.2; font-weight: 500 !important;
+    display: flex; align-items: center; justify-content: flex-start; gap: 8px; box-sizing: border-box; width: 100%;
+    min-height: 40px; padding: 2px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: #475569; text-align: left;
+  }
+  body #class-tools-panel .nav-sublink:hover, body #class-tools-panel .nav-sublink.active { background: var(--org-primary-soft-strong, rgba(1, 83, 91, 0.10)); color: var(--primary, #01535b); }
+  body #class-tools-panel .nav-sub-empty { padding: 12px 10px; font-size: 13px; }
+}
+
+/* Phones: 44px rows, an 18px icon on a 32px tile, 13px labels, a 40px bar (the same scale as the Management menu). */
+@media (max-width: 640px) {
+  body .workspace-shell > .nav-toggle { min-height: 40px; }
+  body #class-tools-panel .nav-link, body #class-tools-panel .nav-section-toggle { min-height: var(--menu-row-h, 44px); padding: 2px 10px 2px 8px !important; gap: 10px; }
+  body #class-tools-panel .nav-link .nav-icon { width: 32px; height: 32px; min-width: 32px; border-radius: 9px; }
+  body #class-tools-panel .nav-link .nav-icon svg { width: var(--icon-size, 18px); height: var(--icon-size, 18px); }
+  body #class-tools-panel .nav-link .nav-icon.nav-icon--pair svg { width: 14px; height: 14px; }
+  body #class-tools-panel .nav-sublink { min-height: var(--menu-row-h, 44px); }
+}
+@media (max-width: 600px) {
+  body #class-tools-panel .nav-link, body #class-tools-panel .nav-section-toggle { padding: 2px 9px 2px 10px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body #class-tools-panel.workspace-sidebar.nav-card, .nav-toggle, .nav-toggle .hamburger-icon, .nav-toggle .hamburger-icon::before, .nav-toggle .hamburger-icon::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+}

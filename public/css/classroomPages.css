@@ -61,3 +61,31 @@
   body :is(.dob-unknown-toggle, #esDateOfBirthUnknown) { min-height: 20px; }
   body label:has(> input[type="checkbox"]) { min-height: 36px; display: inline-flex; align-items: center; gap: 8px; }
 }
+
+/* Class workspace on a phone: no big card wrapped around the page's content. The stage's own border, 12px padding
+   and background boxed in every panel; the panels' own cards (counts, Subjects, Students...) now sit straight on the page. */
+@media (max-width: 640px) {
+  html body section.card.workspace-stage,
+  html body .workspace-stage.card,
+  html body .workspace-stage.card:has(.workspace-frame-panel.is-active) {
+    background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important;
+  }
+}
+
+/* Gradebook on a phone: denser rows so more students fit on the screen (16px score text stays: iOS zooms smaller fields). */
+@media (max-width: 640px) {
+  html body main .table-container table tbody tr td { padding-top: 2px; padding-bottom: 2px; height: 34px; }
+  html body main .table-container table td.gb-cell { width: 80px; min-width: 80px; max-width: 80px; padding: 2px 4px; }
+  html body main .table-container table td input[type="number"], html body main .table-container table td select,
+  html body main .table-container table td.gb-cell input[type="number"], html body main .table-container table td.gb-cell select { width: 62px; height: 28px; border-radius: 6px; }
+  html body main .table-container table td:nth-child(2) { font-size: 12.5px; }
+  html body main .table-container table td:first-child { font-size: 12px; }
+  html body main .table-container table th.gb-col { height: 48px; }
+  html body main .table-container table .gb-status-dot, html body main .table-container table td.gb-cell .gb-dot { width: 6px; height: 6px; }
+}
+
+/* The two floating buttons (setup steps, chat) covered the table's edges: smaller, lower and a little see-through on class pages. */
+@media (max-width: 640px) {
+  html body:has(.workspace-shell) #ssRoot { transform: scale(.72); transform-origin: left bottom; bottom: 10px; opacity: .9; }
+  html body:has(.workspace-shell) .chatbot-toggle { transform: scale(.74); transform-origin: right bottom; bottom: 10px; opacity: .9; }
+}

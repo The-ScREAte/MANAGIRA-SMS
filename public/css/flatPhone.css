@@ -1,0 +1,69 @@
+/* ===== Flat phone pages =============================================================
+   On a phone (640px and narrower) one big outer card that boxes in a whole page's
+   content (a hub's workspace card, a PayGira page's shell) wastes 12-24px of width on
+   each side and doubles every border. Only that OUTER wrapper is flattened here
+   (no background, border, radius, shadow or padding); the cards, tables and forms
+   inside keep their own borders and padding. Single cards that ARE the content,
+   dialogs, drawers and the sign-in card are left alone. Desktop and tablet unchanged. */
+@media (max-width: 640px) {
+  /* Hubs (Management, Admissions, Reports, PayGira): the workspace card that holds the
+     page's iframe. The page inside brings its own cards. */
+  html body :is(.hub-main, .management-main, .settings-main):has(:is(.hub-section, .management-section, .settings-section).active .embed-iframe) {
+    background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; overflow: visible;
+  }
+
+  /* PayGira (/account/settings/finance): inside the hub the page sits straight on the
+     hub gutter (about 10px), not another 14-24px inside a box. */
+  html.fin-in-hub .fin-shell { padding: 8px 0 32px; }
+  .fin-shell .fin-page-head { gap: 8px !important; }
+  .fin-shell .fin-page-head-main-title { min-width: 0; flex: 1 1 auto; }
+  .fin-shell .fin-head-tools { gap: 6px; min-width: 0; flex: 0 1 auto; }
+  /* The period filter is an icon-only 36px button (the period is in its title and in the
+     pop-up); a dot shows when a non-default period is chosen. */
+  .fin-shell .fin-filter-fold { flex: none; }
+  .fin-shell .fin-filter-fold > summary { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 10px; }
+  .fin-shell .fin-filter-fold > summary svg { width: 17px; height: 17px; }
+  .fin-shell .fin-filter-fold > summary > span { display: none; }
+  .fin-shell .fin-filter-fold[data-filtered] > summary { position: relative; }
+  .fin-shell .fin-filter-fold[data-filtered] > summary::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--org-primary-color, #01535b); box-shadow: 0 0 0 2px #fff; }
+  .fin-shell .fin-head-tools .paygira-secure-badge { flex: none; }
+  .fin-shell .fin-filter-pop { position: fixed; left: 10px; right: 10px; top: auto; width: auto; margin-top: 8px; }
+
+  /* Summary tiles: compact, three in one row. */
+  .fin-shell .fin-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+  .fin-shell .fin-stats:has(.stat:nth-child(4)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-shell .stat { padding: 8px 9px; border-radius: 10px; }
+  .fin-shell .stat .label { font-size: 10.5px; letter-spacing: .06em; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fin-shell .stat .value { font-size: 14px; font-weight: 700; letter-spacing: -.03em; white-space: nowrap; line-height: 1.2; }
+  .fin-shell .stat .sub { margin-top: 3px; font-size: 11px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Cards: lighter padding, the title and its link share one row. */
+  .fin-shell .fin-card { padding: 10px 12px; }
+  .fin-shell .section-head { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin: 0 0 8px; padding-bottom: 8px; }
+  .fin-shell .section-head .fin-head-tools { width: auto; margin-left: auto; flex: none; }
+  .fin-shell .section-head h2 { margin: 0; min-width: 0; }
+  .fin-shell .section-head .fin-head-link { margin: 0; white-space: nowrap; flex: none; }
+  .fin-shell .fin-two { gap: 10px; }
+  /* A card that only boxes in other cards (summary tiles + filters + table): flat. */
+  .fin-shell .fin-card:has(> .fin-stats) { background: transparent; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+  .fin-shell .fin-card:has(> .fin-stats)::before { display: none; }
+
+  /* Tables: short rows. The first column is clamped to two lines (.fin-clip, with the
+     full text in its title); the table scrolls sideways inside its own box if needed. */
+  .fin-shell .fin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .fin-shell .fin-table th { padding: 7px 6px; font-size: .52rem; letter-spacing: .06em; }
+  .fin-shell .fin-table td { padding: 7px 6px; font-size: .72rem; line-height: 1.3; }
+  .fin-shell .fin-table td:first-child { min-width: 84px; }
+  .fin-shell .fin-table .badge { white-space: nowrap; padding: 2px 7px; font-size: .6rem; letter-spacing: .03em; }
+  .fin-shell .fin-clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
+  .fin-shell .fin-table td:first-child { min-width: 110px; width: 46%; }
+  .fin-shell .fin-table td.num { padding-left: 4px; padding-right: 4px; }
+  .fin-shell .fin-table .badge { padding: 2px 6px; font-size: .56rem; letter-spacing: .02em; }
+  /* Row actions that are words on a desktop become compact icon buttons. */
+  .fin-shell .fin-btn.sm:has(> .fin-ico-phone) { width: 32px; height: 32px; min-height: 32px; padding: 0; justify-content: center; }
+  .fin-shell .fin-btn > .fin-ico-phone { display: block; }
+  .fin-shell .fin-btn > .fin-btn-text { display: none; }
+  .fin-shell #finPaymentsWrap .fin-table th, .fin-shell #finPaymentsWrap .fin-table td { padding-left: 4px; padding-right: 4px; }
+  .fin-shell #finPaymentsWrap .fin-date-muted { font-size: .66rem; white-space: nowrap; }
+  .fin-shell #finPaymentsWrap .fin-actions-cell { gap: 4px; flex-wrap: nowrap; }
+}

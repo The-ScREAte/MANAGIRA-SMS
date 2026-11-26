@@ -1,0 +1,101 @@
+/* ===== Admissions panels on a phone (640px and narrower) ============================
+   Online applications, Graduate & withdraw, Graduates & alumni, Admission settings.
+   12px side gutters, 8px gaps, compact title row, one search row, compact rows, sticky
+   action/save bars. Inputs stay 16px (iOS zoom). Desktop and tablet are unchanged. */
+@media (max-width: 640px) {
+  /* ---- Online applications ---- */
+  .pending-page { padding: 8px 12px 24px; }
+  .pending-page .page-head { margin: 0 0 8px; }
+  .pending-page .page-head__title { font-size: 19px; line-height: 24px; font-weight: 700; margin: 0; }
+  .pending-page .page-head__sub { margin: 2px 0 0; font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pending-page .pa-count { font-size: 11.5px; padding: 0 8px; vertical-align: 2px; }
+  .pending-page .pa-filters { display: grid; gap: 8px; margin: 0 0 8px; }
+  .pending-page .pa-status { display: flex; padding: 2px; gap: 2px; border-radius: 12px; }
+  .pending-page .pa-status a { flex: 1 1 0; justify-content: center; height: 36px; padding: 0 6px; font-size: 13px; border-radius: 10px; }
+  .pending-page .pa-status a span { font-size: 11px; padding: 0 6px; }
+  .pending-page .pa-tools { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .pending-page .pa-tools .pa-search { flex: 1 1 140px; min-width: 0; }
+  .pending-page .pa-tools:has(#paClass) .pa-search { flex-basis: 100%; }
+  .pending-page .pa-search input, .pending-page .pa-tools select { height: 40px; font-size: 16px; }
+  .pending-page .pa-tools select { flex: 0 0 124px; width: 124px; min-width: 0; }
+  .pending-page .pending-table-card { padding: 0; border: 0; background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+  .pending-page .pending-table { display: block; }
+  .pending-page .pending-table tbody { display: grid; gap: 8px; }
+  .pending-page .pending-table tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 0; margin: 0; padding: 8px 12px; border-radius: 12px; min-height: 56px; }
+  .pending-page .pending-table td { display: block; padding: 0; font-size: 11.5px; color: #64748b; flex: none; order: 3; }
+  .pending-page .pending-table td::before { content: none; }
+  .pending-page .pending-table td, .pending-page .pending-table tr:last-child td { border: 0; }
+  .pending-page .pending-table td[data-label="Name"] { order: 1; flex: 1 1 calc(100% - 112px); min-width: 0; font-size: 14.5px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pending-page .pending-table td[data-label="Name"] strong { font-weight: 600; }
+  .pending-page .pending-table td[data-label="Action"], .pending-page .pending-table td[data-label="Decision"] { order: 2; }
+  .pending-page .pending-table td[data-label="Class"] { order: 3; }
+  .pending-page .pending-table td[data-label="Gender"] { order: 4; }
+  .pending-page .pending-table td[data-label="DOB"] { order: 5; }
+  .pending-page .pending-table td[data-label="Year Group"] { display: none; }
+  .pending-page .pending-table td[data-label="Decision"] { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pending-page .view-btn { height: 36px; min-height: 36px; padding: 0 12px; font-size: 13px; }
+
+  /* ---- Graduate & withdraw / Graduates & alumni ---- */
+  .gp-page { padding: 8px 12px 88px; min-width: 0; overflow-x: clip; }
+  .gp-page .gp-head > div, .gp-page form, .gp-page .gp-groups, .gp-page .gp-group { min-width: 0; max-width: 100%; }
+  .gp-page .gp-group { overflow: hidden; }
+  .gp-page .global-table-sort-btn { display: none; }
+  .gp-page .mgr-pager__btn { width: 36px; height: 36px; }
+  .gp-page .gp-head { margin: 0 0 8px; padding: 0; }
+  .gp-page .gp-head .gp-title { font-size: 19px !important; line-height: 24px !important; }
+  .gp-page .gp-head .gp-sub { margin: 2px 0 0; font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gp-page .gp-toolbar { margin: 0 0 8px; }
+  .gp-page .gp-search { flex: 1 1 100%; max-width: none; }
+  .gp-page .gp-search input { height: 40px; font-size: 16px; }
+  .gp-page .gp-groups { gap: 8px; }
+  .gp-page .gp-group > summary { min-height: 44px; padding: 8px 12px; gap: 8px; }
+  .gp-page .gp-group__name { font-size: 14.5px; font-weight: 600; min-width: 0; }
+  .gp-page .gp-group__hint { display: none; }
+  .gp-page .gp-tag { font-size: 11px; padding: 1px 8px; }
+  .gp-page .gp-table th { position: sticky; top: 0; z-index: 2; padding: 6px 10px; background: #f8fafc; font-size: 11px; }
+  .gp-page .gp-table td { padding: 6px 10px; font-size: 13px; }
+  .gp-page .gp-col-check { width: 44px; }
+  .gp-page .gp-table input[type="checkbox"] { width: 24px; height: 24px; }
+  .gp-page .gp-avatar { width: 32px; height: 32px; font-size: 11px; }
+  .gp-page .gp-person { gap: 10px; }
+  .gp-page .gp-person__name { font-size: 13px; }
+  .gp-page .gp-person__id { font-size: 11.5px; }
+  .gp-page .gp-col-class { display: none; }
+  .gp-page .gp-btn { min-height: 36px; font-size: 13px; }
+  .gp-page .gp-actionbar { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .gp-page .gp-dialog { width: calc(100vw - 24px); max-height: calc(100vh - 24px); }
+  .gp-page .gp-dialog__body input, .gp-page .gp-dialog__body select, .gp-page .gp-dialog__body textarea { font-size: 16px; }
+  .gp-page .ar-tabs { display: flex; gap: 2px; padding: 2px; margin: 0 0 8px; background: #eef2f6; border-radius: 12px; overflow-x: auto; }
+  .gp-page .ar-tab { flex: 1 1 0; justify-content: center; height: 36px; min-height: 36px; padding: 0 8px; font-size: 13px; white-space: nowrap; border-radius: 10px; }
+  /* Alumni rows: check + person, then reason / date / restore note stacked under the name. */
+  .gp-page--alumni .gp-table, .gp-page--alumni .gp-table tbody { display: block; }
+  .gp-page--alumni .gp-table thead { display: none; }
+  .gp-page--alumni .gp-table tr { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; border-bottom: 1px solid #f1f5f9; padding: 4px 0; }
+  .gp-page--alumni .gp-table td { border: 0; padding: 2px 10px 2px 0; grid-column: 2; font-size: 11.5px; color: #64748b; }
+  .gp-page--alumni .gp-table td.gp-col-check { grid-column: 1; grid-row: 1 / span 4; padding: 6px 0 0 10px; align-self: start; }
+  .gp-page--alumni .gp-table td.gp-col-check + td { color: #0f172a; font-size: 13px; }
+  .gp-page--alumni .gp-table td.gp-col-class { display: none; }
+  .gp-page--alumni .gp-table td.ar-reason:has(> .ar-muted:only-child) { display: none; }
+  .gp-page--alumni .gp-table td:empty { display: none; }
+
+  /* ---- Admission settings ---- */
+  #asRoot { padding: 8px 12px 24px; }
+  #asRoot .as-head { gap: 10px; }
+  #asRoot .as-head__icon { width: 32px; height: 32px; }
+  #asRoot .as-head h1 { font-size: 19px; font-weight: 700; }
+  #asRoot .as-tabs { margin: 8px 0; gap: 2px; padding: 2px; border: 0; background: #eef2f6; border-radius: 12px; }
+  #asRoot .as-tab { flex-direction: row; height: 36px; min-height: 36px; padding: 0 4px; margin: 0; border: 0; border-radius: 10px; font-size: 12px; gap: 4px; line-height: 1.1; }
+  #asRoot .as-tab svg { display: none; }
+  #asRoot .as-tab.is-on { background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+  #asRoot .as-card + .as-card { margin-top: 8px; }
+  #asRoot .as-card { --card-pad: 12px; border-width: 1px; border-radius: 12px; }
+  #asRoot .as-card__head { padding: 10px 12px; }
+  #asRoot .as-card__head h2 { font-size: 11.5px; }
+  #asRoot .as-card__body { padding: 0 12px 12px; }
+  #asRoot .as-grid { gap: 10px; }
+  #asRoot .as-field { font-size: 12.5px; font-weight: 600; }
+  #asRoot :where(input[type="date"], input[type="number"], input[type="text"], select) { width: 100%; min-height: 44px; font-size: 16px; }
+  #asRoot .as-btn { height: 36px; font-size: 13px; }
+  #asRoot .as-actions { position: sticky; bottom: 0; z-index: 5; margin: 12px -12px -12px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid var(--as-line, #e2e8f0); border-radius: 0 0 12px 12px; }
+  #asRoot .as-actions .as-btn { width: 100%; }
+}

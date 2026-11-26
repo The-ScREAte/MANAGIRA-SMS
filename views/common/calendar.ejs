@@ -5,6 +5,7 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/calendar.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/calendarPhone.css') %>" />
 <div class="cal-flash"><%- include('../partials/flash') %></div>
 <script nonce="<%= locals.cspNonce || '' %>">
   // Ask for the first month's items now, while the calendar library is still
@@ -36,18 +37,19 @@
   <aside class="cal-side">
     <div class="cal-side__head">
       <h1>Calendar</h1>
+      <button type="button" class="ws-btn cal-filter-btn" data-cal-filter aria-label="Calendars and filters" title="Calendars and filters" aria-expanded="false"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="cal-filter-dot" data-cal-filter-dot hidden></span></button>
     </div>
     <% if (_isMember) { %>
     <div class="cal-side__actions">
       <button type="button" class="ws-btn ws-btn--primary cal-create" data-cal-create>
-        <i class="fa-solid fa-plus" aria-hidden="true"></i> Create
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> <span class="cal-lbl-wide">Create</span><span class="cal-lbl-phone">Add event</span>
       </button>
       <div class="cal-side__pair">
-        <button type="button" class="ws-btn cal-sync" data-cal-sync title="Send your Managira calendar to Google Calendar or Outlook">
-          <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync
+        <button type="button" class="ws-btn cal-sync" data-cal-sync aria-label="Sync calendar" title="Send your Managira calendar to Google Calendar or Outlook">
+          <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> <span class="cal-btn-text">Sync</span>
         </button>
-        <button type="button" class="ws-btn cal-sync" data-cal-share title="Share your calendar with colleagues">
-          <i class="fa-solid fa-user-group" aria-hidden="true"></i> Share
+        <button type="button" class="ws-btn cal-sync" data-cal-share aria-label="Share calendar" title="Share your calendar with colleagues">
+          <i class="fa-solid fa-user-group" aria-hidden="true"></i> <span class="cal-btn-text">Share</span>
         </button>
       </div>
     </div>
@@ -56,7 +58,7 @@
     <% } %>
 
     <div class="cal-conn-notice" data-cal-conn-notice hidden></div>
-    <div class="cal-card">
+    <div class="cal-card" data-cal-filters>
       <h2 class="cal-card__title">My calendars</h2>
       <label class="cal-layer" style="--dot:#0f766e"><input type="checkbox" data-cal-layer="event" checked><span class="cal-layer__box"></span>School events<small data-cal-count="event"></small></label>
       <label class="cal-layer" style="--dot:#475569"><input type="checkbox" data-cal-layer="personal" checked><span class="cal-layer__box"></span>Personal<small data-cal-count="personal"></small></label>
@@ -81,6 +83,7 @@
   <main class="cal-main">
     <div id="calendar" class="no-global-sort" data-no-global-sort aria-label="School calendar"></div>
   </main>
+  <section class="cal-day" data-cal-day hidden aria-live="polite"></section>
 </div>
 
 <div class="ws-peek" data-cal-peek hidden role="dialog" aria-modal="false"></div>
@@ -216,17 +219,31 @@
       resizeTimer = setTimeout(fitToWindow, 150);
     });
 
+    const isPhone = window.matchMedia('(max-width: 640px)').matches;
+    let selectedDay = null;
+    const dayBox = document.querySelector('[data-cal-day]');
     const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: window.matchMedia('(max-width: 640px)').matches ? 'listMonth' : 'dayGridMonth',
+      initialView: 'dayGridMonth',
       initialDate: root.dataset.initialDate || undefined,
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth' },
       buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day', list: 'Agenda' },
       height: fitHeight(),
       firstDay: 1,
       nowIndicator: true,
-      dayMaxEvents: true,
+      dayMaxEvents: isPhone ? 2 : true,
+      moreLinkContent: (a) => (isPhone ? `+${a.num}` : `+${a.num} more`),
+      dayHeaderFormat: isPhone ? { weekday: 'narrow' } : undefined,
       eventDisplay: 'block',
-      navLinks: true,
+      navLinks: !isPhone,
+      dateClick: (info) => { if (isPhone && info.view.type === 'dayGridMonth') { selectedDay = info.dateStr.slice(0, 10); renderDay(); } },
+      datesSet: (info) => {
+        hidePeek();
+        if (!isPhone) return;
+        const t = W.dateKey(new Date());
+        const cur = W.dateKey(info.view.currentStart);
+        selectedDay = info.view.type === 'dayGridMonth' ? (t.slice(0, 7) === cur.slice(0, 7) ? t : cur) : null;
+        renderDay();
+      },
       selectable: !!document.querySelector('[data-cal-create]'),
       selectMirror: true,
       editable: true,
@@ -287,7 +304,7 @@
             .catch(() => deliver([]));
         },
       }],
-      eventsSet: () => { renderSide(); },
+      eventsSet: () => { renderSide(); renderDay(); },
       eventDidMount: (info) => {
         const p = info.event.extendedProps;
         if (layerColor[p.layer]) info.el.style.setProperty('--c', layerColor[p.layer]);
@@ -392,6 +409,43 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hidePeek(); });
     window.addEventListener('scroll', hidePeek, { passive: true });
 
+    // ---------- phone: tapped day's agenda under the month grid, and the calendars filter ----------
+    function renderDay() {
+      if (!isPhone || !dayBox) return;
+      document.querySelectorAll('#calendar .cal-day-sel').forEach((c) => c.classList.remove('cal-day-sel'));
+      if (!selectedDay) { dayBox.hidden = true; return; }
+      const cell = document.querySelector(`#calendar .fc-daygrid-day[data-date="${selectedDay}"]`);
+      if (cell) cell.classList.add('cal-day-sel');
+      const [y, m, d] = selectedDay.split('-').map(Number);
+      const day = new Date(y, m - 1, d);
+      const next = new Date(y, m - 1, d + 1);
+      const evs = calendar.getEvents().filter((e) => e.start && e.start < next && (e.end || e.start) >= day && (e.end ? e.end > day : true))
+        .sort((a, b) => ((a.extendedProps.kind === 'birthday') - (b.extendedProps.kind === 'birthday')) || (a.start - b.start));
+      const shown = evs.slice(0, 40);
+      const label = day.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+      const canAdd = !!root.querySelector('[data-cal-create]');
+      dayBox.innerHTML = `<div class="cal-day__head"><h2>${W.esc(label)}</h2><span>${evs.length ? `${evs.length} ${evs.length === 1 ? 'item' : 'items'}` : ''}</span>${canAdd ? '<button type="button" class="ws-btn cal-day__add" data-day-add aria-label="Add event on this day" title="Add event on this day"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>' : ''}</div>`
+        + (shown.length
+          ? `<ul class="cal-day__list">${shown.map((e) => `<li><button type="button" data-day-ev="${W.esc(e.id)}"><span class="cal-up__dot" style="background:${colorOf(e)}"></span><span class="cal-day__title">${W.esc(e.title)}</span><span class="cal-day__when">${e.allDay ? 'All day' : W.esc(e.start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))}</span></button></li>`).join('')}</ul>${evs.length > shown.length ? `<p class="cal-empty">+${evs.length - shown.length} more not shown</p>` : ''}`
+          : '<p class="cal-empty">Nothing on this day.</p>');
+      dayBox.hidden = false;
+    }
+    if (dayBox) dayBox.addEventListener('click', (e) => {
+      const add = e.target.closest('[data-day-add]');
+      if (add && selectedDay) { const [y, m, d] = selectedDay.split('-').map(Number); W.open({ type: 'event', canPublish, hasWebsite, start: new Date(y, m - 1, d), allDay: true, onSaved: refresh }); return; }
+      const btn = e.target.closest('[data-day-ev]');
+      const ev = btn && calendar.getEventById(btn.dataset.dayEv);
+      if (ev) showPeek(ev, btn);
+    });
+    const filterBtn = root.querySelector('[data-cal-filter]');
+    const filterDot = root.querySelector('[data-cal-filter-dot]');
+    const markFilter = () => { if (filterDot) filterDot.hidden = !hidden.size; };
+    markFilter();
+    if (filterBtn) filterBtn.addEventListener('click', () => {
+      const open = root.classList.toggle('cal-filters-open');
+      filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
     // ---------- sidebar ----------
     const connProvider = {};
     root.querySelectorAll('[data-cal-layer]').forEach((box) => { box.checked = !hidden.has(box.dataset.calLayer); });
@@ -459,6 +513,7 @@
       if (!box) return;
       if (box.checked) hidden.delete(box.dataset.calLayer); else hidden.add(box.dataset.calLayer);
       saveHidden();
+      markFilter();
       useCache = true;
       outsideFromCache = true;
       calendar.refetchEvents();

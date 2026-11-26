@@ -382,7 +382,8 @@
           { selector: '.hub-nav-toggle', prefix: 'hub' },
           { selector: '.management-nav-toggle', prefix: 'management' },
           { selector: '.settings-nav-toggle', prefix: 'settings' },
-          { selector: '.tm-nav-toggle', prefix: 'tm' }
+          { selector: '.tm-nav-toggle', prefix: 'tm' },
+          { selector: '.workspace-shell > .nav-toggle', prefix: 'class' }
         ].forEach(function (menu) {
           var toggle = document.querySelector(menu.selector);
           if (!toggle) return;
@@ -485,7 +486,7 @@
       // re-derived from "is a menu open on a small screen" after every tap, key and resize,
       // so it can never stay on once the menu is closed.
       function syncScrollLock() {
-        var lock = window.innerWidth <= 900 && !!document.querySelector(OPEN);
+        var lock = window.innerWidth <= (document.querySelector('#class-tools-panel.open') ? 960 : 900) && !!document.querySelector(OPEN);
         document.documentElement.classList.toggle('menu-scroll-lock', lock);
       }
       document.addEventListener('click', function () { setTimeout(syncScrollLock, 0); setTimeout(syncScrollLock, 250); }, true);
@@ -493,6 +494,7 @@
       window.addEventListener('pageshow', syncScrollLock);
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && document.querySelector(OPEN)) { closeAllMenus(); syncScrollLock(); }
+        else if (event.key === 'Escape') setTimeout(syncScrollLock, 0);
       });
       // Only while a menu is open, so ordinary scrolling does no extra work.
       window.addEventListener('scroll', function () {
