@@ -1,0 +1,76 @@
+/* ===== Page header (shared) =====================================================
+   One title row for every workspace page: title and a short subtitle on the left,
+   the page's actions on the right of the SAME row, so the content starts right away.
+   Markup:
+     <header class="page-head">
+       <div class="page-head__text"><h1 class="page-head__title">..</h1><p class="page-head__sub">..</p></div>
+       <div class="page-head__actions">
+         <select class="page-head__select" aria-label="Term">..</select>
+         <button class="btn-icon" aria-label="Download PDF" title="Download PDF">[icon]<span class="page-head__label">Download PDF</span></button>
+         <button class="btn-icon page-head__primary">[icon]<span class="page-head__label">Add</span></button>
+       </div>
+     </header>
+   The management panels use the older names .ws-head / .ws-head__text / __title / __sub /
+   __actions with .ws-btn buttons: they are aliases of the same thing, so they follow the
+   same phone rules. On a phone (640px and narrower) the row never wraps: actions are
+   icon-only 36px buttons (the label is only hidden visually; aria-label and title stay),
+   the one main action (.page-head__primary or .ws-btn--primary) keeps a short label.
+   Tablet and desktop keep the full-size look. */
+
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin: 0 0 20px; padding: 0; border: 0; background: none; }
+.page-head__text { flex: 1 1 260px; min-width: 0; }
+.page-head .page-head__title { margin: 0; padding: 0; font-size: 1.375rem; line-height: 1.25; font-weight: 700; text-align: left; background: none; -webkit-text-fill-color: currentColor; }
+.page-head .page-head__sub { margin: 4px 0 0; font-size: .9rem; line-height: 1.45; text-align: left; opacity: .72; }
+.page-head__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.page-head__label { display: inline; }
+.page-head__select { width: auto; max-width: 100%; height: 38px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 9px; background-color: #fff; color: inherit; font: inherit; font-size: 14px; font-weight: 600; }
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none;
+  width: auto; height: 38px; margin: 0; padding: 0 14px; border: 1px solid #e2e8f0; border-radius: 9px;
+  background: #fff; color: inherit; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.btn-icon svg, .page-head__actions svg { flex: none; }
+.page-head .page-head__title svg { width: 1.1em; height: 1.1em; vertical-align: -0.15em; margin-right: 6px; }
+/* The one main action: filled with the school's brand colour. */
+.btn-icon.page-head__primary { background: var(--ws-brand, var(--org-primary-color, #01535b)); border-color: var(--ws-brand, var(--org-primary-color, #01535b)); color: #fff; }
+/* A search box that belongs to the page sits between the title and the actions; on a phone it drops to its own full-width row. */
+.page-head__search { order: 1; flex: 0 1 240px; align-self: center; min-width: 0; margin: 0; }
+.page-head__actions { order: 2; }
+.btn-icon:focus-visible, .page-head__select:focus-visible { outline: 2px solid var(--org-primary-color, #2a78d6); outline-offset: 2px; }
+.btn-icon[aria-busy="true"] { opacity: .75; cursor: progress; }
+
+@media (max-width: 640px) {
+  html body :is(.page-head, .ws-head) { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin: 0 0 12px; }
+  html body :is(.page-head__text, .ws-head__text) { flex: 1 1 0; min-width: 0; }
+  html body :is(.page-head .page-head__title, .ws-head .ws-head__title) { font-size: var(--fs-title, 19px); line-height: 1.25; overflow-wrap: anywhere; }
+  html body :is(.page-head .page-head__sub, .ws-head .ws-head__sub) { margin-top: 2px; font-size: var(--fs-small, 11.5px); line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  html body :is(.page-head__actions, .ws-head__actions) { flex: 0 0 auto; width: auto; max-width: 74%; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 8px; }
+  html body :is(.page-head__actions, .ws-head__actions) > * { flex: 0 0 auto; }
+  html body :is(.page-head__actions, .ws-head__actions) :is(.btn-icon, .ws-btn.ws-btn) {
+    flex: 0 0 auto; box-sizing: border-box; width: 36px; min-width: 36px; height: 36px; padding: 0; border-radius: 9px; gap: 0; font-size: 13px;
+  }
+  /* Secondary actions: icon only. The label stays for screen readers. */
+  html body :is(.page-head__actions, .ws-head__actions) :is(.btn-icon, .ws-btn.ws-btn) :is(.page-head__label, .ws-btn__label) {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  /* The main action keeps a short label. */
+  html body :is(.page-head__actions, .ws-head__actions) :is(.page-head__primary, .ws-btn--primary.ws-btn) {
+    width: auto; max-width: 180px; padding: 0 12px; gap: 6px;
+  }
+  html body :is(.page-head__actions, .ws-head__actions) :is(.page-head__primary, .ws-btn--primary.ws-btn) :is(.page-head__label, .ws-btn__label) {
+    position: static; width: auto; height: auto; margin: 0; overflow: hidden; clip: auto; text-overflow: ellipsis;
+  }
+  /* With a picker beside it, even the main action goes icon-only so the title keeps its room. */
+  html body :is(.page-head__actions, .ws-head__actions):has(select) :is(.page-head__primary, .ws-btn--primary.ws-btn) { width: 36px; padding: 0; gap: 0; }
+  html body :is(.page-head__actions, .ws-head__actions):has(select) :is(.page-head__primary, .ws-btn--primary.ws-btn) :is(.page-head__label, .ws-btn__label) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); }
+  /* Compact picker: 16px text (no iOS zoom on focus), 36px high, never wider than 140px. */
+  html body :is(.page-head__actions, .ws-head__actions) :is(.page-head__select, select) {
+    flex: 0 1 132px; width: 132px; max-width: 140px; min-width: 0; height: 36px; min-height: 0; padding: 0 24px 0 8px; margin: 0; text-overflow: ellipsis;
+  }
+  html body :is(.page-head__actions, .ws-head__actions) label { margin: 0; }
+  html body .page-head .page-head__search { order: 3; flex: 1 0 100%; width: 100%; max-width: none; height: 40px; }
+  /* A count badge (active filters) sits on the corner of the icon. */
+  html body :is(.page-head__actions, .ws-head__actions) :is(.btn-icon, .ws-btn.ws-btn) { position: relative; }
+  html body :is(.page-head__actions, .ws-head__actions) .ux-filter-count { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 10px; line-height: 16px; text-align: center; box-sizing: border-box; }
+}

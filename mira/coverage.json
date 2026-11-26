@@ -398,6 +398,8 @@
     "help_and_whats_new": {
       "read": [
         "whats_new",
+        "search_help_guides",
+        "get_help_guide",
         "list_projects"
       ],
       "change": [

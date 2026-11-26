@@ -257,7 +257,7 @@
 
     document.addEventListener('DOMContentLoaded', () => optimizePageImages(document));
     window.addEventListener('spa:pageLoaded', () => {
-      const main = document.querySelector('main') || document;
+      const main = document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)') || document;
       optimizePageImages(main);
     });
   </script>
@@ -294,6 +294,10 @@
   <% } %>
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>
   <script src="<%= assetUrl('/js/pageLoading.js') %>" defer></script>
+  <% /* Who this page was drawn for (not a secret): the in-app page cache keeps one copy per person and school. */ %>
+  <% if (process.env.NAV_KEEP_PANELS === 'on') { %><meta name="managira-keep-panels" content="1"><% } %>
+  <% if (session && (session.userId || session.guardianId || session.studentId || session.hubId)) { %><meta name="managira-identity" content="<%= [session.userRole || session.accountType || '', session.userId || session.guardianId || session.studentId || session.hubId || '', session.organizationId || '', session.superAdminOrgSwitch ? 'sw' : ''].join(':') %>"><% } %>
+  <script src="<%= assetUrl('/js/navCache.js') %>"></script>
   <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>
   <script src="<%= assetUrl('/js/spa-user-info.js') %>" defer></script>
   <script src="<%= assetUrl('/js/phoneField.js') %>" defer></script>
@@ -313,8 +317,8 @@
     // On small screens a side menu opens under its own Menu button, so the button stays
     // visible. This keeps that position current: phones, tablets and rotation included.
     (function () {
-      var TOGGLES = '.management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle';
-      var OPEN = '.management-nav.open, .hub-nav.open, .settings-nav.open, .nav-card.open';
+      var TOGGLES = '.management-nav-toggle, .hub-nav-toggle, .settings-nav-toggle, .tm-nav-toggle, .nav-toggle';
+      var OPEN = '.management-nav.open, .hub-nav.open, .settings-nav.open, .tm-nav.is-open, .nav-card.open';
       var waiting = false;
       function closeAllMenus() {
         var headerMenu = document.getElementById('header-nav-menu');
@@ -332,11 +336,12 @@
           { panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle', label: 'Open Class Tools' },
           { panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle', label: 'Open menu' },
           { panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
-          { panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
+          { panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-toggle' },
+          { panel: '#tm-nav', toggle: '#tm-nav-toggle' }
         ].forEach(function (menu) {
           var panel = document.querySelector(menu.panel);
-          if (panel) panel.classList.remove('open');
-          var overlay = document.querySelector(menu.overlay);
+          if (panel) { panel.classList.remove('open'); panel.classList.remove('is-open'); }
+          var overlay = menu.overlay && document.querySelector(menu.overlay);
           if (overlay) overlay.classList.remove('show');
           var toggle = document.querySelector(menu.toggle);
           if (toggle) {
@@ -376,7 +381,8 @@
         [
           { selector: '.hub-nav-toggle', prefix: 'hub' },
           { selector: '.management-nav-toggle', prefix: 'management' },
-          { selector: '.settings-nav-header', prefix: 'settings' }
+          { selector: '.settings-nav-toggle', prefix: 'settings' },
+          { selector: '.tm-nav-toggle', prefix: 'tm' }
         ].forEach(function (menu) {
           var toggle = document.querySelector(menu.selector);
           if (!toggle) return;
@@ -404,17 +410,18 @@
       document.addEventListener('click', function (event) {
         if (!(event.target instanceof Element)) return;
         var element = event.target;
-        var toggle = element.closest('#header-hamburger, .management-nav-toggle, .hub-nav-toggle, .settings-nav-header, .nav-toggle');
+        var toggle = element.closest('#header-hamburger, .management-nav-toggle, .hub-nav-toggle, .settings-nav-toggle, .tm-nav-toggle, .nav-toggle');
         var scope = toggle && (toggle.matches('#header-hamburger') ? 'header' :
           toggle.matches('.management-nav-toggle') ? 'management' :
           toggle.matches('.hub-nav-toggle') ? 'hub' :
-          toggle.matches('.settings-nav-header') ? 'settings' : 'class');
+          toggle.matches('.settings-nav-toggle') ? 'settings' : toggle.matches('.tm-nav-toggle') ? 'transport' : 'class');
         if (!scope) {
           if (element.closest('#header-nav-menu')) scope = 'header';
           else if (element.closest('#class-tools-panel')) scope = 'class';
           else if (element.closest('#hub-nav')) scope = 'hub';
           else if (element.closest('#management-nav')) scope = 'management';
           else if (element.closest('.settings-nav')) scope = 'settings';
+          else if (element.closest('#tm-nav')) scope = 'transport';
           else if (element.closest('[data-od-dd]')) scope = 'dashboard';
         }
 
@@ -436,13 +443,14 @@
           { scope: 'class', panel: '#class-tools-panel', overlay: '#class-tools-overlay', toggle: '.nav-toggle' },
           { scope: 'hub', panel: '#hub-nav', overlay: '#hub-nav-overlay', toggle: '.hub-nav-toggle' },
           { scope: 'management', panel: '#management-nav', overlay: '#management-nav-overlay', toggle: '.management-nav-toggle' },
-          { scope: 'settings', panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-header' }
+          { scope: 'settings', panel: '.settings-nav', overlay: '.settings-nav-overlay', toggle: '.settings-nav-toggle' },
+          { scope: 'transport', panel: '#tm-nav', toggle: '#tm-nav-toggle' }
         ];
         sideMenus.forEach(function (menu) {
           if (menu.scope === scope) return;
           var panel = document.querySelector(menu.panel);
-          if (panel) panel.classList.remove('open');
-          var overlay = document.querySelector(menu.overlay);
+          if (panel) { panel.classList.remove('open'); panel.classList.remove('is-open'); }
+          var overlay = menu.overlay && document.querySelector(menu.overlay);
           if (overlay) overlay.classList.remove('show');
           var toggle = document.querySelector(menu.toggle);
           if (toggle) {
@@ -473,6 +481,19 @@
           });
         }
       }, true);
+      // The page behind an open menu does not scroll (the panel scrolls itself); the lock is
+      // re-derived from "is a menu open on a small screen" after every tap, key and resize,
+      // so it can never stay on once the menu is closed.
+      function syncScrollLock() {
+        var lock = window.innerWidth <= 900 && !!document.querySelector(OPEN);
+        document.documentElement.classList.toggle('menu-scroll-lock', lock);
+      }
+      document.addEventListener('click', function () { setTimeout(syncScrollLock, 0); setTimeout(syncScrollLock, 250); }, true);
+      window.addEventListener('resize', syncScrollLock, { passive: true });
+      window.addEventListener('pageshow', syncScrollLock);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && document.querySelector(OPEN)) { closeAllMenus(); syncScrollLock(); }
+      });
       // Only while a menu is open, so ordinary scrolling does no extra work.
       window.addEventListener('scroll', function () {
         if (document.querySelector(OPEN)) soon();

@@ -24,7 +24,7 @@ async function canViewStatsJson(req, res, next) {
   }
 }
 
-// 📊 Organization Stats with optional term selection
+// 📊 School stats with optional term selection
 router.get("/organization", checkFeatureAccess, isAuthenticated, canViewStatsPage, statsController.getOrganizationStats);
 router.get("/organization/export", checkFeatureAccess, isAuthenticated, canViewStatsPage, statsController.exportOrganizationStats);
 router.get("/organization/pdf", checkFeatureAccess, isAuthenticated, canViewStatsPage, statsController.downloadOrganizationStatsPdf);

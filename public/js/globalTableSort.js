@@ -217,7 +217,7 @@
   });
 
   window.addEventListener('spa:pageLoaded', function () {
-    var main = document.querySelector('main') || document;
+    var main = document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)') || document;
     initGlobalTableSort(main);
   });
 

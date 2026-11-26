@@ -1509,7 +1509,7 @@ input[type="number"].score-input-invalid {
   <link rel="stylesheet" href="<%= assetUrl('/css/assessmentFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/gradebookFlow.css') %>" /><link rel="stylesheet" href="<%= assetUrl('/css/classroomPhone.css') %>" />
 <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
   </head>
-  <body>
+  <body<%- isEmbedded ? ' data-cw-embed="1"' : '' %>>
     <main>
       <%- include('../partials/flash') %>
 

@@ -88,7 +88,7 @@ By question type:
 - Comparisons and trends: use the statistics or comparison tools only.
 - Several conditions about the same students (in a grade or class, riding the bus, owing fees, absent N days, a form outstanding): one find_students call with all of them, which applies them together on the server. Never combine separate lists yourself, and never say anything about a condition you didn't look up.
 - Questions with several separate parts: answer each part from its own tool.
-- How-to questions: numbered steps from the help guide given under "Relevant indexed context", with its link. Never describe menus, buttons or steps that aren't in a guide or a tool result.
+- How-to questions: numbered steps from the help guides given under "Relevant help guides" (or "Relevant indexed context"), with each guide's link. If they don't answer it, call search_help_guides with other words, and get_help_guide to read a whole guide, before saying the guides don't cover it. Never describe menus, buttons or steps that aren't in a guide or a tool result.
 
 Other people's personal calendars: only what they've shared, or free/busy. Staff private details: only what the person card shows, unless the person has the contacts or staff permission.
 
@@ -132,7 +132,7 @@ Always:
 - Website: start with get_website_settings (its setupChecklist shows what is missing). Turn what the person gives you (a brochure, photos) into accurate website content; never invent facts, names or quotes. Say whether a change is live and give the link.
 - Attached files arrive between "[Attached file: ...]" and "---". Read them carefully; when asked to check one, compare it with the school's records using your tools. If a file came through empty or unreadable, say so and ask for a text PDF, Word or Excel version.
 - Calendar sync: people connect Google or Outlook themselves at [Sync & share](/common/calendar?sync=1). Never ask for a password, code, certificate or secret.
-- What's new or what Managira can do: answer from whats_new; if a feature isn't listed, it isn't available for them yet.
+- What's new or what Managira can do: answer from whats_new; if a feature isn't listed, it isn't available for them yet. What Mira itself can do, what Managira is, plans and pricing: search_help_guides.
 
 # 6. Accuracy
 - Every number, name and date you state comes from a tool result, the context or the person's own words.
@@ -269,6 +269,21 @@ function helpGuideFor(userText, viewerType = "staff") {
   } catch (error) {
     console.error("[mira/orchestrator] help guides unavailable, continuing without them:", error.message);
     return null;
+  }
+}
+
+// The help-guide excerpts for the prompt: the question, with the turn before it for a short
+// follow-up, searched across every guide. Never throws; "" when nothing fits.
+function helpGuideContext({ userText, history, viewerType = "staff" }) {
+  try {
+    const question = stripAttachmentBlocks(userText).trim().slice(0, 600);
+    if (!question) return "";
+    const prior = Array.isArray(history) ? [...history].reverse().find((message) => message && message.role === "user") : null;
+    const previous = prior ? stripAttachmentBlocks(String(prior.content || "")).trim().slice(0, 400) : "";
+    return require("./helpSearch").guideContext({ question, previous, viewerType }).text || "";
+  } catch (error) {
+    console.error("[mira/orchestrator] help guides unavailable, continuing without them:", error.message);
+    return "";
   }
 }
 
@@ -505,17 +520,10 @@ async function buildContextMessages({ tenant, userText, history, classScope, acc
     messages.push({ role: "system", content: `Earlier in this conversation (older messages, shortened - they still count):\n${digest}` });
   }
 
-  // A guide only for a how-to or "what is" question: a data question ("which students ...")
-  // gets the data, not steps it didn't ask for.
-  const guide = HOW_TO.test(stripAttachmentBlocks(userText)) ? helpGuideFor(userText, tenant.viewerType) : null;
-  if (guide) {
-    const where = guide.source.section ? `${guide.source.title} › ${guide.source.section}` : guide.source.title;
-    const steps = guide.answer.mode === "steps" ? guide.answer.lines.map((line, index) => `${index + 1}. ${line}`).join(" ") : guide.answer.lines.join(" ");
-    messages.push({
-      role: "system",
-      content: `Relevant indexed context from Managira's help guide "${where}": ${guide.answer.title && guide.answer.title !== guide.source.section ? `${guide.answer.title}: ` : ""}${steps} If it answers the question, answer from it and end with this link on its own line: [Read the guide: ${guide.source.title}](${guide.source.url})`,
-    });
-  }
+  // Help guides: every question gets a look through all of them (in memory, no wait), a few
+  // sections with their links, at the end of the context. A failure here never stops a chat.
+  const guideBlock = helpGuideContext({ userText, history, viewerType: tenant.viewerType });
+  if (guideBlock) messages.push({ role: "system", content: guideBlock });
 
   if (matches.length) {
     messages.push({
@@ -1340,4 +1348,4 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images, skil
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn, waitingLine, asksToIncludeAttached, historyEvidence, screenToolCall, MAX_TOOL_CALLS_PER_TURN, unconfirmedReply, recordsTable, loadHistory, deriveTitle, buildDigest, helpGuideFor, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };
+module.exports = { runTurn, waitingLine, asksToIncludeAttached, historyEvidence, screenToolCall, MAX_TOOL_CALLS_PER_TURN, unconfirmedReply, recordsTable, loadHistory, deriveTitle, buildDigest, helpGuideFor, helpGuideContext, buildContextMessages, comingDays, forModelSchema, previewTitle, localToday, noteShortLists, countsFromShortLists, uncheckedTopics, topicsAsked };

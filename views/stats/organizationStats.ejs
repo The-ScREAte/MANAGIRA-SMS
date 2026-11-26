@@ -6,7 +6,7 @@
   const allowPdf = typeof statsAllowPdf === 'undefined' ? true : !!statsAllowPdf;
   const statsPdf = typeof statsPdfPath !== 'undefined' && statsPdfPath ? statsPdfPath : '/stats/organization/pdf';
   const allowPrint = typeof statsAllowPrint !== 'undefined' && !!statsAllowPrint;
-  const heading = typeof statsHeading !== 'undefined' && statsHeading ? statsHeading : 'Organization stats';
+  const heading = typeof statsHeading !== 'undefined' && statsHeading ? statsHeading : 'School stats';
   const canCompareClasses = features.includes("Class Base Analytics & Insights") && !isPdf && (typeof statsAllowCompare === 'undefined' || !!statsAllowCompare);
   const fmtPct = (value) => (value === null || value === undefined ? '—' : `${value}%`);
   const fmtNum = (value) => (value === null || value === undefined ? '—' : Number(value).toLocaleString());
@@ -59,71 +59,9 @@
   .os-page.is-embedded:not(.is-pdf) { background: transparent; }
   .os-page svg { flex: none; }
 
-  /* Header band */
-  .os-hero {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px 24px;
-    margin-bottom: 20px;
-    padding: 0;
-    border-radius: 0;
-    background: none;
-    color: var(--os-ink);
-  }
-  .os-hero::after { display: none;
-    content: "";
-    position: absolute;
-    top: -60%;
-    right: -8%;
-    width: 360px;
-    height: 360px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .os-hero > * { position: relative; z-index: 1; }
-  .os-title { margin: 0; padding: 0; font-size: 1.375rem; font-weight: 700; line-height: 1.25; text-align: left; color: var(--os-ink); }
-  .os-subtitle { margin: 4px 0 0; padding: 0; font-size: 14px; text-align: left; color: var(--os-ink-2, #64748b); }
-  .os-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .os-actions select {
-    width: auto;
-    min-width: 220px;
-    height: 38px;
-    margin: 0;
-    padding: 0 10px;
-    border: 1px solid var(--os-border, #e2e8f0);
-    border-radius: 9px;
-    background: #fff;
-    color: var(--os-ink);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .os-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    width: auto;
-    height: 38px;
-    margin: 0;
-    padding: 0 14px;
-    border: 1px solid var(--os-border, #e2e8f0);
-    border-radius: 9px;
-    background: #fff;
-    color: var(--os-ink);
-    font: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  
-  .os-btn[aria-busy="true"] { opacity: 0.75; cursor: progress; }
+  /* Header: the shared page header (public/css/pageHead.css). */
+  .os-actions { position: relative; }
+  @media (min-width: 641px) { .os-actions select { min-width: 220px; } }
   .os-action-message { width: 100%; margin: 0; font-size: 13px; color: var(--os-ink-2, #64748b); }
 
   /* Headline tiles */
@@ -319,12 +257,17 @@
     .os-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 720px) {
-    .os-page { padding: 16px; }
-    .os-hero { padding: 18px; }
+    .os-page { padding: 12px; }
     .os-grid { grid-template-columns: 1fr; }
-    .os-actions, .os-actions select { width: 100%; }
-    .os-btn { flex: 1 1 auto; justify-content: center; }
-    .os-kpi-value { font-size: 23px; }
+    .os-action-message { position: absolute; top: 100%; right: 0; z-index: 3; width: max-content; max-width: 70vw; margin-top: 4px; padding: 4px 8px; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .12); font-size: var(--fs-small, 11.5px); }
+    .os-kpis { gap: 8px; margin-bottom: 18px; }
+    .os-kpi { padding: 10px 12px; border-radius: 12px; }
+    .os-kpi-icon { width: 28px; height: 28px; border-radius: 8px; }
+    .os-kpi-label { font-size: 12px; line-height: 1.25; }
+    .os-kpi-value { margin-top: 8px; font-size: 20px; }
+    .os-kpi-note { margin-top: 4px; font-size: var(--fs-small, 11.5px); line-height: 1.35; }
+    .os-section-title { font-size: var(--fs-head, 14.5px); }
+    .os-section-meta { font-size: var(--fs-small, 11.5px); }
     .os-progress-row { grid-template-columns: 80px 1fr auto; }
     /* Wide tables scroll inside their card instead of pushing the page. */
     .os-table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -333,19 +276,19 @@
 </style>
 
 <div class="os-page<%= isEmbedded ? ' is-embedded' : '' %><%= isPdf ? ' is-pdf' : '' %>" data-no-global-sort>
-  <header class="os-hero">
-    <div>
-      <h1 class="os-title"><%= isPdf && organizationName ? `${organizationName} · ` : '' %><%= heading %></h1>
-      <p class="os-subtitle">
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="page-head__title"><%= isPdf && organizationName ? `${organizationName} · ` : '' %><%= heading %></h1>
+      <p class="page-head__sub">
         <% if (currentTerm) { %><%= currentTerm.term_name %> · <%= currentTerm.year_label %><%= currentTerm.current ? ' · Current term' : '' %><% } else { %>No term has saved data yet<% } %>
         <% if (isPdf) { %> · Generated <%= new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %><% } %>
       </p>
     </div>
     <% if (!isPdf && schoolYears.length) { %>
-    <form class="os-actions" method="GET" action="<%= statsBase %>" id="osTermForm">
+    <form class="page-head__actions os-actions" method="GET" action="<%= statsBase %>" id="osTermForm">
       <% if (isEmbedded) { %><input type="hidden" name="embed" value="workspace" /><% } %>
       <% Object.keys(statsParams).forEach((k) => { %><input type="hidden" name="<%= k %>" value="<%= statsParams[k] %>" /><% }) %>
-      <select name="selectedTermId" id="osTermSelect" aria-label="Term">
+      <select class="page-head__select" name="selectedTermId" id="osTermSelect" aria-label="Term">
         <% schoolYears.forEach((year) => { %>
         <optgroup label="<%= year.year_label %>">
           <% year.terms.forEach((term) => { %>
@@ -355,12 +298,12 @@
         <% }); %>
       </select>
       <% if (stats) { %>
-      <% if (allowPdf) { %><button type="button" class="os-btn" id="osPdfBtn" data-url="<%= statsPdf %>?selectedTermId=<%= currentTerm.term_id %>"><%- icon('download') %><span>Download PDF</span></button><% } %>
-      <% if (allowPrint) { %><button type="button" class="os-btn" data-onclick="stats-organizationStats.1"><%- icon('print') %><span>Print</span></button><% } %>
+      <% if (allowPdf) { %><button type="button" class="btn-icon" id="osPdfBtn" aria-label="Download PDF" title="Download PDF" data-url="<%= statsPdf %>?selectedTermId=<%= currentTerm.term_id %>"><%- navIcon('download', 18) %><span class="page-head__label">Download PDF</span></button><% } %>
+      <% if (allowPrint) { %><button type="button" class="btn-icon" aria-label="Print" title="Print" data-onclick="stats-organizationStats.1"><%- navIcon('print', 18) %><span class="page-head__label">Print</span></button><% } %>
 
       <% } %>
       <% if (canCompareClasses && stats) { %>
-      <button type="button" class="os-btn" id="osCompareToggle" aria-expanded="false" aria-controls="osCompare"><%- icon('compare') %><span>Compare classes</span></button>
+      <button type="button" class="btn-icon" id="osCompareToggle" aria-label="Compare classes" title="Compare classes" aria-expanded="false" aria-controls="osCompare"><%- navIcon('stats', 18) %><span class="page-head__label">Compare classes</span></button>
       <% } %>
       <p class="os-action-message" id="osActionMessage" role="status" hidden></p>
     </form>

@@ -611,7 +611,7 @@ const hubController = {
         return res.redirect('/hub/dashboard');
       }
 
-      // The school's report is the same one the school sees on Organization Stats.
+      // The school's report is the same one the school sees on School stats.
       const { buildOrganizationStats, PASS_MARK, LOW_ATTENDANCE_RATE } = require('./statsController');
       const [report, totalsResult] = await Promise.all([
         buildOrganizationStats(organization.organization_id, req.query.selectedTermId),

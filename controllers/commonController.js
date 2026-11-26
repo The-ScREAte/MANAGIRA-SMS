@@ -18128,6 +18128,7 @@ NUMBERING:
         ? await require("./markByQuestionController").countsBySubject(db, req, classId, currentTerm && currentTerm.term_id).catch(() => new Map())
         : new Map();
       res.render("common/classDashboard", {
+        hideGlobalFooter: true, // the classroom uses the whole screen: no site footer under it
         classServices,
         toReviewBySubject: Object.fromEntries(toReviewBySubject),
         toReviewTotal: [...toReviewBySubject.values()].reduce((sum, n) => sum + n, 0),
@@ -25519,7 +25520,7 @@ NUMBERING:
         // its own defaults via its normal redirect, just with one extra hop.
       }
 
-      // Organization Stats follows the same rule as Mira's statistics.
+      // School stats follows the same rule as Mira's statistics.
       const canViewOrgStats = await userHasPermission(db, {
         userId: req.session.user?.user_id || req.session.userId || null,
         userRole: req.session.userRole || req.session.user?.account_type || null,

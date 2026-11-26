@@ -6,6 +6,26 @@
   --fs-body: 14px; --fs-small: 12.5px; --fs-head: 16px; --fs-title: 22px; --fs-th: 12px; --fs-btn: 13.5px;
   --fw-text: 400; --fw-label: 500; --fw-head: 600; --fw-title: 700;
 }
+/* PHONE scale (640px and under): the same ladder, one step smaller, so a phone shows more and reads clean. Fields are
+   NOT part of it: every text field, select and textarea stays 16px on phones (the "Phone forms" block at the end of
+   this file) because iOS zooms into anything smaller. Tap targets keep their size through padding, never font size. */
+@media (max-width: 640px) {
+  :root {
+    --fs-body: 13px; --fs-small: 11.5px; --fs-head: 14.5px; --fs-title: 19px; --fs-th: 11px; --fs-btn: 13px;
+    --lh-body: 1.4; --icon-size: 18px; --menu-row-h: 44px; --card-pad: 12px; --gap: 8px; --stat-scale: .85;
+  }
+  /* Pages that size in rem (most do) follow the root: one 10% step down on a phone. Media queries are unaffected. */
+  html { font-size: 14.4px; }
+  html body { line-height: var(--lh-body); }
+  /* Big numbers on tiles: about 15% smaller. */
+  body :is(.od-kpi__value, .gpa-stat__value, .stat-value, .stat-number, .kpi-value, .metric-value):not([data-keep-type] *) { font-size: calc(1.4rem * var(--stat-scale, .85)); }
+  /* Icons in menus and buttons: 18px instead of 20px. */
+  body :is(.nav-link-icon, button, .btn, a.btn) > svg:not([data-keep-type] *), body .nav-link-icon svg { width: var(--icon-size); height: var(--icon-size); }
+  /* Cards breathe less. */
+  body :is(.card, .section-card, .portal-card, .stat-card, .tile):not([data-keep-type] *) { padding: var(--card-pad); }
+}
+/* While a side menu is open on a small screen the page behind it stays still; the panel scrolls itself. */
+@media (max-width: 900px) { html.menu-scroll-lock, html.menu-scroll-lock body { overflow: hidden !important; overscroll-behavior: none; } }
 html body { font-size: var(--fs-body) !important; }
 body :is(label):not([data-keep-type] *):not(.fc *):not(.student-report *):not(.report-card *):not(.rc-doc *) { font-weight: var(--fw-label) !important; }
 body :is(p, li, dd, dt, td, label, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea, summary, address):not([data-keep-type] *):not(.fc *):not(.student-report *):not(.report-card *):not(.rc-doc *) { font-size: var(--fs-body) !important; }

@@ -1,7 +1,7 @@
 @import url("/css/panelFooter.css");
 /* Hub (multi-school) pages: shared layout and components.
    Used by every signed-in page in views/hub/ (dashboard, school, invite, edit, settings).
-   Visual language follows Organization Stats and the org dashboard. */
+   Visual language follows School stats and the org dashboard. */
 /* Shared colours: the page, and the side panel / toasts / confirm box that sit outside it. */
 .hub-shell, .hub-drawer, .hub-toasts, .hub-confirm {
   --hub-accent: var(--org-primary-color, #0f5a66);
@@ -360,7 +360,7 @@ a.hub-kpi:hover { box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07); transform: tran
 .hub-dialog__body textarea { width: 100%; min-height: 96px; margin: 0; padding: 10px 12px; border: 1px solid #d5dde6; border-radius: 10px; font: inherit; font-size: 0.92rem; }
 .hub-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px; }
 
-/* The school report (Organization Stats view) inside the hub */
+/* The school report (School stats view) inside the hub */
 .hub-report .os-page { padding: 0; background: transparent; }
 
 /* ---------- Responsive ---------- */
@@ -798,7 +798,7 @@ html.hub-drawer-open { overflow: hidden; }
   .hub-stat:nth-child(n+3) { border-top: 1px solid var(--hub-line); }
   .hub-stat { padding: 14px 16px; }
 }
-.hub-report .os-title { display: none; }
+.hub-report .os-page .page-head__title { display: none; }
 
 /* ---------- Billing: one summary card holds every amount ---------- */
 .hub-bill-sum { display: grid; gap: 0; padding: 0; }

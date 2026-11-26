@@ -340,8 +340,8 @@
       /* No Settings menu on the Integrations page or inside a hub's panel, at any width: the
          shared workspace style shows .settings-nav on narrow screens (public/css/workspace-shell.css),
          which is right for Settings on a phone, never for a page in Management. */
-      #settings-layout-root.is-integrations-page .settings-nav,
-      #settings-layout-root.is-embedded-hub .settings-nav { display: none !important; }
+      #settings-layout-root.is-integrations-page .settings-nav-shell,
+      #settings-layout-root.is-embedded-hub .settings-nav-shell { display: none !important; }
 
       .card {
         border: 1px solid var(--border);
@@ -1257,33 +1257,6 @@
         border-radius: 6px;
         background: #fff;
         min-height: 80px;
-      }
-
-      .settings-nav-header-caret {
-        display: none;
-        width: 10px;
-        height: 10px;
-        border-right: 2px solid var(--primary, #01535b);
-        border-bottom: 2px solid var(--primary, #01535b);
-        transform: rotate(45deg);
-        transition: transform 0.2s ease;
-        margin-top: -2px;
-        flex-shrink: 0;
-      }
-
-      .settings-nav-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.35);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s ease;
-        z-index: 1000;
-      }
-
-      .settings-nav-overlay.show {
-        opacity: 1;
-        pointer-events: auto;
       }
 
       .modal-overlay {
@@ -2271,67 +2244,9 @@
           padding-bottom: env(safe-area-inset-bottom, 0px) !important;
         }
 
-        .settings-nav-header {
-          cursor: pointer;
-          justify-content: space-between;
-          gap: 6px;
-          width: 100%;
-        }
-
-        .settings-nav-collapse-toggle {
-          display: none;
-        }
-
-        .settings-nav-header h3 {
-          text-align: left;
-          margin: 0;
-        }
-
-        .settings-nav-toggle {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 4px;
-          flex-shrink: 0;
-        }
-
-        .settings-nav-toggle .hub-hamburger-icon {
-          position: relative;
-          width: 16px;
-          height: 2px;
-          background: var(--primary, #01535b);
-          display: inline-block;
-        }
-
-        .settings-nav-toggle .hub-hamburger-icon::before,
-        .settings-nav-toggle .hub-hamburger-icon::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          width: 16px;
-          height: 2px;
-          background: var(--primary, #01535b);
-        }
-
-        .settings-nav-toggle .hub-hamburger-icon::before { top: -5px; }
-        .settings-nav-toggle .hub-hamburger-icon::after  { top:  5px; }
-
         .settings-nav-country-flag {
           font-size: 26px;
           min-width: 30px;
-        }
-
-        .settings-nav-header-caret {
-          display: inline-block;
-        }
-
-        .settings-nav.open .settings-nav-header-caret {
-          transform: rotate(-135deg);
-          margin-top: 4px;
         }
 
         #plan-modal {
@@ -2950,25 +2865,11 @@
         max-width: 100%;
       }
 
-      /* Phones: the sidebar becomes one compact "Settings" menu button, the
-         same as the Management and Admissions menus. Its row only takes the
-         button's height, so the page's min-height no longer stretches it
-         into an empty box, and the list drops down right under it. */
+      /* Phones: the sidebar is the same Menu bar + dropdown as every hub; its look lives in
+         workspace-shell.css. Only the layout row sizing is page-specific. */
       @media (max-width: 900px) {
         #settings-layout-root { grid-template-rows: auto 1fr !important; align-items: start !important; gap: 12px !important; padding: 12px 10px 0 !important; }
         .settings-layout.is-embedded-hub .settings-main #integrations { padding-right: 12px; padding-left: 12px; }
-        #settings-layout-root .settings-nav { align-self: start; position: relative !important; top: auto; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
-        #settings-layout-root .settings-nav-header { position: relative !important; min-height: 36px; padding: 8px 12px !important; border: 1px solid var(--border, #e5e7eb) !important; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(15, 23, 42, .04); }
-        #settings-layout-root .settings-nav.open .settings-nav-header { border-color: var(--primary, #01535b) !important; }
-        #settings-layout-root .settings-nav-toggle { gap: 8px; padding: 0; }
-        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon,
-        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::before,
-        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { width: 18px; }
-        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::before { top: -6px; }
-        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { top: 6px; }
-        #settings-layout-root .settings-nav h3 { font-size: var(--fs-head, 16px) !important; font-weight: 600 !important; color: var(--primary, #01535b) !important; letter-spacing: 0 !important; }
-        #settings-layout-root .settings-nav-country-flag { min-width: 0; font-size: 18px; }
-        #settings-layout-root .settings-nav .nav-list { margin-top: 0 !important; }
       }
 
       /* One save bar under each group of settings. */
@@ -3229,7 +3130,15 @@
         const _canTokenSettings = _canCustomizeSettings && _settingsAccess.serviceAccounts;
         const _defaultSettingsSectionId = _integrationsPage ? 'integrations' : (_isOnHoldRestricted ? 'billing' : (_canProfileSettings ? 'customize' : 'profile'));
       %>
-      <aside class="settings-nav" id="settings-nav-panel" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted || _integrationsPage) ? 'display:none;' : '' %>">
+      <div class="settings-nav-shell" id="settings-nav-shell" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted || _integrationsPage) ? 'display:none;' : '' %>">
+      <!-- Phone menu button: the same bar every hub (Management, Admissions, Reports, PayGira) uses -->
+      <button class="settings-nav-toggle" id="settings-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="settings-nav-panel">
+        <span class="settings-nav-toggle-label">
+          <span class="hub-hamburger-icon"></span>
+          <span>Menu</span>
+        </span>
+      </button>
+      <aside class="settings-nav" id="settings-nav-panel">
         <% 
           const navCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : '');
           const navCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === navCountryCode) || null;
@@ -3237,11 +3146,7 @@
           const navCountryFlagUrl = /^[A-Z]{2}$/.test(navCountryCode) ? `https://flagcdn.com/24x18/${navCountryCode.toLowerCase()}.png` : '';
         %>
         <div class="settings-nav-header">
-          <span class="settings-nav-toggle">
-            <span class="hub-hamburger-icon"> </span>
-
-            <h3>Settings</h3>
-          </span>
+          <h3>Settings</h3>
           <span class="settings-nav-country-flag" title="Organization country: <%= navCountryLabel %>" aria-label="Organization country: <%= navCountryLabel %>"><% if (navCountryFlagUrl) { %><img src="<%= navCountryFlagUrl %>" alt="" width="20" height="15" style="vertical-align:middle; border-radius:2px;"><% } else { %>🌐<% } %></span>
           <button class="settings-nav-collapse-toggle" id="settings-nav-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>
@@ -3311,6 +3216,7 @@
           </button></li>
         </ul>
       </aside>
+      </div>
       <script nonce="<%= locals.cspNonce || '' %>">
         // This page is fine to cache/serve fast (client-side SPA nav can reuse
         // a previous response for this exact URL), but whether the sidebar
@@ -3322,7 +3228,7 @@
         // here instead of the server's best-effort embed detection.
         (function () {
           var reallyEmbedded = window.self !== window.top;
-          var nav = document.getElementById('settings-nav-panel');
+          var nav = document.getElementById('settings-nav-shell');
           var root = document.getElementById('settings-layout-root');
           var wrapper = root ? root.parentElement : null;
           if (nav) nav.style.display = reallyEmbedded ? 'none' : '';
@@ -6049,7 +5955,6 @@
         </form>
       </div>
     </div>
-    <div class="settings-nav-overlay"></div>
     <% const resolvedStripePublishableKey = typeof stripePublishableKey !== 'undefined' ? stripePublishableKey : ''; %>
     <script nonce="<%= locals.cspNonce || '' %>">
       // Stripe.js (~270KB) is only needed once a card form opens, so it loads
@@ -6091,9 +5996,8 @@
       document.addEventListener("DOMContentLoaded", () => {
         const navLinks = Array.from(document.querySelectorAll(".nav-link"));
         const sections = Array.from(document.querySelectorAll(".settings-section"));
-        const navHeader = document.querySelector(".settings-nav-header");
+        const navHeader = document.getElementById("settings-nav-toggle");
         const navPanel = document.querySelector(".settings-nav");
-        const navOverlay = document.querySelector(".settings-nav-overlay");
         const navCollapseToggle = document.getElementById("settings-nav-collapse-toggle");
         const settingsLayoutRoot = document.getElementById("settings-layout-root");
         const logoInput = document.getElementById("logo");
@@ -6539,7 +6443,6 @@
           if (!navPanel) return;
           navPanel.classList.toggle("open", isOpen);
           if (navHeader) navHeader.setAttribute("aria-expanded", isOpen ? "true" : "false");
-          if (navOverlay) navOverlay.classList.toggle("show", isOpen && window.innerWidth <= 960);
         }
 
         function openNav() {
@@ -6638,8 +6541,7 @@
 
         if (navHeader && navHeader.dataset.spaMenuBound !== "1") {
           navHeader.dataset.spaMenuBound = "1";
-          navHeader.addEventListener("click", (event) => {
-            if (event.target.closest("button, a")) return;
+          navHeader.addEventListener("click", () => {
             openNav();
           });
         }
@@ -6680,22 +6582,20 @@
           document.addEventListener("click", (event) => {
             // Query live so it keeps working after SPA content swaps.
             const panel = document.querySelector(".settings-nav");
-            if (window.innerWidth > 960 || !panel || !panel.classList.contains("open")) {
+            if (window.innerWidth > 900 || !panel || !panel.classList.contains("open")) {
               return;
             }
-            if (panel.contains(event.target)) {
+            if (panel.contains(event.target) || event.target.closest("#settings-nav-toggle")) {
               return;
             }
             panel.classList.remove("open");
-            const header = panel.querySelector(".settings-nav-header");
+            const header = document.getElementById("settings-nav-toggle");
             if (header) header.setAttribute("aria-expanded", "false");
-            const overlay = document.querySelector(".settings-nav-overlay");
-            if (overlay) overlay.classList.remove("show");
           }, true);
         }
 
         window.addEventListener("resize", () => {
-          if (window.innerWidth > 960) {
+          if (window.innerWidth > 900) {
             closeNav();
           }
         });

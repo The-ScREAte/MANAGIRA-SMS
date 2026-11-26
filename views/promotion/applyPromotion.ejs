@@ -817,7 +817,7 @@
       <p class="ws-head__sub"><% if (currentSchoolYear || currentTerm) { %><%= currentSchoolYear?.label || '—' %> · <%= currentTerm?.term_name || '—' %><% } %></p>
     </div>
     <div class="ws-head__actions">
-      <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" data-onclick="promotion-applyPromotion.1">Plan a promotion</button>
+      <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" data-onclick="promotion-applyPromotion.1"><span class="ws-btn__label">Plan a promotion</span></button>
     </div>
   </header>
   <%- include('../partials/flash') %>

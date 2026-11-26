@@ -21,13 +21,22 @@
   // ─── Configuration ────────────────────────────────────────────────────
   const CONFIG = {
     MAX_CACHE: 60,             // bumped so previously-visited pages stay hot
-    PRELOAD_DELAY: 50,         // ms before hover-preload fires (was 200)
+    PRELOAD_DELAY: 65,         // ms before hover-preload fires
     TRANSITION_MS: 120,        // fade out/in duration (skipped on cache hits)
     PRELOAD_VISIBLE: false,    // disabled: caused preload stampede on dashboards
     SCROLL_BEHAVIOR: 'instant',
     TOPBAR_DELAY_MS: 120,      // show top progress bar only if nav takes longer than this
-    MAX_CONCURRENT_PRELOADS: 3 // cap to avoid saturating the browser / server
+    MAX_CONCURRENT_PRELOADS: 2, // cap to avoid saturating the browser / server
+    PRELOAD_DELAY_HOVER: 65,
+    WARM_PER_MINUTE: 12,        // idle warm-up budget (sliding minute)
+    WARM_PER_SESSION: 25,       // until the person interacts again
+    KEEP_PANELS: !!(window.MANAGIRA_KEEP_PANELS || document.querySelector('meta[name="managira-keep-panels"]')), // OFF unless NAV_KEEP_PANELS=on (Render env): keeps up to 4 menu pages alive hidden
+    TYPING_QUIET_MS: 3000       // a page is not swapped under someone who just typed
   };
+  const NC = window.ManagiraNavCache || null; // public/js/navCache.js
+  // Menu pages (their sidebar): one copy for every ?panel=... address, the page picks its panel from the address.
+  const HUB_SHELLS = ['/common/management', '/common/admissions', '/common/reports', '/account/settings/finance'];
+  const HUB_WITH_PANEL = HUB_SHELLS.concat(['/account/settings']);
 
   // ─── Route Definitions by User Type ───────────────────────────────────
   const ROUTES_BY_TYPE = {
@@ -191,7 +200,6 @@
     '/student/testing-room/',    // Taking a test: its own screen, timer and leave/lock handling
     '/account/managePublicContent', // Quill editor + image uploads
     '/account/personalization',  // Theme switching with full reload
-    '/common/reports',           // Dynamic filters + tables; safer to full-load
     '/common/publicDashboard',   // School website: its own page, styles, light/dark and scripts
     '/common/publicRegister',    // Online registration: its own page and styles
     '/account/login',            // Sign-in pages: their own page, nothing else to load
@@ -213,7 +221,19 @@
     constructor() {
       this.userType = window.spaUserType || 'public';
       this.routes = ROUTES_BY_TYPE[this.userType] || ROUTES_BY_TYPE.public;
-      this.cache = new Map();
+      this.store = NC ? NC.createStore() : null; // memory only: pages kept per person and school (public/js/navCache.js)
+      this._gen = 0;                 // changes whenever something is written: older answers are then dropped
+      this._revalidating = new Set();
+      this._warmTimes = [];          // when each idle warm-up fetch started (sliding minute)
+      this._warmThisSession = 0;
+      this._warmAbort = null;
+      this._lastInputAt = 0;
+      this._lastHubUrl = new Map();  // hub path -> the address (panel and page) you were on
+      this._hubScroll = new Map();
+      this._lowBattery = false;
+      this._parkedMap = new Map();   // menu pages kept alive, hidden, with their panels (at most 4)
+      this._current = null;          // record of the menu page on screen (when it came through this router)
+      this._gate = null;
       this.isNavigating = false;
       this.currentPath = this._normalizePath(window.location.pathname + window.location.search);
       this.pendingHash = '';
@@ -238,6 +258,8 @@
 
     // ── Initialization ────────────────────────────────────────────────
     _init() {
+      this._installNavCacheHooks();
+      this._gateListeners();
       // 1. Save initial history state
       window.history.replaceState(
         { path: this.currentPath, scroll: 0 },
@@ -254,6 +276,7 @@
 
       // 3. Hover preloading with debounce
       document.addEventListener('mouseover', this._onLinkHover.bind(this));
+      document.addEventListener('focusin', this._onLinkHover.bind(this));
       document.addEventListener('mouseout', this._onLinkHoverEnd.bind(this));
 
       // 3b. Mousedown/pointerdown preload — fires ~100ms before click event,
@@ -387,9 +410,10 @@
       if (!href || !this._shouldHandle(href) || this._isExcluded(href)) return;
 
       // Debounce: only preload if user hovers for a moment
+      if (this.hoverTimer) clearTimeout(this.hoverTimer);
       this.hoverTimer = setTimeout(() => {
         this._preload(href);
-      }, CONFIG.PRELOAD_DELAY);
+      }, CONFIG.PRELOAD_DELAY_HOVER);
     }
 
     _onLinkHoverEnd() {
@@ -479,11 +503,18 @@
         hashFragment = parts.slice(1).join('#');
       }
 
-      const normalizedPath = this._normalizePath(rawPath);
+      let normalizedPath = this._normalizePath(rawPath);
       this.pendingHash = hashFragment ? decodeURIComponent(hashFragment) : '';
 
       // Don't navigate to current page
       if (normalizedPath === this.currentPath) return;
+
+      // Back to a menu page you were on: the panel (and page in it) you left open comes back too.
+      this._rememberHubView();
+      if (HUB_WITH_PANEL.includes(normalizedPath) && this._lastHubUrl.has(normalizedPath)) {
+        normalizedPath = this._lastHubUrl.get(normalizedPath);
+      }
+      this._abortWarm();
 
       // Dedupe: if the SAME navigation is already in flight, ignore the click
       // (prevents wasted work when users double-click). Previously we aborted
@@ -500,7 +531,7 @@
       this.isNavigating = true;
 
       // Cached pages: skip the fade entirely so they feel instant.
-      const isCached = this.cache.has(normalizedPath) && !this._isNoCache(normalizedPath);
+      const isCached = this._hasFresh(normalizedPath);
       this._skipFade = isCached;
       if (!isCached) {
         this._showProgress();
@@ -508,12 +539,15 @@
 
       const navPromise = (async () => {
         try {
+          this._pushed = false;
           await this._loadPage(normalizedPath, true);
-          window.history.pushState(
-            { path: normalizedPath, scroll: 0 },
-            '',
-            `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
-          );
+          if (!this._pushed) {
+            window.history.pushState(
+              { path: normalizedPath, scroll: 0 },
+              '',
+              `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`
+            );
+          }
 
           if (this.pendingHash) {
             this._scrollToHash(this.pendingHash, false);
@@ -542,7 +576,8 @@
       const noCache = this._isNoCache(normalizedPath);
 
       try {
-        let html = noCache ? null : this.cache.get(normalizedPath);
+        const hit = noCache ? null : this._cacheGet(normalizedPath);
+        let html = hit ? hit.entry.html : null;
 
         if (!html && !noCache && this._preloadRequests.has(normalizedPath)) {
           // Wait a few seconds at most; a preload that stalls is asked for again.
@@ -554,11 +589,13 @@
 
         if (!html) {
           this.abortController = new AbortController();
+          const gen = this._gen;
 
           const response = await fetch(path, {
             signal: this.abortController.signal,
             headers: {
               'X-Requested-With': 'XMLHttpRequest',
+              'X-Nav-Cache': '1',
               'Accept': 'text/html'
             }
           });
@@ -566,7 +603,7 @@
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           html = await response.text();
-          if (!noCache) this._cacheSet(normalizedPath, html);
+          if (!noCache && !response.redirected && gen === this._gen) this._cacheSet(normalizedPath, html, response.headers.get('ETag'));
         }
 
         // Parse response
@@ -576,11 +613,20 @@
         // Pause any playing videos/audio before swap
         this._pauseMedia();
 
+        // The new page's own scripts read the address (which panel to open): it is in place before they run.
+        if (isForwardNav) {
+          window.history.pushState({ path: normalizedPath, scroll: 0 }, '', `${normalizedPath}${this.pendingHash ? `#${encodeURIComponent(this.pendingHash)}` : ''}`);
+          this._pushed = true;
+        }
+
         // Perform the content swap with transition
         await this._swapContent(doc, normalizedPath);
 
         // Update current path tracking
         this.currentPath = normalizedPath;
+
+        // Shown from a kept copy: look for a newer one now, quietly.
+        if (hit) this._revalidate(normalizedPath, hit.entry);
 
       } catch (err) {
         if (err.name === 'AbortError') return; // Intentionally cancelled
@@ -591,7 +637,8 @@
     // ── Content Swap ──────────────────────────────────────────────────
 
     async _swapContent(doc, path) {
-      const currentMain = document.querySelector('main');
+      const liveMain = this._visibleMain();
+      let currentMain = liveMain;
       const newMain = doc.querySelector('main');
       const newBody = doc.querySelector('body');
 
@@ -605,14 +652,45 @@
       const nowSchool = (document.getElementById('app-scale-root') || {}).getAttribute ? document.getElementById('app-scale-root').getAttribute('data-school') : null;
       const newSchool = doc.getElementById('app-scale-root').getAttribute('data-school');
       if (nowSchool !== null && newSchool !== null && nowSchool !== newSchool) {
-        this.cache.clear && this.cache.clear();
+        this.clearCache();
         throw new Error('Another school');
+      }
+      // Drawn for another person (or school) than this tab's pages: nothing kept is theirs to see.
+      const newIdentity = NC ? NC.identityOf(((doc.querySelector('meta[name="managira-identity"]') || {}).getAttribute || (() => ''))
+        .call(doc.querySelector('meta[name="managira-identity"]') || {}, 'content')) : '';
+      if (NC && newIdentity !== this._identity()) {
+        this.clearCache();
+        throw new Error('Another person');
+      }
+
+      // Menu pages (Reports, Management, ...) keep their panels alive: leaving one parks it (hidden, its
+      // panels still loaded), coming back to it shows it again at once instead of loading every panel anew.
+      const key = this._cacheKey(path);
+      const leavingRec = this._current;
+      const target = (!this._refreshing && path !== this.currentPath) ? this._takeParked(key) : null;
+      const parkLeaving = !this._refreshing && path !== this.currentPath && this._isParkable(currentMain, leavingRec);
+      if (parkLeaving) {
+        leavingRec.cleanups = Array.isArray(window.__spaCleanup) ? window.__spaCleanup.splice(0) : [];
+        this._park(leavingRec, currentMain, this._cacheKey(this.currentPath));
+        if (!target) {
+          currentMain = currentMain.cloneNode(false);
+          currentMain.removeAttribute('inert');
+          currentMain.removeAttribute('hidden');
+          currentMain.removeAttribute('data-spa-parked');
+          currentMain.removeAttribute('aria-hidden');
+          liveMain.parentNode.insertBefore(currentMain, liveMain);
+        }
+        this._current = null;
+      } else if (target) {
+        if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.splice(0).forEach((fn) => { try { typeof fn === 'function' && fn(); } catch (_) { /* ignore */ } });
+        liveMain.remove();
+        this._current = null;
       }
 
       // 0. Run any cleanup callbacks registered by the outgoing page.
       //    Page scripts can push disposers into window.__spaCleanup to dispose
       //    intervals, event listeners, charts, editors, etc.
-      if (Array.isArray(window.__spaCleanup)) {
+      if (!parkLeaving && !target && Array.isArray(window.__spaCleanup)) {
         const cleanups = window.__spaCleanup.splice(0);
         for (const fn of cleanups) {
           if (typeof fn === 'function') {
@@ -628,7 +706,7 @@
       const newTitle = doc.querySelector('title');
       if (newTitle) document.title = newTitle.textContent;
 
-      const shouldFade = !this._skipFade;
+      const shouldFade = !this._skipFade && !parkLeaving && !target;
       this._skipFade = false;
 
       // 2. Fade out current content (skipped for cache hits).
@@ -647,13 +725,30 @@
       this._updateStyles(doc);
 
       // 4. Swap content
-      currentMain.innerHTML = newMain.innerHTML;
+      if (target) {
+        currentMain = this._unpark(target);
+        this._current = target;
+        if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(...target.cleanups);
+        target.cleanups = [];
+        this._reinitializeHandlers(currentMain);
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      } else {
+        currentMain.innerHTML = newMain.innerHTML;
 
-      // 5. Process new content
-      this._processImages(currentMain);
-      this._processVideos(currentMain);
-      await this._executeScripts(currentMain);
-      this._reinitializeHandlers(currentMain);
+        // 5. Process new content
+        this._processImages(currentMain);
+        this._processVideos(currentMain);
+        // A menu page's own window/document listeners are muted while it is parked (see _park).
+        const rec = (!this._refreshing && newMain.querySelector('.embed-panel-body')) ? { parked: false, main: null, cleanups: [], at: Date.now(), gen: this._gen, key, stale: false } : null;
+        this._gate = rec;
+        try {
+          await this._executeScripts(currentMain);
+        } finally {
+          this._gate = null;
+        }
+        if (!this._refreshing) this._current = rec;
+        this._reinitializeHandlers(currentMain);
+      }
 
       // 6. Fade in
       if (shouldFade) {
@@ -677,7 +772,7 @@
       this._updateFooter(doc);
 
       // 11. Notify other scripts
-      this._dispatchEvents(path);
+      this._dispatchEvents(path, this._refreshing);
 
       // 12. Re-observe new links for viewport preloading
       if (this.visibilityObserver) {
@@ -690,7 +785,7 @@
       const schedule = (cb) => ('requestIdleCallback' in window)
         ? requestIdleCallback(cb, { timeout: 3000 })
         : setTimeout(cb, 400);
-      schedule(() => this._preloadPriorityPages());
+      if (!this._refreshing) schedule(() => this._preloadPriorityPages());
     }
 
     // ── Image Handling ────────────────────────────────────────────────
@@ -1023,9 +1118,9 @@
 
     // ── Event Dispatch ────────────────────────────────────────────────
 
-    _dispatchEvents(path) {
+    _dispatchEvents(path, refresh) {
       window.dispatchEvent(new CustomEvent('spa:pageLoaded', {
-        detail: { path, timestamp: Date.now() }
+        detail: { path, timestamp: Date.now(), refresh: !!refresh }
       }));
 
       // Trigger Turbo-compatible event
@@ -1092,34 +1187,53 @@
 
     // ── Preloading ────────────────────────────────────────────────────
 
-    _preload(path) {
+    _preload(path, options) {
       // A workspace pane (iframe) never navigates through the router, so a
       // page it preloads is never used: with three panes open that was four
       // copies of every priority page fetched on each load.
       if (window.self !== window.top) return;
+      const idle = !!(options && options.idle);
       const normalized = this._normalizePath(path);
-      if (this._isNoCache(normalized)) return;
-      if (this.cache.has(normalized)) return;
+      if (this._isNoCache(normalized) || (NC && !NC.isCacheable(normalized))) return;
+      if (this._hasFresh(normalized)) return;
       if (this._preloadsInFlight.has(normalized)) return;
       if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) return;
 
       this._preloadsInFlight.add(normalized);
+      const gen = this._gen;
+      let controller = null;
+      if (idle && typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        this._warmAbort = this._warmAbort || new Set();
+        this._warmAbort.add(controller);
+      }
 
       const request = fetch(path, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'text/html',
+          'X-Nav-Cache': '1',
+          'X-Prefetch': '1',
           'X-SPA-Preload': '1' // background warm-up: never leaves messages behind
         },
-        priority: 'low'
+        credentials: 'same-origin',
+        priority: 'low',
+        signal: controller ? controller.signal : undefined
       })
         .then(res => {
-          if (res.ok) return res.text();
+          // Sent elsewhere (signed out, no access) or not a page: nothing kept.
+          if (res.ok && !res.redirected && /text\/html/i.test(res.headers.get('content-type') || '')) {
+            return res.text().then((html) => ({ html, etag: res.headers.get('ETag') }));
+          }
           throw new Error('Preload failed');
         })
-        .then(html => { this._cacheSet(normalized, html); return html; })
+        .then(({ html, etag }) => {
+          if (gen === this._gen) this._cacheSet(normalized, html, etag);
+          return html;
+        })
         .catch(() => null /* Silently fail preloads */)
         .finally(() => {
+          if (controller && this._warmAbort) this._warmAbort.delete(controller);
           this._preloadsInFlight.delete(normalized);
           this._preloadRequests.delete(normalized);
         });
@@ -1130,13 +1244,15 @@
     // (a tap or hover still loads the next page ahead).
     _slowConnection() {
       const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      return !!(c && (c.saveData || /2g|3g/.test(c.effectiveType || '')));
+      return NC ? !NC.connectionAllowsWarmup(c) : !!(c && (c.saveData || /2g|3g/.test(c.effectiveType || '')));
     }
 
     _preloadPriorityPages() {
       // A visitor on the login page needs that page and nothing else: warming others only slows it.
       if (!this.userType || this.userType === 'public') return;
-      if (this._slowConnection()) return;
+      // Drivers (battery, data) and students (a test may be running) are not warmed ahead.
+      if (this.userType === 'driver' || this.userType === 'student') return;
+      if (window.self !== window.top) return;
       // Warm-up never competes with the page itself: wait until it has loaded.
       if (document.readyState !== 'complete') {
         if (!this._preloadAfterLoad) {
@@ -1145,26 +1261,82 @@
         }
         return;
       }
-      const pages = PRELOAD_PRIORITY[this.userType] || [];
-      pages.slice(0, 2).forEach(page => {
-        if (page !== this.currentPath) {
-          this._preload(page);
-        }
+      this._startWarm();
+    }
+
+    // Is it a good moment to fetch pages nobody asked for yet?
+    _warmAllowed() {
+      if (document.visibilityState !== 'visible') return false;
+      if (this._slowConnection() || this._lowBattery) return false;
+      if (this.isNavigating) return false;
+      if (/testing-room|\/driver\//i.test(window.location.pathname)) return false;
+      if (this._warmThisSession >= CONFIG.WARM_PER_SESSION) return false;
+      const now = Date.now();
+      this._warmTimes = this._warmTimes.filter((t) => now - t < 60000);
+      return this._warmTimes.length < CONFIG.WARM_PER_MINUTE;
+    }
+
+    // The pages a person most likely opens next: this page's menu links, the other menu pages,
+    // and the tabs of the class they are on. Only the allow-list in navCache.js, one at a time (two at most).
+    _warmCandidates() {
+      const seen = new Set();
+      const out = [];
+      const add = (href) => {
+        if (!href || href.startsWith('#') || /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')) return;
+        const p = this._normalizePath(href);
+        const base = NC ? NC.pathOf(p) : p.split('?')[0];
+        const key = HUB_SHELLS.includes(base) ? base : p;
+        if (seen.has(key) || p === this.currentPath) return;
+        if (!this._shouldHandle(p) || this._isExcluded(p) || !NC || !NC.isPrefetchAllowed(p)) return;
+        if (this._hasFresh(key)) return;
+        seen.add(key);
+        out.push(key);
+      };
+      document.querySelectorAll('#top-header a[href], header a[href], [data-prefetch][href]').forEach((a) => {
+        if (a.hasAttribute('data-no-prefetch') || a.closest('[data-no-prefetch]') || a.hasAttribute('data-no-spa') || a.closest('[data-no-spa]') || a.hasAttribute('target') || a.hasAttribute('download')) return;
+        add(a.getAttribute('href'));
       });
+      (PRELOAD_PRIORITY[this.userType] || []).forEach(add);
+      if (/\/common\/classDashboard/.test(this.currentPath)) {
+        document.querySelectorAll('main a[href^="/common/classDashboard"]').forEach((a) => add(a.getAttribute('href')));
+      }
+      return out;
+    }
 
-      // Class pages, like every other link, load when the pointer reaches them or a finger
-      // touches them (_onLinkHover, _onTouchStart). Loading every class right after a sign-in
-      // cost a big school megabytes and a busy server before anyone had chosen a class.
+    _startWarm() {
+      if (this._warming) return;
+      if (!NC) return;
+      if (!this._batteryChecked && navigator.getBattery) {
+        this._batteryChecked = true;
+        navigator.getBattery().then((b) => {
+          const sync = () => { this._lowBattery = !b.charging && b.level < 0.2; };
+          sync();
+          b.addEventListener('levelchange', sync);
+          b.addEventListener('chargingchange', sync);
+        }).catch(() => {});
+      }
+      const queue = this._warmCandidates();
+      if (!queue.length) return;
+      this._warming = true;
+      const idle = (cb) => ('requestIdleCallback' in window) ? requestIdleCallback(cb, { timeout: 2000 }) : setTimeout(cb, 300);
+      const pump = () => {
+        if (!queue.length || !this._warmAllowed() && this._warmThisSession >= CONFIG.WARM_PER_SESSION) { this._warming = false; return; }
+        if (!this._warmAllowed()) { setTimeout(() => idle(pump), 1500); return; }
+        if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) { setTimeout(() => idle(pump), 250); return; }
+        const next = queue.shift();
+        if (!this._hasFresh(next)) {
+          this._warmTimes.push(Date.now());
+          this._warmThisSession += 1;
+          this._preload(next, { idle: true });
+        }
+        idle(pump);
+      };
+      idle(pump);
+    }
 
-      // Other links warm on hover or touch: rendering every menu item right after a sign-in
-      // filled the server with pages nobody had asked for, just as the first page was loading.
-
-      // NOTE: We intentionally do NOT warm *every* route for this user type.
-      // That background sweep fired a full server render for each route on
-      // first load and after every navigation, flooding the server and the
-      // browser's connection pool so the user's actual click had to queue
-      // behind it. Hover/mousedown + the priority + visible-link preloads
-      // already keep the common pages hot without the request storm.
+    _abortWarm() {
+      this._warming = false;
+      if (this._warmAbort) { this._warmAbort.forEach((c) => { try { c.abort(); } catch (_) { /* ignore */ } }); this._warmAbort.clear(); }
     }
 
     /**
@@ -1195,7 +1367,7 @@
           return;
         }
         const next = queue.shift();
-        if (!this.cache.has(this._normalizePath(next))) {
+        if (!this._hasFresh(this._normalizePath(next))) {
           this._preload(next);
         }
         schedule(pump);
@@ -1238,17 +1410,294 @@
 
     // ── Cache Management ──────────────────────────────────────────────
 
-    _cacheSet(path, html) {
-      // Evict oldest if at capacity
-      if (this.cache.size >= CONFIG.MAX_CACHE) {
-        const oldest = this.cache.keys().next().value;
-        this.cache.delete(oldest);
-      }
-      this.cache.set(path, html);
+    _visibleMain() {
+      return document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)');
+    }
+
+    // Only a menu page that was swapped in by this router (its listeners are muted while parked) is kept alive.
+    _isParkable(main, rec) {
+      return !!(CONFIG.KEEP_PANELS && NC && rec && !rec.parked && !rec.stale && rec.gen === this._gen && main && main.querySelector('iframe.embed-iframe') && NC.isCacheable(rec.key));
+    }
+
+    _park(rec, main, key) {
+      // Elements keep their ids only while shown, so the page on screen never meets a second #hub-nav.
+      main.querySelectorAll('[id]').forEach((el) => { el.setAttribute('data-parked-id', el.id); el.removeAttribute('id'); });
+      if (main.id) { main.setAttribute('data-parked-id', main.id); main.removeAttribute('id'); }
+      main.setAttribute('data-spa-parked', '1');
+      main.setAttribute('aria-hidden', 'true');
+      main.hidden = true;
+      main.inert = true;
+      rec.main = main;
+      rec.parked = true;
+      rec.key = key;
+      rec.at = Date.now();
+      rec.ttl = Math.min(NC ? NC.ttlFor(key) : 300000, 5 * 60 * 1000);
+      const old = this._parkedMap.get(key);
+      if (old && old !== rec) this._destroyParked(old);
+      this._parkedMap.delete(key);
+      this._parkedMap.set(key, rec);
+      while (this._parkedMap.size > 4) this._destroyParked(this._parkedMap.get(this._parkedMap.keys().next().value));
+    }
+
+    _takeParked(key) {
+      const rec = this._parkedMap.get(key);
+      if (!rec) return null;
+      const ok = rec.main && rec.main.isConnected && !rec.stale && rec.gen === this._gen && Date.now() - rec.at < rec.ttl;
+      if (!ok) { this._destroyParked(rec); return null; }
+      return rec;
+    }
+
+    _unpark(rec) {
+      const main = rec.main;
+      this._parkedMap.delete(rec.key);
+      main.querySelectorAll('[data-parked-id]').forEach((el) => { el.id = el.getAttribute('data-parked-id'); el.removeAttribute('data-parked-id'); });
+      if (main.hasAttribute('data-parked-id')) { main.id = main.getAttribute('data-parked-id'); main.removeAttribute('data-parked-id'); }
+      main.removeAttribute('data-spa-parked');
+      main.removeAttribute('aria-hidden');
+      main.hidden = false;
+      main.inert = false;
+      main.style.opacity = '1';
+      rec.parked = false;
+      rec.main = main;
+      return main;
+    }
+
+    _destroyParked(rec) {
+      if (!rec) return;
+      this._parkedMap.delete(rec.key);
+      rec.dead = true;
+      if (rec.main && rec.main.parentNode) rec.main.remove();
+      (rec.cleanups || []).forEach((fn) => { try { typeof fn === 'function' && fn(); } catch (_) { /* ignore */ } });
+      rec.cleanups = [];
+      rec.main = null;
+    }
+
+    // While a menu page is parked, its window and document listeners (popstate, resize, clicks) do nothing.
+    _gateListeners() {
+      if (this._gated) return;
+      this._gated = true;
+      const router = this;
+      const wrappers = new WeakMap(); // original listener -> { rec, wrapped } per target and type
+      [window, document].forEach((target) => {
+        const add = target.addEventListener;
+        const remove = target.removeEventListener;
+        target.addEventListener = function (type, listener, options) {
+          const rec = router._gate;
+          if (!rec || typeof listener !== 'function') return add.call(this, type, listener, options);
+          const wrapped = function () { if (rec.parked || rec.dead) return undefined; return listener.apply(this, arguments); };
+          wrappers.set(listener, wrapped);
+          return add.call(this, type, wrapped, options);
+        };
+        target.removeEventListener = function (type, listener, options) {
+          return remove.call(this, type, (typeof listener === 'function' && wrappers.get(listener)) || listener, options);
+        };
+      });
+    }
+
+    _identity() {
+      if (this.__identity !== undefined && this.__identityDoc === document) return this.__identity;
+      const m = document.querySelector('meta[name="managira-identity"]');
+      this.__identity = NC ? NC.identityOf(m && m.getAttribute('content')) : '';
+      this.__identityDoc = document;
+      return this.__identity;
+    }
+
+    // Menu pages share one copy for every ?panel=... address.
+    _cacheKey(path) {
+      const base = NC ? NC.pathOf(path) : String(path).split('?')[0];
+      return HUB_SHELLS.includes(base) ? base : path;
+    }
+
+    _cacheGet(path) {
+      if (!this.store || !NC || !NC.isCacheable(path)) return null;
+      return this.store.get(this._identity(), this._cacheKey(path));
+    }
+
+    _hasFresh(path) {
+      return !!this._cacheGet(path);
+    }
+
+    _cacheSet(path, html, etag) {
+      if (!this.store || !NC || !NC.isCacheable(path)) return;
+      // A message waits for its first showing; a page with one is never kept.
+      if (NC.hasFlash(html)) return;
+      this.store.set(this._identity(), this._cacheKey(path), { html, etag: etag || '', hash: NC.pageHash(html), ttl: NC.ttlFor(path) });
     }
 
     clearCache() {
-      this.cache.clear();
+      this._gen += 1;
+      if (this.store) this.store.clear();
+      this._lastHubUrl.clear();
+      Array.from(this._parkedMap.values()).forEach((rec) => this._destroyParked(rec));
+      if (this._current) this._current.stale = true;
+      this._hideRefreshChip();
+    }
+
+    // Keeps where you were in a menu page (the panel and page open in it) for coming back to it.
+    _rememberHubView() {
+      const base = NC ? NC.pathOf(this.currentPath) : this.currentPath.split('?')[0];
+      if (!HUB_WITH_PANEL.includes(base)) return;
+      const here = window.location.pathname + window.location.search;
+      if (NC ? NC.pathOf(here) === base : true) {
+        // Only when the menu page itself chose a panel: a bare address keeps the page's own default.
+        if (window.location.search) this._lastHubUrl.set(base, here);
+        else this._lastHubUrl.delete(base);
+        this._hubScroll.set(base, window.scrollY || 0);
+      }
+    }
+
+    // ── Revalidation (kept copy shown first, a newer one fetched quietly) ─────
+
+    async _revalidate(path, entry) {
+      if (!this.store || !NC || this._revalidating.has(path)) return;
+      this._revalidating.add(path);
+      const gen = this._gen;
+      const identity = this._identity();
+      try {
+        // Not while the page is still settling; on idle so it never competes with the click.
+        await new Promise((resolve) => ('requestIdleCallback' in window) ? requestIdleCallback(resolve, { timeout: 1200 }) : setTimeout(resolve, 150));
+        const headers = { 'X-Requested-With': 'XMLHttpRequest', 'X-Nav-Cache': '1', 'Accept': 'text/html' };
+        if (entry.etag) headers['If-None-Match'] = entry.etag;
+        const res = await fetch(path, { headers, credentials: 'same-origin', cache: 'no-store' });
+        if (gen !== this._gen || identity !== this._identity()) return;
+        const key = this._cacheKey(path);
+        if (res.status === 304) { this.store.touch(identity, key); return; }
+        if (!res.ok || res.redirected || !/text\/html/i.test(res.headers.get('content-type') || '')) { this.store.delete(identity, key); return; }
+        const html = await res.text();
+        if (gen !== this._gen) return;
+        if (NC.hasFlash(html)) { this.store.delete(identity, key); return; }
+        const hash = NC.pageHash(html);
+        if (hash === entry.hash) { this.store.touch(identity, key); return; }
+        const contentSame = NC.mainHash(html) === entry.mainHash;
+        this._cacheSet(path, html, res.headers.get('ETag'));
+        if (contentSame) return; // only the header differs (counts, names): nothing on the page to change
+        if (this._cacheKey(this.currentPath) !== key) return; // the person has moved on: next visit shows it
+        this._offerFresh(path, html);
+      } catch (_) { /* offline or cancelled: the kept copy stays */ } finally {
+        this._revalidating.delete(path);
+      }
+    }
+
+    _canSwapNow() {
+      const main = this._visibleMain();
+      return NC.canSwapInPlace({
+        dirty: NC.isDirty(main),
+        busy: NC.isBusy(document),
+        typingRecently: Date.now() - this._lastInputAt < CONFIG.TYPING_QUIET_MS,
+        hasFrames: !!(main && main.querySelector('iframe')),
+        navigating: this.isNavigating
+      });
+    }
+
+    async _offerFresh(path, html) {
+      const main = this._visibleMain();
+      if (this._current && this._cacheKey(this.currentPath) === this._cacheKey(path)) this._current.stale = true; // a menu page's shell changed: park nothing of it
+      if (main && main.querySelector('.embed-panel-body')) return; // menu page: its panels check themselves
+      if (main && main.querySelector('iframe')) { this._showRefreshChip(path, html); return; } // panels in it must not reload under the person
+      if (this._canSwapNow()) {
+        await this._swapFresh(path, html);
+      } else {
+        this._showRefreshChip(path, html);
+      }
+    }
+
+    // New copy in place: scroll position, focus and open things stay as they were.
+    async _swapFresh(path, html) {
+      const y = window.scrollY || 0;
+      const active = document.activeElement;
+      const activeId = active && active.id ? active.id : '';
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      this._refreshing = true;
+      this._skipFade = true;
+      try {
+        await this._swapContent(doc, path);
+        window.scrollTo({ top: y, behavior: 'instant' });
+        if (activeId) { const el = document.getElementById(activeId); if (el && el.focus) el.focus({ preventScroll: true }); }
+      } catch (_) { /* leave the page as it is */ } finally {
+        this._refreshing = false;
+        this._skipFade = false;
+        this._hideRefreshChip();
+      }
+    }
+
+    _showRefreshChip(path, html) {
+      let chip = document.getElementById('nav-refresh-chip');
+      if (!chip) {
+        chip = document.createElement('button');
+        chip.type = 'button';
+        chip.id = 'nav-refresh-chip';
+        chip.setAttribute('role', 'status');
+        document.body.appendChild(chip);
+        chip.addEventListener('click', () => {
+          const pending = this._chipPending;
+          this._hideRefreshChip();
+          if (pending) this._swapFresh(pending.path, pending.html);
+        });
+      }
+      this._chipPending = { path, html };
+      chip.textContent = 'Updated \u2014 refresh';
+      chip.hidden = false;
+    }
+
+    _hideRefreshChip() {
+      this._chipPending = null;
+      const chip = document.getElementById('nav-refresh-chip');
+      if (chip) chip.hidden = true;
+    }
+
+    // Anything that writes empties the cache (a saved setting never shows its old value on the way back),
+    // in this window and in the panels (iframes) of a menu page; typing is noted so a page is not swapped under it.
+    _installNavCacheHooks() {
+      if (!NC || window.__navCacheHooks) return;
+      window.__navCacheHooks = true;
+      const isTop = window.self === window.top;
+      const clearAll = () => {
+        try {
+          const top = window.top;
+          if (top && top.spaRouter && top.spaRouter.clearCache) top.spaRouter.clearCache();
+          else if (window.spaRouter) window.spaRouter.clearCache();
+        } catch (_) { if (window.spaRouter) window.spaRouter.clearCache(); }
+      };
+      if (isTop) window.__navCacheClear = clearAll;
+      const sameOrigin = (u) => { try { return new URL(u, window.location.href).origin === window.location.origin; } catch (_) { return false; } };
+
+      const nativeFetch = window.fetch;
+      if (typeof nativeFetch === 'function') {
+        window.fetch = function (input, init) {
+          let write = false;
+          try {
+            const method = (init && init.method) || (input && input.method) || 'GET';
+            const url = typeof input === 'string' ? input : (input && input.url) || String(input || '');
+            write = sameOrigin(url) && NC.writeClearsCache(method, url);
+          } catch (_) { write = false; }
+          if (!write) return nativeFetch.apply(this, arguments);
+          clearAll();
+          return nativeFetch.apply(this, arguments).finally(clearAll);
+        };
+      }
+      const nativeOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function (method, url) {
+        try {
+          if (sameOrigin(url) && NC.writeClearsCache(method, url)) {
+            this.addEventListener('loadstart', clearAll);
+            this.addEventListener('loadend', clearAll);
+          }
+        } catch (_) { /* ignore */ }
+        return nativeOpen.apply(this, arguments);
+      };
+      document.addEventListener('submit', (e) => {
+        const f = e.target;
+        if (f && String(f.method || 'get').toLowerCase() !== 'get') clearAll();
+      }, true);
+      const touched = () => {
+        this._lastInputAt = Date.now();
+        try { if (!isTop && window.top.spaRouter) window.top.spaRouter._lastInputAt = Date.now(); } catch (_) { /* ignore */ }
+      };
+      ['input', 'keydown'].forEach((t) => document.addEventListener(t, touched, { capture: true, passive: true }));
+      ['input', 'change'].forEach((t) => document.addEventListener(t, (e) => NC.markTouched(e), { capture: true, passive: true }));
+      // Using the page again gives the idle warm-up a fresh budget.
+      ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { this._warmThisSession = 0; }, { capture: true, passive: true }));
+      window.addEventListener('pageshow', (e) => { if (e.persisted) clearAll(); });
     }
 
     // ── Progress Indicator ────────────────────────────────────────────
@@ -1372,6 +1821,12 @@
       opacity: 1;
     }
 
+    #nav-refresh-chip {
+      position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 99990;
+      padding: 8px 14px; border: 0; border-radius: 999px; background: #01535b; color: #fff;
+      font: 600 13px/1.2 system-ui, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.25); cursor: pointer;
+    }
+    #nav-refresh-chip[hidden] { display: none; }
     /* Smooth main content transitions */
     main {
       transition: opacity ${CONFIG.TRANSITION_MS}ms ease;

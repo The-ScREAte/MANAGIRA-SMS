@@ -96,7 +96,7 @@ const NEVER = /pay|refund|payout|charge|bill|invoice|price|plan|subscri|permissi
 test("small talk stays light: only the core tools", () => {
   ["hi", "thanks!", "good morning Mira"].forEach((text) => {
     const { names } = offered(text);
-    assert.ok(names.length <= 12, `${text} -> ${names.length} tools`);
+    assert.ok(names.length <= 14, `${text} -> ${names.length} tools`);
   });
 });
 

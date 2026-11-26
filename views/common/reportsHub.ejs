@@ -595,9 +595,9 @@
       <ul class="nav-list" data-arrange-menu="reports" data-arrange-owner="<%= (session && session.organizationId || '') + '-' + (session && (session.userId || (session.user && session.user.user_id)) || '') %>">
         <% if (hasOrgStats) { %>
         <li>
-          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="Organization stats">
+          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="School stats">
             <span class="nav-link-icon"><%- navIcon('stats') %></span>
-            <span>Organization stats</span>
+            <span>School stats</span>
           </a>
         </li>
         <% } %>
@@ -664,7 +664,7 @@
         <div class="embed-panel-body">
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <p>Loading Organization stats…</p>
+            <p>Loading School stats…</p>
           </div>
         </div>
       </section>

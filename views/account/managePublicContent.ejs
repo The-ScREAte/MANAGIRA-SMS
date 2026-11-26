@@ -48,36 +48,6 @@
     padding: 20px clamp(12px, 2vw, 24px) 40px;
   }
 
-  .mpc-page-header {
-    background: var(--primary);
-    color: white;
-    padding: 38px 20px 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .mpc-page-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    border-radius: 50%;
-    transform: translate(30%, -30%);
-  }
-
-  .page-header-content {
-    max-width: none;
-    margin: 0;
-    position: relative;
-    z-index: 1;
-    text-align: center;
-  }
-
   .mpc-header-nav {
     display: flex;
     justify-content: flex-start;
@@ -108,18 +78,6 @@
 
   .mpc-back-btn:hover {
     text-decoration: none;}
-
-  .mpc-page-header h1 {
-    margin: 0;
-    font-size: 1.6rem;
-    font-weight: 700;
-  }
-
-  .mpc-page-header p {
-    margin: 6px 0 0;
-    opacity: 0.95;
-    font-size: 0.92rem;
-  }
 
   .manage-public-container {
     max-width: 1400px;
@@ -1166,19 +1124,6 @@
       font-size: 0.8rem;
     }
 
-    .mpc-page-header {
-      padding: 32px 12px 16px;
-      margin-bottom: 14px;
-    }
-
-    .mpc-page-header h1 {
-      font-size: 1.15rem;
-    }
-
-    .mpc-page-header p {
-      font-size: 0.82rem;
-    }
-
     .manage-public-header {
       flex-direction: column;
       padding: 10px;
@@ -1417,14 +1362,6 @@
       flex-direction: column;
     }
 
-    .mpc-page-header {
-      padding: 34px 12px 18px;
-    }
-
-    .mpc-page-header h1 {
-      font-size: 1.02rem;
-    }
-
     .content-container {
       padding: 12px;
     }
@@ -1510,18 +1447,9 @@
     .manage-public-page {
       padding-top: 28px !important;
     }
-
-    .mpc-page-header {
-      margin-top: 16px;
-      padding-top: 76px !important;
-    }
   }
 
   @media screen and (max-width: 480px) {
-    .mpc-page-header {
-      margin-top: 14px;
-      padding-top: 62px !important;
-    }
   }
 
   /* Tablet breakpoint */
@@ -1944,7 +1872,6 @@
   .mpc-reg-grid label { display: grid; gap: 5px; font-size: 0.84rem; font-weight: 700; color: #374151; }
   .mpc-reg-grid .form-field { width: 100%; margin: 0; box-sizing: border-box; }
   @media (max-width: 640px) { .mpc-reg-grid { grid-template-columns: 1fr; } }
-  .mpc-view-site { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 8px 15px; border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 9px; color: #fff; font: inherit; font-weight: 700; font-size: 0.86rem; white-space: nowrap; background: rgba(255, 255, 255, 0.14); cursor: pointer; }
   
   .mpc-website-dialog { position: relative; width: min(460px, calc(100vw - 32px)); max-width: 100%; padding: 24px; border: 1px solid #dbe3ec; border-radius: 14px; color: var(--text-primary); background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24); }
   .mpc-website-dialog::backdrop { background: rgba(15, 23, 42, 0.48); }
@@ -1990,9 +1917,8 @@
   .theme-panel.is-collapsed > .theme-panel-header { margin: 0; padding: 0; border-bottom: 0; cursor: pointer; }
   .images-header h2, .texts-header h2, .theme-panel-header h2 { font-size: 1.02rem; font-weight: 700; }
   /* Professional panel icons (Font Awesome) in place of emoji. */
-  .images-header h2, .texts-header h2, .theme-panel-header h2, .mpc-page-header h1 { display: flex; align-items: center; gap: 9px; }
+  .images-header h2, .texts-header h2, .theme-panel-header h2{ display: flex; align-items: center; gap: 9px; }
   .mpc-h-icon { color: var(--primary); font-size: 0.92em; flex: 0 0 auto; }
-  .mpc-page-header h1 .mpc-h-icon { color: #fff; opacity: 0.92; }
   .images-header, .texts-header, .theme-panel-header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .section-collapse-toggle { min-width: 0; padding: 5px 12px; font-size: 0.76rem; background: #fff; }
   .manage-public-container .btn,
@@ -2004,16 +1930,8 @@
   .manage-public-container .theme-save-btn { padding: 10px 22px; font-size: 0.92rem; }
   .manage-public-container .image-content-form:hover,
   .manage-public-container .text-content-form:hover { transform: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
-  /* Slim page header: one line with the action on the right. */
-  body .mpc-page-header { width: min(100%, 1400px); margin: 0 auto 14px; padding: 14px 20px !important; border-radius: 14px; box-shadow: none; box-sizing: border-box; }
-  body .mpc-page-header::before { display: none; }
-  body .mpc-page-header .page-header-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; text-align: left; }
   body .mpc-page-header .page-header-content > div { min-width: 0; }
-  body .mpc-page-header h1 { font-size: 1.15rem; line-height: 1.3; }
-  body .mpc-page-header p { margin: 2px 0 0; font-size: 0.85rem; }
-  body .mpc-page-header .mpc-view-site { justify-self: end; width: auto !important; max-width: 100%; margin: 0 !important; padding: 8px 14px; font-size: 0.84rem; }
   @media (max-width: 1024px) {
-    body .mpc-page-header { margin: 0 auto 12px; }
   }
   @media (max-width: 768px) {
     .manage-public-page { padding: 12px 12px 28px; }
@@ -2021,9 +1939,6 @@
     .manage-public-container > .theme-panel { padding: 14px; }
     .manage-public-container > .content-container.is-collapsed,
     .manage-public-container > .theme-panel.is-collapsed { padding: 9px 12px; }
-    body .mpc-page-header { padding: 12px 14px !important; }
-    body .mpc-page-header .page-header-content { grid-template-columns: minmax(0, 1fr) auto; }
-    body .mpc-page-header .mpc-view-site { justify-self: end; }
   }
 
   /* =====================================================================
@@ -2032,15 +1947,6 @@
      end of a panel (never full-width bars), photos in a tight grid.
      ===================================================================== */
   body.manage-public-page { background: #f5f6f8; }
-  body .mpc-page-header { background: #fff; color: #0f172a; border: 1px solid #e6e8ec; }
-  body .mpc-page-header h1 { color: #0f172a; font-size: 1.14rem; font-weight: 800; }
-  body .mpc-page-header p { color: #64748b; opacity: 1; }
-  body .mpc-page-header h1 .mpc-h-icon { color: var(--org-primary-color, var(--primary)); opacity: 1; }
-  .mpc-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-  body .mpc-page-header .mpc-view-site { color: #0f172a; background: #fff; border: 1px solid #d9dee4; border-radius: 10px; text-decoration: none; }
-  body .mpc-page-header .mpc-view-site:hover { border-color: #b8c0ca; }
-  body .mpc-page-header .mpc-view-site--main { color: #fff; background: var(--org-primary-color, var(--primary)); border-color: transparent; }
-  body .mpc-page-header .mpc-view-site--main:hover { filter: brightness(1.05); border-color: transparent; }
 
   /* Every panel: the same calm card. */
   .manage-public-container > .content-container,
@@ -2204,8 +2110,6 @@
   .manage-public-container .header-actions .btn-primary { display: inline-flex; align-items: center; gap: 7px; width: auto; min-height: 34px; padding: 6px 12px; border-radius: 9px; font-size: .84rem; font-weight: 700; }
 
   @media (max-width: 768px) {
-    body .mpc-page-header .page-header-content { grid-template-columns: minmax(0, 1fr); }
-    .mpc-header-actions { justify-content: flex-start; }
     .manage-public-container > .content-container,
     .manage-public-container > .theme-panel { padding: 14px; }
     .mpc-emblem__top { flex-direction: column; align-items: stretch; }
@@ -2229,20 +2133,19 @@
 <% if (!locals.isPrintRender) { %><script src="<%= assetUrl('/js/appAlert.js') %>"></script><% } %>
 </head>
 <body class="manage-public-page">
-    <div class="mpc-page-header">
-      <div class="page-header-content">
-        <div>
-          <h1><i class="fa-solid fa-globe mpc-h-icon" aria-hidden="true"></i> School website</h1>
-          <p><%= orgDetails.external_website_url ? 'Families are sent to your own website.' : 'What families see when they visit your school online.' %></p>
-        </div>
-        <div class="mpc-header-actions">
-          <% if (!orgDetails.external_website_url && typeof publicSiteUrl !== 'undefined' && publicSiteUrl) { %>
-            <a class="mpc-view-site mpc-view-site--main" href="<%= publicSiteUrl %>" target="_blank" rel="noopener">View website <span aria-hidden="true">↗</span></a>
-          <% } %>
-          <button type="button" class="mpc-view-site" id="openWebsiteSettings"><%= orgDetails.external_website_url ? 'Website address' : 'Use my own website' %></button>
-        </div>
+    <style nonce="<%= locals.cspNonce || '' %>">.mpc-head { padding: 12px 16px 0; box-sizing: border-box; }</style>
+    <header class="page-head mpc-head">
+      <div class="page-head__text">
+        <h1 class="page-head__title"><%- navIcon('website', 22) %> School website</h1>
+        <p class="page-head__sub"><%= orgDetails.external_website_url ? 'Families are sent to your own website.' : 'What families see when they visit your school online.' %></p>
       </div>
-    </div>
+      <div class="page-head__actions">
+        <button type="button" class="btn-icon" id="openWebsiteSettings" aria-label="<%= orgDetails.external_website_url ? 'Website address' : 'Use my own website' %>" title="<%= orgDetails.external_website_url ? 'Website address' : 'Use my own website' %>"><%- navIcon('settings', 18) %><span class="page-head__label"><%= orgDetails.external_website_url ? 'Website address' : 'Use my own website' %></span></button>
+        <% if (!orgDetails.external_website_url && typeof publicSiteUrl !== 'undefined' && publicSiteUrl) { %>
+          <a class="btn-icon page-head__primary" href="<%= publicSiteUrl %>" target="_blank" rel="noopener" aria-label="View website (opens in a new tab)" title="View website"><%- navIcon('arrowUpRight', 18) %><span class="page-head__label">View website</span></a>
+        <% } %>
+      </div>
+    </header>
     
     <%- include('../partials/flash') %>
 

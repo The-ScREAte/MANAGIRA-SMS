@@ -359,15 +359,15 @@
   <% const _keepDays = typeof rejectedKeepDays !== 'undefined' ? rejectedKeepDays : 60; %>
   <% const _embedQs = (typeof isEmbedded !== 'undefined' && isEmbedded) ? '&embed=workspace' : ''; %>
   <% const _all = (_counts.pending || 0) + (_counts.rejected || 0); %>
-  <header class="pa-head">
-    <div>
-      <h1>Online applications <span class="pa-count"><%= pendingStudents.length %></span></h1>
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="page-head__title">Online applications <span class="pa-count"><%= pendingStudents.length %></span></h1>
       <% if (_view === 'rejected') { %>
-      <p>Rejected applications are kept for <%= _keepDays %> days, then deleted for good. Reverse a decision to move one back to Pending.</p>
+      <p class="page-head__sub">Rejected applications are kept for <%= _keepDays %> days, then deleted for good. Reverse a decision to move one back to Pending.</p>
       <% } else if (_view === 'all') { %>
-      <p>Every application, waiting and rejected.</p>
+      <p class="page-head__sub">Every application, waiting and rejected.</p>
       <% } else { %>
-      <p>Applications waiting for review. Click one to approve or reject it.</p>
+      <p class="page-head__sub">Applications waiting for review. Click one to approve or reject it.</p>
       <% } %>
     </div>
   </header>
@@ -453,6 +453,13 @@
   .pa-decision { display: inline-flex; flex-direction: column; margin-right: 10px; vertical-align: middle; }
   .pa-rejected { color: #b91c1c; font-weight: 600; font-size: .85rem; }
   .pa-decision small { color: #64748b; font-size: .75rem; }
+  @media (max-width: 640px) {
+    .pa-filters { gap: 8px; }
+    .pa-tools { flex-wrap: nowrap; width: 100%; }
+    .pa-tools .pa-search { flex: 1 1 0; min-width: 0; }
+    .pa-tools .pa-search input { width: 100%; }
+    .pa-tools select { flex: 0 1 112px; width: 112px; min-width: 0; }
+  }
   .pa-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
   .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.375rem !important; font-weight: 700; letter-spacing: -.01em; text-align: left; }
   .pa-head p { margin: 4px 0 0; color: #64748b; font-size: .9rem; }

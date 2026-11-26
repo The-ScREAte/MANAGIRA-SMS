@@ -74,7 +74,7 @@ function renderStats(req, res, locals) {
   const isEmbedded = isEmbeddedRequest(req, "organizationStats");
   const hideChrome = isEmbedded || isPdf;
   return res.render("stats/organizationStats", {
-    title: "Organization stats",
+    title: "School stats",
     isEmbedded,
     isPdf,
     organizationName: req.session.organizationName || "",
@@ -145,7 +145,7 @@ const statsController = {
       return renderStats(req, res, { schoolYears, currentTerm, selectedSchoolYear, stats });
     } catch (error) {
       console.error("[stats/getOrganizationStats]", error);
-      req.flash("error", "Failed to load organization stats.");
+      req.flash("error", "Failed to load school stats.");
       return res.redirect("/");
     }
   },
@@ -165,7 +165,7 @@ const statsController = {
       return res.send(`\uFEFF${statsToCsv(currentTerm, stats, { attendance: (res.locals.schoolServices || {}).attendance !== false })}`);
     } catch (error) {
       console.error("[stats/exportOrganizationStats]", error);
-      return res.status(500).send("Failed to export organization stats.");
+      return res.status(500).send("Failed to export school stats.");
     }
   },
 
@@ -561,7 +561,7 @@ function statsToCsv(term, stats, { attendance: attendanceOn = true } = {}) {
   const k = stats.kpis;
   const a = stats.academic;
 
-  row("Organization stats", termLabel(term));
+  row("School stats", termLabel(term));
   row("Generated", new Date().toISOString().slice(0, 10));
   row();
   row("Summary", "Value");

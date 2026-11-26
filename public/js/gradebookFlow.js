@@ -17,6 +17,8 @@
   // ---- The newest assessments are on the right: show them first.
   function showNewest() {
     if (!scroller) return;
+    // On a phone the table starts at its first assessment (columns snap fully into view); wide screens show the newest first.
+    if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) return;
     scroller.scrollLeft = scroller.scrollWidth;
   }
 

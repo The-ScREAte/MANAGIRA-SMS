@@ -1351,7 +1351,11 @@
     }
     .fin-mobile-header h2 .accent { color:var(--fin-teal); }
     /* Hide the duplicate h1 in fin-page-head on mobile; a place's tabs stay. */
-    .fin-page-head-main-title h1 { display:none; }
+    .fin-page-head-main-title.fin-has-tabs h1 { display:none; }
+    .fin-page-head-main-title h1 { font-size:var(--fs-title, 19px); line-height:1.25; }
+    .fin-page-head { flex-wrap:nowrap !important; gap:10px !important; }
+    .fin-page-head .fin-head-tools { width:auto; flex:0 0 auto; }
+    .fin-head-action { white-space:nowrap; }
     .fin-tabs { margin-top:0; }
     /* Hamburger button */
     .fin-hamburger {
@@ -1730,7 +1734,7 @@
           // The title is the place's name; a place with two pages shows them as tabs under it.
           const _finHere = paygiraAccess.menu.find((place) => place.id === (paygiraAccess.placeOf(sec) || 'overview')) || { label: 'PayGira', tabs: [] };
         %>
-        <div class="fin-page-head-main-title">
+        <div class="fin-page-head-main-title<%= _finHere.tabs.length > 1 ? ' fin-has-tabs' : '' %>">
           <h1><%= _finHere.label %></h1>
           <% if (_finHere.tabs.length > 1) { %>
             <nav class="fin-tabs" aria-label="<%= _finHere.label %>">

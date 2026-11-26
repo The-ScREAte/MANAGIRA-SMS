@@ -538,8 +538,8 @@
       <p class="ws-head__sub">Everyone who signs in for the school. Select someone to see their account.</p>
     </div>
     <div class="ws-head__actions">
-      <button type="button" class="ws-btn" id="uxFilterToggle" aria-expanded="true" aria-controls="uxFilters"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filters <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
-      <% if (workspaceAccess().employees.canAdd) { %><button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageEmployees.1"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add user</button><% } %>
+      <button type="button" class="ws-btn" id="uxFilterToggle" aria-label="Filters" title="Filters" aria-expanded="true" aria-controls="uxFilters"><%- navIcon('filter', 18) %><span class="ws-btn__label">Filters</span> <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
+      <% if (workspaceAccess().employees.canAdd) { %><button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageEmployees.1"><%- navIcon('plus', 18) %><span class="ws-btn__label">Add user</span></button><% } %>
     </div>
   </header>
 

@@ -14,8 +14,8 @@ const BASE = [
 ];
 // Served from /css/ like the originals, so relative paths inside them still work.
 const BUNDLES = {
-  "app-bundle": [...BASE, "safeAreas", "guardian", "a11y"],
-  "app-bundle-chat": [...BASE, "chatbot", "safeAreas", "guardian", "a11y"],
+  "app-bundle": [...BASE, "pageHead", "safeAreas", "guardian", "a11y"],
+  "app-bundle-chat": [...BASE, "chatbot", "pageHead", "safeAreas", "guardian", "a11y"],
 };
 
 const built = new Map();

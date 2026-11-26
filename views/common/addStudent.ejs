@@ -2339,6 +2339,19 @@
   <body>
     <%- include('../partials/flash') %>
   
+    <style nonce="<%= locals.cspNonce || '' %>">
+      /* Phone: the four icon buttons sit beside the title, as on every page header (pageHead.css). */
+      @media (max-width: 640px) {
+        html body .page-header-wrapper { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: flex-start !important; gap: 8px !important; }
+        html body .page-header-wrapper .page-header-title { flex: 1 1 0; min-width: 0; }
+        html body .page-header-wrapper h1 { font-size: var(--fs-title, 19px) !important; }
+        html body .page-header-wrapper .page-header-subtitle { font-size: var(--fs-small, 11.5px); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+        html body .page-header-wrapper .page-header-actions { flex: 0 0 auto !important; width: auto !important; display: flex !important; flex-wrap: nowrap !important; gap: 6px !important; justify-content: flex-end; }
+        html body .page-header-wrapper .page-header-actions > button { flex: 0 0 auto !important; width: 36px !important; min-width: 36px !important; height: 36px !important; padding: 0 !important; }
+        html body .page-header-wrapper .action-btn-label { display: none !important; }
+        html body .page-header-wrapper .page-header-actions .action-divider { display: none !important; }
+      }
+    </style>
     <div class="student-management-system">
       <div class="page-header-wrapper">
         <div class="page-header-title">

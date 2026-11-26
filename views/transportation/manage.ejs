@@ -64,34 +64,7 @@
     flex-shrink: 0;
   }
 
-  .tm-nav-toggle {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--tm-border);
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    padding: 0;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .tm-nav-toggle .bar {
-    display: block;
-    width: 18px;
-    height: 2px;
-    background: var(--tm-text);
-    border-radius: 2px;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-  }
-
-  .tm-nav-toggle.active .bar:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-  .tm-nav-toggle.active .bar:nth-child(2) { opacity: 0; }
-  .tm-nav-toggle.active .bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+  .tm-nav-toggle { display: none; }
 
   .tm-status {
     margin: 6px 6px 10px;
@@ -921,7 +894,7 @@
   .tm-ov-map #tm-route-map { height: min(68vh, 680px); border: 0; border-radius: 0; }
   .tm-count { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); color: var(--primary, #01535b); font-size: .78rem; vertical-align: middle; }
   @media (max-width: 900px) { .tm-ov-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tm-ov-map #tm-route-map { height: 60vh; } }
-  @media (max-width: 520px) { .tm-ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tm-ov-actions { width: 100%; } .tm-ov-actions .tm-btn { flex: 1 1 auto; text-align: center; } }
+  @media (max-width: 520px) { .tm-ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tm-ov-actions { width: 100%; } }
   .tm-btn--primary, .tm-row button, .tm-map-toolbar button { background: var(--tm-accent); border-color: var(--tm-accent); color: #fff; }
   .tm-btn--primary:hover, .tm-row button:hover, .tm-map-toolbar button:hover { background: var(--tm-accent-hover); }
   .tm-btn { border-radius: 10px; font-size: 13px; }
@@ -949,7 +922,7 @@
   @media (max-width: 760px) {
     .tm-modal { padding: 0; align-items: flex-end; }
     .tm-modal-card { width: 100%; max-width: none; max-height: 92vh; border-radius: 18px 18px 0 0; padding: 18px 16px calc(76px + env(safe-area-inset-bottom, 0px)); }
-    .tm-ov-actions .tm-btn { flex: 1 1 calc(50% - 8px); }
+    .tm-ov-actions { flex-wrap: nowrap; gap: 6px; } .tm-ov-actions .tm-btn { flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 6px; font-size: 12.5px; white-space: nowrap; text-align: center; }
     .tm-list li.tm-item { align-items: flex-start; }
   }
 
@@ -966,6 +939,51 @@
   .tm-nav-btn.active { background: color-mix(in srgb, var(--tm-accent) 10%, transparent); color: var(--tm-accent); box-shadow: none; }
   .tm-nav-badge { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--tm-accent); color: #fff; font-size: 11px; font-weight: 700; text-align: center; }
   .tm-nav-badge[hidden] { display: none; }
+
+  /* Phones and tablets: the Menu bar and dropdown are the same as Management, Settings and every hub
+     (bar, full-width panel under it, header, 44px rows with an icon tile, one scroll area). */
+  .tm-nav-head, .tm-nav-btn .nav-link-icon { display: none; }
+  .tm-nav-label { flex: 1; min-width: 0; }
+  @media (max-width: 900px) {
+    .tm-app { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px 10px 48px; }
+    body .tm-app .tm-sidebar { position: relative; top: auto; }
+    .tm-nav-toggle {
+      display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-height: 40px; margin: 0; padding: 8px 12px;
+      border: 1px solid var(--border, #e5e7eb); border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(15, 23, 42, .04);
+      color: var(--tm-accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; position: relative; z-index: 12101;
+      transition: border-radius 140ms ease, box-shadow 140ms ease;
+    }
+    .tm-nav-toggle[aria-expanded="true"] { border-radius: 8px 8px 0 0; box-shadow: none; }
+    .tm-nav-toggle-label { display: inline-flex; align-items: center; gap: 8px; }
+    .tm-nav-toggle .hub-hamburger-icon, .tm-nav-toggle .hub-hamburger-icon::before, .tm-nav-toggle .hub-hamburger-icon::after {
+      display: inline-block; width: 18px; height: 2px; background: currentColor; transition: transform 140ms ease, top 140ms ease, background-color 140ms ease; transform-origin: center;
+    }
+    .tm-nav-toggle .hub-hamburger-icon { position: relative; flex-shrink: 0; }
+    .tm-nav-toggle .hub-hamburger-icon::before, .tm-nav-toggle .hub-hamburger-icon::after { content: ""; position: absolute; left: 0; }
+    .tm-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+    .tm-nav-toggle .hub-hamburger-icon::after { top: 6px; }
+    .tm-nav-toggle[aria-expanded="true"] .hub-hamburger-icon { background: transparent; }
+    .tm-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::before { top: 0; transform: rotate(45deg); }
+    .tm-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::after { top: 0; transform: rotate(-45deg); }
+    .tm-nav {
+      display: grid; align-content: start; grid-auto-rows: min-content; gap: 0; position: fixed; box-sizing: border-box; z-index: 12100;
+      top: var(--tm-nav-top, var(--side-menu-top, 120px)); bottom: 0; left: var(--tm-nav-left, 10px);
+      width: var(--tm-nav-width, calc(100vw - 20px)); max-width: calc(100vw - 20px); margin: 0; padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
+      background: #fff; border: 1px solid var(--border, #e5e7eb); border-top: 0; border-radius: 0 0 12px 12px; box-shadow: 0 12px 28px rgba(15, 23, 42, .16);
+      overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+      opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px);
+      transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    }
+    .tm-nav.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); transition-delay: 0s; }
+    .tm-nav-head { display: flex; align-items: center; min-height: 45px; box-sizing: border-box; padding: 10px 14px; border-bottom: 1px solid var(--border, #e5e7eb); background: #fff; position: sticky; top: 0; z-index: 2; }
+    .tm-nav-head h3 { margin: 0; font-size: var(--fs-head, 16px); font-weight: 600; color: #0f172a; text-align: left; letter-spacing: .02em; }
+    .tm-nav .tm-nav-btn { position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 10px; box-sizing: border-box; width: calc(100% - 16px); margin: 1px 8px; min-height: 44px; padding: 2px 10px 2px 8px; border-radius: 8px; font-size: var(--fs-body, 13px); font-weight: 600; color: #475569; }
+    .tm-nav .tm-nav-btn .nav-link-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 9px; color: #475569; background: color-mix(in srgb, #0f172a 6%, transparent); }
+    .tm-nav .tm-nav-btn .nav-link-icon svg { width: 18px; height: 18px; stroke: currentColor; display: block; }
+    .tm-nav .tm-nav-btn.active { background: var(--org-primary-soft-strong, rgba(1, 83, 91, .10)); color: var(--tm-accent); }
+    .tm-nav .tm-nav-btn.active::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 3px; background: var(--tm-accent); }
+    .tm-nav .tm-nav-btn.active .nav-link-icon { background: color-mix(in srgb, var(--tm-accent) 22%, transparent); color: var(--tm-accent); }
+  }
   .tm-card { border-radius: 12px; box-shadow: none; }
   .tm-ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
   .tm-ov-tile { border-radius: 12px; box-shadow: none; }
@@ -1028,23 +1046,24 @@
   <aside class="tm-sidebar">
     <div class="tm-brand">
       <img class="tm-logo" src="/images/icons/transportation-logo-256.png" alt="Transportation logo" />
-      <button class="tm-nav-toggle" type="button" id="tm-nav-toggle" aria-label="Open menu" aria-expanded="false">
-        <span class="bar"></span>
-        <span class="bar"></span>
-        <span class="bar"></span>
-      </button>
     </div>
 
+    <!-- Phone menu bar and dropdown: the same Menu bar and panel as Management, Settings and the hubs -->
+    <button class="tm-nav-toggle" type="button" id="tm-nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="tm-nav">
+      <span class="tm-nav-toggle-label"><span class="hub-hamburger-icon"></span><span>Menu</span></span>
+    </button>
+
     <nav class="tm-nav" aria-label="Transportation sections" id="tm-nav">
-      <button class="tm-nav-btn active" type="button" data-pane="overview">Overview</button>
+      <div class="tm-nav-head"><h3>Transportation</h3></div>
+      <button class="tm-nav-btn active" type="button" data-pane="overview"><span class="nav-link-icon"><%- navIcon('overview') %></span><span class="tm-nav-label">Overview</span></button>
       <% const transportAccess = workspaceAccess().transport; %>
-      <% if (transportAccess.riderList) { %><button class="tm-nav-btn" type="button" data-pane="requests">Requests <span class="tm-nav-badge" id="tm-requests-badge" hidden></span></button><% } %>
-      <% if (transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="reports">Reports <span class="tm-nav-badge" id="tm-reports-badge" hidden></span></button><% } %>
-      <% if (transportAccess.buses) { %><button class="tm-nav-btn" type="button" data-pane="buses">Buses</button><% } %>
-      <% if (transportAccess.drivers) { %><button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button><% } %>
-      <% if (transportAccess.schedules || transportAccess.routes) { %><button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button><% } %>
-      <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="students">Students</button><% } %>
-      <% if (transportAccess.settings || transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="settings">Settings</button><% } %>
+      <% if (transportAccess.riderList) { %><button class="tm-nav-btn" type="button" data-pane="requests"><span class="nav-link-icon"><%- navIcon('requests') %></span><span class="tm-nav-label">Requests <span class="tm-nav-badge" id="tm-requests-badge" hidden></span></span></button><% } %>
+      <% if (transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="reports"><span class="nav-link-icon"><%- navIcon('reports') %></span><span class="tm-nav-label">Reports <span class="tm-nav-badge" id="tm-reports-badge" hidden></span></span></button><% } %>
+      <% if (transportAccess.buses) { %><button class="tm-nav-btn" type="button" data-pane="buses"><span class="nav-link-icon"><%- navIcon('transportation') %></span><span class="tm-nav-label">Buses</span></button><% } %>
+      <% if (transportAccess.drivers) { %><button class="tm-nav-btn" type="button" data-pane="drivers"><span class="nav-link-icon"><%- navIcon('staff') %></span><span class="tm-nav-label">Drivers</span></button><% } %>
+      <% if (transportAccess.schedules || transportAccess.routes) { %><button class="tm-nav-btn" type="button" data-pane="schedule"><span class="nav-link-icon"><%- navIcon('schedule') %></span><span class="tm-nav-label">Schedule</span></button><% } %>
+      <% if (transportAccess.students) { %><button class="tm-nav-btn" type="button" data-pane="students"><span class="nav-link-icon"><%- navIcon('students') %></span><span class="tm-nav-label">Students</span></button><% } %>
+      <% if (transportAccess.settings || transportAccess.reports) { %><button class="tm-nav-btn" type="button" data-pane="settings"><span class="nav-link-icon"><%- navIcon('settings') %></span><span class="tm-nav-label">Settings</span></button><% } %>
     </nav>
   </aside>
 

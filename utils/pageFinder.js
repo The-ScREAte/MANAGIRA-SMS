@@ -50,7 +50,7 @@ const PAGES = [
   { label: "Transcripts", group: "Reports", url: reports("transcripts", "/common/transcripts", "Transcripts"), words: "official record gpa", show: (a) => a.reports.transcripts },
   { label: "Report settings", group: "Reports", url: reports("report-settings", "/print/reportSettings", "Report settings"), words: "report card design grading remarks signature", show: (a) => a.reports.settings },
   { label: "Report builder", group: "Reports", url: reports("report-builder", "/common/report-builder", "Report builder"), words: "custom reports export csv excel", show: (a) => a.reports.builder },
-  { label: "Organization stats", group: "Reports", url: reports("org-stats", "/stats/organization", "Organization stats"), words: "analytics numbers insights", show: (a) => a.reports.stats },
+  { label: "School stats", group: "Reports", url: reports("org-stats", "/stats/organization", "School stats"), words: "organization analytics numbers insights statistics", show: (a) => a.reports.stats },
 
   // Settings and integrations
   { label: "Integrations", group: "Settings", url: management("integrations", "/account/integrations", "Integrations"), words: "connect google text whatsapp portals add-ons", show: (a) => a.management.integrations },

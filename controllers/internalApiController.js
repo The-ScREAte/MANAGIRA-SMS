@@ -8276,7 +8276,7 @@ async function rejectPendingAdmissionApi(req, res) {
 // doesn't become a general "render any external image" capability. Only
 // aggregate counts/percentages/class names are ever sent to build a chart
 // URL - never individual student names/PII.
-// The numbers come from the Organization Stats page's own code
+// The numbers come from the School stats page's own code
 // (controllers/statsController), so Mira and the page always agree.
 // ============================================================
 
@@ -8314,7 +8314,7 @@ async function shortChartUrls(specs) {
 
 
 // Charts use one colour per chart (a single series) so they read the same as
-// the Organization Stats page.
+// the School stats page.
 const CHART_BLUE = "#2a78d6";
 
 function horizontalBarChart(title, labels, values, { max } = {}) {
@@ -8334,7 +8334,7 @@ function horizontalBarChart(title, labels, values, { max } = {}) {
 }
 
 // GET /internal/api/stats/organization?organizationId&...&termName?&schoolYearLabel?
-// The same numbers as the Organization Stats page (controllers/statsController
+// The same numbers as the School stats page (controllers/statsController
 // buildOrganizationStats): term-scoped, enrollment-based, one result per
 // student per subject. When the term has no scores yet, the academic figures
 // come from the latest term with results and are labelled as such.

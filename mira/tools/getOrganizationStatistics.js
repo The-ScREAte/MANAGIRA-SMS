@@ -4,7 +4,7 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "get_organization_statistics",
   description:
-    "Organization statistics for one term (default: the current term) - the exact same numbers as the website's Organization stats page: enrolled " +
+    "School statistics for one term (default: the current term) - the exact same numbers as the website's School stats page: enrolled " +
     "students (and change from the previous term), average score, pass rate, attendance rate, score entry progress, students needing support, active " +
     "classes, staff, per-class and per-subject results, score distribution, top students, enrollment by term, gender and staff by role. If the term has " +
     "no scores yet, academic figures come from the latest term with results - say which term (academicResultsTerm) whenever that happens. Present the " +

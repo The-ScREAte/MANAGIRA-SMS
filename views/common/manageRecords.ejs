@@ -1273,7 +1273,7 @@
           <p class="ws-head__sub">Each school year and its terms. The current ones are marked with a dot.</p>
         </div>
         <div class="ws-head__actions">
-          <button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageRecords.1"><i class="fa-solid fa-plus" aria-hidden="true"></i> New school year</button>
+          <button type="button" class="ws-btn ws-btn--primary" data-onclick="common-manageRecords.1"><%- navIcon('plus', 18) %><span class="ws-btn__label">New school year</span></button>
         </div>
       </header>
       <% const _needEnroll = typeof termsWithoutEnrollment !== 'undefined' ? termsWithoutEnrollment : []; %>

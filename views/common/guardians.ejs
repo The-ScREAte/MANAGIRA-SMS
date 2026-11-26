@@ -41,7 +41,7 @@
     </div>
     <% if (guardians.length) { %>
     <div class="ws-head__actions">
-      <button type="button" class="ws-btn" id="uxFilterToggle" aria-expanded="true" aria-controls="uxFilters"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filters <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
+      <button type="button" class="ws-btn" id="uxFilterToggle" aria-label="Filters" title="Filters" aria-expanded="true" aria-controls="uxFilters"><%- navIcon('filter', 18) %><span class="ws-btn__label">Filters</span> <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
     </div>
     <% } %>
   </header>

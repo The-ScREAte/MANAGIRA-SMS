@@ -55,8 +55,9 @@
   }
   window.a11yAnnounce = say;
 
-  window.addEventListener('spa:pageLoaded', function () {
-    var main = document.querySelector('main');
+  window.addEventListener('spa:pageLoaded', function (e) {
+    if (e && e.detail && e.detail.refresh) return; // a quiet background refresh keeps focus where it was
+    var main = document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)');
     say((document.title || '').replace(/\s*\|\s*Managira\s*$/, '') || 'Page loaded');
     if (main) {
       if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
@@ -410,7 +411,7 @@
   // ---- headings: one h1 per page and no skipped levels (the look never changes) ----------------
   // The level a screen reader announces is corrected with aria-level; sizes and styles are untouched.
   function headings() {
-    var scope = document.querySelector('main') || document.body;
+    var scope = document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)') || document.body;
     var all = Array.prototype.filter.call(scope.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]'), function (h) {
       return !h.closest('#top-header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],.managira-footer,[data-a11y-heading]') && shown(h);
     });

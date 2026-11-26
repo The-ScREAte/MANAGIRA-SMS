@@ -27,44 +27,10 @@ main { padding: 0 !important; max-width: none !important; }
   padding: 26px 24px 60px;
 }
 
-.docs-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-  gap: 12px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
 .docs-search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
 .docs-search input { flex: 1 1 240px; min-width: 0; height: 40px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; }
 .docs-search .btn { height: 40px; }
 .docs-note { margin: 0 0 12px; color: #64748b; font-size: 0.875rem; }
-.docs-header h1 {
-  margin: 0;
-  text-align: left;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.docs-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.docs-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .btn {
   display: inline-flex;
   align-items: center;
@@ -356,17 +322,12 @@ main { padding: 0 !important; max-width: none !important; }
 
 @media (max-width: 768px) {
   .docs-wrapper { padding: 16px 14px 40px; }
-  .docs-header { flex-direction: column; align-items: flex-start; padding: 14px; }
-  .docs-header h1 { font-size: 22px; }
   .docs-grid { grid-template-columns: 1fr; }
   
 }
 
 @media (max-width: 480px) {
   .docs-wrapper { padding: 12px 10px 30px; }
-  .docs-header h1 { font-size: 20px; }
-  .docs-actions { width: 100%; }
-  .docs-actions .btn { flex: 1; justify-content: center; }
   .type-selector { grid-template-columns: 1fr; }
 }
 </style>
@@ -376,25 +337,21 @@ main { padding: 0 !important; max-width: none !important; }
   .doc-card-icon.document i { color: #2563eb; }
   .doc-card-icon.spreadsheet i { color: #16a34a; }
   .doc-report-badge { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 6px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .72rem; font-weight: 700; }
-  .docs-header h1 { margin-left: 0 !important; padding-left: 0 !important; }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/listPager.css') %>" />
 <script src="<%= assetUrl('/js/listPager.js') %>"></script>
 <div class="docs-wrapper" data-can-create="<%= canCreate ? 'true' : 'false' %>" data-auto-create="<%= autoCreate ? 'true' : 'false' %>">
-  <div class="docs-header">
-    <% if (!classId) { %><div>
-      <h1>Docs &amp; sheets</h1>
-      <p class="docs-subtitle">Documents, spreadsheets and report card layouts.</p>
-    </div><% } else { %><div></div><% } %>
-    <div class="docs-actions">
-      <% if (canCreate) { %>
-      <button class="btn btn-primary" data-onclick="common-documents.1">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        New Doc/Sheet
-      </button>
-      <% } %>
+  <header class="page-head">
+    <div class="page-head__text"><% if (!classId) { %>
+      <h1 class="page-head__title">Docs &amp; sheets</h1>
+      <p class="page-head__sub">Documents, spreadsheets and report card layouts.</p>
+    <% } %></div>
+    <% if (canCreate) { %>
+    <div class="page-head__actions">
+      <button type="button" class="btn-icon page-head__primary" data-onclick="common-documents.1" aria-label="New Doc/Sheet" title="New Doc/Sheet"><%- navIcon('plus', 18) %><span class="page-head__label">New Doc/Sheet</span></button>
     </div>
-  </div>
+    <% } %>
+  </header>
 
   <% if ((typeof documentsCapped !== 'undefined' && documentsCapped) || (typeof documentSearch !== 'undefined' && documentSearch)) { %>
     <form class="docs-search" method="get" action="/documents">

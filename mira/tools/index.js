@@ -20,6 +20,8 @@ const getCalendarSyncStatus = require("./getCalendarSyncStatus");
 const addToMyCalendar = require("./addToMyCalendar");
 const findFreeTime = require("./findFreeTime");
 const whatsNew = require("./whatsNew");
+const searchHelpGuides = require("./searchHelpGuides");
+const getHelpGuide = require("./getHelpGuide");
 const listActivities = require("./listActivities");
 const createActivity = require("./createActivity");
 const getBusRidingToday = require("./getBusRidingToday");
@@ -208,6 +210,8 @@ const ALL_TOOLS = [
   addToMyCalendar,
   findFreeTime,
   whatsNew,
+  searchHelpGuides,
+  getHelpGuide,
   listActivities,
   createActivity,
   getBusRidingToday,

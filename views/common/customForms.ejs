@@ -1,12 +1,12 @@
 <%# The Custom editor, in Management Tools: public/js/customFormsEditor.js draws it. %>
 <link rel="stylesheet" href="<%= assetUrl('/css/customForms.css') %>" />
 <div class="cf cf-ed" id="cf-app">
-  <div class="cf-ed__top">
-    <div>
-      <h1>Custom editor</h1>
+  <header class="page-head">
+    <div class="page-head__text"><h1 class="page-head__title">Custom editor</h1></div>
+    <div class="page-head__actions">
+      <button type="button" class="btn-icon page-head__primary" id="cf-new" aria-label="New section" title="New section"><%- navIcon('plus', 18) %><span class="page-head__label">New section</span></button>
     </div>
-    <button type="button" class="cf-btn cf-btn--primary" id="cf-new">New section</button>
-  </div>
+  </header>
   <div class="cf-sections" id="cf-sections"></div>
 </div>
 <script nonce="<%= locals.cspNonce || '' %>" type="application/json" id="cf-boot"><%- JSON.stringify(boot) %></script>

@@ -32,7 +32,7 @@ const SEED = [
   { section: "management", title: "Organization Dashboard", tag: "Overview",
     summary: "Get an at-a-glance view of school activity, priority items, and operational updates from one central hub. Every staff member starts here and moves straight into their assigned areas.",
     screens: [step("Organization Dashboard.png", "Organization dashboard", "The school's home screen: activity, priorities and quick links to every area.")] },
-  { section: "management", title: "Organization stats", tag: "Insights",
+  { section: "management", title: "School stats", tag: "Insights",
     summary: "Monitor school-wide performance, enrollment trends, student progress, and key operational metrics in one consolidated view that also feeds the weekly email digest.",
     screens: [step("Organization Statistics.png", "School statistics", "Enrollment, performance and operations in one consolidated view for leadership.")] },
   { section: "management", title: "Class Dashboard", tag: "Classroom",

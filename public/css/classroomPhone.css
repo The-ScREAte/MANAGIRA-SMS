@@ -208,3 +208,200 @@
   body .assessment-compact-actions::before { content: ""; order: 7; flex: 0 0 100%; height: 0; }
   body .assessment-compact-actions .gb-menu-wrap { order: 8; }
 }
+
+/* ===================================================================================================
+   STABLE PHONE CLASSROOM (<= 768px). tests/classroomStable.test.js scans these rules.
+   One vertical scroll owner at any time:
+   - a page that opens inside the classroom (the Gradebook, Attendance, Assessment Questions, a student ...) fills
+     the space under the tab chips; the classroom page itself does NOT scroll then, the page inside does
+     (in the Gradebook only the table scrolls, in both directions, its header row and # / Student columns pinned);
+   - the Class Room overview (no frame) scrolls the page as usual.
+   Nothing is sticky or fixed except the app header and the table's own pinned cells, so no card can land on another.
+   Heights come from flex + dvh (the browser bars are counted), never from measured pixels or CSS zoom.
+   Type scale: body 13px, small 11.5px, buttons 13px / 600, class title 18px, icons 18px.
+   =================================================================================================== */
+@media (max-width: 768px) {
+  /* The footer never shows in the classroom. */
+  body:has(.workspace-shell) .managira-footer, body:has(.workspace-shell) footer.managira-footer { display: none !important; }
+
+  /* Cards stack in normal flow: no sticky header card, no sticky tab row, no negative overlap. */
+  .workspace-header-card { position: static !important; top: auto; z-index: auto; padding: 8px 10px; }
+  .workspace-header-card:has(.term-view-pop:not([hidden])) { z-index: 30; position: relative !important; }
+  .workspace-tabbar-shell { position: static !important; z-index: auto; }
+  .workspace-shell { padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .workspace-shell > .nav-toggle { display: inline-flex; height: 36px; margin: 0 0 8px; padding: 0 12px; font-size: 13px; font-weight: 600; box-sizing: border-box; }
+  .workspace-main { gap: 8px; }
+  .workspace-stage.card { min-height: 0 !important; }
+  .workspace-header-copy .page-title { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  .workspace-meta-toggle, .term-view-dots { width: 36px; height: 36px; min-width: 36px; border-radius: 9px; }
+  .workspace-meta-toggle .workspace-meta-toggle-icon, .term-view-dots svg { width: 18px; height: 18px; }
+  /* The details open and close without moving anything above them. */
+  .workspace-header-card .workspace-meta-inline { margin-top: 8px; }
+  .workspace-meta-pair { min-height: 36px; padding: 4px 10px; }
+  .workspace-meta-pair .meta-label { font-size: 11.5px; }
+  .workspace-meta-pair .meta-value, .is-term-picking .term-view-select { font-size: 13px; }
+
+  /* Tab chips: 32px high, 12.5px text, one scrollable row. */
+  .workspace-tabbar-shell.card { margin: 0; border-bottom: 1px solid var(--ap-line, #e5e7eb) !important; border-radius: 12px; }
+  .workspace-tabbar-shell + .workspace-stage { margin-top: 0; }
+  .workspace-tabbar { border-bottom: 0 !important; }
+  .workspace-tabbar-shell.card { padding: 0 !important; }
+  .workspace-tabbar { min-height: 40px; padding: 4px 8px; gap: 6px; }
+  .workspace-tab-activate { margin: 0 !important; }
+  .workspace-tab { min-height: 32px; max-width: 70vw; }
+  .workspace-tab-activate { min-height: 30px; padding: 0 2px 0 10px; }
+  .workspace-tab-label { font-size: 12.5px; font-weight: 600; max-width: 46vw; }
+  .workspace-tab-close { flex: 0 0 28px; width: 28px; min-width: 28px; height: 28px; font-size: 16px; }
+  .workspace-tab-add { width: 28px; height: 28px; }
+
+  /* Class Tools drawer: rows 44px, icon tiles 32px. */
+  .workspace-sidebar .nav-link, .workspace-sidebar .nav-section-toggle { min-height: 44px; height: 44px; font-size: 13px; gap: 10px; padding: 0 10px 0 6px; }
+  .workspace-sidebar .nav-link.is-locked { height: auto; min-height: 44px; }
+  .workspace-sidebar .nav-link .nav-icon { width: 32px; height: 32px; border-radius: 9px; }
+  .workspace-sidebar .nav-link .nav-icon svg { width: 18px; height: 18px; }
+  .workspace-sidebar .nav-link .nav-icon.nav-icon--pair { width: 32px; min-width: 32px; }
+  .workspace-sidebar .nav-sublink { min-height: 44px; font-size: 13px; }
+  .workspace-sidebar .nav-header h3 { font-size: 15px; }
+  .workspace-sidebar .nav-list > li.nav-section-label { font-size: 11px; margin: 10px 8px 2px; }
+
+  /* A page open in a frame: the classroom is exactly one screen tall (dvh follows the browser bars) and the frame
+     takes what the header, the Class Tools button, the class card and the tab chips leave. */
+  html:has(.workspace-frame-panel.is-active),
+  html:has(.workspace-frame-panel.is-active) body { height: 100dvh; max-height: 100dvh; overflow: hidden; }
+  body:has(.workspace-frame-panel.is-active) { box-sizing: border-box; min-height: 0 !important; }
+  body:has(.workspace-frame-panel.is-active) #app-scale-root { flex: 1 1 auto; min-height: 0; height: auto; }
+  body:has(.workspace-frame-panel.is-active) main#main-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  body:has(.workspace-frame-panel.is-active) .workspace-shell { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body:has(.workspace-frame-panel.is-active) .workspace-grid { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  body:has(.workspace-frame-panel.is-active) .workspace-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  body:has(.workspace-frame-panel.is-active) .workspace-main > * { flex: 0 0 auto; }
+  body:has(.workspace-frame-panel.is-active) .workspace-main > .workspace-stage { flex: 1 1 auto; min-height: 0 !important; height: auto !important; display: flex; flex-direction: column; overflow: hidden; }
+  body:has(.workspace-frame-panel.is-active) .workspace-stage > .workspace-panels,
+  body:has(.workspace-frame-panel.is-active) .workspace-stage #workspaceDynamicPanels { flex: 1 1 auto; min-height: 0; height: auto; display: flex; flex-direction: column; }
+  body:has(.workspace-frame-panel.is-active) .workspace-stage .workspace-panel:not(.is-active):not(.workspace-frame-panel) { display: none; }
+  body:has(.workspace-frame-panel.is-active) .workspace-stage .workspace-frame-panel.is-active { flex: 1 1 auto; min-height: 0; height: auto; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+  body:has(.workspace-frame-panel.is-active) .workspace-stage .workspace-frame-panel.is-active .workspace-frame-shell { flex: 1 1 auto; min-height: 0 !important; height: auto !important; display: flex; flex-direction: column; }
+  body:has(.workspace-frame-panel.is-active) .workspace-stage .workspace-frame-panel.is-active .workspace-frame { flex: 1 1 auto; min-height: 0 !important; height: auto !important; width: 100%; }
+}
+
+/* The gradebook opened in the classroom (its own page, in the frame): header card, legend, then the table box filling the rest.
+   The page sits inside the layout's wrappers (body > #app-scale-root > main#main-content > main > form): every one of them is a flex column of the frame's height. */
+@media (max-width: 768px) {
+  html:has(body[data-cw-embed]), html body[data-cw-embed] { height: 100dvh; max-height: 100dvh; min-height: 0 !important; overflow: hidden !important; }
+  html body[data-cw-embed] { display: flex; flex-direction: column; background: transparent; }
+  html body[data-cw-embed] #app-scale-root, html body[data-cw-embed] main#main-content, html body[data-cw-embed] main#main-content > main {
+    flex: 1 1 auto; min-height: 0 !important; height: auto; display: flex !important; flex-direction: column; overflow: hidden !important; padding: 0 !important;
+  }
+  html body[data-cw-embed] main#main-content > main { padding-bottom: env(safe-area-inset-bottom, 0px) !important; }
+  html body[data-cw-embed] main#main-content > main > * { flex: 0 0 auto; }
+  html body[data-cw-embed] main#main-content > main > #save-scores-form { flex: 1 1 auto; min-height: 0; display: flex !important; flex-direction: column; overflow: hidden !important; }
+  html body[data-cw-embed] #save-scores-form > .table-container { flex: 1 1 auto; min-height: 0; height: auto; max-height: none !important; overflow: auto !important; }
+  html body[data-cw-embed] .assessment-header.compact { margin: 0 0 6px; }
+}
+
+/* Gradebook + class tables on a phone: a bordered box that scrolls both ways, header row and first two columns pinned.
+   Separate borders (no collapsed borders: those don't travel with sticky cells and leave dotted marks). */
+@media (max-width: 640px) {
+  html body .table-container { border: 1px solid var(--ap-line, #e2e8f0); border-radius: 10px; background: var(--ap-surface, #fff); overflow: auto; overscroll-behavior: contain; max-height: calc(100dvh - 240px); margin: 0; }
+  html body[data-cw-embed] .table-container { border-radius: 10px; }
+  html body .table-container table { border-collapse: separate !important; border-spacing: 0 !important; width: max-content; min-width: 0 !important; table-layout: fixed; }
+  html body main .table-container table th, html body main .table-container table td {
+    box-sizing: border-box; height: 42px; padding: 4px 8px; border: 0 !important; border-right: 1px solid var(--ap-line, #e8edf3) !important; border-bottom: 1px solid var(--ap-line, #e8edf3) !important;
+    background-clip: padding-box; font-size: 13px; line-height: 1.25; vertical-align: middle;
+  }
+  html body main .table-container table tbody td { background: var(--ap-surface, #fff); }
+  html body main .table-container table tbody tr:nth-child(even) td { background: var(--ap-surface, #fff); }
+  html body main .table-container table thead th {
+    position: sticky; top: 0; z-index: 4; height: auto; min-height: 44px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; line-height: 1.25;
+    background: var(--ap-surface-2, #f1f5f9); color: var(--ap-text, #0f172a); text-transform: none; letter-spacing: 0;
+  }
+  /* # (28px) and Student (96px): opaque, above the scores, a soft edge on the right of Student. */
+  html body main .table-container table th:first-child, html body main .table-container table td:first-child {
+    position: sticky; left: 0; z-index: 3; width: 28px; min-width: 28px; max-width: 28px; padding: 0; text-align: center; font-size: 11.5px; box-shadow: none; overflow: hidden;
+    background: var(--ap-surface, #fff);
+  }
+  html body main .table-container table th:nth-child(2), html body main .table-container table td:nth-child(2) {
+    position: sticky; left: 28px; z-index: 3; width: 96px; min-width: 96px; max-width: 96px; padding: 4px 8px; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+    background: var(--ap-surface, #fff); box-shadow: 3px 0 4px -2px rgba(15, 23, 42, .16);
+  }
+  html body main .table-container table thead th:first-child, html body main .table-container table thead th:nth-child(2) { z-index: 6; background: var(--ap-surface-2, #f1f5f9); }
+  html body main .table-container table thead th.student-name-heading { white-space: nowrap; }
+  .table-container .student-name-heading .table-sort-btn { margin-left: 2px; min-width: 24px; min-height: 24px; }
+  .table-container .student-name-heading-label-full { display: none; }
+  .table-container .student-name-heading-label-short { display: inline; }
+  html body main .table-container table th.gb-col, html body main .table-container table th[data-gb-sum] { width: 88px; min-width: 88px; max-width: 88px; padding: 4px 6px; vertical-align: middle; text-align: left; font-size: 11.5px; position: sticky; }
+  html body main .table-container table td.gb-cell { width: 88px; min-width: 88px; max-width: 88px; padding: 4px 6px; text-align: center; }
+  html body main .table-container table td input[type="number"], html body main .table-container table td select,
+  html body main .table-container table td.gb-cell input[type="number"], html body main .table-container table td.gb-cell select {
+    width: 68px; max-width: 100%; height: 32px; padding: 0 4px; font-size: 16px; line-height: 1; border-radius: 7px; text-align: center; font-variant-numeric: tabular-nums; box-sizing: border-box;
+  }
+  html body main .table-container table th.gb-col .gb-th__name { padding-right: 22px; font-size: 11.5px; font-weight: 600; line-height: 1.25; }
+  html body main .table-container table th.gb-col .gb-th__meta, html body main .table-container table th.gb-col .gb-th__out, html body main .table-container table th.gb-col .choice-kind { font-size: 11px; font-weight: 500; }
+  html body main .table-container table th.gb-col .assessment-status { top: 1px; right: 1px; width: 24px; height: 24px; }
+  html body main .table-container table th.gb-col .assessment-status svg { width: 14px; height: 14px; }
+  html body main .table-container table th.gb-col { height: 56px; }
+  html body main .table-container table th.gb-col .gb-approve { height: 20px; }
+
+  /* Toolbar and header card of the gradebook. */
+  html body .assessment-header.compact { padding: 8px 10px; gap: 6px; border-radius: 10px; }
+  html body main .assessment-compact-title { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  html body .assessment-compact-subtitle { font-size: 11.5px; }
+  html body .assessment-compact-titles { gap: 0 8px; }
+  html body .assessment-compact-actions, html body .cw-toolbar, html body .gb-toolbar { gap: 6px; }
+  html body .assessment-compact-actions::before { display: none; }
+  html body .assessment-compact-actions button, html body .assessment-compact-actions .gb-add, html body .assessment-compact-actions .gb-chip,
+  html body .cw-toolbar button, html body .cw-toolbar .btn, html body .gb-toolbar button {
+    height: 34px; min-height: 34px; padding: 0 10px; gap: 6px; border-radius: 9px; font-size: 13px; font-weight: 600;
+  }
+  html body .assessment-compact-actions svg, html body .cw-toolbar svg, html body .gb-toolbar svg { width: 18px; height: 18px; }
+  html body .assessment-compact-actions .gb-chip svg:last-child, html body .assessment-compact-actions .gb-chip svg:first-child { width: 18px; height: 18px; }
+  html body .assessment-compact-actions .teachers-btn { padding: 0 8px; }
+  html body .assessment-compact-actions .teachers-count { font-size: 11.5px; min-width: 20px; height: 20px; }
+  html body .cw-filter-btn.cw-filter-btn { width: 34px; min-width: 34px; max-width: 34px; height: 34px; flex: 0 0 34px; }
+  html body .cw-filter-btn .cw-filter-ico { width: 18px; height: 18px; }
+  html body .assessment-compact-actions .header-save-btn { padding: 0 12px; min-width: 0; flex: 0 0 auto; margin-left: auto; order: 9; }
+  html body .assessment-compact-actions .header-save-btn .cw-save-ico { width: 18px; height: 18px; }
+  html body .gb-legend { margin: 0 2px 6px; gap: 2px 10px; font-size: 11.5px; line-height: 1.3; }
+  html body .gb-legend i, html body .gb-legend .dot { width: 8px; height: 8px; }
+  html body .gb-menu button[data-gb-last], html body .gb-menu button[data-gb-students], html body .cw-menu button, html body .cw-menu a { min-height: 44px; font-size: 13px; }
+}
+
+/* Attendance & lunch in the classroom frame: the same compact cards, no wide side gutters. */
+@media (max-width: 640px) {
+  html body .attendance-page, html body .attendance-page-embedded { padding: 8px 10px calc(12px + env(safe-area-inset-bottom, 0px)) !important; }
+  html body .attendance-header { padding: 8px 10px; margin: 0 0 8px; border-radius: 10px; }
+  html body .attendance-header h1, html body .attendance-header h2 { font-size: 16px; }
+  html body .attendance-sheet th, html body .attendance-sheet td { font-size: 12px; }
+  html body .attendance-sheet th.student-name, html body .attendance-sheet td.student-name { font-size: 13px; background: var(--ap-surface, #fff); position: sticky; left: 0; z-index: 3; }
+}
+@media (max-width: 640px) {
+  /* Totals such as "25 / 100" stay on one line inside their 88px cell. */
+  html body main .table-container table td:not(.gb-cell):not(:nth-child(-n+2)) { white-space: nowrap; font-size: 12.5px; text-align: center; }
+  html body main .table-container table td.gb-cell .gb-score-wrap, html body main .table-container table td.gb-cell { white-space: nowrap; }
+}
+
+/* Gradebook on a phone: numbers never wrap, columns snap fully into view, Save shares the title row. */
+@media (max-width: 640px) {
+  html body .table-container { scroll-snap-type: x proximity; scroll-padding-left: 124px; }
+  html body main .table-container table :is(th, td):not(:nth-child(-n+2)) { scroll-snap-align: start; }
+  html body main .table-container table td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  html body main .table-container table th:not(.gb-col):not(:nth-child(-n+2)) { white-space: normal; overflow-wrap: normal; word-break: normal; hyphens: none; }
+  /* Total subject score / scaled score / percentage / grade / position: widths that fit their numbers. */
+  html body main .table-container table :is(th, td):nth-last-child(5) { width: 96px; min-width: 96px; max-width: none; }
+  html body main .table-container table :is(th, td):nth-last-child(4) { width: 108px; min-width: 108px; max-width: none; }
+  html body main .table-container table :is(th, td):nth-last-child(3) { width: 92px; min-width: 92px; max-width: none; }
+  html body main .table-container table :is(th, td):nth-last-child(2) { width: 60px; min-width: 60px; max-width: none; }
+  html body main .table-container table :is(th, td):nth-last-child(1) { width: 72px; min-width: 72px; max-width: none; }
+  html body main .table-container table td:nth-last-child(-n+5) { text-align: center; }
+
+  /* Row 1: subject title + Save. Row 2: + Assessment, Review, students, filter. */
+  html body .assessment-header.compact { display: flex; flex-flow: row wrap; align-items: center; gap: 6px 8px; }
+  html body .assessment-header.compact::after { content: ""; order: 1; flex: 0 0 100%; height: 0; }
+  html body .assessment-header.compact > .assessment-compact-heading { order: 0; flex: 1 1 0; min-width: 0; }
+  html body .assessment-header.compact > .assessment-compact-actions { display: contents; }
+  html body .assessment-header.compact > .assessment-compact-actions > * { order: 2; }
+  html body .assessment-header.compact > .assessment-compact-actions > .header-save-btn { order: 1; flex: 0 0 auto; margin-left: 0; }
+  html body .assessment-header.compact .assessment-compact-titles { flex-wrap: nowrap; min-width: 0; }
+  html body .assessment-header.compact .assessment-compact-subtitle { white-space: nowrap; }
+  html body .assessment-header.compact .teachers-btn .btn-label { display: none; }
+}

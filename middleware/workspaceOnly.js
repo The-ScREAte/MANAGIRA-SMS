@@ -82,7 +82,7 @@ const RULES = {
   "/common/admissionSettings": admissions("online-admission-settings", "Admission settings"),
   "/common/archivedStudents": admissions("former-students", "Graduates & alumni"),
   "/common/closeGraduationYearGroup": admissions("graduate-former", "Graduate & withdraw"),
-  "/stats/organization": reports("org-stats", "Organization stats"),
+  "/stats/organization": reports("org-stats", "School stats"),
   "/common/closeSchoolYear": reports("term-management", "Terminal reports"),
   "/print/reportSettings": reports("report-settings", "Report settings"),
   "/common/report-builder": reports("report-builder", "Report builder"),

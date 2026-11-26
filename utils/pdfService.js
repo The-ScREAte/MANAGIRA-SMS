@@ -617,7 +617,7 @@ async function renderMeritSheetPdf({ baseUrl, sessionCookie, classId, termId, su
   });
 }
 
-// Organization stats: the page draws its charts with scripts, so scripts stay
+// School stats: the page draws its charts with scripts, so scripts stay
 // on here and the PDF waits for the page to report that every chart is drawn.
 async function renderOrganizationStatsPdf({ baseUrl, sessionCookie, termId }) {
   return withPage(async (page) => {

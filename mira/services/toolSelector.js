@@ -5,7 +5,7 @@
 // loaded, so a short follow-up ("yes", "the first one") keeps the tools it
 // needs. The model can always ask for another area with load_tools.
 
-const CORE_TOOLS = ["work_out_date", "search_records", "whats_new", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
+const CORE_TOOLS = ["work_out_date", "search_records", "whats_new", "search_help_guides", "get_help_guide", "find_student", "list_students", "get_class", "get_term", "list_school_years", "list_projects", "report_builder_catalog", "run_report"];
 
 // name -> { label (shown to the model), keywords (matched against the
 // conversation), tools }

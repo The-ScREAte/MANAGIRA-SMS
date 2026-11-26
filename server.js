@@ -82,6 +82,8 @@ app.use("/internal/shard", require("./routes/shardInternalRoute"));
 const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
 app.use(require("./middleware/botProbes"));
 app.use(securityHeaders);
+// req.isPrefetch, Server-Timing, and a nonce-free ETag for the app's own page navigation (utils/navHints.js).
+app.use(require("./utils/navHints").navHints);
 require("./utils/uploadSafety"); // also makes every upload check its first bytes
 app.use(require("./utils/errorScrub")); // no database error text in any JSON answer (production)
 // Only a few large uploads are read into memory at the same time.
@@ -921,7 +923,8 @@ app.use(async (req, res, next) => {
   // poll started before logout can finish saving the session back to the
   // store *after* logout deletes it, resurrecting the user's login.
   const ACTIVITY_WRITE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-  if (now - lastActivity > ACTIVITY_WRITE_INTERVAL_MS) {
+  // A page fetched ahead by the app (idle warm-up) is not the person's activity: it must not keep a quiet sign-in alive.
+  if (!req.isPrefetch && now - lastActivity > ACTIVITY_WRITE_INTERVAL_MS) {
     req.session.lastActivity = now;
   }
   next();
@@ -956,6 +959,7 @@ app.use(require("./utils/privateByDefault").privateByDefault);
 
 // Flash messages middleware
 app.use(flash());
+app.use(require("./utils/navHints").quietFlash); // a page fetched ahead neither reads nor leaves a message
 app.use(require("./utils/errorScrub").flashScrub); // no raw database error text in a flashed message (production)
 // A school being moved to another shard waits on a short page; everyone else is untouched.
 app.use(shardRouting.pauseWhileMoving);

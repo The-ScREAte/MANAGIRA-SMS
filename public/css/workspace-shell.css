@@ -454,8 +454,49 @@ main { padding: 0 !important; max-width: none !important; }
   display: contents;
 }
 
-.management-nav-shell {
+.management-nav-shell,
+.settings-nav-shell {
   display: contents;
+}
+
+/* The phone "Menu" bar. One look for every workspace menu (Management, Settings and the hubs
+   define the same bar); on a desktop it is hidden because the sidebar is already showing. */
+.settings-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px !important;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--primary, #01535b);
+  margin: 0;
+  width: 100%;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+/* Phone: the panel header is as tall as Management's (which carries an arrange button). */
+@media (max-width: 900px) { .settings-nav-header { min-height: 45px; box-sizing: border-box; } }
+.settings-nav-toggle-label { display: inline-flex; align-items: center; gap: 8px; }
+.settings-nav-toggle .hub-hamburger-icon,
+.settings-nav-toggle .hub-hamburger-icon::before,
+.settings-nav-toggle .hub-hamburger-icon::after {
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: var(--primary, #01535b);
+}
+.settings-nav-toggle .hub-hamburger-icon { position: relative; flex-shrink: 0; }
+.settings-nav-toggle .hub-hamburger-icon::before,
+.settings-nav-toggle .hub-hamburger-icon::after { content: ""; position: absolute; left: 0; }
+.settings-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+.settings-nav-toggle .hub-hamburger-icon::after { top: 6px; }
+@media (max-width: 900px) {
+  .settings-nav-toggle { display: flex; }
 }
 
 /* Desktop icon-rail collapse — shared by all three workspace sidebars
@@ -671,53 +712,6 @@ main { padding: 0 !important; max-width: none !important; }
     padding-top: 12px !important;
   }
 
-  /* Settings: overlay nav on mobile – header stays in flow, list floats */
-  .settings-layout {
-    position: relative !important;
-    gap: 12px !important;
-    padding-top: 12px !important;
-  }
-
-  .settings-nav {
-    position: relative !important;
-    display: block !important;
-    width: 100% !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-  }
-
-  .settings-nav-header {
-    cursor: pointer !important;
-  }
-
-  .settings-nav .nav-list {
-    display: none !important;
-    position: absolute !important;
-    top: 100% !important;
-    left: 0 !important;
-    width: 260px !important;
-    max-width: calc(100vw - 20px) !important;
-    z-index: 950 !important;
-    background: #fff !important;
-    border: 1px solid var(--border, #e5e7eb) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16) !important;
-    margin-top: 4px !important;
-  }
-
-  #settings-layout-root .settings-nav.open .nav-list {
-    display: grid !important;
-    animation: mgNavIn 0.18s ease both;
-  }
-
-  .settings-nav-header-caret {
-    display: inline-block !important;
-  }
-
-  .settings-nav.open .settings-nav-header-caret {
-    transform: rotate(-135deg) !important;
-    margin-top: 4px !important;
-  }
 
   .hub-main .section-header,
   .management-main .section-header,
@@ -815,8 +809,7 @@ main { padding: 0 !important; max-width: none !important; }
 /* Phones and tablets: side menus open below their Menu button and scroll
    independently so every item remains reachable. */
 @media (max-width: 900px) {
-  .management-nav.open,
-  #settings-layout-root .settings-nav.open .nav-list {
+  .management-nav.open {
     position: fixed !important;
     top: var(--side-menu-top, 120px) !important;
     bottom: 0 !important;
@@ -841,7 +834,22 @@ main { padding: 0 !important; max-width: none !important; }
     z-index: 12101;
   }
 
+  .settings-nav-shell {
+    display: block;
+    grid-column: 1;
+    min-width: 0;
+    position: relative;
+    z-index: 12101;
+  }
+
   .management-nav-toggle {
+    width: calc(100vw - 20px) !important;
+    position: relative;
+    z-index: 12101;
+    transition: border-radius 140ms ease, box-shadow 140ms ease;
+  }
+
+  .settings-nav-toggle {
     width: calc(100vw - 20px) !important;
     position: relative;
     z-index: 12101;
@@ -853,13 +861,28 @@ main { padding: 0 !important; max-width: none !important; }
     box-shadow: none !important;
   }
 
+  .settings-nav-toggle[aria-expanded="true"] {
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: none !important;
+  }
+
   .management-nav-toggle .hub-hamburger-icon,
   .management-nav-toggle .hub-hamburger-icon::before,
   .management-nav-toggle .hub-hamburger-icon::after {
     transition: transform 140ms ease, top 140ms ease, opacity 140ms ease, background-color 140ms ease;
   }
 
+  .settings-nav-toggle .hub-hamburger-icon,
+  .settings-nav-toggle .hub-hamburger-icon::before,
+  .settings-nav-toggle .hub-hamburger-icon::after {
+    transition: transform 140ms ease, top 140ms ease, opacity 140ms ease, background-color 140ms ease;
+  }
+
   .management-nav-toggle .hub-hamburger-icon {
+    background: currentColor;
+  }
+
+  .settings-nav-toggle .hub-hamburger-icon {
     background: currentColor;
   }
 
@@ -869,7 +892,17 @@ main { padding: 0 !important; max-width: none !important; }
     transform-origin: center;
   }
 
+  .settings-nav-toggle .hub-hamburger-icon::before,
+  .settings-nav-toggle .hub-hamburger-icon::after {
+    background: currentColor;
+    transform-origin: center;
+  }
+
   .management-nav-toggle[aria-expanded="true"] .hub-hamburger-icon {
+    background: transparent;
+  }
+
+  .settings-nav-toggle[aria-expanded="true"] .hub-hamburger-icon {
     background: transparent;
   }
 
@@ -878,7 +911,17 @@ main { padding: 0 !important; max-width: none !important; }
     transform: rotate(45deg);
   }
 
+  .settings-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+
   .management-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::after {
+    top: 0;
+    transform: rotate(-45deg);
+  }
+
+  .settings-nav-toggle[aria-expanded="true"] .hub-hamburger-icon::after {
     top: 0;
     transform: rotate(-45deg);
   }
@@ -913,7 +956,38 @@ main { padding: 0 !important; max-width: none !important; }
     z-index: 12100 !important;
   }
 
-  .management-nav.open {
+  .settings-nav {
+    display: block !important;
+    position: fixed !important;
+    top: var(--settings-nav-top, var(--side-menu-top, 120px)) !important;
+    bottom: 0 !important;
+    left: var(--settings-nav-left, 10px) !important;
+    right: auto !important;
+    width: var(--settings-nav-width, calc(100vw - 20px)) !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 1px solid var(--border, #e5e7eb) !important;
+    border-top: 0 !important;
+    border-radius: 0 0 12px 12px !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-6px) !important;
+    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+    animation: none !important;
+    z-index: 12100 !important;
+  }
+
+  .management-nav.open,
+  .settings-nav.open {
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
@@ -1006,66 +1080,36 @@ main { padding: 0 !important; max-width: none !important; }
     transform: translateY(0) !important;
     transition-delay: 0s;
   }
+}
 
-  #settings-layout-root .settings-nav-header {
-    width: calc(100vw - 20px) !important;
-    position: relative;
-    z-index: 12101;
-    border-radius: 8px !important;
-    transition: border-radius 140ms ease, box-shadow 140ms ease;
+/* PHONE scale for every workspace menu (Management, Settings, the hubs): 44px rows, an 18px icon on a 32px tile,
+   13px labels. Tap size comes from the row, not the text. Same numbers for all, so the menus stay identical. */
+@media (max-width: 640px) {
+  .hub-nav .nav-link,
+  .management-nav .nav-link,
+  .settings-nav .nav-link {
+    min-height: var(--menu-row-h, 44px);
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    gap: 10px;
+    font-size: var(--fs-body, 13px) !important;
   }
-
-  #settings-layout-root .settings-nav.open .settings-nav-header {
-    border-radius: 8px 8px 0 0 !important;
-    box-shadow: none !important;
-  }
-
-  #settings-layout-root .settings-nav .nav-list {
-    display: grid !important;
-    position: fixed !important;
-    top: var(--settings-nav-top, var(--side-menu-top, 120px)) !important;
-    bottom: 0 !important;
-    left: var(--settings-nav-left, 10px) !important;
-    right: auto !important;
-    width: var(--settings-nav-width, calc(100vw - 20px)) !important;
-    height: auto !important;
-    max-width: calc(100vw - 20px) !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 0px)) !important;
-    border: 1px solid var(--border, #e5e7eb) !important;
-    border-top: 0 !important;
-    border-radius: 0 0 12px 12px !important;
-    background: var(--surface, #fff) !important;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    transform: translateY(-6px) !important;
-    transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
-    z-index: 12100 !important;
-  }
-
-  #settings-layout-root .settings-nav.open .nav-list {
-    align-content: start;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    transform: translateY(0) !important;
-    transition-delay: 0s;
-  }
+  .hub-nav .nav-link .nav-link-icon,
+  .management-nav .nav-link .nav-link-icon,
+  .settings-nav .nav-link .nav-link-icon { width: 32px; height: 32px; border-radius: 9px; }
+  .hub-nav .nav-link .nav-link-icon svg,
+  .management-nav .nav-link .nav-link-icon svg,
+  .settings-nav .nav-link .nav-link-icon svg { width: var(--icon-size, 18px); height: var(--icon-size, 18px); }
+  .hub-nav-toggle, .management-nav-toggle, .settings-nav-toggle { min-height: 40px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hub-nav,
   .management-nav,
-  #settings-layout-root .settings-nav .nav-list,
+  .settings-nav,
   .hub-nav-toggle,
   .management-nav-toggle,
-  #settings-layout-root .settings-nav-header,
+  .settings-nav-toggle,
   .hub-nav-toggle .hub-hamburger-icon,
   .hub-nav-toggle .hub-hamburger-icon::before,
   .hub-nav-toggle .hub-hamburger-icon::after,

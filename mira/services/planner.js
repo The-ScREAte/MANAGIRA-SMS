@@ -225,6 +225,8 @@ const TOOL_STEPS = {
   list_bills: "Reviewing bills and collections",
   get_form_requests: "Auditing form completion across classes",
   remind_form_outstanding: "Preparing reminders for outstanding families",
+  search_help_guides: "Searching the help guides",
+  get_help_guide: "Reading the help guide",
   whats_new: "Scanning the features available to your school",
   find_free_time: "Analyzing your calendar for open time",
   add_to_my_calendar: "Scheduling it on your calendar",
