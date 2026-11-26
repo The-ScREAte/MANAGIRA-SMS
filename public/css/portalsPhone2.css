@@ -1,0 +1,91 @@
+/* Parent and student portals on a phone, second pass (640px and narrower): Academic info (header, term picker, stat tiles, grades table),
+   the student Grades sheet, Teachers cards and Alerts switch rows. Tables scroll in their own box with ONE opaque pinned first
+   column (104px, ellipsis) and a fixed opaque header. Tablet and desktop are unchanged. tests/portalsPhone2.test.js scans this file. */
+@media (max-width: 640px) {
+  /* ---------- Academic info (parent) ---------- */
+  html body .academic-container { padding: 8px 12px 28px; max-width: none; box-sizing: border-box; }
+  html body .academic-container .student-header { padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; }
+  html body .academic-container .student-header-content { gap: 8px; }
+  html body .academic-container .student-identity { gap: 10px; align-items: center; }
+  html body .academic-container .student-avatar-large { width: 44px; height: 44px; border-width: 2px; }
+  html body .academic-container .student-header-info h1 { font-size: 19px; line-height: 24px; }
+  html body .academic-container .student-term-context { font-size: 12px; margin: 1px 0 4px; }
+  html body .academic-container .student-meta-summary { min-height: 36px; display: flex; align-items: center; }
+  html body .academic-container .term-selector { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; width: 100%; }
+  html body .academic-container .term-selector form { flex: 1 1 auto; min-width: 0; }
+  html body .academic-container .term-selector label { display: block; margin: 0 0 4px; font-size: 11.5px; }
+  html body .academic-container .term-pick { display: flex; align-items: center; gap: 8px; }
+  html body .academic-container .term-pick select { flex: 1 1 0; min-width: 0; height: 44px; font-size: 16px; }
+  html body .academic-container .term-selector .term-show, html body .academic-container .term-selector .report-cards-trigger { height: 44px; min-height: 44px; padding: 0 14px; margin: 0; font-size: 13px; border-radius: 10px; white-space: nowrap; }
+  html body .academic-container .term-selector-actions { flex: none; margin: 0; }
+  html body .academic-container .section-card { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; box-shadow: none; }
+  html body .academic-container .section-card > h2 { display: flex; align-items: center; margin: 0 0 8px; padding: 0 0 8px; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+  html body .academic-container .ad-ico { width: 24px; height: 24px; margin-right: 8px; }
+  html body .academic-container .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 8px; }
+  html body .academic-container .info-grid.info-grid--gpa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body .academic-container .info-item { padding: 8px 10px; border-radius: 10px; min-width: 0; }
+  html body .academic-container .info-label { font-size: 10.5px; letter-spacing: .04em; }
+  html body .academic-container .info-value { margin-top: 2px; font-size: 15px; font-weight: 700; line-height: 1.2; }
+  html body .academic-container .info-value--gpa { font-size: 18px; }
+  html body .academic-container .info-note { font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
+
+  /* ---------- Grades tables (parent Academic info, student Grades sheet) ---------- */
+  html body :is(.academic-container .section-card > div:has(> table.assessment-table), .sp-table-wrap) { max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 10px; scroll-snap-type: x proximity; }
+  html body :is(table.assessment-table, table.sp-table) { border-collapse: separate !important; border-spacing: 0 !important; width: max-content; min-width: 100%; table-layout: auto; }
+  html body :is(table.assessment-table, table.sp-table) :is(th, td) { box-sizing: border-box; min-width: 64px; max-width: 150px; height: 40px; padding: 4px 8px; font-size: 12.5px; line-height: 1.25; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; border: 0 !important; border-bottom: 1px solid #eef0f3 !important; border-right: 1px solid #f1f3f6 !important; background: #fff; }
+  html body :is(table.assessment-table, table.sp-table) thead th { position: sticky; top: 0; z-index: 4; height: 48px; font-size: 11.5px; font-weight: 700; text-transform: none; letter-spacing: 0; background: #f1f5f9 !important; color: #0f172a; white-space: nowrap !important; padding-right: 22px; min-width: 88px; }
+  html body :is(table.assessment-table, table.sp-table) thead th br { display: none; }
+  html body :is(table.assessment-table, table.sp-table) :is(th, td):first-child { position: sticky !important; left: 0 !important; z-index: 3 !important; width: 104px; min-width: 104px; max-width: 104px; font-weight: 600; background: #fff !important; box-shadow: 3px 0 4px -2px rgba(15, 23, 42, .14); }
+  html body :is(table.assessment-table, table.sp-table) thead th:first-child { z-index: 6 !important; background: #f1f5f9 !important; }
+  html body :is(table.assessment-table, table.sp-table) :is(.global-table-sort-btn, .table-sort-btn) { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; min-width: 0; min-height: 0; padding: 0; margin: 0; }
+  html body :is(table.assessment-table, table.sp-table) :is(.global-table-sort-btn, .table-sort-btn) svg { width: 11px; height: 11px; }
+  html body .sp-gpa-line { margin: 0 0 8px; padding: 8px 10px; font-size: 12.5px; }
+
+  /* ---------- Teachers (parent and student): compact row-cards ---------- */
+  html body .tc-list { gap: 8px; }
+  html body .tc-card { padding: 10px 12px; border-radius: 12px; }
+  html body .tc-card .tc-top { gap: 10px; }
+  html body .tc-card .tc-top img, html body .tc-card .tc-avatar { width: 40px; height: 40px; font-size: 13px; }
+  html body .tc-card .tc-contact { margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; }
+  html body .tc-card .tc-message { height: 36px; min-height: 36px; margin-top: 8px; padding: 0 14px; font-size: 13px; }
+
+  /* ---------- Alerts / notification switch rows ---------- */
+  html body :is(.ph, .settings-page) .ns-row { padding: 10px 12px; }
+  html body :is(.ph, .settings-page) .ns-main { row-gap: 4px; column-gap: 6px; }
+  html body :is(.ph, .settings-page) .ns-cell { min-height: 36px; }
+  html body :is(.ph, .settings-page) .ns-switch input { inset: -10px -6px; width: auto; height: auto; }
+  html body :is(.ph, .settings-page) .ns-cell[data-label]::after { font-size: 11.5px; }
+  html body :is(.ph, .settings-page) .ns-threshold input { height: 36px; font-size: 16px; }
+  html body :is(.ph, .settings-page) .ns-savebar { position: sticky; bottom: 0; z-index: 5; margin: 8px -12px 0; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #eef1f5; }
+  html body :is(.ph, .settings-page) .ns-save { height: 44px; padding: 0 20px; font-size: 14px; }
+
+  /* ---------- PayGira: bill rows (title left, money right, action row), history as 2-column row-cards ---------- */
+  html body .pg-wrap .pg-stats { gap: 8px; margin: 0 0 10px; }
+  html body .pg-wrap .pg-stat { padding: 8px 10px; border-radius: 12px; min-width: 0; }
+  html body .pg-wrap .pg-stat .label { font-size: 10.5px; }
+  html body .pg-wrap .pg-stat .value { font-size: 16px; margin-top: 2px; overflow-wrap: anywhere; }
+  html body .pg-wrap .pg-stat .sub { font-size: 11px; margin-top: 2px; }
+  html body .pg-wrap .pg-children-grid { gap: 8px; }
+  html body .pg-wrap .pg-child-head { padding: 10px 12px; }
+  html body .pg-wrap .pg-bill-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 6px; align-items: start; padding: 10px 12px; }
+  html body .pg-wrap .pg-bill-row > div:first-child { grid-column: 1; min-width: 0; }
+  html body .pg-wrap .pg-bill-row .pg-bill-money { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+  html body .pg-wrap .pg-bill-row .pg-bill-actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; }
+  html body .pg-wrap .pg-bill-title { font-size: 13px; overflow-wrap: anywhere; }
+  html body .pg-wrap .pg-bill-sub { font-size: 11.5px; }
+  html body .pg-wrap .pg-bill-actions .pg-btn { flex: 1 1 auto; height: 40px; min-height: 40px; font-size: 13px; }
+  html body .pg-wrap .pg-bill-actions .pg-icon-link { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+  html body .pg-wrap .pg-history-summary { padding: 10px 12px; min-height: 44px; }
+  html body .pg-wrap .pg-history { padding: 8px; }
+  html body .pg-wrap .pg-history-row:not(.head) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; padding: 8px 10px; align-items: center; }
+  html body .pg-wrap .pg-history-row:not(.head) > * { min-width: 0; overflow-wrap: anywhere; }
+  html body .pg-wrap .pg-history-row .pg-amount { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  html body .pg-wrap .pg-history-row .pg-icon-link { width: 40px; height: 36px; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* ---------- Testing Room list (student): compact rows, Start stays big ---------- */
+  html body .tr .tr-row { padding: 10px 12px; }
+  html body .tr .tr-facts { margin: 6px 0 8px; gap: 4px 10px; font-size: 12px; }
+  html body .tr .tr-btn { height: 44px; min-height: 44px; }
+  html body .tr .tr-empty { padding: 12px; }
+  html body .tr .tr-section { margin-bottom: 10px; }
+}

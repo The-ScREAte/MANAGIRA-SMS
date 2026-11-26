@@ -1186,11 +1186,24 @@
         }
       }
 
+      // A tab that was kept aside while something was saved (or for a while) shows its data again when it is opened:
+      // the old copy stays visible and the new one replaces it quietly (no spinner, no reload of a tab that did not change).
+      function refreshStaleWorkspacePanel(panel) {
+        if (!panel || !panel.__wsStale || panel.classList.contains('is-loading')) return;
+        var frame = panel.querySelector('iframe.workspace-frame');
+        if (!frame) return;
+        panel.__wsStale = false;
+        panel.__wsSilent = true;
+        try { frame.contentWindow.location.reload(); } catch (e) { panel.__wsSilent = false; }
+      }
+
       function showWorkspacePanel(panelId) {
         Array.prototype.forEach.call(document.querySelectorAll('.workspace-panel'), function(panel) {
           var isActive = panel.id === panelId;
+          var wasHidden = panel.hidden;
           panel.hidden = !isActive;
           panel.classList.toggle('is-active', isActive);
+          if (isActive && wasHidden) refreshStaleWorkspacePanel(panel);
         });
       }
 
@@ -1229,8 +1242,9 @@
               // URL changed (different student/term/etc) — load the new URL
               showWorkspaceFrameLoading(existing);
               cachedIframe.setAttribute('src', tab.iframeSrc);
-            } else {
-              // Same URL — show stale content immediately, silently reload in background
+            } else if (existing.__wsStale || Date.now() - (existing.__wsAsideAt || 0) > 30000) {
+              // Same URL, kept aside for a while (or something was saved meanwhile): show it at once, load the new copy quietly
+              existing.__wsStale = false;
               setTimeout(function() {
                 existing.__wsSilent = true; // a quiet refresh: the page stays visible, no spinner
                 try { cachedIframe.contentWindow.location.reload(); } catch(e) { existing.__wsSilent = false; }
@@ -1286,6 +1300,7 @@
         // Move to the keep-alive cache so the iframe stays loaded
         var cache = getWorkspaceIframeCache();
         if (cache) {
+          panel.__wsAsideAt = Date.now();
           cache.appendChild(panel);
           // Evict oldest entries when cache exceeds the limit
           while (cache.children.length > WS_IFRAME_CACHE_MAX) {

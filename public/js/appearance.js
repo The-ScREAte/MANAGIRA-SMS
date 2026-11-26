@@ -703,7 +703,11 @@
       });
 
       window.addEventListener('load', () => { pass(); quiet(() => settle(document.body)); charts(); }, { once: true });
-      window.addEventListener('spa:pageLoaded', () => { pass(); quiet(() => settle(document.body)); charts(); });
+      window.addEventListener('spa:pageLoaded', (e) => {
+        // A page that was kept alive is already themed: only the header (drawn again) needs the pass.
+        if (e && e.detail && e.detail.kept) { const header = document.getElementById('top-header'); if (header) quiet(() => settle(header)); return; }
+        pass(); quiet(() => settle(document.body)); charts();
+      });
 
       // Printing: put inline colors back (the remapped stylesheets are screen-only).
       let printed = [];

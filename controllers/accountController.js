@@ -316,10 +316,56 @@ function getStudentIdSearchStart(occupiedNumbers = [], currentCounter = 0, confi
   return minOccupiedNumber;
 }
 
+// Same answer as getStudentIdSearchStart + getFirstAvailableStudentIdNumber over every occupied number, but the
+// database works it out and sends back three numbers instead of one row per student (a 5,000-student school
+// used to ship ~10,000 rows on every Settings load). The search start is either the configured start, the
+// counter's next number or the lowest occupied number, so the first free number from each is computed here
+// and the same rules as getStudentIdSearchStart choose between them.
 async function getNextSuggestedStudentIdNumber(dbClient, organizationId, currentCounter = 0, configuredStartNumber = null) {
-  const occupiedNumbers = await getOccupiedStudentIdNumbers(dbClient, organizationId);
-  const searchStart = getStudentIdSearchStart(occupiedNumbers, currentCounter, configuredStartNumber);
-  return getFirstAvailableStudentIdNumber(occupiedNumbers, searchStart);
+  const explicitStart = Number(configuredStartNumber);
+  const hasExplicitStart = Number.isInteger(explicitStart) && explicitStart > 0;
+  const configuredNext = Math.max(1, Number(currentCounter) || 0) + 1;
+  const result = await dbClient.query(
+    `WITH occ AS (
+       SELECT occupied_number::int AS n
+         FROM (
+           SELECT student_id AS occupied_number
+             FROM students
+            WHERE organization_id = $1
+              AND student_id IS NOT NULL
+              AND student_id > 0
+           UNION
+           SELECT NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '')::int AS occupied_number
+             FROM students
+            WHERE organization_id = $1
+              AND NULLIF(REGEXP_REPLACE(COALESCE(custom_student_id, ''), '\\D', '', 'g'), '') IS NOT NULL
+         ) occupied_numbers
+        WHERE occupied_number IS NOT NULL
+          AND occupied_number > 0
+     ),
+     lowest AS (SELECT MIN(n) AS n FROM occ),
+     starts AS (
+       SELECT GREATEST(1, $2::int) AS s
+       UNION SELECT GREATEST(1, $3::int) WHERE $3::int IS NOT NULL
+       UNION SELECT GREATEST(1, n) FROM lowest WHERE n IS NOT NULL
+     )
+     SELECT (SELECT n FROM lowest) AS lowest,
+            st.s AS start_number,
+            (SELECT MIN(c) FROM (SELECT st.s AS c UNION ALL SELECT n + 1 FROM occ WHERE n + 1 >= st.s) cand
+              WHERE NOT EXISTS (SELECT 1 FROM occ WHERE occ.n = cand.c)) AS first_free
+       FROM starts st`,
+    [organizationId, configuredNext, hasExplicitStart ? explicitStart : null]
+  );
+  const rows = result.rows;
+  const lowest = rows.length && rows[0].lowest !== null ? Number(rows[0].lowest) : null;
+  let searchStart;
+  if (hasExplicitStart) searchStart = explicitStart;
+  else if (lowest === null) searchStart = configuredNext;
+  else if (configuredNext < lowest && configuredNext >= Math.max(1, lowest - 1)) searchStart = configuredNext;
+  else searchStart = lowest;
+  const wanted = Math.max(1, searchStart);
+  const match = rows.find((row) => Number(row.start_number) === wanted);
+  return match ? Number(match.first_free) : getFirstAvailableStudentIdNumber([], wanted);
 }
 
 const LOGIN_REDIRECT_PERMISSION_RULES = [

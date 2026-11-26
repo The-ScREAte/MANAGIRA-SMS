@@ -168,3 +168,112 @@ test("the router uses the cache rules: no inline handlers, pages are written to 
   assert.match(head, /name="managira-identity"/);
   assert.ok(head.indexOf("/js/navCache.js") < head.indexOf("/js/spa-router.js"), "navCache loads before the router");
 });
+
+// ── Kept-alive pages: the gate that keeps a parked page quiet (public/js/navGate.js) ──
+function loadGate() {
+  const vm = require("vm");
+  const src = fs.readFileSync(path.join(__dirname, "../public/js/navGate.js"), "utf8");
+  const calls = { win: [], doc: [], timeouts: [], intervals: [] };
+  const win = {
+    addEventListener(type, fn) { calls.win.push([type, fn]); },
+    removeEventListener(type, fn) { calls.win = calls.win.filter((c) => !(c[0] === type && c[1] === fn)); },
+    setTimeout(fn) { calls.timeouts.push(fn); return calls.timeouts.length; },
+    setInterval(fn) { calls.intervals.push(fn); return calls.intervals.length; },
+  };
+  win.self = win; win.top = win;
+  const doc = { readyState: "complete", currentScript: null, addEventListener(type, fn) { calls.doc.push([type, fn]); }, removeEventListener() {} };
+  win.document = doc;
+  vm.runInContext(src, vm.createContext({ window: win, document: doc, WeakMap, Array }));
+  return { win, doc, calls, gate: win.__managiraGate };
+}
+
+test("gate: a parked page's listeners do nothing, and work again when it is shown", () => {
+  const { win, calls, gate } = loadGate();
+  const rec = { parked: false, dead: false, deferred: [] };
+  let hits = 0;
+  gate.rec = rec; // the router is running this page's scripts
+  win.addEventListener("resize", () => { hits += 1; });
+  gate.rec = null;
+  let outside = 0;
+  win.addEventListener("resize", () => { outside += 1; }); // not part of the page: never gated
+  const fire = () => calls.win.filter((c) => c[0] === "resize").forEach((c) => c[1]());
+  fire();
+  assert.deepEqual([hits, outside], [1, 1]);
+  rec.parked = true;
+  fire();
+  assert.deepEqual([hits, outside], [1, 2], "the parked page ignored the event");
+  rec.parked = false;
+  fire();
+  assert.deepEqual([hits, outside], [2, 3]);
+});
+
+test("gate: removeEventListener finds the wrapped listener", () => {
+  const { win, calls, gate } = loadGate();
+  gate.rec = { parked: false, dead: false, deferred: [] };
+  const fn = () => {};
+  const base = calls.win.length;
+  win.addEventListener("scroll", fn);
+  assert.equal(calls.win.length, base + 1);
+  win.removeEventListener("scroll", fn);
+  assert.equal(calls.win.length, base, "the wrapper, not the original, is what was added and removed");
+});
+
+test("gate: interval ticks are skipped while parked; a timeout that falls due waits and runs on return", () => {
+  const { win, calls, gate } = loadGate();
+  const rec = { parked: false, dead: false, deferred: [] };
+  let polls = 0;
+  let later = 0;
+  gate.rec = rec;
+  win.setInterval(() => { polls += 1; }, 1000);
+  win.setTimeout(() => { later += 1; }, 5000);
+  gate.rec = null;
+  rec.parked = true;
+  calls.intervals.forEach((f) => f());
+  calls.timeouts.forEach((f) => f());
+  assert.deepEqual([polls, later], [0, 0], "no polling, no timer work while parked");
+  rec.parked = false;
+  gate.flush(rec);
+  assert.deepEqual([polls, later], [0, 1], "the waiting timeout runs once when the page is shown again");
+  calls.intervals.forEach((f) => f());
+  assert.equal(polls, 1, "the interval carries on");
+});
+
+test("gate: a destroyed page's timers never run; a panel (iframe) is quiet while its parent says so", () => {
+  const { win, calls, gate } = loadGate();
+  const rec = { parked: false, dead: false, deferred: [] };
+  let n = 0;
+  gate.rec = rec;
+  win.setTimeout(() => { n += 1; }, 10);
+  gate.rec = null;
+  rec.dead = true;
+  calls.timeouts.forEach((f) => f());
+  assert.equal(n, 0);
+  win.setInterval(() => { n += 10; }, 10);
+  win.__managiraParked = true;
+  calls.intervals.forEach((f) => f());
+  assert.equal(n, 0, "a frame flagged as parked skips its ticks");
+  win.__managiraParked = false;
+  calls.intervals.forEach((f) => f());
+  assert.equal(n, 10);
+});
+
+test("keeping pages alive is on by default, has a kill switch, and never keeps tests, drivers or trips", () => {
+  const router = fs.readFileSync(path.join(__dirname, "../public/js/spa-router.js"), "utf8");
+  const head = fs.readFileSync(path.join(__dirname, "../views/partials/head.ejs"), "utf8");
+  assert.match(router, /KEEP_PANELS: window\.MANAGIRA_KEEP_PANELS !== false && !\(document\.querySelector\('meta\[name="managira-keep-panels"\]\[content="0"\]'\)\)/);
+  assert.ok(/NAV_KEEP_PANELS === 'off'[\s\S]{0,20}<meta name="managira-keep-panels" content="0">/.test(head), "kill switch meta");
+  assert.ok(head.indexOf("/js/navGate.js") !== -1 && head.indexOf("/js/navGate.js") < head.indexOf("/js/logoutConfirm.js"), "the gate loads before any page script");
+  assert.match(router, /!\/testing-room\|\\\/driver\\\/\|trip\/i\.test\(rec\.key\)/);
+  assert.match(router, /KEEP_MAX: 6/);
+  assert.match(router, /KEEP_TTL_MS: 5 \* 60 \* 1000/);
+  // data-heavy pages are kept 30 s at most
+  ["/account/settings/finance", "/common/attendanceCollection", "/common/mailroom", "/common/orgDashboard"].forEach((p) => assert.equal(NC.ttlFor(p), 30 * 1000, p));
+});
+
+test("a class page is a warm-up candidate; state-changing and test pages are not", () => {
+  assert.equal(NC.isPrefetchAllowed("/common/classDashboard/146?termId=100"), true);
+  assert.equal(NC.isPrefetchAllowed("/common/classDashboard"), true);
+  assert.equal(NC.isPrefetchAllowed("/common/classDashboard/146/delete"), false);
+  assert.equal(NC.isPrefetchAllowed("/student/testing-room/5"), false);
+  assert.equal(NC.isPrefetchAllowed("/driver/dashboard"), false);
+});

@@ -36,7 +36,7 @@
   var PREFETCH_ALLOW = [
     /^\/common\/(orgDashboard|management|admissions|reports|mailroom|birthdays|my-access|calendar)$/,
     /^\/account\/settings(\/finance)?$/,
-    /^\/common\/classDashboard$/,
+    /^\/common\/classDashboard(\/\d+)?$/,
     /^\/common\/(manageEmployees|guardians|archivedStudents|manageClassSubjectAndGradYr|manageEventsAnnouncements)$/,
     /^\/guardian\/(dashboard|settings)$/,
     /^\/student\/dashboard$/,

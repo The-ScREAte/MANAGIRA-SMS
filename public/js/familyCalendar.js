@@ -98,17 +98,31 @@
         .then(function (json) { kept[id] = json && json.success ? json.items : []; return kept[id]; });
     }
 
+    var isPhone = window.matchMedia('(max-width: 640px)').matches;
+    var selectedDay = null;
+    var dayBox = root.querySelector('[data-cal-day]');
     calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: window.matchMedia('(max-width: 640px)').matches ? 'listMonth' : 'dayGridMonth',
+      initialView: 'dayGridMonth',
       initialDate: root.getAttribute('data-initial-date') || undefined,
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth' },
       buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day', list: 'Agenda' },
       height: fitHeight(),
       firstDay: 1,
       nowIndicator: true,
-      dayMaxEvents: true,
+      dayMaxEvents: isPhone ? 2 : true,
+      moreLinkContent: function (a) { return isPhone ? '+' + a.num : '+' + a.num + ' more'; },
+      dayHeaderFormat: isPhone ? { weekday: 'narrow' } : undefined,
       eventDisplay: 'block',
-      navLinks: true,
+      navLinks: !isPhone,
+      dateClick: function (info) { if (isPhone && info.view.type === 'dayGridMonth') { selectedDay = info.dateStr.slice(0, 10); renderDay(); } },
+      datesSet: function (info) {
+        hidePeek();
+        if (!isPhone) return;
+        var tk = key(new Date());
+        var cur = key(info.view.currentStart);
+        selectedDay = info.view.type === 'dayGridMonth' ? (tk.slice(0, 7) === cur.slice(0, 7) ? tk : cur) : null;
+        renderDay();
+      },
       slotMinTime: '06:00:00',
       slotMaxTime: '21:00:00',
       scrollTime: '08:00:00',
@@ -118,6 +132,7 @@
         load(info.startStr, info.endStr).then(function (items) {
           all = items; renderSide();
           success(visible().map(toEvent));
+          setTimeout(renderDay, 0);
         }).catch(function (error) { failure(error); });
       },
       eventDidMount: function (info) {
@@ -125,31 +140,98 @@
         if (COLOR[layer]) info.el.style.setProperty('--c', COLOR[layer]);
         info.el.setAttribute('title', info.event.title);
       },
-      eventClick: function (info) { info.jsEvent.preventDefault(); peek(info.event.extendedProps.item); },
+      eventClick: function (info) { info.jsEvent.preventDefault(); peek(info.event.extendedProps.item, info.el); },
     });
     calendar.render();
-    requestAnimationFrame(function () { calendar.setOption('height', fitHeight()); });
-    window.addEventListener('resize', function () { calendar.setOption('height', fitHeight()); });
+    // After drawing, measure where the calendar really ends and size it to end at the bottom of
+    // the window (the page zoom makes a first guess land a little off), as the school calendar does.
+    function fitToWindow() {
+      if (!document.body.contains(calendarEl)) return;
+      if (window.matchMedia('(max-width: 640px)').matches) { calendar.setOption('height', 'auto'); return; }
+      var current = calendar.getOption('height');
+      var box = calendarEl.getBoundingClientRect();
+      if (typeof current !== 'number' || !box.height) { calendar.setOption('height', fitHeight()); return; }
+      var wanted = window.innerHeight - (box.top + window.scrollY) - 14;
+      var next = Math.max(480, Math.round(wanted * (current / box.height)));
+      if (Math.abs(next - current) > 2) calendar.setOption('height', next);
+    }
+    requestAnimationFrame(function () { calendar.setOption('height', fitHeight()); setTimeout(fitToWindow, 60); });
+    var resizeTimer = null;
+    window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(fitToWindow, 150); });
 
     function redraw() {
       calendar.removeAllEvents();
       calendar.addEventSource(visible().map(toEvent));
       renderSide();
+      renderDay();
+      markFilter();
     }
 
-    // ---------- details ----------
-    var dialog = document.querySelector('[data-cal-peek]');
-    function peek(item) {
-      dialog.querySelector('[data-peek-title]').textContent = item.title;
-      dialog.querySelector('[data-peek-meta]').textContent = new Date(item.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' + metaOf(item);
-      dialog.querySelector('[data-peek-details]').textContent = item.details || '';
-      var link = dialog.querySelector('[data-peek-link]');
-      link.hidden = !item.link;
-      if (item.link) link.setAttribute('href', item.link);
-      if (!dialog.open) dialog.showModal();
+    // ---------- details: a card by the event, a sheet at the bottom of a phone ----------
+    var sheet = document.querySelector('[data-cal-peek]');
+    function hidePeek() { if (sheet) sheet.hidden = true; }
+    function peek(item, anchor) {
+      var when = new Date(item.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+      var rows = ['<div class="ws-peek__row"><i class="fa-regular fa-clock"></i><span>' + esc(when + (item.startTime ? ' · ' + clock(item.startTime) + (item.endTime ? ' – ' + clock(item.endTime) : '') : ' · All day')) + '</span></div>'];
+      if (item.location) rows.push('<div class="ws-peek__row"><i class="fa-solid fa-location-dot"></i><span>' + esc(item.location) + '</span></div>');
+      var who = nameFor(item);
+      if (who) rows.push('<div class="ws-peek__row"><i class="fa-regular fa-user"></i><span>' + esc(who) + '</span></div>');
+      if (item.details) rows.push('<div class="ws-peek__row"><i class="fa-solid fa-align-left"></i><span class="ws-peek__details">' + esc(item.details) + '</span></div>');
+      sheet.innerHTML = '<div class="ws-peek__top"><span class="ws-peek__bar" style="--c:' + COLOR[item.kind] + '"></span>'
+        + '<div style="flex:1;min-width:0;"><div class="ws-peek__kind">' + esc(LABEL[item.kind] || '') + '</div><h3 class="ws-peek__title">' + esc(item.title) + '</h3></div>'
+        + '<button type="button" class="ws-close" data-peek-close aria-label="Close">\u00d7</button></div>'
+        + '<div class="ws-peek__rows">' + rows.join('') + '</div>'
+        + (item.link ? '<div class="ws-peek__actions"><a class="ws-btn ws-btn--primary" data-no-spa href="' + esc(item.link) + '">Open</a></div>' : '');
+      sheet.hidden = false;
+      if (anchor) {
+        var r = anchor.getBoundingClientRect(), w = sheet.offsetWidth, h = sheet.offsetHeight;
+        var left = r.right + 10, top = r.top;
+        if (left + w > window.innerWidth - 12) left = r.left - w - 10;
+        if (left < 12) { left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left)); top = r.bottom + 8; }
+        top = Math.min(top, window.innerHeight - h - 12);
+        sheet.style.left = Math.round(left) + 'px';
+        sheet.style.top = Math.round(Math.max(12, top)) + 'px';
+      }
+      sheet.querySelector('[data-peek-close]').addEventListener('click', hidePeek);
     }
-    dialog.querySelector('[data-peek-close]').addEventListener('click', function () { dialog.close(); });
-    dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close(); });
+    document.addEventListener('mousedown', function (e) { if (sheet && !sheet.hidden && !sheet.contains(e.target) && !e.target.closest('.fc-event, [data-up], [data-day-ev]')) hidePeek(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hidePeek(); });
+    window.addEventListener('scroll', hidePeek, { passive: true });
+
+    // ---------- phone: the tapped day's agenda under the month grid, and the filters button ----------
+    function renderDay() {
+      if (!isPhone || !dayBox) return;
+      document.querySelectorAll('#calendar .cal-day-sel').forEach(function (c) { c.classList.remove('cal-day-sel'); });
+      if (!selectedDay) { dayBox.hidden = true; return; }
+      var cell = document.querySelector('#calendar .fc-daygrid-day[data-date="' + selectedDay + '"]');
+      if (cell) cell.classList.add('cal-day-sel');
+      var p = selectedDay.split('-').map(Number);
+      var day = new Date(p[0], p[1] - 1, p[2]);
+      var evs = visible().filter(function (item) { return item.date <= selectedDay && (item.endDate || item.date) >= selectedDay; })
+        .sort(function (a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); });
+      dayBox._items = evs;
+      var label = day.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+      dayBox.innerHTML = '<div class="cal-day__head"><h2>' + esc(label) + '</h2><span>' + (evs.length ? evs.length + (evs.length === 1 ? ' item' : ' items') : '') + '</span></div>'
+        + (evs.length
+          ? '<ul class="cal-day__list">' + evs.slice(0, 40).map(function (item, i) {
+            return '<li><button type="button" data-day-ev="' + i + '"><span class="cal-up__dot" style="background:' + COLOR[item.kind] + '"></span><span class="cal-day__title">' + esc(item.title) + '</span><span class="cal-day__when">' + (item.startTime ? esc(clock(item.startTime)) : 'All day') + '</span></button></li>';
+          }).join('') + '</ul>'
+          : '<p class="cal-empty">Nothing on this day.</p>');
+      dayBox.hidden = false;
+    }
+    if (dayBox) dayBox.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-day-ev]');
+      var item = button && (dayBox._items || [])[Number(button.getAttribute('data-day-ev'))];
+      if (item) peek(item, button);
+    });
+    var filterBtn = root.querySelector('[data-cal-filter]');
+    var filterDot = root.querySelector('[data-cal-filter-dot]');
+    function markFilter() { if (filterDot) filterDot.hidden = !(child || Object.keys(hidden).some(function (k) { return hidden[k]; })); }
+    markFilter();
+    if (filterBtn) filterBtn.addEventListener('click', function () {
+      var open = root.classList.toggle('cal-filters-open');
+      filterBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
 
     // ---------- sidebar ----------
     root.addEventListener('change', function (event) {
@@ -161,7 +243,7 @@
     root.querySelector('[data-cal-upcoming]').addEventListener('click', function (event) {
       var button = event.target.closest('[data-up]');
       var list = root.querySelector('[data-cal-upcoming]')._items || [];
-      if (button && list[Number(button.getAttribute('data-up'))]) peek(list[Number(button.getAttribute('data-up'))]);
+      if (button && list[Number(button.getAttribute('data-up'))]) peek(list[Number(button.getAttribute('data-up'))], button);
     });
     renderChildren();
 

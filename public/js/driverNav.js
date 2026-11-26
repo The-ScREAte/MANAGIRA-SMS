@@ -437,7 +437,7 @@
       +   '<button type="button" class="drvn-tool" id="drvn-overview" aria-label="Show the whole route" title="Whole route">' + sharedIcon('maximize') + '</button>'
       +   '<div class="drvn-zoom"><button type="button" class="drvn-tool" id="drvn-zoom-in" aria-label="Zoom in">' + sharedIcon('zoomIn') + '</button><button type="button" class="drvn-tool" id="drvn-zoom-out" aria-label="Zoom out">' + sharedIcon('zoomOut') + '</button></div>'
       + '</div>'
-      + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden>' + sharedIcon('navigate', 18) + 'Re-center</button>'
+      + '<button type="button" class="drvn-recenter" id="drvn-recenter" hidden>' + sharedIcon('locate', 18) + 'Re-center</button>'
       + '<p class="drvn-toast" id="drvn-toast" role="status" hidden></p>'
       + '<div class="drvn-board" id="drvn-board" hidden><div class="drvn-board__head"><strong id="drvn-board-stop"></strong><small id="drvn-board-count"></small></div><div class="drvn-picks" id="drvn-board-list" hidden></div><div class="drvn-confirm__btns"><button type="button" class="drvn-plain drvn-plain--yes" id="drvn-board-all">All boarded</button><button type="button" class="drvn-plain drvn-plain--no" id="drvn-board-except">Except</button></div></div>'
       + '<section class="drvn-sheet" id="drvn-sheet" aria-label="Trip">'
@@ -452,7 +452,7 @@
       +     '<input type="search" class="drvn-search" id="drvn-stops-search" placeholder="Find a stop or student" autocomplete="off" aria-label="Find a stop or student" />'
       +     '<div id="drvn-stops"></div>'
       +     '<form class="drvn-addstop" id="drvn-addstop" hidden><input id="drvn-addstop-input" maxlength="300" autocomplete="off" placeholder="Stop address" aria-label="Stop address" /><div class="drvn-confirm__btns"><button type="button" class="drvn-plain" id="drvn-addstop-here">Use my location</button><button type="submit" class="drvn-plain drvn-plain--go" id="drvn-addstop-save">Add stop</button></div></form>'
-      +     '<div class="drvn-morebtns"><button type="button" class="drvn-plain" id="drvn-addstop-open">Add stop</button><button type="button" class="drvn-plain" data-drv-report>Report</button></div>'
+      +     '<div class="drvn-morebtns"><button type="button" class="drvn-plain" id="drvn-addstop-open">' + sharedIcon('plus', 16) + 'Add stop</button><button type="button" class="drvn-plain" data-drv-report>' + sharedIcon('reportFile', 16) + 'Report</button></div>'
       +   '</div>'
       + '</section>';
     document.body.appendChild(nav);

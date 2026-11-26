@@ -7,9 +7,10 @@
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/calendar.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/calendarPhone.css') %>" />
 <div class="cal-flash"><%- include('../partials/flash') %></div>
 
-<div class="cal-page" id="familyCalendar"
+<div class="cal-page cal-page--family" id="familyCalendar"
   data-base="<%= locals.calendarBase || '/guardian/calendar' %>"
   data-children="<%= JSON.stringify(_kids) %>"
   data-initial-date="<%= locals.initialDate || '' %>"
@@ -17,21 +18,24 @@
   <aside class="cal-side">
     <div class="cal-side__head">
       <h1>Calendar</h1>
+      <button type="button" class="ws-btn cal-filter-btn" data-cal-filter aria-label="Calendars and filters" title="Calendars and filters" aria-expanded="false"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="cal-filter-dot" data-cal-filter-dot hidden></span></button>
     </div>
     <div class="cal-side__actions">
-      <button type="button" class="ws-btn cal-sync" data-cal-sync>
-        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync
-      </button>
+      <div class="cal-side__pair">
+        <button type="button" class="ws-btn cal-sync" data-cal-sync aria-label="Add to my calendar" title="Add this calendar to Google Calendar or Outlook">
+          <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> <span class="cal-btn-text">Sync</span>
+        </button>
+      </div>
     </div>
 
     <% if (!_student && _kids.length > 1) { %>
-    <div class="cal-card">
+    <div class="cal-card" data-cal-filters>
       <h2 class="cal-card__title">Children</h2>
       <div data-cal-children></div>
     </div>
     <% } %>
 
-    <div class="cal-card">
+    <div class="cal-card" data-cal-filters>
       <h2 class="cal-card__title">My calendars</h2>
       <label class="cal-layer" style="--dot:#0f766e"><input type="checkbox" data-cal-layer="event" checked><span class="cal-layer__box"></span>School events<small data-cal-count="event"></small></label>
       <label class="cal-layer" style="--dot:#12883f"><input type="checkbox" data-cal-layer="activity" checked><span class="cal-layer__box"></span>Activities<small data-cal-count="activity"></small></label>
@@ -48,20 +52,10 @@
   <main class="cal-main">
     <div id="calendar" class="no-global-sort" data-no-global-sort aria-label="Calendar"></div>
   </main>
+  <section class="cal-day" data-cal-day hidden aria-live="polite"></section>
 </div>
 
-<dialog class="ws-dialog" data-cal-peek aria-labelledby="fc-peek-title">
-  <form method="dialog" novalidate>
-    <div class="ws-dialog__head">
-      <div><h2 class="ws-dialog__title" id="fc-peek-title" data-peek-title></h2><p class="sync-sub" data-peek-meta></p></div>
-      <button type="button" class="ws-close" data-peek-close aria-label="Close">×</button>
-    </div>
-    <div class="ws-dialog__body">
-      <p data-peek-details style="white-space:pre-line;margin:0"></p>
-      <p style="margin:12px 0 0"><a class="ws-btn ws-btn--primary" data-peek-link data-no-spa hidden>Open</a></p>
-    </div>
-  </form>
-</dialog>
+<div class="ws-peek" data-cal-peek hidden role="dialog" aria-modal="false"></div>
 
 <dialog class="ws-dialog sync-dialog" data-sync-dialog aria-labelledby="fc-sync-title">
   <form method="dialog" novalidate>

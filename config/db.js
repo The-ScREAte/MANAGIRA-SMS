@@ -265,16 +265,23 @@ function memoized(args) {
   if (!memo.has(key)) {
     const startedAt = process.hrtime.bigint();
     const counted = () => { dbMetrics.totalQueries += 1; countQuery(Number(process.hrtime.bigint() - startedAt) / 1e6); };
-    memo.set(key, queryWithRetry(args).then((result) => { counted(); return result; }, (error) => { counted(); memo.delete(key); throw error; }));
+    // Across requests too, when the statement only reads tables whose answers a school may keep for a few seconds
+    // (utils/stableReads.js: the platform settings and price lists; the billing cycles are never kept).
+    const scope = requestStore();
+    const kept = scope && scope.schoolId ? stableReads.read(args, () => queryWithRetry(args), scope) : null;
+    memo.set(key, (kept || queryWithRetry(args)).then((result) => { counted(); return result; }, (error) => { counted(); memo.delete(key); throw error; }));
   }
   return memo.get(key).then((result) => ({ ...result, rows: result.rows.map((row) => ({ ...row })) }));
 }
 
 pool.query = async (...args) => {
   const sql = sqlTextOf(args);
-  stableReads.noteSchemaChange(sql);
+  // A "create ... if not exists" / "alter table" that pages repeat on every request is run once per process (below):
+  // asking again is answered from that run and changes nothing, so it must not mark the schema as changed
+  // (that dropped every kept answer and re-read the catalogs on each such page load).
   const schemaRun = runSchemaOnce(args);
   if (schemaRun) return schemaRun;
+  stableReads.noteSchemaChange(sql);
   const remembered = memoized(args);
   if (remembered) return remembered;
   const scope = requestStore();

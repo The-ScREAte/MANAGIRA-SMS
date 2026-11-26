@@ -1,5 +1,6 @@
 <%- include('../partials/flash') %>
 <link rel="stylesheet" href="<%= assetUrl('/css/driverNav.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/driverPhone.css') %>" />
 <%
   var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
   var navApps = [{ key: 'google', label: 'Google Maps' }, { key: 'apple', label: 'Apple Maps' }];
@@ -29,14 +30,14 @@
     <% } else { %>
       <div class="drv-trip__main">
         <% if (routeList.length > 1) { %>
-          <label class="drv-label" for="drv-route-select">Route</label>
+          <label class="drv-label" for="drv-route-select"><%- navIcon('route', 14) %> Route</label>
           <select id="drv-route-select" class="drv-select">
             <% routeList.forEach(function (route, idx) { %>
               <option value="<%= route.route_id %>"<%= (activeRouteId ? String(route.route_id) === activeRouteId : idx === 0) ? ' selected' : '' %>><%= route.route_name %></option>
             <% }) %>
           </select>
         <% } else { %>
-          <p class="drv-label">Route</p>
+          <p class="drv-label"><%- navIcon('route', 14) %> Route</p>
           <p class="drv-routename"><%= routeList[0].route_name %></p>
         <% } %>
         <dl class="drv-facts">
@@ -68,8 +69,8 @@
       <div class="drv-cardhead">
         <h2>Students</h2>
         <div class="drv-tabs" role="tablist" aria-label="Students">
-          <button type="button" class="is-on" role="tab" aria-selected="true" data-student-tab="yes">Bus access <span id="drv-count-yes"></span></button>
-          <button type="button" role="tab" aria-selected="false" data-student-tab="no">No bus access <span id="drv-count-no"></span></button>
+          <button type="button" class="is-on" role="tab" aria-selected="true" data-student-tab="yes"><%- navIcon('busAccess', 14) %> Bus access <span id="drv-count-yes"></span></button>
+          <button type="button" role="tab" aria-selected="false" data-student-tab="no"><%- navIcon('noBusAccess', 14) %> No bus access <span id="drv-count-no"></span></button>
         </div>
       </div>
       <input type="search" class="drv-search" id="drv-students-search" placeholder="Search students" autocomplete="off" aria-label="Search students" />

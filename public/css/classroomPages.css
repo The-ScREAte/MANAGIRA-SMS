@@ -89,3 +89,12 @@
   html body:has(.workspace-shell) #ssRoot { transform: scale(.72); transform-origin: left bottom; bottom: 10px; opacity: .9; }
   html body:has(.workspace-shell) .chatbot-toggle { transform: scale(.74); transform-origin: right bottom; bottom: 10px; opacity: .9; }
 }
+
+/* Class workspace tab pages on a phone: ONE 10px gutter. The frame used to sit inside the shell's 10px padding and the page
+   inside added its own 6-16px (20-26px in total, content never lined up with the Class Tools / title cards above). The frame
+   now runs to the screen edges and each page's own padding is the only gutter, set to the same 10px. */
+@media (max-width: 640px) {
+  html body:has(.workspace-frame-panel.is-active) .workspace-main > .workspace-stage { overflow: visible; }
+  html body:has(.workspace-frame-panel.is-active) .workspace-stage .workspace-frame-panel.is-active .workspace-frame { margin-left: -10px; margin-right: -10px; width: calc(100% + 20px); max-width: none; }
+  html body main#main-content :is(.ws-root:has(#wb-form), .mp-wrap) { padding-left: 10px !important; padding-right: 10px !important; box-sizing: border-box; }
+}

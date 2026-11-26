@@ -115,8 +115,8 @@
 
 .pc-root.is-loading .pc-grid,#parentCalendar.is-loading .pc-grid { opacity: .55; transition: opacity .15s ease; }
 
-/* A child's tile page stays a narrow column; every other portal page uses the full width. */
-.ph.ph--tiles { max-width: 760px; padding: 16px 16px 48px; }
+/* A child's tile page is a centred column (wide enough for the tiles); other portal pages use the full width. */
+.ph.ph--tiles { max-width: 1040px; padding: 20px 24px 48px; }
 @media (max-width: 600px) { .ph { padding-left: 16px; padding-right: 16px; } }
 @media (min-width: 1000px) {
   .ph-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }

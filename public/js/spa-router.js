@@ -30,10 +30,17 @@
     PRELOAD_DELAY_HOVER: 65,
     WARM_PER_MINUTE: 12,        // idle warm-up budget (sliding minute)
     WARM_PER_SESSION: 25,       // until the person interacts again
-    KEEP_PANELS: !!(window.MANAGIRA_KEEP_PANELS || document.querySelector('meta[name="managira-keep-panels"]')), // OFF unless NAV_KEEP_PANELS=on (Render env): keeps up to 4 menu pages alive hidden
+    // ON unless the kill switch is set (env NAV_KEEP_PANELS=off renders <meta name="managira-keep-panels" content="0">):
+    // menu pages and class pages you leave are kept alive, hidden and silent (public/js/navGate.js), at most 4.
+    KEEP_PANELS: window.MANAGIRA_KEEP_PANELS !== false && !(document.querySelector('meta[name="managira-keep-panels"][content="0"]')),
+    KEEP_MAX: 6,                // menu pages + classes alive at once (least recently used dropped first); 3 when the tab's memory is high
+    KEEP_TTL_MS: 5 * 60 * 1000, // longest a parked page is shown from memory
+    KEEP_RECHECK_MS: 30 * 1000, // a parked page older than this is checked against the server when it comes back
     TYPING_QUIET_MS: 3000       // a page is not swapped under someone who just typed
   };
   const NC = window.ManagiraNavCache || null; // public/js/navCache.js
+  const G = window.__managiraGate || null;    // public/js/navGate.js: keeps parked pages quiet
+  const CLASS_PAGE = /^\/common\/classDashboard\/(\d+)/;
   // Menu pages (their sidebar): one copy for every ?panel=... address, the page picks its panel from the address.
   const HUB_SHELLS = ['/common/management', '/common/admissions', '/common/reports', '/account/settings/finance'];
   const HUB_WITH_PANEL = HUB_SHELLS.concat(['/account/settings']);
@@ -231,7 +238,9 @@
       this._lastHubUrl = new Map();  // hub path -> the address (panel and page) you were on
       this._hubScroll = new Map();
       this._lowBattery = false;
-      this._parkedMap = new Map();   // menu pages kept alive, hidden, with their panels (at most 4)
+      this._parkedMap = new Map();   // menu pages and class pages kept alive, hidden and quiet (at most CONFIG.KEEP_MAX)
+      this._lastWriteAt = 0;
+      this._unparkInfo = null;
       this._current = null;          // record of the menu page on screen (when it came through this router)
       this._gate = null;
       this.isNavigating = false;
@@ -256,10 +265,32 @@
       this._init();
     }
 
+    // Where the person is (address, state, scroll), kept up to date through every history change, so that a page
+    // being parked knows what it was showing (a class: which tab) even when the browser's Back button moved first.
+    _trackLocation() {
+      const here = () => ({ url: window.location.pathname + window.location.search, state: window.history.state, scroll: window.scrollY || 0 });
+      this._lastLoc = here();
+      const router = this;
+      ['pushState', 'replaceState'].forEach((m) => {
+        const native = window.history[m];
+        window.history[m] = function () { const r = native.apply(this, arguments); router._lastLoc = here(); return r; };
+      });
+      window.addEventListener('popstate', () => setTimeout(() => { this._lastLoc = here(); }, 0));
+    }
+
+    _noteLeaving(fromPop) {
+      const loc = (fromPop && this._lastLoc) ? this._lastLoc : { url: window.location.pathname + window.location.search, state: window.history.state, scroll: window.scrollY || 0 };
+      this._unparkScroll = 0;
+      this._leavingUrl = loc.url;
+      this._leavingState = loc.state;
+      this._leavingScroll = loc.scroll;
+    }
+
     // ── Initialization ────────────────────────────────────────────────
     _init() {
       this._installNavCacheHooks();
-      this._gateListeners();
+      this._trackLocation();
+      this._adoptBootPage();
       // 1. Save initial history state
       window.history.replaceState(
         { path: this.currentPath, scroll: 0 },
@@ -468,6 +499,7 @@
 
       // Cancel any in-flight navigation
       this._abortFetch();
+      this._noteLeaving(true);
 
       // Load page immediately — no pushState (browser already updated the URL)
       this._loadPage(targetPath, false).then(() => {
@@ -509,6 +541,7 @@
       // Don't navigate to current page
       if (normalizedPath === this.currentPath) return;
 
+      this._noteLeaving(false);
       // Back to a menu page you were on: the panel (and page in it) you left open comes back too.
       this._rememberHubView();
       if (HUB_WITH_PANEL.includes(normalizedPath) && this._lastHubUrl.has(normalizedPath)) {
@@ -553,8 +586,9 @@
             this._scrollToHash(this.pendingHash, false);
             this.pendingHash = '';
           } else {
-            window.scrollTo({ top: 0, behavior: CONFIG.SCROLL_BEHAVIOR });
+            window.scrollTo({ top: this._unparkScroll || 0, behavior: CONFIG.SCROLL_BEHAVIOR });
           }
+          this._unparkScroll = 0;
         } catch (err) {
           // Signed out: public/js/sessionWatch.js is already taking the page to the login page.
           if (window.__managiraSignedOut) return;
@@ -578,6 +612,8 @@
       try {
         const hit = noCache ? null : this._cacheGet(normalizedPath);
         let html = hit ? hit.entry.html : null;
+        // A parked page needs no new copy of itself: its own text is enough for the header and title.
+        if (!html && !this._refreshing) { const kept = this._peekParked(normalizedPath); if (kept && kept.html) html = kept.html; }
 
         if (!html && !noCache && this._preloadRequests.has(normalizedPath)) {
           // Wait a few seconds at most; a preload that stalls is asked for again.
@@ -620,10 +656,20 @@
         }
 
         // Perform the content swap with transition
+        this._swapHtml = html;
         await this._swapContent(doc, normalizedPath);
+        this._swapHtml = null;
 
         // Update current path tracking
         this.currentPath = normalizedPath;
+        // A parked page comes back where you left it (the tab you had open in a class), not at its first address.
+        if (this._unparkInfo) {
+          const info = this._unparkInfo;
+          this._unparkInfo = null;
+          if (info.url && this._normalizePath(info.url) !== normalizedPath) {
+            try { window.history.replaceState(info.state || { path: info.url, scroll: 0 }, '', info.url); this.currentPath = this._normalizePath(info.url); } catch (_) { /* keep the address */ }
+          }
+        }
 
         // Shown from a kept copy: look for a newer one now, quietly.
         if (hit) this._revalidate(normalizedPath, hit.entry);
@@ -663,21 +709,25 @@
         throw new Error('Another person');
       }
 
-      // Menu pages (Reports, Management, ...) keep their panels alive: leaving one parks it (hidden, its
-      // panels still loaded), coming back to it shows it again at once instead of loading every panel anew.
-      const key = this._cacheKey(path);
+      // Menu pages (Reports, Management, ...) and class pages keep their panels alive: leaving one parks it
+      // (hidden, quiet, its panels still loaded); coming back to it shows it again at once.
+      const key = this._keepKey(path);
       const leavingRec = this._current;
       const target = (!this._refreshing && path !== this.currentPath) ? this._takeParked(key) : null;
-      const parkLeaving = !this._refreshing && path !== this.currentPath && this._isParkable(currentMain, leavingRec);
+      const parkLeaving = !this._refreshing && path !== this.currentPath && key !== this._keepKey(this.currentPath) && this._isParkable(currentMain, leavingRec);
       if (parkLeaving) {
         leavingRec.cleanups = Array.isArray(window.__spaCleanup) ? window.__spaCleanup.splice(0) : [];
-        this._park(leavingRec, currentMain, this._cacheKey(this.currentPath));
+        this._park(leavingRec, currentMain, this._keepKey(this.currentPath));
         if (!target) {
           currentMain = currentMain.cloneNode(false);
           currentMain.removeAttribute('inert');
           currentMain.removeAttribute('hidden');
           currentMain.removeAttribute('data-spa-parked');
           currentMain.removeAttribute('aria-hidden');
+          // The page on screen keeps the main landmark's id (the skip link points at it); the parked copy gave its id up.
+          const mainId = currentMain.getAttribute('data-parked-id');
+          if (mainId) currentMain.id = mainId;
+          currentMain.removeAttribute('data-parked-id');
           liveMain.parentNode.insertBefore(currentMain, liveMain);
         }
         this._current = null;
@@ -726,12 +776,14 @@
 
       // 4. Swap content
       if (target) {
+        const parkedFor = Date.now() - target.parkedAt;
         currentMain = this._unpark(target);
         this._current = target;
         if (Array.isArray(window.__spaCleanup)) window.__spaCleanup.push(...target.cleanups);
         target.cleanups = [];
         this._reinitializeHandlers(currentMain);
         requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+        this._afterUnpark(target, currentMain, parkedFor);
       } else {
         currentMain.innerHTML = newMain.innerHTML;
 
@@ -739,12 +791,12 @@
         this._processImages(currentMain);
         this._processVideos(currentMain);
         // A menu page's own window/document listeners are muted while it is parked (see _park).
-        const rec = (!this._refreshing && newMain.querySelector('.embed-panel-body')) ? { parked: false, main: null, cleanups: [], at: Date.now(), gen: this._gen, key, stale: false } : null;
-        this._gate = rec;
+        const rec = (G && !this._refreshing && this._keepable(newMain)) ? { parked: false, dead: false, main: null, cleanups: [], deferred: [], at: Date.now(), gen: this._gen, key, stale: false, html: this._swapHtml || '' } : null;
+        if (G) G.rec = rec;
         try {
           await this._executeScripts(currentMain);
         } finally {
-          this._gate = null;
+          if (G) G.rec = null;
         }
         if (!this._refreshing) this._current = rec;
         this._reinitializeHandlers(currentMain);
@@ -771,8 +823,9 @@
       // 10. Update footer visibility
       this._updateFooter(doc);
 
-      // 11. Notify other scripts
-      this._dispatchEvents(path, this._refreshing);
+      // 11. Notify other scripts. A page that was kept alive has already started up: its own listeners sit this one out.
+      if (target) target.mute = true;
+      try { this._dispatchEvents(path, this._refreshing, !!target); } finally { if (target) target.mute = false; }
 
       // 12. Re-observe new links for viewport preloading
       if (this.visibilityObserver) {
@@ -1118,9 +1171,9 @@
 
     // ── Event Dispatch ────────────────────────────────────────────────
 
-    _dispatchEvents(path, refresh) {
+    _dispatchEvents(path, refresh, kept) {
       window.dispatchEvent(new CustomEvent('spa:pageLoaded', {
-        detail: { path, timestamp: Date.now(), refresh: !!refresh }
+        detail: { path, timestamp: Date.now(), refresh: !!refresh, kept: !!kept }
       }));
 
       // Trigger Turbo-compatible event
@@ -1414,35 +1467,149 @@
       return document.querySelector('main:not([data-spa-parked]):not([data-spa-parked] main)');
     }
 
-    // Only a menu page that was swapped in by this router (its listeners are muted while parked) is kept alive.
+    // Is this page one worth keeping alive: a menu page with panels (iframes) or a class page with its tabs?
+    _keepable(root) {
+      return !!(root && root.querySelector && root.querySelector('.embed-panel-body, #workspacePanels'));
+    }
+
+    // The page the browser loaded first is adopted too (its scripts were recorded while it loaded), so leaving it
+    // for the first time parks it like any other.
+    _adoptBootPage() {
+      if (!G || !G.boot || !CONFIG.KEEP_PANELS || !NC) return;
+      const run = () => {
+        if (window.self !== window.top || this._current) return;
+        const main = this._visibleMain();
+        if (!this._keepable(main)) return;
+        Object.assign(G.boot, { main: null, cleanups: [], at: Date.now(), gen: this._gen, key: this._keepKey(this.currentPath), stale: false, html: '' });
+        this._current = G.boot;
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true }); else run();
+    }
+
+    // One key per menu page, one per class and term.
+    _keepKey(path) {
+      const base = NC ? NC.pathOf(path) : String(path).split('?')[0];
+      const m = CLASS_PAGE.exec(base);
+      if (m) {
+        const t = /[?&]termId=(\d+)/.exec(String(path));
+        return 'class:' + m[1] + (t ? ':' + t[1] : '');
+      }
+      return this._cacheKey(path);
+    }
+
+    // Only a page whose scripts the gate recorded (a boot page or one swapped in here) is kept: while parked its listeners and timers do nothing.
     _isParkable(main, rec) {
-      return !!(CONFIG.KEEP_PANELS && NC && rec && !rec.parked && !rec.stale && rec.gen === this._gen && main && main.querySelector('iframe.embed-iframe') && NC.isCacheable(rec.key));
+      return !!(CONFIG.KEEP_PANELS && G && NC && rec && !rec.parked && !rec.dead && !rec.stale && rec.gen === this._gen && main && this._keepable(main)
+        && NC.isCacheable(rec.key) && !/testing-room|\/driver\/|trip/i.test(rec.key));
     }
 
     _park(rec, main, key) {
-      // Elements keep their ids only while shown, so the page on screen never meets a second #hub-nav.
+      // Where you were: the address (a class remembers its open tab), the scroll, the focused element.
+      rec.url = this._leavingUrl || (window.location.pathname + window.location.search);
+      rec.state = this._leavingState || null;
+      rec.scrollY = this._leavingScroll || 0;
+      const focused = document.activeElement;
+      rec.focusId = (focused && focused !== document.body && main.contains(focused) && focused.id) ? focused.id : '';
+      rec.snap = this._snapshot(main);
+      // The pending hash/ids: elements keep their ids only while shown, so the page on screen never meets a second #hub-nav.
       main.querySelectorAll('[id]').forEach((el) => { el.setAttribute('data-parked-id', el.id); el.removeAttribute('id'); });
+      // Anything pointing at a hidden id by name (aria-controls and friends) is left alone: the whole subtree is inert and aria-hidden.
       if (main.id) { main.setAttribute('data-parked-id', main.id); main.removeAttribute('id'); }
       main.setAttribute('data-spa-parked', '1');
       main.setAttribute('aria-hidden', 'true');
       main.hidden = true;
       main.inert = true;
+      if (focused && main.contains(focused) && focused.blur) { try { focused.blur(); } catch (_) { /* ignore */ } }
       rec.main = main;
-      rec.parked = true;
+      rec.parked = true; // from here the gate keeps its listeners and timers quiet
       rec.key = key;
       rec.at = Date.now();
-      rec.ttl = Math.min(NC ? NC.ttlFor(key) : 300000, 5 * 60 * 1000);
+      rec.parkedAt = rec.at;
+      rec.ttl = Math.min(NC ? NC.ttlFor(key) : CONFIG.KEEP_TTL_MS, CONFIG.KEEP_TTL_MS);
+      this._setFramesParked(main, true);
+      try { window.dispatchEvent(new CustomEvent('managira:parked', { detail: { key } })); } catch (_) { /* ignore */ }
       const old = this._parkedMap.get(key);
       if (old && old !== rec) this._destroyParked(old);
       this._parkedMap.delete(key);
       this._parkedMap.set(key, rec);
-      while (this._parkedMap.size > 4) this._destroyParked(this._parkedMap.get(this._parkedMap.keys().next().value));
+      while (this._parkedMap.size > this._keepLimit()) this._destroyParked(this._parkedMap.get(this._parkedMap.keys().next().value));
+      this._captureFrameBaseline(rec);
+    }
+
+    _keepLimit() {
+      try {
+        const mem = performance && performance.memory;
+        if (mem && mem.usedJSHeapSize > 250 * 1024 * 1024) return 3;
+      } catch (_) { /* not measurable: the normal limit */ }
+      return CONFIG.KEEP_MAX;
+    }
+
+    // How a page looked when it was parked (classes, inline style, hidden/aria state). While parked it is frozen: a menu page
+    // shown meanwhile may run document-wide selectors (".hub-section", ".nav-link") that toggle this page's elements too.
+    _snapshot(main) {
+      const out = [];
+      const attrs = ['class', 'style', 'hidden', 'aria-expanded', 'aria-selected', 'aria-pressed', 'aria-current', 'tabindex'];
+      main.querySelectorAll('*').forEach((el) => {
+        if (el === main) return;
+        const tag = el.tagName;
+        if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'STYLE') return;
+        let rec = null;
+        for (let i = 0; i < attrs.length; i++) { const v = el.getAttribute(attrs[i]); if (v !== null) { rec = rec || {}; rec[attrs[i]] = v; } }
+        out.push([el, rec]);
+      });
+      return out;
+    }
+
+    _restoreSnapshot(snap) {
+      if (!snap) return;
+      const attrs = ['class', 'style', 'hidden', 'aria-expanded', 'aria-selected', 'aria-pressed', 'aria-current', 'tabindex'];
+      snap.forEach((item) => {
+        const el = item[0];
+        const was = item[1] || {};
+        for (let i = 0; i < attrs.length; i++) {
+          const a = attrs[i];
+          const now = el.getAttribute(a);
+          const before = Object.prototype.hasOwnProperty.call(was, a) ? was[a] : null;
+          if (now === before) continue;
+          if (before === null) el.removeAttribute(a); else el.setAttribute(a, before);
+        }
+      });
+    }
+
+    // Panels inside a parked page: they report "hidden", their timers wait, and what waited runs when the page returns.
+    _setFramesParked(main, parked) {
+      main.querySelectorAll('iframe').forEach((f) => {
+        try {
+          const w = f.contentWindow;
+          const d = f.contentDocument;
+          if (!w || !d) return;
+          w.__managiraParked = parked;
+          try {
+            if (parked) {
+              Object.defineProperty(d, 'hidden', { configurable: true, get: () => true });
+              Object.defineProperty(d, 'visibilityState', { configurable: true, get: () => 'hidden' });
+            } else { delete d.hidden; delete d.visibilityState; }
+          } catch (_) { /* ignore */ }
+          d.dispatchEvent(new Event('visibilitychange'));
+          w.dispatchEvent(new CustomEvent(parked ? 'managira:parked' : 'managira:unparked'));
+        } catch (_) { /* another origin or not loaded yet */ }
+      });
+    }
+
+    // A kept page (menu page or class) that is asked for: its record, if still good.
+    _peekParked(path) {
+      const key = this._keepKey(path);
+      let rec = this._parkedMap.get(key);
+      if (!rec && /^class:\d+$/.test(key)) { // a class asked for without a term: the one kept for that class
+        for (const [k, r] of this._parkedMap) { if (k.indexOf(key + ':') === 0) rec = r; }
+      }
+      return rec || null;
     }
 
     _takeParked(key) {
-      const rec = this._parkedMap.get(key);
+      const rec = this._peekParked(key.indexOf('class:') === 0 ? '/common/classDashboard/' + key.split(':')[1] + (key.split(':')[2] ? '?termId=' + key.split(':')[2] : '') : key);
       if (!rec) return null;
-      const ok = rec.main && rec.main.isConnected && !rec.stale && rec.gen === this._gen && Date.now() - rec.at < rec.ttl;
+      const ok = rec.main && rec.main.isConnected && !rec.stale && !rec.dead && rec.gen === this._gen && Date.now() - rec.parkedAt < rec.ttl;
       if (!ok) { this._destroyParked(rec); return null; }
       return rec;
     }
@@ -1459,8 +1626,98 @@
       main.style.opacity = '1';
       rec.parked = false;
       rec.main = main;
+      this._restoreSnapshot(rec.snap); // another menu page's scripts reach every element with the same class: this one is as it was left
+      rec.snap = null;
       return main;
     }
+
+    // After a parked page is shown again: panels and timers wake, focus returns, an older page is checked quietly.
+    _afterUnpark(rec, main, parkedFor) {
+      this._unparkInfo = { url: rec.url, state: rec.state };
+      this._unparkScroll = rec.scrollY;
+      G.flush(rec);
+      this._setFramesParked(main, false);
+      try { window.dispatchEvent(new CustomEvent('managira:unparked', { detail: { key: rec.key, parkedFor } })); } catch (_) { /* ignore */ }
+      if (rec.focusId) { const el = document.getElementById(rec.focusId); if (el && el.focus) { try { el.focus({ preventScroll: true }); } catch (_) { /* ignore */ } } }
+      if (parkedFor < CONFIG.KEEP_RECHECK_MS) return;
+      if (rec.key.indexOf('class:') === 0) this._refreshClassPanels(main);
+      else this._recheckFrames(rec, main);
+    }
+
+    // A class page that was away for a while: its tabs that show moving data load again the next time they are shown
+    // (the one on screen quietly now), the others stay as they were.
+    _refreshClassPanels(main) {
+      const active = main.querySelector('.workspace-panel.is-active');
+      main.querySelectorAll('.workspace-frame-panel').forEach((panel) => {
+        if (panel === active) {
+          const frame = panel.querySelector('iframe.workspace-frame');
+          panel.__wsSilent = true; // the old copy stays visible, no spinner
+          try { frame.contentWindow.location.reload(); } catch (_) { panel.__wsSilent = false; }
+        } else {
+          panel.__wsStale = true;
+        }
+      });
+    }
+
+    // The panel on screen in a menu page, asked of the server with the copy's tag: nothing changed means nothing happens.
+    _frameRequest(src, etag) {
+      const headers = { 'X-Requested-With': 'XMLHttpRequest', 'X-Nav-Cache': '1', 'X-Prefetch': '1', 'Accept': 'text/html' };
+      if (etag) headers['If-None-Match'] = etag;
+      return fetch(src, { headers, credentials: 'same-origin', cache: 'no-store', priority: 'low' });
+    }
+
+    _visibleFrame(main) {
+      return Array.from(main.querySelectorAll('iframe.embed-iframe')).find((f) => f.offsetParent !== null) || null;
+    }
+
+    _captureFrameBaseline(rec) {
+      if (!rec.main || (NC && NC.ttlFor(rec.key) < CONFIG.KEEP_RECHECK_MS)) return;
+      const gen = this._gen;
+      setTimeout(async () => {
+        if (!rec.parked || rec.dead || gen !== this._gen || !this._warmAllowed()) return;
+        const frame = this._visibleFrameParked(rec.main);
+        if (!frame) return;
+        try {
+          const src = frame.contentWindow.location.href;
+          const res = await this._frameRequest(src, '');
+          if (!res.ok || res.redirected) return;
+          const text = await res.text();
+          rec.frameTags = rec.frameTags || {};
+          rec.frameTags[src] = { etag: res.headers.get('ETag') || '', hash: NC.pageHash(text) };
+        } catch (_) { /* offline: nothing to compare with */ }
+      }, 2500);
+    }
+
+    // The panel that was open when the page was parked (hidden now, so "visible" means the one not hidden by its own page).
+    _visibleFrameParked(main) {
+      return Array.from(main.querySelectorAll('iframe.embed-iframe')).find((f) => f.style.display !== 'none' && !f.hidden && f.getAttribute('src')) || null;
+    }
+
+    async _recheckFrames(rec, main) {
+      const frame = this._visibleFrame(main);
+      if (!frame || !NC) return;
+      let src;
+      try { src = frame.contentWindow.location.href; } catch (_) { return; }
+      const base = rec.frameTags && rec.frameTags[src];
+      const gen = this._gen;
+      try {
+        const res = await this._frameRequest(src, base && base.etag);
+        if (gen !== this._gen || rec.parked || rec.dead) return;
+        if (res.status === 304) return;
+        if (!res.ok || res.redirected) { this.clearCache(); return; }
+        const text = await res.text();
+        const hash = NC.pageHash(text);
+        rec.frameTags = rec.frameTags || {};
+        rec.frameTags[src] = { etag: res.headers.get('ETag') || '', hash };
+        if (!base || base.hash === hash) return;
+        let touched = frame.dataset.touched === '1';
+        try { touched = touched || NC.isDirty(frame.contentDocument); } catch (_) { /* ignore */ }
+        if (touched || this._lastTypedRecently()) return; // the next visit shows it
+        try { frame.contentWindow.location.reload(); } catch (_) { /* ignore */ }
+      } catch (_) { /* offline: what is shown stays */ }
+    }
+
+    _lastTypedRecently() { return Date.now() - this._lastInputAt < CONFIG.TYPING_QUIET_MS; }
 
     _destroyParked(rec) {
       if (!rec) return;
@@ -1469,29 +1726,8 @@
       if (rec.main && rec.main.parentNode) rec.main.remove();
       (rec.cleanups || []).forEach((fn) => { try { typeof fn === 'function' && fn(); } catch (_) { /* ignore */ } });
       rec.cleanups = [];
+      rec.deferred = [];
       rec.main = null;
-    }
-
-    // While a menu page is parked, its window and document listeners (popstate, resize, clicks) do nothing.
-    _gateListeners() {
-      if (this._gated) return;
-      this._gated = true;
-      const router = this;
-      const wrappers = new WeakMap(); // original listener -> { rec, wrapped } per target and type
-      [window, document].forEach((target) => {
-        const add = target.addEventListener;
-        const remove = target.removeEventListener;
-        target.addEventListener = function (type, listener, options) {
-          const rec = router._gate;
-          if (!rec || typeof listener !== 'function') return add.call(this, type, listener, options);
-          const wrapped = function () { if (rec.parked || rec.dead) return undefined; return listener.apply(this, arguments); };
-          wrappers.set(listener, wrapped);
-          return add.call(this, type, wrapped, options);
-        };
-        target.removeEventListener = function (type, listener, options) {
-          return remove.call(this, type, (typeof listener === 'function' && wrappers.get(listener)) || listener, options);
-        };
-      });
     }
 
     _identity() {
@@ -1526,6 +1762,9 @@
 
     clearCache() {
       this._gen += 1;
+      this._lastWriteAt = Date.now();
+      // Tabs of the class on screen (hidden or kept aside) show their data again the next time they are opened.
+      try { document.querySelectorAll('.workspace-frame-panel').forEach((panel) => { panel.__wsStale = true; }); } catch (_) { /* ignore */ }
       if (this.store) this.store.clear();
       this._lastHubUrl.clear();
       Array.from(this._parkedMap.values()).forEach((rec) => this._destroyParked(rec));

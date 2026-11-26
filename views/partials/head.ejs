@@ -286,6 +286,8 @@
   </script>
   
   <% if (!locals.isPrintRender && session && (session.userId || session.user || session.guardianId || session.studentId || session.hubId)) { %>
+  <%# First, before any page script: keeps pages the router parks (kept alive, hidden) quiet (public/js/navGate.js). %>
+  <script src="<%= assetUrl('/js/navGate.js') %>"></script>
   <%# A sign-in that times out takes the page to the login page at once (public/js/sessionWatch.js). %>
   <%# Log out asks first, on every page (public/js/logoutConfirm.js). %>
   <%# Not deferred: it must catch a Log out click from the page's first moment. %>
@@ -295,7 +297,8 @@
   <script src="<%= assetUrl('/js/turbo-init.js') %>"></script>
   <script src="<%= assetUrl('/js/pageLoading.js') %>" defer></script>
   <% /* Who this page was drawn for (not a secret): the in-app page cache keeps one copy per person and school. */ %>
-  <% if (process.env.NAV_KEEP_PANELS === 'on') { %><meta name="managira-keep-panels" content="1"><% } %>
+  <% /* Kill switch for kept-alive menu and class pages (NAV_KEEP_PANELS=off in the environment). */ %>
+  <% if (process.env.NAV_KEEP_PANELS === 'off') { %><meta name="managira-keep-panels" content="0"><% } %>
   <% if (session && (session.userId || session.guardianId || session.studentId || session.hubId)) { %><meta name="managira-identity" content="<%= [session.userRole || session.accountType || '', session.userId || session.guardianId || session.studentId || session.hubId || '', session.organizationId || '', session.superAdminOrgSwitch ? 'sw' : ''].join(':') %>"><% } %>
   <script src="<%= assetUrl('/js/navCache.js') %>"></script>
   <script src="<%= assetUrl('/js/spa-router.js') %>" defer></script>

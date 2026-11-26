@@ -1,0 +1,100 @@
+/* Student details page on a phone (<= 640px): flat page, 10px gutter (the class dashboard gutter), 8px gaps, compact header (avatar + name + chips,
+   Edit student beside them, other actions icon-only), one scrollable tab row, 2-up stat tiles, tables in their own scroll box.
+   Selectors start with "html body" so they win over the page's own inline <style>. tests/studentPhone.test.js scans this file. */
+@media (max-width: 640px) {
+  html body { background: #fff; text-align: left; }
+  html body .sd-page { width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; box-sizing: border-box; min-height: 0; }
+  html body .sd-page.has-transportation { padding-bottom: 24px; }
+
+  /* Header: avatar 44 + name/ID block + actions on one row. */
+  html body .sd-head { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; padding: 10px; }
+  html body .sd-head__photo img { width: 44px; height: 44px; border-width: 2px; }
+  html body .sd-head__main { flex: 1 1 auto; min-width: 0; }
+  html body .sd-head__titlerow { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+  html body .sd-head .sd-head__name { flex: 1 1 100%; min-width: 0; font-size: 16px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  html body .sd-head .student-id-chip, html body .sd-head .student-portal-status { margin: 0; padding: 2px 8px; font-size: 11px; line-height: 1.4; min-height: 0; }
+  html body .sd-head__edit { flex: none; width: auto; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; }
+  html body .sd-head .sd-head__edit .sd-btn { height: 36px; min-height: 36px; padding: 0 12px; gap: 6px; font-size: 13px !important; border-radius: 10px; }
+  html body .sd-head .sd-head__edit .sd-btn--icon { width: 36px; padding: 0; justify-content: center; }
+  html body .sd-head .sd-head__edit .sd-btn--icon > span { display: none; }
+  html body .sd-head .sd-head__edit .sd-btn svg { width: 16px; height: 16px; flex: none; }
+
+  /* Tabs: one row that scrolls sideways, chips 34px. */
+  html body .sd-tabs { display: flex; flex-wrap: nowrap; gap: 6px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; scroll-padding: 0 10px; background: #fff; }
+  html body .sd-tabs::-webkit-scrollbar { display: none; }
+  html body .sd-tabs .sd-tab { flex: none; height: 34px; padding: 0 12px; gap: 6px; border-radius: 999px; font-size: 13px; scroll-snap-align: start; background: var(--ap-surface-2, #f1f5f9) !important; color: var(--ap-text, #334155); transition: none; border: 1px solid var(--ap-line, #e2e8f0); }
+  html body .sd-tabs .sd-tab[aria-selected="true"] { background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #fff) !important; font-weight: 700; color: var(--org-primary-color, #01535b); }
+  html body .sd-tabs .sd-tab[aria-selected="true"]::after { display: none; }
+  html body .sd-tab__n { padding: 0 6px; font-size: 11px; }
+
+  /* Panels: one 10px gutter (the class dashboard gutter), 8px gaps; the panel itself has no card. */
+  html body .sd-panel { padding: 8px 10px 16px; }
+  html body .sd-panel > .sd-card + .sd-card, html body .sd-card + .sd-card { margin-top: 8px; }
+  html body .sd-card { padding: 10px 12px; border-radius: 12px; box-shadow: none; }
+  html body .sd-card__title { margin: 0 0 8px; font-size: 14.5px; font-weight: 600; }
+  /* Cards that only box in stat tiles, lists or tiles of their own (Portfolio, Attendance, Bills): flat. */
+  html body .sd-card.pf, html body #sdAtt.sd-card, html body #sdBills.sd-card, html body .sd-card:has(> .sd-bus__summary) { background: transparent; border: 0; padding: 0; border-radius: 0; }
+  html body .sd-bar { gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  html body .sd-bar__note { font-size: 12px; }
+  html body .sd-card .sd-track { height: 34px; padding: 0 10px; font-size: 12.5px; }
+  html body .sd-files__add { min-height: 36px; }
+
+  /* Facts: two per row, labels 10.5px, values 13px, long text wraps. */
+  html body .sd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  html body .sd-facts dt { font-size: 10.5px; }
+  html body .sd-facts dd { margin-top: 1px; font-size: 13px; overflow-wrap: anywhere; }
+  html body .sd-facts__wide { grid-column: 1 / -1; }
+
+  /* Stat tiles (Portfolio, Attendance, Bills, Transport): 2 per row, compact, wrapping text. */
+  html body :is(.pf-stats, .pf-stats.pf-stats--3, .sd-stats) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 8px; }
+  html body :is(.pf-stat, .sd-stat, .sd-bus__item) { min-width: 0; padding: 8px 10px; border-radius: 10px; overflow: visible; }
+  html body :is(.pf-stat, .sd-stat) > span:first-child, html body .sd-bus__item > span { font-size: 10.5px; letter-spacing: .04em; white-space: normal; overflow-wrap: anywhere; }
+  html body :is(.pf-stat, .sd-stat) > strong, html body .sd-bus__item > strong { margin-top: 2px; font-size: 15px; font-weight: 700; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
+  html body :is(.pf-stat, .sd-stat) > small, html body :is(.pf-stat, .sd-stat) small { display: block; font-size: 11px; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+  html body .sd-bus__summary { gap: 8px; }
+  html body .sd-bus__item strong { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+
+  /* Portfolio subject rows and cards. */
+  html body .pf-subject > h3, html body .pf-subject--fold > summary h3 { padding: 8px 10px; font-size: 13px; gap: 8px; }
+  html body .pf-subject--fold > summary h3 { flex-wrap: wrap; }
+  html body .pf-subcards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html body .pf-subcard { padding: 10px; }
+
+  /* Tables (Grades, parents, old records): the class gradebook's pinned-column rules (# 28px, Student 96px, 42px cells) were
+     landing on these tables and drawing columns on top of each other. Reset them: one opaque pinned first column (Subject /
+     Name), a fixed 48px header, 40px rows, separate borders, numbers on one line, the box scrolls sideways by itself. */
+  html body main .sd-panel .table-container { max-width: 100%; max-height: none; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; border-radius: 10px; }
+  html body main .sd-panel .table-container table { border-collapse: separate !important; border-spacing: 0 !important; width: max-content; min-width: 100% !important; table-layout: auto; }
+  html body main .sd-panel .table-container table :is(th, td) { position: static; z-index: auto; box-sizing: border-box; width: auto; min-width: 64px; max-width: 160px; height: 40px; padding: 4px 8px; font-size: 12.5px; line-height: 1.25; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; box-shadow: none; border: 0 !important; border-bottom: 1px solid #eef0f3 !important; border-right: 1px solid #f1f3f6 !important; background: #fff; scroll-snap-align: start; }
+  html body main .sd-panel .table-container table thead th { position: sticky; top: 0; z-index: 4; height: 48px; padding: 4px 8px; font-size: 11.5px; font-weight: 700; line-height: 1.25; text-transform: none; letter-spacing: 0; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; background: #f1f5f9; vertical-align: middle; padding-right: 22px; min-width: 96px; }
+  html body main .sd-panel .table-container table thead th small { font-size: 10.5px; font-weight: 500; }
+  html body main .sd-panel .table-container table thead th .global-table-sort-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); margin: 0; }
+  html body main .sd-panel .table-container table :is(th, td):first-child { position: sticky; left: 0; z-index: 3; min-width: 104px; width: 104px; max-width: 104px; font-weight: 600; font-size: 12.5px; text-align: left; background: #fff; box-shadow: 3px 0 4px -2px rgba(15, 23, 42, .14); }
+  html body main .sd-panel .table-container table thead th:first-child { z-index: 6; background: #f1f5f9; }
+  html body main .sd-panel .table-container table :is(th, td):nth-child(2) { position: static; left: auto; width: auto; min-width: 64px; max-width: 160px; box-shadow: none; font-size: 12.5px; font-weight: 400; }
+  html body main .sd-panel .table-container table thead th:nth-child(2) { font-weight: 700; font-size: 11.5px; }
+  html body main .sd-panel .table-container table td.sd-empty { white-space: normal; min-width: 220px; max-width: none; text-align: left; }
+  html body main .sd-panel .table-container table :is(.global-table-sort-btn, .table-sort-btn) { min-width: 0; min-height: 0; width: 16px; height: 16px; padding: 0; margin-left: 3px; vertical-align: middle; flex: none; }
+  html body main .sd-panel .table-container table :is(.global-table-sort-btn, .table-sort-btn) svg { width: 11px; height: 11px; }
+  html body main .sd-panel .table-container table .sd-col-action { width: 1%; min-width: 64px; max-width: none; text-align: right; }
+  html body main .sd-panel .table-container table a.sd-view { min-width: 52px; min-height: 30px; }
+
+  /* Files: compact row-cards. */
+  html body .sd-file { grid-template-columns: 32px minmax(0, 1fr) auto; gap: 8px; padding: 8px 4px; }
+  html body .sd-file__title { overflow-wrap: anywhere; font-size: 13px; }
+  html body .sd-file__meta { font-size: 11.5px; }
+
+  /* Messages and old records. */
+  html body .sd-msgs__filters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  html body .sd-chip { height: 34px; flex: none; }
+  html body .sd-old__find { width: 100%; font-size: 16px; }
+  html body .sd-old__groups { columns: 1; }
+  html body .sd-old__group--use { grid-template-columns: 1fr; }
+  html body .sd-page :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; }
+}
+
+/* The row above the student header holds only a "Back to Dashboard" button for parents; for staff it is empty but still
+   took 12px of padding and a 10px margin (about 22px of dead space above the name). */
+@media (max-width: 640px) {
+  html body .link-to-next-back:not(:has(a, button)) { display: none; }
+}

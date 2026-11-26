@@ -1,0 +1,130 @@
+/* ===== Driver pages on a phone (640px and narrower) ===================================
+   Dashboard ("Today's trip"), the full-screen trip navigation, the report form and Settings.
+   One 12px gutter, no big box around the page (inner cards only), the phone type scale
+   (body 13px, small 11.5, headings 14.5/600, titles 19/700, fields 16px).
+   Drivers use this one-handed at arm's length, so the critical actions (Go, End, Arrived
+   Yes/No/Keep driving, All boarded/Except, Report) stay big: at least 48px high, 14px+ text,
+   12px between neighbours. Secondary controls are compact but at least 40px.
+   Tablet and desktop are unchanged. */
+.drv-label svg, .drv-tabs svg { flex: none; width: 14px; height: 14px; vertical-align: -2px; }
+.drvn .drvn-end svg, .drvn .drvn-plain svg { flex: none; }
+.drvn .drvn-end { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.drvn .drvn-plain { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.drv .drv-endtrip { gap: 8px; }
+
+@media (max-width: 640px) {
+  /* ---------- dashboard ---------- */
+  html body .drv { padding: 8px 12px 28px; max-width: none; font-size: 13px; }
+  html body .drv-top { align-items: center; gap: 10px; margin-bottom: 10px; }
+  html body .drv .drv-top h1 { font-size: 19px; line-height: 24px; font-weight: 700; }
+  html body .drv-top p { margin-top: 1px; font-size: 12px; line-height: 1.35; }
+  /* Report is a critical action: big and clear, still compact beside the title. */
+  html body .drv .drv-reportbtn { display: inline-flex; align-items: center; gap: 6px; height: 48px; min-width: 48px; padding: 0 14px !important; border-radius: 12px; font-size: 14px; font-weight: 600; }
+  html body .drv-card { padding: 10px 12px; border-radius: 12px; }
+  html body .drv .drv-lists h2 { font-size: 14.5px; font-weight: 600; }
+  /* The trip block has no wrapper card: the map, then one card with the route and the buttons. */
+  html body .drv-trip { padding: 0; border: 0; border-radius: 0; background: none; gap: 8px; margin-bottom: 8px; }
+  html body .drv-mini { height: 112px; border-radius: 12px; border: 1px solid var(--drv-line); }
+  html body .drv-trip__main { padding: 10px 12px; border: 1px solid var(--drv-line); border-radius: 12px; background: var(--drv-surface); }
+  html body .drv-trip > .drv-empty { padding: 10px 12px; border: 1px solid var(--drv-line); border-radius: 12px; background: var(--drv-surface); font-size: 13px; }
+  html body .drv .drv-label { font-size: 11.5px; margin-bottom: 2px; }
+  html body .drv .drv-routename { margin-bottom: 8px; font-size: 14.5px; }
+  html body .drv-select { height: 44px; margin-bottom: 8px; font-size: 16px; }
+  html body .drv-facts { gap: 6px; margin-bottom: 10px; }
+  html body .drv-facts dt { font-size: 11.5px; }
+  html body .drv-facts dd { font-size: 13px; }
+  /* Go and End trip: full width, 52px, 15px text. */
+  html body .drv .drv-go, html body .drv .drv-endtrip { min-height: 52px; padding: 0 18px !important; border-radius: 12px; font-size: 15px; }
+  html body .drv .drv-go { width: 100% !important; }
+  html body .drv .drv-endtrip { width: 100% !important; margin: 12px 0 0 !important; }
+  html body .drv-live { margin-top: 12px; font-size: 13px; }
+  html body .drv-note { font-size: 13px; }
+  html body .drv-lists { gap: 8px; }
+  html body .drv-count { font-size: 12px; }
+  html body .drv-list { max-height: 300px; margin-top: 4px; }
+  html body .drv-list li { gap: 10px; padding: 7px 0; }
+  html body .drv-list strong { font-size: 13px; }
+  html body .drv-list span.drv-sub, html body .drv-phone { font-size: 11.5px; }
+  html body .drv-family { font-size: 11.5px; }
+  html body .drv-num { width: 22px; height: 22px; font-size: 11.5px; }
+  html body .drv-cardhead { gap: 6px; }
+  html body .drv-tabs { width: 100%; }
+  html body .drv .drv-tabs button { display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 4px; min-height: 40px; padding: 0 8px !important; font-size: 12px; white-space: nowrap; }
+  html body .drv-search { height: 40px; margin-top: 8px; font-size: 16px; }
+  html body .drv input:not([type=checkbox]):not([type=radio]), html body .drv select { font-size: 16px; }
+
+  /* ---------- trip navigation (full screen) ---------- */
+  html body .drvn { font-size: 13px; }
+  html body .drvn-turn__dist { font-size: 16px; }
+  html body .drvn-turn__what { font-size: 13px; }
+  html body .drvn .drvn-chip { min-height: 40px; font-size: 13px; }
+  html body .drvn .drvn-openbtn { height: 44px; padding: 0 12px !important; font-size: 13px; }
+  /* End: critical. */
+  html body .drvn .drvn-end { min-height: 48px; height: 48px; padding: 0 18px !important; font-size: 15px; }
+  html body .drvn-eta { gap: 10px; }
+  html body .drvn .drvn-menu button { min-height: 44px; font-size: 14px; }
+  html body .drvn-menu__note { font-size: 11.5px; }
+  html body .drvn .drvn-recenter { height: 44px; font-size: 13px; }
+  /* Arrived / boarding: Yes, No, Keep driving, All boarded, Except are 48px, 12px apart. */
+  html body .drvn .drvn-plain, html body .drvn .drvn-confirm__main .drvn-plain, html body .drvn .drvn-confirm__minor .drvn-plain, html body .drvn .drvn-plain.drvn-endmain { min-height: 48px; height: 48px; font-size: 15px; }
+  html body .drvn .drvn-confirm__minor .drvn-plain { font-size: 14px; }
+  html body .drvn-confirm__btns { gap: 12px; }
+  html body .drvn-confirm__main { margin-bottom: 12px; }
+  html body .drvn .drvn-plain.drvn-endmain { margin-bottom: 12px !important; }
+  html body .drvn-confirm__head p, html body .drvn-board__head strong { font-size: 14.5px; font-weight: 600; }
+  html body .drvn-confirm__head small, html body .drvn-board__head small { font-size: 11.5px; }
+  html body .drvn-pick { min-height: 52px; padding: 4px 0; font-size: 14px; }
+  html body .drvn-yn { gap: 12px; }
+  html body .drvn .drvn-yn button { min-width: 56px; height: 44px; font-size: 14px; }
+  html body .drvn-search { height: 40px; }
+  html body .drvn-stops strong { font-size: 13px; }
+  html body .drvn-stops small, html body .drvn-stops em { font-size: 11.5px; }
+  html body .drvn .drvn-skip { min-width: 44px; min-height: 40px; padding: 0 6px !important; font-size: 13px; }
+  html body .drvn .drvn-morex { width: 40px !important; height: 40px; }
+  html body .drvn-addstop input { height: 44px; }
+  html body .drvn-morebtns { gap: 12px; }
+  html body .drvn-morebtns .drvn-plain[data-drv-report] { min-height: 48px; }
+  html body .drvn-toast { font-size: 13px; }
+
+  /* ---------- report form ---------- */
+  html body .drvf { padding: 12px; font-size: 13px; }
+  html body .drvf h2 { font-size: 14.5px; font-weight: 600; }
+  html body .drvf__head { padding: 10px 12px; }
+  html body .drvf__head p { font-size: 12px; }
+  html body .drvf__body { padding: 10px 12px; }
+  html body .drvf__label { font-size: 11.5px; }
+  html body .drvf .drvf__x { width: 40px !important; height: 40px; }
+  html body .drvf .drvf__remove { width: 40px !important; min-height: 40px; }
+  html body .drvf .drvf__add { min-height: 40px; font-size: 13px; }
+  html body .drvf__chip span { padding: 9px 12px; font-size: 13px; }
+  html body .drvs .drvs__btn { min-height: 44px; font-size: 16px; }
+  html body .drvs .drvs__opt { min-height: 44px; font-size: 16px; }
+  html body .drvf__foot { padding: 10px 12px; gap: 12px; }
+  /* Send and Cancel: big. */
+  html body .drvf .drvf__btn { height: 48px; min-width: 96px; font-size: 15px; }
+  html body .drvf .drvf__btn--go { flex: 1 1 auto; }
+  html body .drvf__pick span { font-size: 14px; }
+
+  /* ---------- settings ---------- */
+  html body .drv-set { max-width: none; padding: 8px 12px 28px; font-size: 13px; }
+  html body .drv-set .drv-card { margin-top: 8px; padding: 10px 12px; border-radius: 12px; }
+  html body .drv-set .drv-card h2 { margin-bottom: 8px; font-size: 14.5px; font-weight: 600; }
+  html body .drv-set .drv-who { gap: 12px; margin-bottom: 12px; }
+  html body .drv-set .drv-avatar { width: 56px; height: 56px; border-width: 2px; }
+  html body .drv-set .drv-who__name strong { font-size: 14.5px; }
+  html body .drv-set .drv-photo { height: 40px; font-size: 13px; }
+  html body .drv-set .drv-fields { gap: 10px; }
+  html body .drv-set .drv-field label { font-size: 11.5px; }
+  html body .drv-set .drv-field input, html body .drv-set .drv-field .phone-combo select { height: 44px; font-size: 16px; }
+  html body .drv-set .drv-save { margin-top: 10px; }
+  html body .drv-set .drv-save button { height: 44px; font-size: 14px; }
+}
+
+/* A short phone: the sheet keeps its 48px buttons, the map gives up room instead. */
+@media (max-width: 640px) and (max-height: 640px) {
+  html body .drvn .drvn-plain, html body .drvn .drvn-confirm__main .drvn-plain, html body .drvn .drvn-confirm__minor .drvn-plain { min-height: 48px; height: 48px; }
+  html body .drvn-confirm__main, html body .drvn-confirm__btns { margin-bottom: 8px; }
+  html body .drvn-confirm__btns { gap: 12px; }
+  html body .drvn .drvn-end { min-height: 48px; height: 48px; }
+  html body .drvn-eta { padding-bottom: 6px; }
+}

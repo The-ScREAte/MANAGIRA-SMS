@@ -2,6 +2,8 @@
   const _q = 'studentId=' + child.id;
   const _due = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 %>
+<link rel="stylesheet" href="<%= assetUrl('/css/portalsPhone.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/portalsPhone2.css') %>" />
 <link rel="stylesheet" href="<%= assetUrl('/css/parentHub.css') %>" />
 <div class="ph">
   <%- include('../partials/flash') %>

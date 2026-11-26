@@ -3,13 +3,14 @@
    colored bars with "+n", the tapped day's agenda under it, then Coming up.
    Fields stay 16px. Desktop and tablet are unchanged. */
 @media (min-width: 641px) {
-  .cal-filter-btn, .cal-lbl-phone, .cal-day { display: none; }
+  .cal-page .cal-filter-btn, .cal-lbl-phone, .cal-day { display: none !important; }
 }
 @media (max-width: 640px) {
   .cal-lbl-wide { display: none; }
   .cal-flash { width: auto; margin: 0 12px; }
   .cal-page { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; column-gap: 8px; row-gap: 8px; align-items: center; width: 100%; padding: 8px 12px 24px; font-size: 13px; overflow-x: clip; }
   .cal-side, .cal-side__head, .cal-side__actions, .cal-side__pair { display: contents; }
+  .cal-page--family { grid-template-columns: minmax(0, 1fr) auto auto; }
   .cal-side__head h1 { grid-column: 1; grid-row: 1; font-size: 19px; line-height: 24px; font-weight: 700; margin: 0; }
   .cal-filter-btn { grid-column: 2; grid-row: 1; position: relative; }
   .cal-sync[data-cal-sync] { grid-column: 3; grid-row: 1; }

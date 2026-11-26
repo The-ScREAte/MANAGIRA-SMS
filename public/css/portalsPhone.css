@@ -1,0 +1,73 @@
+/* ===== Parent and student portals on a phone (640px and narrower) ====================
+   One rule set for every portal page: 12px page gutter, 8-10px gaps, 10-12px card padding,
+   no big box around the whole page (inner cards only), the phone type scale (body 13px,
+   small 11.5, headings 14.5/600, titles 19/700, fields 16px), compact page header,
+   tiles two to a row. Tablet and desktop are unchanged. */
+@media (max-width: 640px) {
+  /* Page gutter: 12px each side, whatever wrapper the page uses. */
+  html body :is(.ph, .ph.ph--tiles, .dashboard-container, .sp-shell, .st-settings, .st-forms, .pf, .str-review, .settings-page, .tr, .pg-wrap) {
+    box-sizing: border-box; width: 100%; max-width: none; margin-left: 0; margin-right: 0; padding: 8px 12px 28px;
+  }
+  html body .nav-container { padding-left: 12px; padding-right: 12px; }
+
+  /* Type scale. */
+  html body .ph { font-size: 13px; }
+  html body .ph .ph-title, html body .ph .ph-child h1, html body .pt-head .pt-text h1, html body .sx-name { font-size: 19px; line-height: 24px; font-weight: 700; letter-spacing: 0; }
+  html body .ph .ph-card h2, html body .ph .pc-day h3, html body .section-title { font-size: 14.5px; font-weight: 600; }
+  html body .ph-sub, html body .ph-child p, html body .pt-head p, html body .sx-sub { font-size: 12px; }
+  html body .ph-row__text strong, html body .ph-periods__what strong, html body .pc-item strong, html body .ph-notes, html body .ph-filelink, html body .ph-questions > li { font-size: 13px; }
+  html body .ph-row__text small, html body .ph-periods__time, html body .ph-periods__what small, html body .pc-item small, html body .ph-options { font-size: 11.5px; }
+  html body .ph-row__text p, html body .pc-item p { font-size: 12.5px; }
+  html body .ph-back { margin-bottom: 6px; font-size: 13px; }
+  html body :is(.ph, .sp-shell, .st-settings, .st-forms, .pf, .settings-page) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { font-size: 16px; }
+
+  /* Gaps and cards: padding 10-12px, no outer wrapper box. */
+  html body .ph-child { gap: 10px; margin-bottom: 10px; }
+  html body .ph-child__img { width: 44px; height: 44px; }
+  html body .ph .ph-title { margin-bottom: 8px; }
+  html body .ph-list { gap: 8px; }
+  html body .ph-row, html body .pc-item { padding: 10px; gap: 10px; border-radius: 12px; }
+  html body .ph-card { margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; }
+  html body .ph-date { width: 42px; height: 46px; }
+  html body .ph-periods li { padding: 6px 0; }
+  html body .ph-periods__time { width: 96px; }
+  html body .ph-section { margin: 14px 0 8px; }
+  html body .sp-header { border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; margin-bottom: 8px; }
+  html body .sx .sp-body, html body .sp-body { padding: 0; background: transparent; }
+  html body .sx .sp-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
+  html body .sx-hero { gap: 10px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #e5e9ef; border-radius: 12px; background: #fff; }
+  html body .sx-avatar { width: 44px; height: 44px; }
+  html body .sx-stats { gap: 8px; margin: 0 0 10px; }
+  html body .sx .sx-stat { padding: 10px; gap: 6px; border-radius: 12px; }
+  html body .sx-stat strong { font-size: 15px; }
+  html body .sx-stat__label, html body .sx-stat small { font-size: 11.5px; }
+  html body .sx-stat__icon { width: 32px; height: 32px; border-radius: 9px; }
+  html body .sx-stat__icon svg { width: 20px; height: 20px; }
+
+  /* Page header (portalHead partial): title left, actions beside it, icon-only. */
+  html body .pt-head { margin: 0 0 10px; }
+  html body .pt-head .pt-back { margin: 0 0 6px; font-size: 13px; }
+  html body .pt-row { flex-wrap: nowrap; gap: 10px; }
+  html body .pt-icon { width: 36px; height: 36px; border-radius: 10px; }
+  html body .pt-icon svg { width: 20px; height: 20px; }
+  html body .pt-text { flex: 1 1 0; }
+  html body .pt-extra, html body .pt-head .pt-action { margin-left: 0; }
+  html body .pt-head .pt-action, html body .pt-head .pt-primary { height: 36px; min-width: 36px; padding: 0 12px; font-size: 13px; font-weight: 600; }
+  html body .pt-head .pt-chip { font-size: 11.5px; }
+
+  /* Tiles: two to a row, compact. */
+  html body .app-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html body .app-tiles .app-tile { flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 56px; padding: 8px 10px !important; text-align: left; border-radius: 12px; }
+  html body .app-tile__icon { width: 36px; height: 36px; border-radius: 10px; }
+  html body .app-tile__icon svg { width: 20px; height: 20px; }
+  html body .app-tile__name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  html body .app-tile__badge { top: 6px; right: 6px; }
+
+  /* Buttons and tap targets. */
+  html body .ph .pc-nav, html body .ph .pc-sheet__x { width: 36px !important; height: 36px; }
+  html body .ph .pc-add { height: 40px; font-size: 13px; }
+
+  /* Wide things scroll in their own box instead of the page. */
+  html body :is(.ph, .sp-shell, .st-settings, .st-forms, .pf, .settings-page) :is(table) { max-width: 100%; }
+  html body .ph, html body .sp-shell, html body .st-forms, html body .st-settings { overflow-x: clip; }
+}
